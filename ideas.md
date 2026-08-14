@@ -114,3 +114,9 @@ La revue indépendante confirme l’alignement avec Quiet Luxury Software. Les s
 Les visuels disponibles pour One Piece, Breaking Bad et The Apothecary Diaries ont été récupérés puis uploadés dans le stockage durable du projet. Ils remplacent les avatars alphabétiques dans la bibliothèque et alimentent le hero de reprise.
 
 La première passe ivoire a été jugée trop proche de l’ancien registre éditorial. La correction finale revient donc au bleu-graphite profond avec surfaces gris-bleu élevées, jade réservé à la continuité et aux statuts positifs, profondeur douce, et suppression des séparateurs visibles. Le panneau Availability ne doit plus être structuré par une ligne horizontale : l’espacement et les blocs de surface suffisent.
+
+## Mimo identity
+
+Le nom de l’extension devient **Mimo** : court, doux, mémorisable et suffisamment niche pour une petite présence de navigateur. Le mot évoque une mémoire discrète qui accompagne la reprise sans prendre le dessus.
+
+Le wordmark Mimo utilise une animation shine lente en jade pâle, visible dans l’interface web et le popup. L’animation est désactivée quand `prefers-reduced-motion` est actif. L’identité visuelle de Mimo reste graphite, glace et jade ; aucun accent orange ou chaleureux n’est introduit.

@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Suivi — Universal Progress Tracker",
+  "name": "Mimo — Progress Companion",
   "version": "0.1.0",
-  "description": "Remember where you stopped, locally and with as little effort as possible.",
-  "action": { "default_title": "Open Suivi", "default_popup": "popup.html" },
+  "description": "A tiny local companion for remembering where you stopped.",
+  "action": { "default_title": "Open Mimo", "default_popup": "popup.html" },
   "background": { "service_worker": "background.js", "type": "module" },
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "commands": { "save-progress": { "suggested_key": { "default": "Ctrl+Shift+S", "mac": "MacCtrl+Shift+S" }, "description": "Save progress on the current page" } },
