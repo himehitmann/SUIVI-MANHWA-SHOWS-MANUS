@@ -108,3 +108,9 @@ La marque devient plus discrète : symbole compact, wordmark sans-serif personna
 La refonte finale corrige le principal problème signalé : l’interface ne repose plus sur le papier, le beige, les cadres éditoriaux ou la couleur orange. Le produit utilise une composition de logiciel média haut de gamme avec navigation haute, fond graphite, surfaces élevées, CTA jade, hero média et bibliothèque dense mais lisible. Le symbole de marque a été reconstruit en graphite/jade et les libellés utilitaires ont été reformulés autour de la continuité de l’attention.
 
 La revue indépendante confirme l’alignement avec Quiet Luxury Software. Les suggestions de renforcer la continuité jade, la profondeur matérielle, la marque et la voix ont été appliquées. Le choix de ne pas réintroduire le vermillon respecte la demande utilisateur explicite de supprimer l’orange.
+
+## Visual asset and palette correction
+
+Les visuels disponibles pour One Piece, Breaking Bad et The Apothecary Diaries ont été récupérés puis uploadés dans le stockage durable du projet. Ils remplacent les avatars alphabétiques dans la bibliothèque et alimentent le hero de reprise.
+
+La première passe ivoire a été jugée trop proche de l’ancien registre éditorial. La correction finale revient donc au bleu-graphite profond avec surfaces gris-bleu élevées, jade réservé à la continuité et aux statuts positifs, profondeur douce, et suppression des séparateurs visibles. Le panneau Availability ne doit plus être structuré par une ligne horizontale : l’espacement et les blocs de surface suffisent.

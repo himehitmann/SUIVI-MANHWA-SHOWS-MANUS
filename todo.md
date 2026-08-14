@@ -1,11 +1,10 @@
-# Refonte premium — checklist
+# Refonte visuelle — images et composition
 
-- [x] Diagnostiquer ce qui donne une impression vieillotte : palette, typographie, bordures, cartes, espacements, densité et hiérarchie.
-- [x] Définir une direction premium contemporaine distincte de l’ancienne esthétique éditoriale.
-- [x] Recomposer la navigation et le premier écran autour de l’action Continue.
-- [x] Remplacer les surfaces, boutons et éléments répétitifs trop génériques.
-- [x] Revoir la typographie, les tailles, les contrastes et les états actifs.
-- [x] Améliorer la hiérarchie des contrôles de recherche, filtres, nouveautés et vidéo.
-- [x] Tester le rendu desktop et mobile.
-- [x] Corriger les incohérences visuelles et les éventuelles erreurs de build.
-- [ ] Sauvegarder la refonte et remettre la nouvelle version.
+- [x] Définir une palette plus élégante à partir du retour utilisateur et de la capture fournie.
+- [x] Identifier des sources d’images d’œuvres réutilisables pour les titres de démonstration.
+- [x] Préparer les images dans le dossier d’assets partagé et les uploader pour le projet.
+- [x] Remplacer les avatars alphabétiques par des pochettes/visuels d’œuvres.
+- [x] Supprimer les lignes et séparateurs de section non nécessaires, notamment dans le panneau Availability.
+- [x] Alléger la densité des cadres et clarifier la hiérarchie des informations.
+- [x] Vérifier l’interface desktop et mobile.
+- [ ] Corriger le build et sauvegarder la nouvelle version.
