@@ -92,3 +92,19 @@ La revue visuelle confirme que la composition éditoriale, le rail asymétrique,
 ## Validation v0.2
 
 Le build TypeScript et le build de production passent. Le rendu desktop confirme la nouvelle palette froide, le bouton de vérification manuelle, les contrôles vidéo repliables et le fil de progression teal. Le rendu mobile conserve la priorité Continue, rend les actions principales accessibles et permet le défilement horizontal du rail sans casser la composition. Le bundle Vite conserve un avertissement de taille supérieur à 500 kB ; il ne bloque pas le build et pourra être traité par code-splitting dans une passe performance dédiée.
+
+## Premium Redesign — Direction retenue après retour utilisateur
+
+L’ancienne direction Editorial Quiet est abandonnée comme langage principal : elle produisait une ambiance de revue ou de carnet, trop vieillotte pour le produit recherché. La nouvelle direction est **Quiet Luxury Software** : une interface de média personnel contemporaine, sobre, nette et tactile, proche d’un produit SaaS haut de gamme mais sans codes administratifs.
+
+Les défauts à corriger sont la dominance du rail fixe, les grandes surfaces plates, les lignes éditoriales trop visibles, la typographie serif trop présente, les contrôles qui ressemblent à des utilitaires génériques et les cartes sans assez de profondeur. La nouvelle composition sera plus compacte et plus respirée : navigation haute légère, colonne principale large, panneau Continue visuellement dominant, bibliothèque en lignes nettes et panneau de contexte sous forme de drawer discret.
+
+Le système visuel utilisera un fond graphite bleuté très sombre, des surfaces gris-bleu légèrement élevées, une typographie sans-serif contemporaine à fort contraste de poids, et un accent jade froid pour l’action. Il n’y aura ni orange, ni beige papier, ni effet rétro. Les rayons seront modérés et cohérents, les ombres très douces, les bordures réduites. Les boutons principaux seront plus larges et plus lisibles, avec un état actif immédiatement identifiable.
+
+La marque devient plus discrète : symbole compact, wordmark sans-serif personnalisé, et une seule signature lumineuse jade. Les informations secondaires passeront par l’opacité, la taille et l’alignement plutôt que par des cadres visibles. La sensation recherchée est : **calme, précise, premium**.
+
+## Final premium review
+
+La refonte finale corrige le principal problème signalé : l’interface ne repose plus sur le papier, le beige, les cadres éditoriaux ou la couleur orange. Le produit utilise une composition de logiciel média haut de gamme avec navigation haute, fond graphite, surfaces élevées, CTA jade, hero média et bibliothèque dense mais lisible. Le symbole de marque a été reconstruit en graphite/jade et les libellés utilitaires ont été reformulés autour de la continuité de l’attention.
+
+La revue indépendante confirme l’alignement avec Quiet Luxury Software. Les suggestions de renforcer la continuité jade, la profondeur matérielle, la marque et la voix ont été appliquées. Le choix de ne pas réintroduire le vermillon respecte la demande utilisateur explicite de supprimer l’orange.
