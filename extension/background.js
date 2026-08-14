@@ -1,29 +1,7 @@
-/* Editorial Quiet / service worker: event-driven, local-only persistence, no remote dependencies. */
-const api = globalThis.chrome;
-const KEY = "suivi.items";
-const readItems = async () => (await api.storage.local.get(KEY))[KEY] || [];
-const writeItem = async payload => {
-  const items = await readItems();
-  const key = `${payload.domain}:${payload.title}:${payload.chapter || payload.episode || ""}`.toLowerCase();
-  const next = { ...payload, id: key, updatedAt: Date.now(), status: payload.position && payload.duration && payload.position / payload.duration > 0.92 ? "Completed" : "In progress" };
-  const withoutCurrent = items.filter(item => item.id !== key);
-  await api.storage.local.set({ [KEY]: [next, ...withoutCurrent].slice(0, 500) });
-  return next;
-};
-
-api.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === "DETECTION_UPDATED") {
-    api.storage.local.set({ currentDetection: { ...message.payload, tabId: sender.tab?.id } });
-    return;
-  }
-  if (message.type === "VIDEO_PROGRESS") { writeItem(message.payload).then(sendResponse); return true; }
-  if (message.type === "SAVE_PROGRESS") { writeItem(message.payload).then(sendResponse); return true; }
-  if (message.type === "GET_STATE") { Promise.all([readItems(), api.storage.local.get("currentDetection")]).then(([items, state]) => sendResponse({ items, currentDetection: state.currentDetection })); return true; }
-});
-
-api.commands.onCommand.addListener(async command => {
-  if (command !== "save-progress") return;
-  const tabs = await api.tabs.query({ active: true, currentWindow: true });
-  const tab = tabs[0];
-  if (tab?.id) api.tabs.sendMessage(tab.id, { type: "REQUEST_DETECTION" });
-});
+/* Editorial Quiet v2 / local merge policy: one canonical item per work, highest progress is preserved by default. */
+const api=globalThis.chrome;const KEY="suivi.items";const normalize=value=>(value||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();const readItems=async()=>(await api.storage.local.get(KEY))[KEY]||[];
+const workKey=payload=>normalize(payload.workId||payload.title).replace(/\b(chapter|chap|episode|ep|season|volume|page)\s*\d+\b/g,"").trim();
+const numericProgress=payload=>payload.chapter||payload.episode||payload.page||((payload.duration&&payload.position)?payload.position/payload.duration:0);
+const writeItem=async payload=>{const items=await readItems();const key=workKey(payload);const existing=items.find(item=>workKey(item)===key);const incomingScore=numericProgress(payload);const existingScore=existing?numericProgress(existing):-1;const incoming={...payload,id:key,updatedAt:Date.now(),status:payload.position&&payload.duration&&payload.position/payload.duration>.92?"Completed":"In progress"};if(existing&&existingScore>incomingScore){await api.storage.local.set({lastConflict:{existing,incoming,reason:"lower_progress"}});return {item:existing,conflict:true,kept:"existing"};}const merged={...existing,...incoming,sources:[...new Set([...(existing?.sources||[existing?.domain].filter(Boolean)),payload.domain].filter(Boolean))]};await api.storage.local.set({[KEY]:[merged,...items.filter(item=>workKey(item)!==key)].slice(0,500),lastConflict:null});return {item:merged,conflict:Boolean(existing),kept:"incoming"};};
+api.runtime.onMessage.addListener((message,sender,sendResponse)=>{if(message.type==="DETECTION_UPDATED"){api.storage.local.set({currentDetection:{...message.payload,tabId:sender.tab?.id}});return}if(message.type==="VIDEO_PROGRESS"||message.type==="SAVE_PROGRESS"){writeItem(message.payload).then(sendResponse);return true}if(message.type==="GET_STATE"){Promise.all([readItems(),api.storage.local.get(["currentDetection","lastConflict"])]).then(([items,state])=>sendResponse({items,currentDetection:state.currentDetection,lastConflict:state.lastConflict}));return true}});
+api.commands.onCommand.addListener(async command=>{if(command!=="save-progress")return;const tabs=await api.tabs.query({active:true,currentWindow:true});if(tabs[0]?.id)api.tabs.sendMessage(tabs[0].id,{type:"REQUEST_DETECTION"})});

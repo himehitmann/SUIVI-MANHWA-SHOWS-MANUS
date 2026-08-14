@@ -82,3 +82,13 @@ Les statistiques, recommandations, comptes, synchronisation cloud, notifications
 - Le vermillon `#E45B45` est réservé aux actions de reprise et aux marqueurs de progression.
 - Les états de confiance de la détection doivent être lisibles avant toute sauvegarde ambiguë.
 - Le cœur du MVP ne dépend d’aucun backend, catalogue ou service externe.
+
+## Style Decisions — seconde revue
+
+La demande utilisateur de supprimer l’orange prime sur la suggestion de revenir au vermillon : la couleur active est donc le teal `#3A7D7A`, suffisamment distinctif et cohérent avec le repositionnement premium demandé. Le motif de progression reste une ligne active continue, mais en teal, reliant rail, sections, héros et bibliothèque. Les utilitaires de vérification et de filtre restent secondaires par bordure fine et densité typographique réduite.
+
+La revue visuelle confirme que la composition éditoriale, le rail asymétrique, le contexte de provenance et la hiérarchie de reprise sont solides. La prochaine passe renforce uniquement la continuité de la ligne de progression et supprime les derniers tokens rouge-orangé hérités du premier thème.
+
+## Validation v0.2
+
+Le build TypeScript et le build de production passent. Le rendu desktop confirme la nouvelle palette froide, le bouton de vérification manuelle, les contrôles vidéo repliables et le fil de progression teal. Le rendu mobile conserve la priorité Continue, rend les actions principales accessibles et permet le défilement horizontal du rail sans casser la composition. Le bundle Vite conserve un avertissement de taille supérieur à 500 kB ; il ne bloque pas le build et pourra être traité par code-splitting dans une passe performance dédiée.

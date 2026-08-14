@@ -65,3 +65,13 @@ Le MVP ne tente pas de résoudre universellement les lecteurs propriétaires, le
 [2]: https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3 "Chrome Developers — Manifest V3"
 [3]: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Content_scripts "MDN — WebExtension content scripts"
 [4]: https://developer.mozilla.org/en-US/docs/Web/API/Picture-in-Picture_API "MDN — Picture-in-Picture API"
+
+## Mise à jour v0.2 — ergonomie et fusion multi-sites
+
+La palette v0.2 abandonne le vermillon/orange au profit d’un teal profond (`#3A7D7A`), d’une encre bleu nuit et d’un état de conflit rose discret. Les contrôles importants disposent de cibles plus grandes et de libellés explicites.
+
+Le bouton **Check for updates** est une vérification manuelle et non un suivi permanent en arrière-plan. Il est prévu pour être relié à des adaptateurs de sources ou à des pages déjà ouvertes ; le MVP ne dépend pas d’un catalogue distant et ne promet donc pas une disponibilité universelle sans configuration de source.
+
+La fusion inter-sites dérive une clé de travail à partir du titre normalisé, retire les marqueurs de chapitre/épisode/page et conserve une seule entrée canonique. Si la nouvelle progression est inférieure à la plus avancée, elle est conservée comme conflit et l’interface doit demander confirmation avant remplacement. Les domaines sources sont regroupés dans `sources` afin de garder la provenance sans créer de doublons.
+
+Le popup dispose désormais d’un panneau vidéo ouvrable avec boutons `−` et `+` par pas de 0,25×, ainsi qu’un bouton Picture-in-Picture. Le content script cible la vidéo HTML5 visible la plus grande et signale proprement les cas où le navigateur ou le lecteur refuse PiP.

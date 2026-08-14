@@ -32,3 +32,11 @@
   document.addEventListener("pause", event => { if (event.target instanceof HTMLVideoElement) chrome.runtime.sendMessage({ type: "VIDEO_PROGRESS", payload: { ...detect(), position: event.target.currentTime, duration: event.target.duration } }); }, true);
   window.addEventListener("beforeunload", () => { const media = document.querySelector("video"); if (media && media.currentTime > 5) chrome.runtime.sendMessage({ type: "VIDEO_PROGRESS", payload: { ...detect(), position: media.currentTime, duration: media.duration } }); });
 })();
+
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    const videos = [...document.querySelectorAll("video")].sort((a, b) => (b.clientWidth * b.clientHeight) - (a.clientWidth * a.clientHeight));
+    const video = videos[0];
+    if (message.type === "SET_PLAYBACK_SPEED" && video) { video.playbackRate = message.speed; sendResponse({ ok: true, speed: video.playbackRate }); }
+    if (message.type === "REQUEST_PIP" && video && document.pictureInPictureEnabled && video.requestPictureInPicture) { video.requestPictureInPicture().then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
+    if (message.type === "REQUEST_DETECTION") send();
+  });
