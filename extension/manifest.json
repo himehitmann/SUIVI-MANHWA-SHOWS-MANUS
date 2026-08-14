@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Mimo — Progress Companion",
+  "name": "Dasi — Progress Companion",
   "version": "0.1.0",
   "description": "A tiny local companion for remembering where you stopped.",
-  "action": { "default_title": "Open Mimo", "default_popup": "popup.html" },
+  "action": { "default_title": "Open Dasi", "default_popup": "popup.html" },
   "background": { "service_worker": "background.js", "type": "module" },
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "commands": { "save-progress": { "suggested_key": { "default": "Ctrl+Shift+S", "mac": "MacCtrl+Shift+S" }, "description": "Save progress on the current page" } },

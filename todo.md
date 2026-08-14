@@ -1,9 +1,10 @@
-# Identité Mimo — checklist
+# Refonte pastel — références coréennes
 
-- [x] Renommer le produit de l’extension en Mimo dans le manifest et les interfaces visibles.
-- [x] Ajouter l’animation shine au nom Mimo dans l’application web.
-- [x] Ajouter l’animation shine au nom Mimo dans le popup de l’extension.
-- [x] Conserver une animation lisible, légère et compatible avec prefers-reduced-motion.
-- [x] Mettre à jour la documentation et les références de marque.
-- [x] Vérifier le typage, le build et le rendu visuel.
-- [ ] Synchroniser GitHub et sauvegarder la version.
+- [x] Consulter les trois références fournies et noter les principes visuels utiles.
+- [x] Définir une palette pastel agréable et un système de surfaces sans surcharge.
+- [x] Proposer des noms coréens/chinois alternatifs à Dasi et choisir une direction provisoire.
+- [x] Recomposer la page autour d’un hero illustré, de carrousels et de couvertures.
+- [x] Ajouter des contrôles simples inspirés des interfaces média coréennes.
+- [x] Remplacer le logo et le wordmark par une marque minimale et marquante.
+- [x] Vérifier le rendu desktop/mobile et l’accessibilité.
+- [ ] Synchroniser et sauvegarder la version finale.

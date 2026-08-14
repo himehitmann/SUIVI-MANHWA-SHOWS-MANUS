@@ -120,3 +120,15 @@ La première passe ivoire a été jugée trop proche de l’ancien registre édi
 Le nom de l’extension devient **Mimo** : court, doux, mémorisable et suffisamment niche pour une petite présence de navigateur. Le mot évoque une mémoire discrète qui accompagne la reprise sans prendre le dessus.
 
 Le wordmark Mimo utilise une animation shine lente en jade pâle, visible dans l’interface web et le popup. L’animation est désactivée quand `prefers-reduced-motion` est actif. L’identité visuelle de Mimo reste graphite, glace et jade ; aucun accent orange ou chaleureux n’est introduit.
+
+## Pastel reference review
+
+La revue visuelle confirme une interface plus proche des références Kakao/Crepe : canvas clair, hero illustré, rails de couvertures, pastilles de catégories, surfaces arrondies et faible usage des séparateurs. La suggestion de revenir au graphite/Mimo est volontairement écartée car elle contredit la demande explicite de couleurs pastel agréables et la préférence de l’utilisateur pour Dasi.
+
+Le nom de travail de cette version est **Dasi**. Autres pistes conservées pour une décision ultérieure : **Duri** (deuxième/à nouveau, son doux), **Bomi** (printemps, lumineux), **Nari** (lys, délicat), **Yori** (idée de cuisine/recette en coréen, plus ludique) et **Hui** (retour, chinois). Dasi reste le favori utilisateur actuel.
+
+## Dasi pastel pass validation
+
+La page refondue présente maintenant un header léger, un hero illustré, des catégories en pastilles, un rail de couvertures et une bibliothèque plus proche d’une plateforme de contenu que d’un dashboard. Le desktop et le mobile ont été contrôlés ; sur mobile, le hero se réorganise en image puis contenu et les rails restent défilables horizontalement.
+
+Le popup a également été aligné sur la palette pastel Dasi. Les références restent une inspiration de composition et de densité, non une copie de marque ou d’assets propriétaires.

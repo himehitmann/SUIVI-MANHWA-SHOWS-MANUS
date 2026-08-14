@@ -1,6 +1,6 @@
-# Mimo — Progress Companion
+# Dasi — Progress Companion
 
-Mimo est une extension de navigateur local-first qui mémorise où l’utilisateur s’est arrêté dans ce qu’il lit ou regarde en ligne. Le produit vise une reprise immédiate, sans compte, sans catalogue distant obligatoire et avec une demande de permissions limitée.
+Dasi est une extension de navigateur local-first qui mémorise où l’utilisateur s’est arrêté dans ce qu’il lit ou regarde en ligne. Le produit vise une reprise immédiate, sans compte, sans catalogue distant obligatoire et avec une demande de permissions limitée.
 
 > **Vision :** « Je n’ai plus besoin de réfléchir à où je me suis arrêté. L’extension s’en occupe. »
 
@@ -24,7 +24,7 @@ Le flux privilégie `activeTab` + `scripting` pour injecter à la demande, plut�
 
 ## Installation de l’extension en développement
 
-Ouvrir `chrome://extensions`, activer le mode développeur, choisir « Load unpacked » et sélectionner le dossier `extension/`. Ouvrir ensuite une page de lecture ou de vidéo, cliquer sur l’icône Mimo, vérifier la détection et confirmer « Save progress ». Le raccourci par défaut est `Ctrl+Shift+S` sur Windows/Linux et `MacCtrl+Shift+S` sur macOS.
+Ouvrir `chrome://extensions`, activer le mode développeur, choisir « Load unpacked » et sélectionner le dossier `extension/`. Ouvrir ensuite une page de lecture ou de vidéo, cliquer sur l’icône Dasi, vérifier la détection et confirmer « Save progress ». Le raccourci par défaut est `Ctrl+Shift+S` sur Windows/Linux et `MacCtrl+Shift+S` sur macOS.
 
 Le fichier `extension/icon.png` doit être présent pour un chargement complet dans le navigateur. En développement, une icône PNG issue de l’asset de marque peut être copiée à cet emplacement.
 
