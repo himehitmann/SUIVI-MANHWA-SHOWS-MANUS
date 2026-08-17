@@ -1,0 +1,45 @@
+name: Package extension
+
+# Builds a ready-to-load Chrome/Edge extension zip and publishes it as the
+# "dasi-latest" release, so the extension can be downloaded, unzipped and loaded
+# without hunting for the manifest inside the repo.
+
+on:
+  push:
+    branches: [claude/admiring-pasteur-dc5ce1, main]
+    paths:
+      - "extension/**"
+      - ".github/workflows/extension-zip.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Zip the extension folder
+        run: |
+          cd extension
+          zip -r ../dasi-extension.zip . -x '*.DS_Store'
+          cd ..
+          unzip -l dasi-extension.zip
+
+      - name: Upload as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dasi-extension
+          path: dasi-extension.zip
+
+      - name: Publish/refresh the dasi-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="Download dasi-extension.zip, unzip it, then in chrome://extensions enable Developer mode and click 'Load unpacked' and select the unzipped folder (the one containing manifest.json)."
+          gh release view dasi-latest >/dev/null 2>&1 \
+            && gh release edit dasi-latest --notes "$NOTES" \
+            || gh release create dasi-latest -t "Dasi extension (latest)" -n "$NOTES"
+          gh release upload dasi-latest dasi-extension.zip --clobber

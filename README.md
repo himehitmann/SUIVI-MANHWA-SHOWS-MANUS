@@ -48,14 +48,28 @@ tests/             Vitest suite for the detection heuristics
 docs/              ARCHITECTURE.md, PRICING.md
 ```
 
-## Install the extension (development)
+## Install the extension
 
-1. Open `chrome://extensions`, enable **Developer mode**.
-2. **Load unpacked** and select the `extension/` folder.
-3. Open a chapter, episode or video, click the Dasi icon, review the detection,
-   and hit **Save my position**. Shortcut: `Ctrl+Shift+S` (`MacCtrl+Shift+S` on macOS).
+See **[INSTALL.md](INSTALL.md)** for step-by-step instructions and screenshots.
+In short:
 
-`extension/icon.png` must be present for a full load.
+- **Easiest:** download `dasi-extension.zip` from the **Releases** page, unzip,
+  then in `chrome://extensions` (Developer mode on) → **Load unpacked** → select
+  the unzipped folder.
+- **From a repo ZIP:** load the inner **`extension/`** folder, *not* the repo
+  root — Chrome needs the folder that directly contains `manifest.json`
+  (loading the root fails with _"Manifest file is missing or unreadable"_).
+
+Then open a chapter, episode or video, click the Dasi icon, review the
+detection, and hit **Save my position** (shortcut `Ctrl+Shift+S`).
+
+### Where your data is stored
+
+Your library is kept in your browser (`chrome.storage`) and mirrored to
+`chrome.storage.sync`, so a fresh install on another computer signed into the
+same browser account restores it automatically (within the browser's sync
+quota). Uninstalling clears storage — use **Export/Import backup** in the
+library as an uninstall-proof backup.
 
 ## Develop the web app
 

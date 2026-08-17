@@ -24,7 +24,39 @@ const percent = (p) => {
   return undefined;
 };
 
-const read = async (key, fallback) => (await api.storage.local.get(key))[key] ?? fallback;
+/*
+ * Persistence: library data (items, sites, notifications) is written to BOTH
+ * chrome.storage.local (always current) and chrome.storage.sync (best-effort),
+ * so a fresh install on another computer signed into the same browser account
+ * gets the library back. Reads prefer local; when local is empty (new device)
+ * they fall back to sync. chrome.storage.sync has quota limits, so a failed
+ * sync write degrades silently to local-only — the product never breaks.
+ * Transient values (current detection, last conflict) stay local-only.
+ */
+const read = async (key, fallback) => {
+  const local = (await api.storage.local.get(key))[key];
+  if (local !== undefined) return local;
+  try {
+    const synced = (await api.storage.sync.get(key))[key];
+    if (synced !== undefined) {
+      await api.storage.local.set({ [key]: synced }); // seed local from sync on a new device
+      return synced;
+    }
+  } catch {
+    /* sync unavailable */
+  }
+  return fallback;
+};
+
+/** Write data keys to local (authoritative) and mirror to sync when it fits. */
+const writeData = async (obj) => {
+  await api.storage.local.set(obj);
+  try {
+    await api.storage.sync.set(obj);
+  } catch {
+    /* over quota or unavailable: local-only is fine */
+  }
+};
 
 async function writeItem(payload) {
   const items = await read(ITEMS_KEY, []);
@@ -56,7 +88,8 @@ async function writeItem(payload) {
   };
 
   const next = [merged, ...items.filter((i) => i.id !== key)].slice(0, 800);
-  await api.storage.local.set({ [ITEMS_KEY]: next, "dasi.lastConflict": null });
+  await writeData({ [ITEMS_KEY]: next });
+  await api.storage.local.set({ "dasi.lastConflict": null });
   return { item: merged, conflict: Boolean(existing), kept: "incoming" };
 }
 
@@ -117,7 +150,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       read(SITES_KEY, []).then((sites) => {
         const site = message.payload;
         const next = sites.some((s) => s.url === site.url) ? sites : [...sites, site];
-        api.storage.local.set({ [SITES_KEY]: next }).then(() => sendResponse({ sites: next }));
+        writeData({ [SITES_KEY]: next }).then(() => sendResponse({ sites: next }));
       });
       return true;
 
@@ -128,14 +161,14 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (Array.isArray(payload.items)) patch[ITEMS_KEY] = payload.items;
         if (Array.isArray(payload.sites)) patch[SITES_KEY] = payload.sites;
         if (Array.isArray(payload.notifications)) patch[NOTIF_KEY] = payload.notifications;
-        api.storage.local.set(patch).then(() => sendResponse({ ok: true }));
+        writeData(patch).then(() => sendResponse({ ok: true }));
       }
       return true;
 
     case "REMOVE_ITEM":
       read(ITEMS_KEY, []).then((items) => {
         const next = items.filter((i) => i.id !== message.id);
-        api.storage.local.set({ [ITEMS_KEY]: next }).then(() => sendResponse({ items: next }));
+        writeData({ [ITEMS_KEY]: next }).then(() => sendResponse({ items: next }));
       });
       return true;
 
