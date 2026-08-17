@@ -48,9 +48,9 @@ export function AppHeader({ query, onQuery }: Props) {
         )}
         <LanguageSwitch />
         <Notifications />
-        <button className="profile" aria-label="Account">
+        <Link href="/settings" className="profile" aria-label={t("nav.settings")}>
           H
-        </button>
+        </Link>
       </div>
     </header>
   );

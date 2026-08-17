@@ -214,3 +214,26 @@ a.soft-action{text-decoration:none}
 /* Broken-cover fallback: show the work's initial on its accent block. */
 .img-fallback{display:grid;place-items:center;width:100%;height:100%;color:rgba(37,35,49,.45);font-weight:800;font-size:1.2em}
 .hero-art .img-fallback{font-size:64px;color:rgba(37,35,49,.32)}
+
+/* Settings page + profile link */
+a.profile{display:grid;place-items:center;text-decoration:none}
+.settings-main{max-width:900px}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
+.settings-card{background:#fff;border-radius:18px;padding:22px;box-shadow:0 10px 30px rgba(48,37,77,.05)}
+.settings-card h3{display:flex;align-items:center;gap:8px;font-size:15px;margin:0 0 14px}
+.settings-card h3 svg{color:#9B86DA}
+.settings-value{font-size:13px;color:#5C5768;margin:0 0 14px}
+.settings-card small{display:block;color:#928C9E;font-size:11px;line-height:1.6;margin-top:12px}
+.settings-line{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:#5C5768}
+.sync-badge,.plan-badge{font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;background:#EEF7F1;color:#4C8A70}
+.sync-badge.unavailable{background:#F5F4FA;color:#8C8999}
+.plan-badge{background:#F0EAFF;color:#705BBA;text-transform:capitalize}
+.settings-langs{display:flex;gap:10px}
+.settings-langs button{display:flex;align-items:center;gap:6px;border-radius:10px;padding:9px 13px;background:#F5F4FA;color:#6D6677;font-size:12px;font-weight:600}
+.settings-langs button.on{background:#EDE6FF;color:#705BBA}
+.settings-actions{display:flex;flex-direction:column;gap:9px}
+.settings-actions .heart-button,.settings-actions .ghost{justify-content:center;width:100%}
+.heart-button.center{justify-content:center;text-decoration:none;margin-top:12px}
+.ghost.danger{color:#C7788B;background:#FBEEF1;border-radius:999px;padding:11px}
+.ghost.danger:hover{background:#F7DEE4}
+@media(max-width:720px){.settings-grid{grid-template-columns:1fr}}

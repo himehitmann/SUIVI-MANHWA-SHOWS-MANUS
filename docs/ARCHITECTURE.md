@@ -71,8 +71,11 @@ success.
 Sync is designed as an **opt-in, non-critical** add-on (see `docs/PRICING.md`
 for the business case). Design constraints:
 
-- The extension talks to sync **through an interface**, so the provider
-  (Supabase / Cloudflare) can be swapped without touching detection or storage.
+- The app talks to sync **through the `SyncProvider` interface**
+  (`client/src/lib/sync.ts`). The default `createLocalProvider()` reports itself
+  as unconfigured, so the Settings page shows an honest "offline" state rather
+  than faking sync. A real provider (Supabase / Cloudflare) is a single-file swap
+  and touches neither detection, storage nor UI.
 - Only small JSON (items, lists, sites) is synced, **encrypted**; never browsing
   history or media.
 - If sync is unavailable, disabled, or the user is signed out, everything keeps
