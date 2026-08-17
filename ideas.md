@@ -132,3 +132,43 @@ Le nom de travail de cette version est **Dasi**. Autres pistes conservées pour 
 La page refondue présente maintenant un header léger, un hero illustré, des catégories en pastilles, un rail de couvertures et une bibliothèque plus proche d’une plateforme de contenu que d’un dashboard. Le desktop et le mobile ont été contrôlés ; sur mobile, le hero se réorganise en image puis contenu et les rails restent défilables horizontalement.
 
 Le popup a également été aligné sur la palette pastel Dasi. Les références restent une inspiration de composition et de densité, non une copie de marque ou d’assets propriétaires.
+
+## v0.3 — English-first product, detection depth, monetization
+
+**Name.** Kept **Dasi** per explicit user preference ("Dasi c'est bien garde ça").
+The shine animation is applied to the Dasi wordmark in the web header and popup
+(disabled under `prefers-reduced-motion`). A conic-gradient **Dasi loader** in the
+brand pastels was added as the loading indicator.
+
+**Language.** The product is now **English by default**, with a language switcher
+placed next to the search bar. A real i18n architecture (`client/src/i18n/`) holds
+an English source dictionary and a full French mirror; text is never inlined in
+components, so new languages are a data-only change.
+
+**Detection.** The extension detector was rebuilt as generic-first with an
+isolated adapter registry covering the manga/streaming sites the user listed
+(Netflix, WEBTOON, Naver, Kakao, AsuraScans, Bato, MangaDex, Mangago, Aniwatch,
+MyAsianTV, KissAsian, KissKh, Viki, Voiranime/Voirdrama, and a shared drama
+adapter for WeTV/iQiyi/Bilibili TV/HiDrama/RidoMovies/etc.). Pure URL/text
+heuristics live in `shared/detect.ts` and are unit-tested; `content.js` mirrors
+them and adds the DOM layer. Confidence gating keeps weak detections out of
+silent saves. The content script is injected **on demand** via `activeTab` +
+`scripting`, never as a persistent all-URLs script.
+
+**New features.** Quick-access favorite sites (save reading/streaming links);
+notifications with new-chapter/episode pulses; custom lists with a color picker,
+a dedicated **list detail page**, and **drag-and-drop reordering** (framer-motion
+`Reorder`); a Pricing page; graceful cover fallbacks for dead image URLs; a
+standalone extension library page so the product needs no backend.
+
+**Snippet direction.** The user-supplied Uiverse snippets were treated as
+inspiration, not literal drops: the shine wordmark, the conic loader (rebuilt as
+the Dasi logo), the ringing-bell notification and pulse indicators, and the
+color-swatch picker were adapted to the pastel Dasi system rather than pasted in
+with clashing palettes. The heavy 3D/tilt/tooltip-cluster snippets were
+intentionally not adopted, to keep the interface calm and premium.
+
+**Monetization.** Local use is free forever. Pro ($2.99/mo or $24.99/yr) funds
+optional encrypted sync; a $49 lifetime option fits extension-buyer habits. Full
+competitor survey and cost/margin math in `docs/PRICING.md`. Sync is designed as
+opt-in and non-critical so the local-first core never depends on it.

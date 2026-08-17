@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dasi — Library</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap");
+      :root { --ink:#252331; --muted:#8C8999; --lav:#F0EAFF; --green:#6CBE9E; --purple:#A18BE0; }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:"DM Sans",sans-serif; color:var(--ink); background:#FCFCFE; }
+      header { display:flex; align-items:center; gap:14px; padding:20px clamp(20px,6vw,80px); position:sticky; top:0; background:rgba(252,252,254,.9); backdrop-filter:blur(12px); z-index:2; }
+      .brand { display:flex; align-items:center; gap:9px; font-weight:800; font-size:20px; letter-spacing:-.05em; }
+      .logo { width:26px; height:26px; border-radius:10px 10px 10px 4px; background:linear-gradient(145deg,#BCA8F4,#8FD7C2); display:grid; place-items:center; transform:rotate(-8deg); }
+      .logo i { width:10px; height:10px; background:#fff; border-radius:4px; opacity:.9; }
+      .shine { color:#6C5AA5; }
+      .search { margin-left:auto; display:flex; align-items:center; gap:8px; background:#F5F4FA; border-radius:999px; padding:9px 14px; width:min(260px,40vw); }
+      .search input { border:0; outline:0; background:transparent; width:100%; font:inherit; font-size:13px; color:var(--ink); }
+      main { max-width:1080px; margin:auto; padding:26px clamp(20px,6vw,80px) 80px; }
+      h1 { font-size:34px; letter-spacing:-.05em; margin:6px 0 4px; }
+      .sub { color:var(--muted); font-size:13px; margin:0 0 22px; }
+      .tabs { display:flex; gap:10px; margin-bottom:22px; flex-wrap:wrap; }
+      .tabs button { border:0; cursor:pointer; border-radius:999px; padding:9px 15px; background:#F4F3F8; color:#817D8F; font:inherit; font-size:12px; font-weight:600; }
+      .tabs button.active { background:#EDE6FF; color:#705BBA; }
+      .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+      .item { display:flex; gap:13px; background:#fff; border-radius:16px; padding:14px; box-shadow:0 8px 24px rgba(92,74,140,.06); }
+      .cover { width:52px; height:68px; border-radius:9px; overflow:hidden; display:grid; place-items:center; color:#fff; font-weight:800; flex-shrink:0; }
+      .cover img { width:100%; height:100%; object-fit:cover; }
+      .item h3 { font-size:14px; margin:0; }
+      .item p { font-size:11px; color:var(--muted); margin:5px 0 9px; }
+      .bar { height:5px; background:#EDE8F6; border-radius:99px; overflow:hidden; }
+      .bar i { display:block; height:100%; border-radius:99px; }
+      .item small { display:block; font-size:10px; color:#9E97A7; margin-top:6px; }
+      .item-actions { display:flex; flex-direction:column; gap:6px; margin-left:auto; }
+      .item-actions a, .item-actions button { border:0; cursor:pointer; font:inherit; font-size:11px; border-radius:8px; padding:6px 10px; text-align:center; text-decoration:none; }
+      .open { background:#EDE6FF; color:#705BBA; }
+      .del { background:#FBEEF1; color:#C7788B; }
+      .empty { text-align:center; color:var(--muted); padding:60px 0; }
+      .sites { margin:34px 0 8px; }
+      .sites h2 { font-size:16px; margin:0 0 12px; }
+      .site-list { display:flex; gap:10px; flex-wrap:wrap; }
+      .site-list a { display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--ink); background:#F5F4FA; border-radius:12px; padding:10px 14px; font-size:12px; font-weight:600; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand"><span class="logo"><i></i></span><span class="shine">Dasi</span></div>
+      <div class="search"><span>🔍</span><input id="q" placeholder="Search a title" /></div>
+    </header>
+    <main>
+      <h1>Your library</h1>
+      <p class="sub">Everything you saved, kept on this device.</p>
+      <div class="tabs" id="tabs">
+        <button data-f="all" class="active">All</button>
+        <button data-f="reading">Reading</button>
+        <button data-f="watching">Watching</button>
+        <button data-f="favorites">Favorites</button>
+      </div>
+      <div class="grid" id="grid"></div>
+      <section class="sites" id="sites-wrap" hidden>
+        <h2>Your sites</h2>
+        <div class="site-list" id="sites"></div>
+      </section>
+    </main>
+    <script src="library.js"></script>
+  </body>
+</html>
