@@ -90,7 +90,7 @@
 .fav-toggle{background:transparent;color:#BBB6C1;padding:4px;border-radius:8px}
 .fav-toggle:hover{color:#E88BB0;background:#FFF0F5}
 .fav-toggle.on{color:#E4749E}
-.dasi-row{grid-template-columns:42px minmax(0,1fr) 96px 54px}
+.dasi-row{grid-template-columns:42px minmax(0,1fr) 88px 78px}
 
 /* Favorite sites */
 .sites-section{margin:8px 0 40px}

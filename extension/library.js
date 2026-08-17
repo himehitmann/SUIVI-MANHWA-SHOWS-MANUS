@@ -97,8 +97,41 @@ document.getElementById("q").addEventListener("input", (e) => {
   render();
 });
 
+let notifications = [];
+
+document.getElementById("export").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify({ version: 1, items, sites, notifications }, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `dasi-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById("import").addEventListener("click", () => document.getElementById("file").click());
+document.getElementById("file").addEventListener("change", (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  file.text().then((text) => {
+    try {
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed.items)) throw new Error("invalid");
+      api.runtime.sendMessage({ type: "IMPORT_STATE", payload: parsed }, () => {
+        items = parsed.items;
+        sites = Array.isArray(parsed.sites) ? parsed.sites : sites;
+        render();
+      });
+    } catch {
+      alert("Invalid backup file");
+    }
+  });
+  e.target.value = "";
+});
+
 api.runtime.sendMessage({ type: "GET_STATE" }, (state) => {
   items = state?.items || [];
   sites = state?.sites || [];
+  notifications = state?.notifications || [];
   render();
 });

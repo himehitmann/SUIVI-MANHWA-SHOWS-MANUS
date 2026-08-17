@@ -42,6 +42,8 @@ interface StoreValue extends DasiState {
   simulateUpdateScan: () => number;
   setPlan: (plan: Plan) => void;
   reset: () => void;
+  exportData: () => void;
+  importData: (json: string) => boolean;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -167,6 +169,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(() => setState(seedState()), []);
 
+  const exportData = useCallback(() => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dasi-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [state]);
+
+  const importData = useCallback((json: string): boolean => {
+    try {
+      const parsed = JSON.parse(json) as DasiState;
+      if (!parsed || !Array.isArray(parsed.items)) return false;
+      setState({
+        version: 1,
+        items: parsed.items,
+        lists: Array.isArray(parsed.lists) ? parsed.lists : [],
+        sites: Array.isArray(parsed.sites) ? parsed.sites : [],
+        notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
+        plan: parsed.plan ?? "free",
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   /**
    * Manual, on-demand update scan. Real update discovery happens through the
    * extension against the pages the user actually opens; here we surface items
@@ -213,8 +243,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       simulateUpdateScan,
       setPlan,
       reset,
+      exportData,
+      importData,
     }),
-    [state, removeItem, toggleFavorite, clearUpdate, addSite, removeSite, createList, deleteList, setListColor, addItemToList, removeItemFromList, reorderList, markAllRead, simulateUpdateScan, setPlan, reset],
+    [state, removeItem, toggleFavorite, clearUpdate, addSite, removeSite, createList, deleteList, setListColor, addItemToList, removeItemFromList, reorderList, markAllRead, simulateUpdateScan, setPlan, reset, exportData, importData],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

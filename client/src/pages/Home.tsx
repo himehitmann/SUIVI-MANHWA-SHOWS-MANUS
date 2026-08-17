@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
-  Check, ChevronRight, ExternalLink, Film, Grid2X2, Heart, History, Library, Minus, Play, Plus,
-  RefreshCw, Sparkles, Trash2, Video, X,
+  Check, ChevronRight, Compass, Download, ExternalLink, Film, Grid2X2, Heart, History, Library, Minus, Play, Plus,
+  RefreshCw, Sparkles, Trash2, Upload, Video, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
@@ -26,6 +26,22 @@ export default function Home() {
   const [siteForm, setSiteForm] = useState(false);
   const [siteName, setSiteName] = useState("");
   const [siteUrl, setSiteUrl] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const onImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    file.text().then((text) => {
+      if (store.importData(text)) toast.success(t("toast.imported"));
+      else toast.error(t("toast.importFailed"));
+    });
+    e.target.value = "";
+  };
+
+  const findAgain = (title: string) => {
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(title)}`, "_blank", "noreferrer");
+    toast(t("toast.findingAgain"));
+  };
 
   const current = store.items[0];
 
@@ -264,6 +280,9 @@ export default function Home() {
                     <small>{relativeTime(item.updatedAt, t)}</small>
                   </div>
                   <div className="row-tools">
+                    <button className="fav-toggle" onClick={() => findAgain(item.title)} aria-label={t("row.findAgain")} title={t("row.findAgain")}>
+                      <Compass size={14} />
+                    </button>
                     <button
                       className={`fav-toggle ${item.favorite ? "on" : ""}`}
                       onClick={() => store.toggleFavorite(item.id)}
@@ -340,6 +359,15 @@ export default function Home() {
               {t("nav.collections")}
               <ChevronRight size={15} />
             </Link>
+            <button className="soft-action" onClick={() => { store.exportData(); toast.success(t("toast.exported")); }}>
+              <Download size={15} />
+              {t("now.export")}
+            </button>
+            <button className="soft-action" onClick={() => fileInput.current?.click()}>
+              <Upload size={15} />
+              {t("now.import")}
+            </button>
+            <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={onImport} />
             <div className="local-note">
               <Heart size={14} />
               {t("now.local")}

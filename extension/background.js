@@ -121,6 +121,17 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       return true;
 
+    case "IMPORT_STATE":
+      {
+        const payload = message.payload || {};
+        const patch = {};
+        if (Array.isArray(payload.items)) patch[ITEMS_KEY] = payload.items;
+        if (Array.isArray(payload.sites)) patch[SITES_KEY] = payload.sites;
+        if (Array.isArray(payload.notifications)) patch[NOTIF_KEY] = payload.notifications;
+        api.storage.local.set(patch).then(() => sendResponse({ ok: true }));
+      }
+      return true;
+
     case "REMOVE_ITEM":
       read(ITEMS_KEY, []).then((items) => {
         const next = items.filter((i) => i.id !== message.id);
