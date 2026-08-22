@@ -177,6 +177,22 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+/*
+ * Update safety. Data in chrome.storage is NOT cleared when the extension
+ * updates to a new version — only a full uninstall clears it. This hook runs on
+ * install/update, stamps a schema version, and is the single place to run
+ * backward-compatible migrations for future breaking changes, so publishing a
+ * new version never wipes existing users' libraries.
+ */
+const SCHEMA_VERSION = 1;
+api.runtime.onInstalled.addListener(async () => {
+  const stored = (await api.storage.local.get("dasi.schema"))["dasi.schema"] || 0;
+  if (stored < SCHEMA_VERSION) {
+    // No migration needed yet; future breaking changes branch on `stored` here.
+    await api.storage.local.set({ "dasi.schema": SCHEMA_VERSION });
+  }
+});
+
 // Keyboard shortcut: detect the active tab and save immediately.
 api.commands.onCommand.addListener(async (command) => {
   if (command !== "save-progress") return;

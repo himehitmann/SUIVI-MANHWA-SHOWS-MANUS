@@ -105,6 +105,14 @@ encrypted cross-device sync and update alerts; a **$49 Lifetime** option fits th
 extension-buyer model. The full competitor survey and cost/margin analysis is in
 [`docs/PRICING.md`](docs/PRICING.md).
 
+## Docs
+
+- [INSTALL.md](INSTALL.md) — install the extension + where data is stored.
+- [docs/UPDATING.md](docs/UPDATING.md) — ship updates without losing user data or subscriptions.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — detection pipeline, storage, sync interface, permissions.
+- [docs/PRICING.md](docs/PRICING.md) — competitor survey, cost model, tiers.
+- [docs/QA.md](docs/QA.md) — verification record and how to reproduce it.
+
 ## Roadmap
 
 Encrypted sync backend behind a swappable interface, a "find again" flow for dead
