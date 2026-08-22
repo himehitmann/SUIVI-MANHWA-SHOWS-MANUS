@@ -237,3 +237,11 @@ a.profile{display:grid;place-items:center;text-decoration:none}
 .ghost.danger{color:#C7788B;background:#FBEEF1;border-radius:999px;padding:11px}
 .ghost.danger:hover{background:#F7DEE4}
 @media(max-width:720px){.settings-grid{grid-template-columns:1fr}}
+
+/* Account / auth form in Settings */
+.auth-form{display:flex;flex-direction:column;gap:9px}
+.auth-form input{border:0;background:#F5F4FA;border-radius:10px;padding:11px 13px;font-size:13px;color:var(--dasi-ink)}
+.auth-form input:focus{outline:2px solid #C7B8F0;outline-offset:1px}
+.link-btn{background:transparent;color:#8C8999;font-size:11px;padding:4px}
+.link-btn:hover{color:#705BBA}
+.account-card .settings-actions{margin:4px 0}

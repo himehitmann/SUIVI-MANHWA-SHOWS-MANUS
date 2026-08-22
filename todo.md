@@ -19,7 +19,12 @@
 - [x] Verify: typecheck, build, Vitest suite, real browser screenshots (desktop + mobile, EN + FR).
 
 ## Next (kept off the critical path)
-- [ ] Encrypted cloud sync backend behind a swappable interface + auth.
+- [x] Sync + auth backend (Express, scrypt + HMAC tokens, swappable Store) with a
+      client HTTP provider and functional Settings sign-in — opt-in via
+      `VITE_SYNC_API_URL`, defaults to local. Live round-trip + unit tests pass.
+- [ ] Swap the dev file store for Postgres/D1 and deploy; wire Paddle/Stripe
+      webhooks to set `user.plan` (subscriptions).
+- [ ] Wire the extension to the same backend (options page for API URL + token).
 - [ ] "Find again" flow to relocate a work when a saved URL dies.
 - [ ] Reading calendar & statistics (Pro).
 - [ ] Additional site adapters and languages as demand appears.

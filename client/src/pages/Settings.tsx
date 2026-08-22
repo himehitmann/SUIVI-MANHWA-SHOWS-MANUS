@@ -1,18 +1,60 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Link } from "wouter";
-import { Cloud, Download, Globe, Lock, RotateCcw, Upload, User } from "lucide-react";
+import { Cloud, Download, Globe, Lock, RefreshCw, RotateCcw, Upload, User } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { useI18n } from "@/i18n/I18nContext";
 import { LANGUAGES } from "@/i18n/strings";
 import { useStore } from "@/store/StoreContext";
-import { currentSyncStatus } from "@/lib/sync";
+import { syncProvider } from "@/lib/sync";
 
 export default function Settings() {
   const { t, lang, setLang } = useI18n();
   const store = useStore();
   const fileInput = useRef<HTMLInputElement>(null);
-  const syncStatus = currentSyncStatus();
+  const syncConfigured = syncProvider.isConfigured();
+  const [session, setSession] = useState(syncProvider.getSession());
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"in" | "up">("in");
+  const [busy, setBusy] = useState(false);
+
+  const authenticate = async () => {
+    setBusy(true);
+    try {
+      const s = mode === "in" ? await syncProvider.signIn(email, password) : await syncProvider.signUp(email, password);
+      setSession(s);
+      setPassword("");
+      // Pull remote, then push the merged result back.
+      const remote = await syncProvider.pull();
+      if (remote) store.applyState(remote);
+      await syncProvider.push(store.snapshot());
+      toast.success(t(mode === "in" ? "toast.signedIn" : "toast.accountCreated"));
+    } catch {
+      toast.error(t("toast.authFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const syncNow = async () => {
+    setBusy(true);
+    try {
+      await syncProvider.push(store.snapshot());
+      const remote = await syncProvider.pull();
+      if (remote) store.applyState(remote);
+      toast.success(t("toast.synced"));
+    } catch {
+      toast.error(t("toast.syncFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const signOut = async () => {
+    await syncProvider.signOut();
+    setSession(null);
+  };
 
   const onImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,21 +85,37 @@ export default function Settings() {
         </div>
 
         <div className="settings-grid">
-          <section className="settings-card">
+          <section className="settings-card account-card">
             <h3><User size={16} /> {t("settings.account")}</h3>
-            <p className="settings-value">{t("settings.accountLocal")}</p>
-            <button className="heart-button" disabled>{t("settings.signIn")}</button>
-            <small>{t("settings.signInSoon")}</small>
-          </section>
-
-          <section className="settings-card">
-            <h3><Cloud size={16} /> {t("settings.sync")}</h3>
-            <div className="settings-line">
-              <span>{t("settings.syncStatus")}</span>
-              <strong className={`sync-badge ${syncStatus}`}>
-                {syncStatus === "offline" ? t("settings.syncOffline") : t("settings.syncUnavailable")}
-              </strong>
-            </div>
+            {!syncConfigured ? (
+              <>
+                <p className="settings-value">{t("settings.accountLocal")}</p>
+                <button className="heart-button" disabled>{t("settings.signIn")}</button>
+                <small>{t("settings.signInSoon")}</small>
+              </>
+            ) : session ? (
+              <>
+                <p className="settings-value">{t("settings.signedInAs", { email: session.email })}</p>
+                <div className="settings-actions">
+                  <button className="primary-cta full" onClick={syncNow} disabled={busy}>
+                    <RefreshCw size={15} className={busy ? "spinning" : ""} /> {t("settings.syncNow")}
+                  </button>
+                  <button className="ghost" onClick={signOut} disabled={busy}>{t("settings.signOut")}</button>
+                </div>
+                <small>{t("settings.syncSignedIn")}</small>
+              </>
+            ) : (
+              <div className="auth-form">
+                <input type="email" placeholder={t("settings.email")} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+                <input type="password" placeholder={t("settings.password")} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "in" ? "current-password" : "new-password"} onKeyDown={(e) => e.key === "Enter" && authenticate()} />
+                <button className="primary-cta full" onClick={authenticate} disabled={busy || !email || !password}>
+                  {t(mode === "in" ? "settings.signInBtn" : "settings.signUpBtn")}
+                </button>
+                <button className="link-btn" onClick={() => setMode(mode === "in" ? "up" : "in")}>
+                  {t(mode === "in" ? "settings.needAccount" : "settings.haveAccount")}
+                </button>
+              </div>
+            )}
           </section>
 
           <section className="settings-card">

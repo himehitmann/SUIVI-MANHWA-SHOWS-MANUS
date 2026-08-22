@@ -25,6 +25,17 @@ Loaded `extension/` unpacked; MV3 service worker started (valid manifest).
 - On-demand injection is correctly gated by `activeTab`: direct injection
   without the user gesture is denied, confirming the minimal-permission model.
 
+## Sync backend, live HTTP round-trip
+
+Ran `server/` with `tsx` and exercised the real API:
+
+- Signup returns a token; **weak password → 400**, **wrong login → 401**,
+  **no-token sync → 401**.
+- Push a library, then **log in as a "new device" and pull → the library is
+  recovered** (item + plan), proving cross-device recovery.
+- `pnpm test` covers the pure backend logic: scrypt hash/verify, token
+  sign/verify/expiry/tamper, and item-level merge (8 tests).
+
 ## Web app, real browser
 
 - Language switch → French, and it **persists across reload** (localStorage).

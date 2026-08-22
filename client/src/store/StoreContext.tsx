@@ -44,6 +44,8 @@ interface StoreValue extends DasiState {
   reset: () => void;
   exportData: () => void;
   importData: (json: string) => boolean;
+  applyState: (next: Partial<DasiState>) => void;
+  snapshot: () => DasiState;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -169,6 +171,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(() => setState(seedState()), []);
 
+  const applyState = useCallback(
+    (next: Partial<DasiState>) => setState((s) => ({ ...s, ...next, version: 1 })),
+    [],
+  );
+
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const snapshot = useCallback(() => stateRef.current, []);
+
   const exportData = useCallback(() => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -245,8 +256,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reset,
       exportData,
       importData,
+      applyState,
+      snapshot,
     }),
-    [state, removeItem, toggleFavorite, clearUpdate, addSite, removeSite, createList, deleteList, setListColor, addItemToList, removeItemFromList, reorderList, markAllRead, simulateUpdateScan, setPlan, reset, exportData, importData],
+    [state, removeItem, toggleFavorite, clearUpdate, addSite, removeSite, createList, deleteList, setListColor, addItemToList, removeItemFromList, reorderList, markAllRead, simulateUpdateScan, setPlan, reset, exportData, importData, applyState, snapshot],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

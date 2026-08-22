@@ -111,6 +111,7 @@ extension-buyer model. The full competitor survey and cost/margin analysis is in
 - [docs/UPDATING.md](docs/UPDATING.md) — ship updates without losing user data or subscriptions.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — detection pipeline, storage, sync interface, permissions.
 - [docs/PRICING.md](docs/PRICING.md) — competitor survey, cost model, tiers.
+- [docs/BACKEND.md](docs/BACKEND.md) — optional sync + auth backend (deploy + env).
 - [docs/QA.md](docs/QA.md) — verification record and how to reproduce it.
 
 ## Roadmap
