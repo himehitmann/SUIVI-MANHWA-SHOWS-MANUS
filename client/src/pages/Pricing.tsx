@@ -22,9 +22,11 @@ const tiers: Tier[] = [
     features: [
       "Unlimited local library",
       "Universal detection on any site",
+      "Add works manually + online title search",
+      "Import from MyAnimeList, CSV & JSON",
       "Custom lists & drag-and-drop",
       "Video speed & Picture-in-Picture",
-      "Export / import your data",
+      "Export / import backups",
     ],
   },
   {
@@ -34,9 +36,10 @@ const tiers: Tier[] = [
     featured: true,
     features: [
       "Everything in Free",
-      "Encrypted cloud sync across devices",
-      "Automatic update checks & alerts",
+      "Encrypted cloud sync across all devices",
+      "New chapter & episode alerts",
       "Reading calendar & statistics",
+      "Unlimited devices",
       "Priority support",
     ],
   },

@@ -7,6 +7,7 @@ import { useI18n } from "@/i18n/I18nContext";
 import { LANGUAGES } from "@/i18n/strings";
 import { useStore } from "@/store/StoreContext";
 import { syncProvider } from "@/lib/sync";
+import { parseImport } from "@/lib/importers";
 
 export default function Settings() {
   const { t, lang, setLang } = useI18n();
@@ -60,8 +61,15 @@ export default function Settings() {
     const file = e.target.files?.[0];
     if (!file) return;
     file.text().then((text) => {
-      if (store.importData(text)) toast.success(t("toast.imported"));
-      else toast.error(t("toast.importFailed"));
+      const res = parseImport(text);
+      if (res.format === "dasi" && store.importData(text)) {
+        toast.success(t("toast.imported"));
+      } else if (res.items.length > 0) {
+        const n = store.importItems(res.items);
+        toast.success(t("toast.imported.n", { n, format: res.format.toUpperCase() }));
+      } else {
+        toast.error(t("toast.importEmpty"));
+      }
     });
     e.target.value = "";
   };

@@ -43,6 +43,11 @@ Ran `server/` with `tsx` and exercised the real API:
 - Delete a library item → count drops and **persists across reload**.
 - Create a collection → **persists across reload**.
 - List detail renders drag-to-reorder rows.
+- **Manual add** creates a work and it **persists across reload**.
+- **Import** a MyAnimeList XML export and a CSV export → both sets of works
+  appear and **persist across reload** (library grew as expected).
+- Notifications open, language switch works, pricing plan buttons work, Settings
+  shows the correct "Local only" state.
 - **Zero page errors**; responsive desktop and mobile layouts verified.
 
 ## How to reproduce the extension check

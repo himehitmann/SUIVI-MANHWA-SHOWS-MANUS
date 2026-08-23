@@ -245,3 +245,27 @@ a.profile{display:grid;place-items:center;text-decoration:none}
 .link-btn{background:transparent;color:#8C8999;font-size:11px;padding:4px}
 .link-btn:hover{color:#705BBA}
 .account-card .settings-actions{margin:4px 0}
+
+/* Add-work button + modal */
+.welcome-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.add-work-btn{display:flex;align-items:center;gap:8px;border-radius:999px;padding:11px 16px;background:#6CBE9E;color:#fff;font-weight:700;font-size:12px}
+.add-work-btn:hover{background:#4CA37E}
+.add-modal{position:relative;width:min(460px,100%);max-height:88vh;overflow:auto;padding:28px;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(75,62,103,.28)}
+.add-modal .eyebrow{display:block;margin-bottom:14px}
+.add-search{display:flex;align-items:center;gap:8px;background:#F5F4FA;border-radius:12px;padding:12px 14px;color:#9C98A6}
+.add-search input{flex:1;border:0;outline:0;background:transparent;font-size:14px;color:var(--dasi-ink)}
+.add-results{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:230px;overflow:auto}
+.add-results button{display:flex;align-items:center;gap:11px;width:100%;padding:8px;border-radius:12px;background:transparent;text-align:left}
+.add-results button:hover{background:#F6F1FF}
+.add-results img,.add-res-ph{width:38px;height:50px;border-radius:7px;object-fit:cover;background:#E4D9FA;flex-shrink:0}
+.add-results strong{display:block;font-size:13px}
+.add-results small{font-size:10px;color:#928C9E}
+.add-manual{margin-top:18px;display:flex;flex-direction:column;gap:10px}
+.add-manual-label{font-size:11px;color:#928C9E;font-weight:600}
+.add-manual>input{border:0;background:#F5F4FA;border-radius:10px;padding:12px 13px;font-size:13px;color:var(--dasi-ink)}
+.add-manual>input:focus,.add-search input:focus{outline:2px solid #C7B8F0;outline-offset:1px}
+.add-type-toggle{display:flex;gap:8px}
+.add-type-toggle button{flex:1;border-radius:10px;padding:10px;background:#F5F4FA;color:#6D6677;font-size:12px;font-weight:600}
+.add-type-toggle button.on{background:#EDE6FF;color:#705BBA}
+.add-row-fields{display:flex;gap:8px}
+.add-row-fields input{flex:1;border:0;background:#F5F4FA;border-radius:10px;padding:11px 13px;font-size:13px;color:var(--dasi-ink)}

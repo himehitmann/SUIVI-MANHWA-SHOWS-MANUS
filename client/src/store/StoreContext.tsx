@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { nanoid } from "nanoid";
 import type { AppNotification, CustomList, DasiState, FavoriteSite, LibraryItem, Plan } from "@/lib/types";
 import { seedState } from "@/lib/seed";
+import { createItem, type ItemInput } from "@/lib/item";
 
 const STORAGE_KEY = "dasi.state.v1";
 
@@ -27,6 +28,8 @@ function load(): DasiState {
 }
 
 interface StoreValue extends DasiState {
+  addItem: (input: ItemInput) => LibraryItem;
+  importItems: (items: LibraryItem[]) => number;
   removeItem: (id: string) => void;
   toggleFavorite: (id: string) => void;
   clearUpdate: (id: string) => void;
@@ -69,6 +72,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   const patch = useCallback((updater: (s: DasiState) => DasiState) => setState(updater), []);
+
+  const addItem = useCallback(
+    (input: ItemInput) => {
+      const item = createItem(input);
+      patch((s) => {
+        const rest = s.items.filter((i) => i.id !== item.id);
+        return { ...s, items: [item, ...rest] };
+      });
+      return item;
+    },
+    [patch],
+  );
+
+  const importItems = useCallback(
+    (incoming: LibraryItem[]) => {
+      let count = 0;
+      patch((s) => {
+        const byId = new Map(s.items.map((i) => [i.id, i]));
+        for (const it of incoming) {
+          if (!it || !it.id) continue;
+          const prev = byId.get(it.id);
+          byId.set(it.id, prev ? { ...prev, ...it, createdAt: prev.createdAt } : it);
+          count += 1;
+        }
+        return { ...s, items: Array.from(byId.values()) };
+      });
+      return count;
+    },
+    [patch],
+  );
 
   const removeItem = useCallback(
     (id: string) =>
@@ -239,6 +272,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<StoreValue>(
     () => ({
       ...state,
+      addItem,
+      importItems,
       removeItem,
       toggleFavorite,
       clearUpdate,
@@ -259,7 +294,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       applyState,
       snapshot,
     }),
-    [state, removeItem, toggleFavorite, clearUpdate, addSite, removeSite, createList, deleteList, setListColor, addItemToList, removeItemFromList, reorderList, markAllRead, simulateUpdateScan, setPlan, reset, exportData, importData, applyState, snapshot],
+    [state, addItem, importItems, removeItem, toggleFavorite, clearUpdate, addSite, removeSite, createList, deleteList, setListColor, addItemToList, removeItemFromList, reorderList, markAllRead, simulateUpdateScan, setPlan, reset, exportData, importData, applyState, snapshot],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

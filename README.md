@@ -19,6 +19,8 @@ required to use it; cloud sync is an optional, non-critical upgrade.
   Aniwatch, MyAsianTV, KissAsian, KissKh, Viki, Voiranime and more). Weak
   detections are flagged for review instead of being saved silently.
 - **One-click save** from the popup, or `Ctrl+Shift+S`.
+- **Add works manually** with an optional online title search (AniList — free, best-effort), so anything can be tracked even without visiting a page.
+- **Import from other trackers** — MyAnimeList XML export, generic CSV, JSON, and Dasi backups, auto-detected.
 - **Library** with continue queue, Reading/Watching/Favorites filters, search,
   favorites and delete.
 - **Quick-access sites** — save your reading/streaming sites for one-click access.

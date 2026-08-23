@@ -6,7 +6,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
+import { AddWork } from "@/components/AddWork";
 import { Cover, Pill, Progress, itemAccent, onImgError } from "@/components/Bits";
+import { parseImport } from "@/lib/importers";
 import { useI18n } from "@/i18n/I18nContext";
 import { useStore } from "@/store/StoreContext";
 import { markerLabel, relativeTime } from "@/lib/format";
@@ -27,13 +29,21 @@ export default function Home() {
   const [siteName, setSiteName] = useState("");
   const [siteUrl, setSiteUrl] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   const onImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     file.text().then((text) => {
-      if (store.importData(text)) toast.success(t("toast.imported"));
-      else toast.error(t("toast.importFailed"));
+      const res = parseImport(text);
+      if (res.format === "dasi" && store.importData(text)) {
+        toast.success(t("toast.imported"));
+      } else if (res.items.length > 0) {
+        const n = store.importItems(res.items);
+        toast.success(t("toast.imported.n", { n, format: res.format.toUpperCase() }));
+      } else {
+        toast.error(t("toast.importEmpty"));
+      }
     });
     e.target.value = "";
   };
@@ -99,10 +109,16 @@ export default function Home() {
             <h1>{t("welcome.title")}</h1>
             <p>{t("welcome.subtitle")}</p>
           </div>
-          <button className="refresh-button" onClick={check} disabled={checking}>
-            <RefreshCw size={16} className={checking ? "spinning" : ""} />
-            {checking ? t("action.checking") : t("action.checkUpdates")}
-          </button>
+          <div className="welcome-actions">
+            <button className="add-work-btn" onClick={() => setAddOpen(true)}>
+              <Plus size={16} />
+              {t("add.button")}
+            </button>
+            <button className="refresh-button" onClick={check} disabled={checking}>
+              <RefreshCw size={16} className={checking ? "spinning" : ""} />
+              {checking ? t("action.checking") : t("action.checkUpdates")}
+            </button>
+          </div>
         </div>
 
         {current && (
@@ -375,6 +391,8 @@ export default function Home() {
           </aside>
         </div>
       </main>
+
+      {addOpen && <AddWork onClose={() => setAddOpen(false)} />}
 
       {conflict && current && (
         <div className="modal-backdrop" onClick={() => setConflict(false)}>
