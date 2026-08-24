@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import {
-  ArrowLeft, Check, Flame, GraduationCap, Keyboard, ListChecks, Lock, RotateCcw,
+  ArrowLeft, BarChart3, Check, Flame, GraduationCap, Keyboard, ListChecks, Lock, RotateCcw,
   Sparkles, Target, Trophy, Volume2, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -152,6 +152,10 @@ export default function Learn() {
             <p>{t("learn.subtitle")}</p>
           </div>
           <div className="learn-cta-group">
+            <Link href="/learn/stats" className="refresh-button ghost-cta">
+              <BarChart3 size={16} />
+              {t("learn.stats")}
+            </Link>
             <button className="refresh-button ghost-cta" onClick={() => setQuizPick(true)}>
               <GraduationCap size={16} />
               {t("learn.quiz")}

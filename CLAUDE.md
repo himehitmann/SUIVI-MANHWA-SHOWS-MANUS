@@ -71,15 +71,16 @@ client/src/
   lib/quiz.ts            quiz generation (MC + typing) + answer normalization (seeded RNG).
   lib/achievements.ts    daily-goal + achievements helpers (pure, unit-tested).
   lib/speak.ts           best-effort pronunciation via Web Speech (speechSynthesis).
+  lib/stats.ts           learning-stats helpers: history, forecast, calendar, mastery (pure).
   lib/format.ts          markerLabel/relativeTime/timecode.
   components/            AppHeader, Notifications, LanguageSwitch, AddWork, ColorSwatches, Bits, DasiLogo.
-  pages/                 Home, Collections, ListDetail, Pricing, Settings, Learn, NotFound.
+  pages/                 Home, Collections, ListDetail, Pricing, Settings, Learn, LearnStats, NotFound.
 extension/               MV3: content.js (generic-first detector + site adapters),
                          background.js (on-demand inject, merge, storage.local+sync mirror, onInstalled migration),
                          popup.*, library.html/js (standalone library), manifest.json.
 shared/detect.ts         pure detection heuristics (mirrored by content.js), unit-tested.
 server/                  optional Express sync+auth API (api.ts, lib/{crypto,store,merge}.ts).
-tests/                   vitest: detect, backend, importers, vocab, srs, quiz, achievements.
+tests/                   vitest: detect, backend, importers, vocab, srs, quiz, achievements, stats.
 docs/                    ARCHITECTURE, PRICING, BACKEND, UPDATING, QA.
 .github/workflows/extension-zip.yml  publishes dasi-extension.zip as the "dasi-latest" release.
 ```
@@ -119,8 +120,12 @@ with a vitest in `tests/`. Keep everything typechecking and building.
     hidden when unsupported).
   - **Daily goal** (10/20/30/50) with progress + **achievements** (11 badges,
     sticky). Toasts on unlock.
-- 65 unit tests; multiple real-browser functional passes (Learn QA re-verified:
-  quiz, SRS grades, audio, goal, achievements); zero code page errors.
+  - **Stats/calendar page** (`/learn/stats`, `pages/LearnStats.tsx`): summary
+    tiles, 14-day activity chart, 7-day review forecast, 13-week study-calendar
+    heatmap, per-category mastery bars. Pure view over `learn.daily/srs/mastery`.
+- 72 unit tests; multiple real-browser functional passes (Learn + Stats QA
+  re-verified: quiz, SRS grades, audio, goal, achievements, charts, EN/FR);
+  zero code page errors.
 
 ## Status — NOT DONE / next steps
 
@@ -137,9 +142,10 @@ with a vitest in `tests/`. Keep everything typechecking and building.
      Places…) for all three languages; keep translations accurate.
    - TODO: real per-word images (only emoji today) — needs an asset pipeline or
      a free image source; keep it optional/offline-friendly.
-   - TODO: a **stats/calendar page** (also a Pro value): the store now records
-     `learn.daily` (YYYY-MM-DD → study count) and `learn.srs`, so build words-
-     learned-over-time, a streak calendar, and per-category mastery on top.
+   - DONE: **stats/calendar page** (`/learn/stats`) — activity, review forecast,
+     streak heatmap, per-category mastery, over `learn.daily/srs/mastery`.
+   - TODO: richer stats (per-language totals, best-streak record, XP trend),
+     and optionally gate the page behind Pro per `docs/PRICING.md`.
 4. **More site adapters + Playwright fixtures** per site (see `wotaku.wiki`,
    `anime-skip.com` for ideas like intro-skip timestamps).
 5. **More languages** (data-only in `strings.ts` + `vocab.ts`).
