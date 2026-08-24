@@ -6,6 +6,7 @@ import Collections from "@/pages/Collections";
 import ListDetail from "@/pages/ListDetail";
 import Pricing from "@/pages/Pricing";
 import Settings from "@/pages/Settings";
+import Learn from "@/pages/Learn";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/list/:id" component={ListDetail} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/settings" component={Settings} />
+      <Route path="/learn" component={Learn} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

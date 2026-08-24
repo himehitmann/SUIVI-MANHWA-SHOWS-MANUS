@@ -27,6 +27,9 @@ required to use it; cloud sync is an optional, non-critical upgrade.
 - **Custom lists (Collections)** with a color picker, a dedicated **detail page**
   per list, and **drag-and-drop** reordering.
 - **Notifications** for new chapters/episodes, with live "NEW" pulses in the library.
+- **Learn the language** — a built-in Korean/Japanese/Chinese vocabulary trainer
+  (character + reading + meaning + an emoji picture, click for definition,
+  example and notes) with categories, spaced review, XP, levels and streaks.
 - **Video tools** — playback speed and Picture-in-Picture, working across many players.
 - **Internationalization** — English default, French included, easy to extend.
 - **Privacy by design** — data stays on your device; minimal permissions; no remote code.

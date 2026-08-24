@@ -17,6 +17,7 @@ export function AppHeader({ query, onQuery }: Props) {
   const isLibrary = location === "/" || location.startsWith("/list");
   const nav: { href: string; label: string; active: boolean }[] = [
     { href: "/", label: t("nav.library"), active: isLibrary },
+    { href: "/learn", label: t("nav.learn"), active: location === "/learn" },
     { href: "/collections", label: t("nav.collections"), active: location === "/collections" },
     { href: "/pricing", label: t("nav.pricing"), active: location === "/pricing" },
   ];

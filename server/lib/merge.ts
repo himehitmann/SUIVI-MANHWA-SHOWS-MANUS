@@ -18,6 +18,7 @@ export interface SyncBlob {
   sites?: unknown[];
   notifications?: unknown[];
   plan?: string;
+  learn?: unknown;
   updatedAt: number;
 }
 
@@ -38,6 +39,7 @@ export function mergeBlobs(remote: SyncBlob | null, incoming: SyncBlob): SyncBlo
     sites: newer.sites ?? remote.sites ?? [],
     notifications: newer.notifications ?? remote.notifications ?? [],
     plan: newer.plan ?? remote.plan,
+    learn: newer.learn ?? remote.learn,
     updatedAt: Math.max(remote.updatedAt, incoming.updatedAt),
   };
 }

@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { nanoid } from "nanoid";
-import type { AppNotification, CustomList, DasiState, FavoriteSite, LibraryItem, Plan } from "@/lib/types";
+import type { AppNotification, CustomList, DasiState, FavoriteSite, LearnLang, LibraryItem, Plan } from "@/lib/types";
 import { seedState } from "@/lib/seed";
 import { createItem, type ItemInput } from "@/lib/item";
+import { XP_KNOWN, XP_LEARNING, XP_REVIEW, levelInfo, nextStreak, todayStr } from "@/lib/vocab";
 
 const STORAGE_KEY = "dasi.state.v1";
 
@@ -19,7 +20,11 @@ function load(): DasiState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as DasiState;
-      if (parsed && parsed.version === 1 && Array.isArray(parsed.items)) return parsed;
+      if (parsed && parsed.version === 1 && Array.isArray(parsed.items)) {
+        // Forward-compatible: fill in slices added in later versions.
+        if (!parsed.learn) parsed.learn = { lang: "ko", xp: 0, streak: 0, lastStudied: null, mastery: {} };
+        return parsed;
+      }
     }
   } catch {
     /* corrupt or unavailable — fall back to seed */
@@ -49,6 +54,8 @@ interface StoreValue extends DasiState {
   importData: (json: string) => boolean;
   applyState: (next: Partial<DasiState>) => void;
   snapshot: () => DasiState;
+  setLearnLang: (lang: LearnLang) => void;
+  studyWord: (wordId: string, known: boolean) => { xpGained: number; leveledUp: boolean; level: number };
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -213,6 +220,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   stateRef.current = state;
   const snapshot = useCallback(() => stateRef.current, []);
 
+  const setLearnLang = useCallback(
+    (lang: LearnLang) => patch((s) => ({ ...s, learn: { ...s.learn, lang } })),
+    [patch],
+  );
+
+  const studyWord = useCallback(
+    (wordId: string, known: boolean) => {
+      const cur = stateRef.current.learn;
+      const prev = cur.mastery[wordId];
+      const xpGained = prev === 2 && known ? XP_REVIEW : known ? XP_KNOWN : XP_LEARNING;
+      const beforeLevel = levelInfo(cur.xp).level;
+      const newXp = cur.xp + xpGained;
+      const afterLevel = levelInfo(newXp).level;
+      const today = todayStr();
+      const streak = nextStreak(cur.streak, cur.lastStudied, today);
+      patch((s) => ({
+        ...s,
+        learn: {
+          ...s.learn,
+          xp: newXp,
+          streak,
+          lastStudied: today,
+          mastery: { ...s.learn.mastery, [wordId]: known ? 2 : 1 },
+        },
+      }));
+      return { xpGained, leveledUp: afterLevel > beforeLevel, level: afterLevel };
+    },
+    [patch],
+  );
+
   const exportData = useCallback(() => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -227,14 +264,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const parsed = JSON.parse(json) as DasiState;
       if (!parsed || !Array.isArray(parsed.items)) return false;
-      setState({
+      setState((s) => ({
         version: 1,
         items: parsed.items,
         lists: Array.isArray(parsed.lists) ? parsed.lists : [],
         sites: Array.isArray(parsed.sites) ? parsed.sites : [],
         notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
         plan: parsed.plan ?? "free",
-      });
+        learn: parsed.learn ?? s.learn,
+      }));
       return true;
     } catch {
       return false;
@@ -293,8 +331,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       importData,
       applyState,
       snapshot,
+      setLearnLang,
+      studyWord,
     }),
-    [state, addItem, importItems, removeItem, toggleFavorite, clearUpdate, addSite, removeSite, createList, deleteList, setListColor, addItemToList, removeItemFromList, reorderList, markAllRead, simulateUpdateScan, setPlan, reset, exportData, importData, applyState, snapshot],
+    [state, addItem, importItems, removeItem, toggleFavorite, clearUpdate, addSite, removeSite, createList, deleteList, setListColor, addItemToList, removeItemFromList, reorderList, markAllRead, simulateUpdateScan, setPlan, reset, exportData, importData, applyState, snapshot, setLearnLang, studyWord],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

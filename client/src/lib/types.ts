@@ -60,11 +60,23 @@ export interface AppNotification {
   read: boolean;
 }
 
+export type LearnLang = "ko" | "ja" | "zh";
+
+export interface LearnState {
+  lang: LearnLang;
+  xp: number;
+  streak: number;
+  lastStudied: string | null; // YYYY-MM-DD
+  /** wordId -> mastery (1 = learning, 2 = known). Absent = unseen. */
+  mastery: Record<string, 1 | 2>;
+}
+
 export interface DasiState {
   items: LibraryItem[];
   lists: CustomList[];
   sites: FavoriteSite[];
   notifications: AppNotification[];
   plan: Plan;
+  learn: LearnState;
   version: 1;
 }

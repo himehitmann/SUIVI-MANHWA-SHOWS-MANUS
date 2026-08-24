@@ -115,6 +115,7 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
         sites: state.sites,
         notifications: state.notifications,
         plan: state.plan,
+        learn: state.learn,
         updatedAt: Date.now(),
       };
       await authFetch("/sync", { method: "PUT", body: JSON.stringify({ blob }) });
@@ -125,14 +126,15 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
       if (!res.ok) return null;
       const data = (await res.json()) as { blob: (DasiState & { updatedAt: number }) | null };
       if (!data.blob) return null;
-      return {
-        version: 1,
+      const out: Partial<DasiState> = {
         items: data.blob.items ?? [],
         lists: data.blob.lists ?? [],
         sites: data.blob.sites ?? [],
         notifications: data.blob.notifications ?? [],
         plan: data.blob.plan ?? "free",
       };
+      if (data.blob.learn) out.learn = data.blob.learn;
+      return out as DasiState;
     },
   };
 }

@@ -24,6 +24,7 @@ const tiers: Tier[] = [
       "Universal detection on any site",
       "Add works manually + online title search",
       "Import from MyAnimeList, CSV & JSON",
+      "Language learning — Korean basics & numbers",
       "Custom lists & drag-and-drop",
       "Video speed & Picture-in-Picture",
       "Export / import backups",
@@ -36,6 +37,7 @@ const tiers: Tier[] = [
     featured: true,
     features: [
       "Everything in Free",
+      "Full learning — Korean, Japanese & Chinese, all categories + reviews",
       "Encrypted cloud sync across all devices",
       "New chapter & episode alerts",
       "Reading calendar & statistics",
