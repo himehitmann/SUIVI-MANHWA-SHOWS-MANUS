@@ -13,8 +13,14 @@ const SITES_KEY = "dasi.sites";
 const NOTIF_KEY = "dasi.notifications";
 
 const normalize = (v) => (v || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+// Canonical work id — MUST match the web app's workId() (client/src/lib/item.ts)
+// so the same work merges across the extension and the web app over sync:
+// lowercased, punctuation-stripped, chapter/episode markers removed, hyphenated.
 const workKey = (p) =>
-  normalize(p.workId || p.title).replace(/\b(chapter|chap|episode|ep|season|volume|vol|page|part)\s*\d+\b/g, "").trim();
+  normalize(p.workId || p.title)
+    .replace(/\b(chapter|chap|ch|episode|ep|season|vol|volume|page|part)\s*\d+\b/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
 
 const numericProgress = (p) =>
   p.chapter || p.episode || p.page || (p.duration && p.position ? p.position / p.duration : 0) || 0;
@@ -57,6 +63,126 @@ const writeData = async (obj) => {
     /* over quota or unavailable: local-only is fine */
   }
 };
+
+/*
+ * Optional cloud sync (mirrors the web app's HTTP provider, lib/sync.ts).
+ *
+ * Config is device-local auth — { apiUrl, token, email, plan } — kept ONLY in
+ * storage.local (never mirrored to storage.sync, so a token never leaves the
+ * machine). Sync is pull → merge → push against the same /sync endpoint the web
+ * app uses, so both surfaces converge on one library. Everything here is
+ * best-effort: if the backend is absent or fails, the extension keeps working
+ * entirely on local data.
+ */
+const SYNC_CFG_KEY = "dasi.sync.config";
+const SYNC_META_KEY = "dasi.sync.meta";
+const AUTO_SYNC_COOLDOWN_MS = 8000;
+let lastAutoSync = 0;
+
+const apiBase = (url) => (url || "").replace(/\/+$/, "");
+const getSyncConfig = async () => (await api.storage.local.get(SYNC_CFG_KEY))[SYNC_CFG_KEY] || null;
+
+const setSyncMeta = async (meta) => {
+  const prev = (await api.storage.local.get(SYNC_META_KEY))[SYNC_META_KEY] || {};
+  await api.storage.local.set({ [SYNC_META_KEY]: { ...prev, ...meta } });
+};
+
+async function apiCall(cfg, path, init = {}) {
+  return fetch(apiBase(cfg.apiUrl) + path, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(cfg.token ? { Authorization: `Bearer ${cfg.token}` } : {}),
+      ...(init.headers || {}),
+    },
+  });
+}
+
+/** Sign in / sign up against the backend and persist the resulting config. */
+async function syncAuth(path, apiUrl, email, password) {
+  const res = await fetch(apiBase(apiUrl) + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `http_${res.status}`);
+  }
+  const data = await res.json();
+  const cfg = { apiUrl: apiBase(apiUrl), token: data.token, email: data.user.email, plan: data.user.plan };
+  await api.storage.local.set({ [SYNC_CFG_KEY]: cfg });
+  await setSyncMeta({ lastError: null });
+  return cfg;
+}
+
+/** Item merge: same id, greater updatedAt wins (matches server/lib/merge.ts). */
+function mergeItems(remote, local) {
+  const byId = new Map();
+  for (const it of remote || []) byId.set(it.id, it);
+  for (const it of local || []) {
+    const prev = byId.get(it.id);
+    if (!prev || (it.updatedAt || 0) >= (prev.updatedAt || 0)) byId.set(it.id, it);
+  }
+  return [...byId.values()];
+}
+
+/** Union by id (falls back to url) preferring the second list's copy. */
+function mergeById(remote, local) {
+  const byId = new Map();
+  for (const it of remote || []) byId.set(it.id ?? it.url, it);
+  for (const it of local || []) byId.set(it.id ?? it.url, it);
+  return [...byId.values()];
+}
+
+/** Pull the remote blob, merge into local storage, push the union back. */
+async function syncNow() {
+  const cfg = await getSyncConfig();
+  if (!cfg || !cfg.token) throw new Error("not_signed_in");
+
+  const getRes = await apiCall(cfg, "/sync");
+  if (getRes.status === 401) {
+    await setSyncMeta({ lastError: "unauthorized" });
+    throw new Error("unauthorized");
+  }
+  const remote = getRes.ok ? await getRes.json().catch(() => ({ blob: null })) : { blob: null };
+  const rb = remote.blob || null;
+
+  const [items, sites, notifs] = await Promise.all([read(ITEMS_KEY, []), read(SITES_KEY, []), read(NOTIF_KEY, [])]);
+  const mergedItems = mergeItems(rb && rb.items, items);
+  const mergedSites = mergeById(rb && rb.sites, sites);
+  const mergedNotifs = mergeById(rb && rb.notifications, notifs);
+  await writeData({ [ITEMS_KEY]: mergedItems, [SITES_KEY]: mergedSites, [NOTIF_KEY]: mergedNotifs });
+
+  // Push the merged library, preserving web-only slices (lists/learn/plan) that
+  // the extension doesn't own so a push never wipes them.
+  const blob = { items: mergedItems, sites: mergedSites, notifications: mergedNotifs, updatedAt: Date.now() };
+  if (rb) {
+    if (rb.lists) blob.lists = rb.lists;
+    if (rb.learn) blob.learn = rb.learn;
+    if (rb.plan) blob.plan = rb.plan;
+  }
+  const putRes = await apiCall(cfg, "/sync", { method: "PUT", body: JSON.stringify({ blob }) });
+  if (!putRes.ok) {
+    await setSyncMeta({ lastError: `push_${putRes.status}` });
+    throw new Error(`push_${putRes.status}`);
+  }
+  await setSyncMeta({ lastSyncAt: Date.now(), lastError: null });
+  return { items: mergedItems.length, sites: mergedSites.length, notifications: mergedNotifs.length };
+}
+
+/** Fire-and-forget sync after a local change, rate-limited so saves stay cheap. */
+function autoSync() {
+  getSyncConfig().then((cfg) => {
+    if (!cfg || !cfg.token) return;
+    const now = Date.now();
+    if (now - lastAutoSync < AUTO_SYNC_COOLDOWN_MS) return;
+    lastAutoSync = now;
+    syncNow().catch(() => {
+      /* best-effort; error is recorded in sync meta */
+    });
+  });
+}
 
 async function writeItem(payload) {
   const items = await read(ITEMS_KEY, []);
@@ -117,7 +243,10 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case "VIDEO_PROGRESS":
     case "SAVE_PROGRESS":
-      writeItem(message.payload).then(sendResponse);
+      writeItem(message.payload).then((result) => {
+        sendResponse(result);
+        autoSync();
+      });
       return true;
 
     case "DETECT_ACTIVE_TAB":
@@ -168,8 +297,48 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "REMOVE_ITEM":
       read(ITEMS_KEY, []).then((items) => {
         const next = items.filter((i) => i.id !== message.id);
-        writeData({ [ITEMS_KEY]: next }).then(() => sendResponse({ items: next }));
+        writeData({ [ITEMS_KEY]: next }).then(() => {
+          sendResponse({ items: next });
+          autoSync();
+        });
       });
+      return true;
+
+    case "SYNC_STATUS":
+      Promise.all([getSyncConfig(), api.storage.local.get(SYNC_META_KEY)]).then(([cfg, m]) =>
+        sendResponse({
+          configured: Boolean(cfg && cfg.token),
+          apiUrl: (cfg && cfg.apiUrl) || "",
+          email: (cfg && cfg.email) || "",
+          plan: (cfg && cfg.plan) || null,
+          meta: m[SYNC_META_KEY] || {},
+        }),
+      );
+      return true;
+
+    case "SYNC_SIGN_IN":
+    case "SYNC_SIGN_UP":
+      {
+        const { apiUrl, email, password } = message.payload || {};
+        const path = message.type === "SYNC_SIGN_UP" ? "/auth/signup" : "/auth/login";
+        syncAuth(path, apiUrl, email, password)
+          .then((cfg) =>
+            syncNow()
+              .then((result) => sendResponse({ ok: true, email: cfg.email, plan: cfg.plan, result }))
+              .catch((e) => sendResponse({ ok: true, email: cfg.email, plan: cfg.plan, warn: String(e.message) })),
+          )
+          .catch((e) => sendResponse({ ok: false, error: String(e.message) }));
+      }
+      return true;
+
+    case "SYNC_SIGN_OUT":
+      api.storage.local.set({ [SYNC_CFG_KEY]: null, [SYNC_META_KEY]: {} }).then(() => sendResponse({ ok: true }));
+      return true;
+
+    case "SYNC_NOW":
+      syncNow()
+        .then((result) => sendResponse({ ok: true, result }))
+        .catch((e) => sendResponse({ ok: false, error: String(e.message) }));
       return true;
 
     default:
@@ -184,11 +353,26 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
  * backward-compatible migrations for future breaking changes, so publishing a
  * new version never wipes existing users' libraries.
  */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 api.runtime.onInstalled.addListener(async () => {
   const stored = (await api.storage.local.get("dasi.schema"))["dasi.schema"] || 0;
   if (stored < SCHEMA_VERSION) {
-    // No migration needed yet; future breaking changes branch on `stored` here.
+    // v2: re-key existing items to the web-app-aligned work id (spaces →
+    // hyphens) so cross-surface sync merges the same work instead of
+    // duplicating it. Deterministic and update-safe; furthest progress wins on
+    // any collision.
+    if (stored < 2) {
+      const items = (await api.storage.local.get(ITEMS_KEY))[ITEMS_KEY] || [];
+      if (items.length) {
+        const byId = new Map();
+        for (const it of items) {
+          const nid = (it.id || "").replace(/\s+/g, "-");
+          const prev = byId.get(nid);
+          if (!prev || numericProgress(it) > numericProgress(prev)) byId.set(nid, { ...it, id: nid });
+        }
+        await writeData({ [ITEMS_KEY]: [...byId.values()] });
+      }
+    }
     await api.storage.local.set({ "dasi.schema": SCHEMA_VERSION });
   }
 });

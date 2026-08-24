@@ -98,6 +98,16 @@ const setSpeed = (delta) => {
 $("#slower").onclick = () => setSpeed(-0.25);
 $("#faster").onclick = () => setSpeed(0.25);
 
+// Sync status footer: reflect whether cloud sync is configured; click to manage.
+const syncLink = $("#sync-link");
+if (syncLink) {
+  syncLink.onclick = () => api.runtime.openOptionsPage();
+  api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => {
+    void api.runtime.lastError;
+    if (s && s.configured) syncLink.textContent = s.meta && s.meta.lastError ? "Sync needs attention →" : "Synced ✓";
+  });
+}
+
 $("#pip").onclick = () =>
   api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (!tabs[0]?.id) return;

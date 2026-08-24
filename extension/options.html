@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Dasi — Sync settings</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap");
+      :root { --ink:#252331; --muted:#8C8999; --lav:#F0EAFF; --mint:#E9F8F0; --green:#6CBE9E; --purple:#A18BE0; }
+      * { box-sizing:border-box; }
+      body { margin:0; padding:40px 20px; font-family:"DM Sans",sans-serif; color:var(--ink); background:#FCFCFE; }
+      .wrap { max-width:520px; margin:0 auto; }
+      .brand { display:flex; align-items:center; gap:9px; font-weight:800; font-size:22px; letter-spacing:-.05em; margin-bottom:6px; }
+      .logo { width:28px; height:28px; border-radius:11px 11px 11px 4px; background:linear-gradient(145deg,#BCA8F4,#8FD7C2); display:grid; place-items:center; transform:rotate(-8deg); box-shadow:0 5px 12px rgba(145,121,220,.2); }
+      .logo i { width:11px; height:11px; background:#fff; border-radius:4px; opacity:.9; }
+      .shine { font-weight:800; letter-spacing:-.05em; color:#6C5AA5; background:#F0EAFF linear-gradient(-40deg,transparent 0,transparent 40%,#fff 50%,transparent 60%,transparent 100%) 0 0 no-repeat; -webkit-background-clip:text; background-clip:text; background-size:50px; -webkit-text-fill-color:transparent; animation:shine 5s infinite; }
+      @keyframes shine { 0%,10%{background-position:-200px} 20%{background-position:top left} 100%{background-position:200px} }
+      .eyebrow { font-size:10px; letter-spacing:.09em; color:#9B86DA; font-weight:700; margin:16px 0 4px; }
+      h1 { font-size:26px; letter-spacing:-.04em; margin:0 0 6px; }
+      .sub { color:var(--muted); font-size:13px; margin:0 0 22px; }
+      .card { background:#fff; border-radius:18px; padding:22px; box-shadow:0 10px 30px rgba(92,74,140,.08); }
+      label { display:block; font-size:11px; font-weight:700; color:var(--muted); margin:14px 0 6px; }
+      input { width:100%; font:inherit; font-size:14px; color:var(--ink); border:0; background:#F5F4FA; border-radius:11px; padding:12px 14px; outline:0; }
+      input:focus { box-shadow:inset 0 0 0 2px #C9B8F2; }
+      button { font:inherit; border:0; cursor:pointer; border-radius:11px; font-weight:700; }
+      .actions { display:flex; gap:10px; margin-top:18px; }
+      .primary { flex:1; background:#6CBE9E; color:#fff; padding:12px; font-size:13px; }
+      .primary:hover { background:#4CA37E; }
+      .primary:disabled { opacity:.5; cursor:default; }
+      .secondary { flex:1; background:#F0EAFF; color:#62519B; padding:12px; font-size:13px; }
+      .secondary:hover { background:#E3D6FF; }
+      .status { display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:6px; }
+      .dot { width:8px; height:8px; border-radius:50%; background:#C7CBD3; }
+      .dot.on { background:#6CBE9E; }
+      .who { font-weight:700; }
+      .plan { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#62519B; background:#F0EAFF; border-radius:999px; padding:3px 8px; }
+      .kv { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-top:10px; }
+      .msg { font-size:12px; margin-top:14px; padding:11px 13px; border-radius:10px; display:none; }
+      .msg.show { display:block; }
+      .msg.ok { background:var(--mint); color:#3F7D64; }
+      .msg.err { background:#FFEAF2; color:#B96A7D; }
+      .note { display:flex; align-items:center; gap:7px; color:var(--muted); font-size:11px; margin-top:18px; }
+      .note i { width:6px; height:6px; border-radius:50%; background:#6CBE9E; }
+      .hidden { display:none; }
+      @media (prefers-reduced-motion: reduce) { .shine { animation:none; -webkit-text-fill-color:#6C5AA5; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="brand"><span class="logo"><i></i></span><span class="shine">Dasi</span></div>
+      <p class="eyebrow">EXTENSION SETTINGS</p>
+      <h1>Cloud sync</h1>
+      <p class="sub">
+        Optional. Sign in to the same account as the Dasi web app to sync your library across devices.
+        Everything keeps working locally without it.
+      </p>
+
+      <!-- Signed out -->
+      <div class="card" id="signed-out">
+        <label for="apiUrl">Backend URL</label>
+        <input id="apiUrl" type="url" placeholder="https://your-dasi-api.example.com/api" autocomplete="off" />
+        <label for="email">Email</label>
+        <input id="email" type="email" placeholder="you@example.com" autocomplete="username" />
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+        <div class="actions">
+          <button class="primary" id="signin">Sign in</button>
+          <button class="secondary" id="signup">Create account</button>
+        </div>
+        <div class="msg" id="msg-out"></div>
+      </div>
+
+      <!-- Signed in -->
+      <div class="card hidden" id="signed-in">
+        <div class="status">
+          <span class="dot on"></span>
+          <span class="who" id="who">you@example.com</span>
+          <span class="plan" id="plan">FREE</span>
+        </div>
+        <div class="kv"><span id="endpoint">—</span><span id="lastsync">Never synced</span></div>
+        <div class="actions">
+          <button class="primary" id="syncnow">Sync now</button>
+          <button class="secondary" id="signout">Sign out</button>
+        </div>
+        <div class="msg" id="msg-in"></div>
+      </div>
+
+      <div class="note"><i></i> Your credentials are stored only on this device and never mirrored to browser sync.</div>
+    </div>
+    <script src="options.js"></script>
+  </body>
+</html>

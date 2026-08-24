@@ -4,6 +4,7 @@
   "version": "0.3.0",
   "description": "Remember where you stopped in any manga, webtoon, anime or series. Local-first, private by design.",
   "action": { "default_title": "Open Dasi", "default_popup": "popup.html" },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
   "background": { "service_worker": "background.js" },
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "commands": {

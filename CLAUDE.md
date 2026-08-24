@@ -76,8 +76,9 @@ client/src/
   components/            AppHeader, Notifications, LanguageSwitch, AddWork, ColorSwatches, Bits, DasiLogo.
   pages/                 Home, Collections, ListDetail, Pricing, Settings, Learn, LearnStats, NotFound.
 extension/               MV3: content.js (generic-first detector + site adapters),
-                         background.js (on-demand inject, merge, storage.local+sync mirror, onInstalled migration),
-                         popup.*, library.html/js (standalone library), manifest.json.
+                         background.js (on-demand inject, merge, storage.local+sync mirror,
+                         onInstalled migration, optional cloud-sync module mirroring lib/sync.ts),
+                         options.html/js (cloud-sync settings), popup.*, library.html/js, manifest.json.
 shared/detect.ts         pure detection heuristics (mirrored by content.js), unit-tested.
 server/                  optional Express sync+auth API (api.ts, lib/{crypto,store,merge}.ts).
 tests/                   vitest: detect, backend, importers, vocab, srs, quiz, achievements, stats.
@@ -102,6 +103,11 @@ with a vitest in `tests/`. Keep everything typechecking and building.
 - Extension: on-demand injection (activeTab), merge policy, **storage.local + sync**
   mirror (cross-device recovery), standalone library page, `onInstalled` migration
   hook, packaged-zip release workflow, INSTALL.md.
+- Extension **cloud sync** (optional): Options page signs into the same backend as
+  the web app; `background.js` pulls → merges → pushes to `/sync` (auto-sync after
+  saves). Work ids aligned to the web `workId()` (+ v2 re-key migration) so both
+  surfaces converge on one library; web-only slices (lists/learn/plan) preserved.
+  Verified E2E against the live API.
 - **Export/Import** backups + "find again" for dead URLs.
 - **Manual add** with optional online search; **import from other trackers**
   (MAL XML, CSV, JSON, Dasi backup).
@@ -133,8 +139,14 @@ with a vitest in `tests/`. Keep everything typechecking and building.
    dev file store (`server/lib/store.ts`) for Postgres/D1; deploy; set
    `VITE_SYNC_API_URL` for the web build; wire Paddle/Stripe webhook to set
    `user.plan` so subscriptions are real. See `docs/BACKEND.md`, `docs/PRICING.md`.
-2. **Wire the extension to the backend:** an options page to store API URL +
-   token so the extension syncs like the web app (today only the web app does).
+2. **Wire the extension to the backend — DONE:** `extension/options.html/js`
+   (Options UI) signs into the same backend as the web app; `background.js` has a
+   cloud-sync module (pull → merge → push against `/sync`, best-effort auto-sync
+   after each save). Work ids were aligned to the web app's `workId()` (+ an
+   onInstalled v2 re-key migration) so the same work merges across surfaces, and
+   an extension push preserves web-only slices (lists/learn/plan). Verified E2E
+   against the live API (signup → push → new-device pull → cross-surface merge).
+   TODO (optional): surface sync errors/last-sync more richly; add token refresh.
 3. **Expand the Learn module** (user wants beginner→expert, "everything sticks"):
    - DONE: audio pronunciation; quizzes (MC + typing); SM-2 spaced repetition;
      daily goal + achievements; +4 categories (Colors, Time, Verbs, Body).

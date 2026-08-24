@@ -36,3 +36,24 @@ If you use the green **Code → Download ZIP** button on the whole repo instead:
   library (and **Import backup** to restore). Keep that JSON file somewhere safe.
 - A future optional **account + cloud sync** (see `docs/PRICING.md`) will make
   cross-device recovery automatic without relying on browser sync.
+
+## Optional: cloud sync across devices (same account as the web app)
+
+If you run the Dasi backend (see `docs/BACKEND.md`), the extension can sync to
+the **same account** as the web app so both share one library:
+
+1. Right-click the Dasi toolbar icon → **Options** (or click **Set up sync →**
+   in the popup footer). The **Cloud sync** settings tab opens.
+2. Enter your **Backend URL** (the API base, e.g. `https://your-host/api`), your
+   **email** and **password**, then **Sign in** — or **Create account** for a
+   new one. The same credentials work in the web app's Settings page.
+3. That's it. The extension pulls your existing library, merges it with what's
+   on this device, and keeps syncing after each save (best-effort). Use **Sync
+   now** to force a round-trip.
+
+Notes:
+- Your credentials/token are stored **only on this device** (`chrome.storage.local`)
+  and are **never** mirrored to browser sync.
+- Sync is entirely optional — with it off, everything keeps working locally.
+- The extension only owns items/sites/notifications; your web-app lists, learning
+  progress and plan are preserved on the server and never overwritten by a push.
