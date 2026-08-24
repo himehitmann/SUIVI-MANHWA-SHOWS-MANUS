@@ -36,7 +36,7 @@ and isolated behind interfaces.
 pnpm install
 pnpm dev      # web app, http://localhost:3000
 pnpm check    # tsc --noEmit (must pass)
-pnpm test     # vitest run --config vitest.config.ts (43 tests, must pass)
+pnpm test     # vitest run --config vitest.config.ts (91 tests, must pass)
 pnpm build    # vite build + esbuild server
 ```
 
@@ -80,8 +80,10 @@ extension/               MV3: content.js (generic-first detector + site adapters
                          onInstalled migration, optional cloud-sync module mirroring lib/sync.ts),
                          options.html/js (cloud-sync settings), popup.*, library.html/js, manifest.json.
 shared/detect.ts         pure detection heuristics (mirrored by content.js), unit-tested.
-server/                  optional Express sync+auth API (api.ts, lib/{crypto,store,merge}.ts).
-tests/                   vitest: detect, backend, importers, vocab, srs, quiz, achievements, stats.
+server/                  optional Express sync+auth+billing API (api.ts, lib/{crypto,store,
+                         store-postgres,merge,billing}.ts). Postgres store + Stripe/Paddle webhooks.
+tests/                   vitest: detect, backend, importers, vocab, srs, quiz, achievements,
+                         stats, billing, store-postgres.
 docs/                    ARCHITECTURE, PRICING, BACKEND, UPDATING, QA.
 .github/workflows/extension-zip.yml  publishes dasi-extension.zip as the "dasi-latest" release.
 ```
@@ -114,6 +116,12 @@ with a vitest in `tests/`. Keep everything typechecking and building.
 - Optional **sync + auth backend** (Express, scrypt + HMAC tokens, swappable
   Store, item-level merge) + client HTTP provider + functional Settings sign-in.
   Verified live: signup→push→new-device login→recover.
+- **Production backend building blocks**: Postgres `Store` adapter
+  (`store-postgres.ts`, injected client + `ensureSchema`), env-based store
+  selection in `index.ts` (DATABASE_URL → Postgres via optional `pg`), and
+  **Stripe/Paddle webhooks** (`/api/webhooks/*`) with pure tested billing logic
+  (`billing.ts`: signature verify, event→plan, apply; lifetime permanent).
+  Verified E2E against the live API.
 - **Learn module**: KR/JP/ZH vocab across **8 categories** (Basics, Numbers,
   Family, Food, Colors, Time, Verbs, Body), flashcards, word detail
   (definition/example/note), XP/levels/streak, Pro-gated categories/languages.
@@ -129,16 +137,25 @@ with a vitest in `tests/`. Keep everything typechecking and building.
   - **Stats/calendar page** (`/learn/stats`, `pages/LearnStats.tsx`): summary
     tiles, 14-day activity chart, 7-day review forecast, 13-week study-calendar
     heatmap, per-category mastery bars. Pure view over `learn.daily/srs/mastery`.
-- 72 unit tests; multiple real-browser functional passes (Learn + Stats QA
+- 91 unit tests; multiple real-browser functional passes (Learn + Stats QA
   re-verified: quiz, SRS grades, audio, goal, achievements, charts, EN/FR);
   zero code page errors.
 
 ## Status — NOT DONE / next steps
 
-1. **Deploy the backend + payments (biggest remaining, operational):** swap the
-   dev file store (`server/lib/store.ts`) for Postgres/D1; deploy; set
-   `VITE_SYNC_API_URL` for the web build; wire Paddle/Stripe webhook to set
-   `user.plan` so subscriptions are real. See `docs/BACKEND.md`, `docs/PRICING.md`.
+1. **Deploy the backend + payments — CODE DONE, deploy pending (operational):**
+   - Postgres `Store` adapter (`server/lib/store-postgres.ts`, injected client,
+     `ensureSchema`) + env-based selection in `server/index.ts` (DATABASE_URL →
+     Postgres via lazy `pg` import, else file store). `pg` stays optional.
+   - Stripe/Paddle webhooks (`POST /api/webhooks/{stripe,paddle}`) with pure,
+     tested billing logic (`server/lib/billing.ts`): signature verification,
+     event→plan mapping, apply-to-store; lifetime is permanent. Verified E2E
+     against the live API (signup→webhook→/license reflects pro/lifetime).
+   - STILL TODO (needs your accounts/credentials): actually deploy Postgres + set
+     env (DATABASE_URL, SYNC_JWT_SECRET, STRIPE_*/PADDLE_* secrets + price ids),
+     set `VITE_SYNC_API_URL` for the web build, and create the **checkout link**
+     in the client Pricing page with your publishable keys (the only unwired
+     piece — the webhook already grants the plan). See `docs/BACKEND.md`.
 2. **Wire the extension to the backend — DONE:** `extension/options.html/js`
    (Options UI) signs into the same backend as the web app; `background.js` has a
    cloud-sync module (pull → merge → push against `/sync`, best-effort auto-sync

@@ -3,16 +3,39 @@ import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createApiRouter } from "./api";
+import { createStore, type Store } from "./lib/store";
+import { createPostgresStore, ensureSchema, type SqlClient } from "./lib/store-postgres";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/**
+ * Choose the storage backend from the environment: Postgres in production
+ * (DATABASE_URL set), otherwise the dev/self-host file store. `pg` is imported
+ * dynamically via a non-literal specifier so it stays an optional dependency —
+ * it is only required when DATABASE_URL is actually configured.
+ */
+async function resolveStore(): Promise<Store> {
+  const url = process.env.DATABASE_URL;
+  if (!url) return createStore(process.env.SYNC_DB_FILE);
+  const pgModule = "pg";
+  const pg = (await import(pgModule)) as { Pool: new (cfg: Record<string, unknown>) => SqlClient & { end?: () => Promise<void> } };
+  const pool = new pg.Pool({
+    connectionString: url,
+    ...(process.env.DATABASE_SSL === "false" ? {} : { ssl: { rejectUnauthorized: false } }),
+  });
+  const store = createPostgresStore(pool);
+  await ensureSchema(pool);
+  console.log("Using Postgres store");
+  return store;
+}
 
 async function startServer() {
   const app = express();
   const server = createServer(app);
 
   // Optional sync + auth API. Harmless when unused; the apps default to local.
-  app.use("/api", createApiRouter());
+  app.use("/api", createApiRouter(await resolveStore()));
 
   // Serve static files from dist/public in production
   const staticPath =

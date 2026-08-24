@@ -9,12 +9,65 @@ import express, { type Request, type Response, type Router } from "express";
 import { hashPassword, signToken, verifyPassword, verifyToken } from "./lib/crypto";
 import { mergeBlobs, type SyncBlob } from "./lib/merge";
 import { createStore, type Store } from "./lib/store";
+import {
+  applyPlanIntent, planFromPaddleEvent, planFromStripeEvent,
+  verifyPaddleSignature, verifyStripeSignature, type PriceMap,
+} from "./lib/billing";
 
 const SECRET = process.env.SYNC_JWT_SECRET || "dev-insecure-secret-change-me";
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+const STRIPE_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
+const PADDLE_SECRET = process.env.PADDLE_WEBHOOK_SECRET || "";
+const STRIPE_PRICES: PriceMap = {
+  proMonth: process.env.STRIPE_PRICE_PRO_MONTH,
+  proYear: process.env.STRIPE_PRICE_PRO_YEAR,
+  lifetime: process.env.STRIPE_PRICE_LIFETIME,
+};
+const PADDLE_PRICES: PriceMap = {
+  proMonth: process.env.PADDLE_PRICE_PRO_MONTH,
+  proYear: process.env.PADDLE_PRICE_PRO_YEAR,
+  lifetime: process.env.PADDLE_PRICE_LIFETIME,
+};
+
+const rawBody = (req: Request): string => (Buffer.isBuffer(req.body) ? req.body.toString("utf8") : String(req.body ?? ""));
+
 export function createApiRouter(store: Store = createStore(process.env.SYNC_DB_FILE)): Router {
   const router = express.Router();
+
+  // Webhooks must see the RAW request body to verify provider signatures, so
+  // they are mounted before the JSON parser. Each is a no-op (503) until its
+  // signing secret is configured, so an undeployed billing setup is inert.
+  router.post("/webhooks/stripe", express.raw({ type: "*/*" }), async (req: Request, res: Response) => {
+    if (!STRIPE_SECRET) return res.status(503).json({ error: "billing_disabled" });
+    const raw = rawBody(req);
+    const sig = String(req.headers["stripe-signature"] || "");
+    if (!verifyStripeSignature(raw, sig, STRIPE_SECRET)) return res.status(400).json({ error: "bad_signature" });
+    let event: unknown;
+    try {
+      event = JSON.parse(raw);
+    } catch {
+      return res.status(400).json({ error: "invalid_json" });
+    }
+    const result = await applyPlanIntent(store, planFromStripeEvent(event, STRIPE_PRICES));
+    return res.json({ received: true, applied: result.ok, plan: result.plan });
+  });
+
+  router.post("/webhooks/paddle", express.raw({ type: "*/*" }), async (req: Request, res: Response) => {
+    if (!PADDLE_SECRET) return res.status(503).json({ error: "billing_disabled" });
+    const raw = rawBody(req);
+    const sig = String(req.headers["paddle-signature"] || "");
+    if (!verifyPaddleSignature(raw, sig, PADDLE_SECRET)) return res.status(400).json({ error: "bad_signature" });
+    let event: unknown;
+    try {
+      event = JSON.parse(raw);
+    } catch {
+      return res.status(400).json({ error: "invalid_json" });
+    }
+    const result = await applyPlanIntent(store, planFromPaddleEvent(event, PADDLE_PRICES));
+    return res.json({ received: true, applied: result.ok, plan: result.plan });
+  });
+
   router.use(express.json({ limit: "2mb" }));
 
   // CORS: the extension and web app call this from another origin.
