@@ -1,11 +1,69 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { nanoid } from "nanoid";
-import type { AppNotification, CustomList, DasiState, FavoriteSite, LearnLang, LibraryItem, Plan } from "@/lib/types";
+import type { AppNotification, CustomList, DasiState, FavoriteSite, LearnLang, LearnState, LibraryItem, Plan } from "@/lib/types";
 import { seedState } from "@/lib/seed";
 import { createItem, type ItemInput } from "@/lib/item";
 import { XP_KNOWN, XP_LEARNING, XP_REVIEW, levelInfo, nextStreak, todayStr } from "@/lib/vocab";
+import { newCard, qualityOf, schedule, type Grade } from "@/lib/srs";
+import { unlockedAchievements } from "@/lib/achievements";
 
 const STORAGE_KEY = "dasi.state.v1";
+
+/** Fill in Learn fields added after v1 shipped, without wiping existing progress. */
+function migrateLearn(learn: Partial<LearnState> | undefined): LearnState {
+  return {
+    lang: learn?.lang ?? "ko",
+    xp: learn?.xp ?? 0,
+    streak: learn?.streak ?? 0,
+    lastStudied: learn?.lastStudied ?? null,
+    mastery: learn?.mastery ?? {},
+    srs: learn?.srs ?? {},
+    dailyGoal: learn?.dailyGoal ?? 20,
+    daily: learn?.daily ?? {},
+    achievements: learn?.achievements ?? [],
+    perfectQuizzes: learn?.perfectQuizzes ?? 0,
+  };
+}
+
+/** Union previously-earned achievements with those the state now qualifies for. */
+function mergeAchievements(learn: LearnState): string[] {
+  return Array.from(new Set([...learn.achievements, ...unlockedAchievements(learn)]));
+}
+
+export interface StudyResult {
+  xpGained: number;
+  leveledUp: boolean;
+  level: number;
+  newAchievements: string[];
+}
+
+/**
+ * Pure-ish reducer for one study/review action: updates xp, streak, mastery,
+ * the SM-2 card, today's tally and unlocked achievements.
+ */
+function studyReducer(learn: LearnState, wordId: string, grade: Grade): { learn: LearnState; result: StudyResult } {
+  const today = todayStr();
+  const prevMastery = learn.mastery[wordId];
+  const known = grade !== "again";
+  const xpGained = prevMastery === 2 && known ? XP_REVIEW : known ? XP_KNOWN : XP_LEARNING;
+  const beforeLevel = levelInfo(learn.xp).level;
+  const newXp = learn.xp + xpGained;
+  const afterLevel = levelInfo(newXp).level;
+  const card = schedule(learn.srs[wordId] ?? newCard(today), qualityOf(grade), today);
+  const next: LearnState = {
+    ...learn,
+    xp: newXp,
+    streak: nextStreak(learn.streak, learn.lastStudied, today),
+    lastStudied: today,
+    mastery: { ...learn.mastery, [wordId]: known ? 2 : 1 },
+    srs: { ...learn.srs, [wordId]: card },
+    daily: { ...learn.daily, [today]: (learn.daily[today] ?? 0) + 1 },
+  };
+  const merged = mergeAchievements(next);
+  const newAchievements = merged.filter((a) => !learn.achievements.includes(a));
+  next.achievements = merged;
+  return { learn: next, result: { xpGained, leveledUp: afterLevel > beforeLevel, level: afterLevel, newAchievements } };
+}
 
 function domainOf(url: string): string {
   try {
@@ -21,8 +79,8 @@ function load(): DasiState {
     if (raw) {
       const parsed = JSON.parse(raw) as DasiState;
       if (parsed && parsed.version === 1 && Array.isArray(parsed.items)) {
-        // Forward-compatible: fill in slices added in later versions.
-        if (!parsed.learn) parsed.learn = { lang: "ko", xp: 0, streak: 0, lastStudied: null, mastery: {} };
+        // Forward-compatible: fill in slices/fields added in later versions.
+        parsed.learn = migrateLearn(parsed.learn);
         return parsed;
       }
     }
@@ -55,7 +113,10 @@ interface StoreValue extends DasiState {
   applyState: (next: Partial<DasiState>) => void;
   snapshot: () => DasiState;
   setLearnLang: (lang: LearnLang) => void;
-  studyWord: (wordId: string, known: boolean) => { xpGained: number; leveledUp: boolean; level: number };
+  studyWord: (wordId: string, known: boolean) => StudyResult;
+  gradeCard: (wordId: string, grade: Grade) => StudyResult;
+  recordQuiz: (correct: number, total: number) => StudyResult & { perfect: boolean };
+  setDailyGoal: (goal: number) => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -225,28 +286,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [patch],
   );
 
+  const gradeCard = useCallback(
+    (wordId: string, grade: Grade): StudyResult => {
+      const { learn, result } = studyReducer(stateRef.current.learn, wordId, grade);
+      patch((s) => ({ ...s, learn }));
+      return result;
+    },
+    [patch],
+  );
+
   const studyWord = useCallback(
-    (wordId: string, known: boolean) => {
+    (wordId: string, known: boolean): StudyResult => gradeCard(wordId, known ? "good" : "again"),
+    [gradeCard],
+  );
+
+  const recordQuiz = useCallback(
+    (correct: number, total: number) => {
       const cur = stateRef.current.learn;
-      const prev = cur.mastery[wordId];
-      const xpGained = prev === 2 && known ? XP_REVIEW : known ? XP_KNOWN : XP_LEARNING;
+      const today = todayStr();
+      const xpGained = correct * XP_REVIEW;
       const beforeLevel = levelInfo(cur.xp).level;
       const newXp = cur.xp + xpGained;
       const afterLevel = levelInfo(newXp).level;
-      const today = todayStr();
-      const streak = nextStreak(cur.streak, cur.lastStudied, today);
-      patch((s) => ({
-        ...s,
-        learn: {
-          ...s.learn,
-          xp: newXp,
-          streak,
-          lastStudied: today,
-          mastery: { ...s.learn.mastery, [wordId]: known ? 2 : 1 },
-        },
-      }));
-      return { xpGained, leveledUp: afterLevel > beforeLevel, level: afterLevel };
+      const perfect = total > 0 && correct === total;
+      const next: LearnState = {
+        ...cur,
+        xp: newXp,
+        streak: total > 0 ? nextStreak(cur.streak, cur.lastStudied, today) : cur.streak,
+        lastStudied: total > 0 ? today : cur.lastStudied,
+        daily: { ...cur.daily, [today]: (cur.daily[today] ?? 0) + total },
+        perfectQuizzes: cur.perfectQuizzes + (perfect ? 1 : 0),
+      };
+      const merged = mergeAchievements(next);
+      const newAchievements = merged.filter((a) => !cur.achievements.includes(a));
+      next.achievements = merged;
+      patch((s) => ({ ...s, learn: next }));
+      return { xpGained, leveledUp: afterLevel > beforeLevel, level: afterLevel, newAchievements, perfect };
     },
+    [patch],
+  );
+
+  const setDailyGoal = useCallback(
+    (goal: number) => patch((s) => ({ ...s, learn: { ...s.learn, dailyGoal: Math.max(1, Math.round(goal)) } })),
     [patch],
   );
 
@@ -271,7 +352,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         sites: Array.isArray(parsed.sites) ? parsed.sites : [],
         notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
         plan: parsed.plan ?? "free",
-        learn: parsed.learn ?? s.learn,
+        learn: migrateLearn(parsed.learn ?? s.learn),
       }));
       return true;
     } catch {
@@ -333,8 +414,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       snapshot,
       setLearnLang,
       studyWord,
+      gradeCard,
+      recordQuiz,
+      setDailyGoal,
     }),
-    [state, addItem, importItems, removeItem, toggleFavorite, clearUpdate, addSite, removeSite, createList, deleteList, setListColor, addItemToList, removeItemFromList, reorderList, markAllRead, simulateUpdateScan, setPlan, reset, exportData, importData, applyState, snapshot, setLearnLang, studyWord],
+    [state, addItem, importItems, removeItem, toggleFavorite, clearUpdate, addSite, removeSite, createList, deleteList, setListColor, addItemToList, removeItemFromList, reorderList, markAllRead, simulateUpdateScan, setPlan, reset, exportData, importData, applyState, snapshot, setLearnLang, studyWord, gradeCard, recordQuiz, setDailyGoal],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

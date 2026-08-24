@@ -24,7 +24,15 @@ export const LEARN_LANGS: LangMeta[] = [
   { code: "zh", label: "中文 · Chinese", flag: "🇨🇳", romanization: "Pinyin" },
 ];
 
-export type CategoryId = "basics" | "numbers" | "family" | "food";
+export type CategoryId =
+  | "basics"
+  | "numbers"
+  | "family"
+  | "food"
+  | "colors"
+  | "time"
+  | "verbs"
+  | "body";
 
 export interface Category {
   id: CategoryId;
@@ -37,6 +45,10 @@ export const CATEGORIES: Category[] = [
   { id: "numbers", label: "Numbers", emoji: "🔢" },
   { id: "family", label: "Family", emoji: "👨‍👩‍👧" },
   { id: "food", label: "Food & drink", emoji: "🍜" },
+  { id: "colors", label: "Colors", emoji: "🎨" },
+  { id: "time", label: "Time", emoji: "⏰" },
+  { id: "verbs", label: "Verbs", emoji: "🏃" },
+  { id: "body", label: "Body", emoji: "🧍" },
 ];
 
 export interface Word {
@@ -134,6 +146,86 @@ export const WORDS: Word[] = [
   W("zh", "food", "茶", "chá", "Tea", "Thé", "🍵"),
   W("zh", "food", "肉", "ròu", "Meat", "Viande", "🍖"),
   W("zh", "food", "咖啡", "kāfēi", "Coffee", "Café", "☕"),
+
+  // ---------------- Colors ----------------
+  W("ko", "colors", "빨강", "ppalgang", "Red", "Rouge", "🟥", "Color noun; 빨간색 is the fuller form."),
+  W("ko", "colors", "파랑", "parang", "Blue", "Bleu", "🟦", "Also 파란색."),
+  W("ko", "colors", "노랑", "norang", "Yellow", "Jaune", "🟨"),
+  W("ko", "colors", "초록", "chorok", "Green", "Vert", "🟩", "Also 녹색 (noksaek)."),
+  W("ko", "colors", "검정", "geomjeong", "Black", "Noir", "⬛"),
+  W("ko", "colors", "하양", "hayang", "White", "Blanc", "⬜", "Also 흰색 (huinsaek)."),
+  W("ja", "colors", "赤", "aka", "Red", "Rouge", "🟥"),
+  W("ja", "colors", "青", "ao", "Blue", "Bleu", "🟦", "Historically also covers some greens."),
+  W("ja", "colors", "黄色", "kiiro", "Yellow", "Jaune", "🟨"),
+  W("ja", "colors", "緑", "midori", "Green", "Vert", "🟩"),
+  W("ja", "colors", "黒", "kuro", "Black", "Noir", "⬛"),
+  W("ja", "colors", "白", "shiro", "White", "Blanc", "⬜"),
+  W("zh", "colors", "红色", "hóngsè", "Red", "Rouge", "🟥", "色 (sè) means 'color'."),
+  W("zh", "colors", "蓝色", "lánsè", "Blue", "Bleu", "🟦"),
+  W("zh", "colors", "黄色", "huángsè", "Yellow", "Jaune", "🟨"),
+  W("zh", "colors", "绿色", "lǜsè", "Green", "Vert", "🟩"),
+  W("zh", "colors", "黑色", "hēisè", "Black", "Noir", "⬛"),
+  W("zh", "colors", "白色", "báisè", "White", "Blanc", "⬜"),
+
+  // ---------------- Time ----------------
+  W("ko", "time", "오늘", "oneul", "Today", "Aujourd'hui", "📅", undefined, "오늘 뭐 해요?", "oneul mwo haeyo?", "What are you doing today?"),
+  W("ko", "time", "내일", "naeil", "Tomorrow", "Demain", "🌅"),
+  W("ko", "time", "어제", "eoje", "Yesterday", "Hier", "🌇"),
+  W("ko", "time", "지금", "jigeum", "Now", "Maintenant", "⏱️"),
+  W("ko", "time", "시간", "sigan", "Time / hour", "Temps / heure", "⏰"),
+  W("ko", "time", "날", "nal", "Day", "Jour", "🗓️"),
+  W("ja", "time", "今日", "kyō", "Today", "Aujourd'hui", "📅", undefined, "今日は暑いです。", "kyō wa atsui desu.", "It's hot today."),
+  W("ja", "time", "明日", "ashita", "Tomorrow", "Demain", "🌅"),
+  W("ja", "time", "昨日", "kinō", "Yesterday", "Hier", "🌇"),
+  W("ja", "time", "今", "ima", "Now", "Maintenant", "⏱️"),
+  W("ja", "time", "時間", "jikan", "Time / hour", "Temps / heure", "⏰"),
+  W("ja", "time", "日", "hi", "Day", "Jour", "🗓️"),
+  W("zh", "time", "今天", "jīntiān", "Today", "Aujourd'hui", "📅", undefined, "今天很冷。", "jīntiān hěn lěng.", "It's cold today."),
+  W("zh", "time", "明天", "míngtiān", "Tomorrow", "Demain", "🌅"),
+  W("zh", "time", "昨天", "zuótiān", "Yesterday", "Hier", "🌇"),
+  W("zh", "time", "现在", "xiànzài", "Now", "Maintenant", "⏱️"),
+  W("zh", "time", "时间", "shíjiān", "Time", "Temps", "⏰"),
+  W("zh", "time", "天", "tiān", "Day", "Jour", "🗓️"),
+
+  // ---------------- Verbs (dictionary form) ----------------
+  W("ko", "verbs", "가다", "gada", "To go", "Aller", "🚶", "Dictionary form; 가요 in polite speech."),
+  W("ko", "verbs", "오다", "oda", "To come", "Venir", "🏃"),
+  W("ko", "verbs", "먹다", "meokda", "To eat", "Manger", "🍽️", undefined, "밥을 먹어요.", "babeul meogeoyo.", "I eat a meal."),
+  W("ko", "verbs", "마시다", "masida", "To drink", "Boire", "🥤"),
+  W("ko", "verbs", "보다", "boda", "To see / watch", "Voir / regarder", "👀"),
+  W("ko", "verbs", "하다", "hada", "To do", "Faire", "✅", "Very common; attaches to many nouns."),
+  W("ja", "verbs", "行く", "iku", "To go", "Aller", "🚶"),
+  W("ja", "verbs", "来る", "kuru", "To come", "Venir", "🏃", "Irregular verb."),
+  W("ja", "verbs", "食べる", "taberu", "To eat", "Manger", "🍽️", undefined, "ご飯を食べる。", "gohan o taberu.", "I eat a meal."),
+  W("ja", "verbs", "飲む", "nomu", "To drink", "Boire", "🥤"),
+  W("ja", "verbs", "見る", "miru", "To see / watch", "Voir / regarder", "👀"),
+  W("ja", "verbs", "する", "suru", "To do", "Faire", "✅", "Irregular; pairs with many nouns."),
+  W("zh", "verbs", "去", "qù", "To go", "Aller", "🚶"),
+  W("zh", "verbs", "来", "lái", "To come", "Venir", "🏃"),
+  W("zh", "verbs", "吃", "chī", "To eat", "Manger", "🍽️", undefined, "我吃饭。", "wǒ chī fàn.", "I eat a meal."),
+  W("zh", "verbs", "喝", "hē", "To drink", "Boire", "🥤"),
+  W("zh", "verbs", "看", "kàn", "To see / watch", "Voir / regarder", "👀"),
+  W("zh", "verbs", "做", "zuò", "To do / make", "Faire", "✅"),
+
+  // ---------------- Body ----------------
+  W("ko", "body", "머리", "meori", "Head / hair", "Tête / cheveux", "🧠"),
+  W("ko", "body", "눈", "nun", "Eye", "Œil", "👁️", "Same spelling as 눈 'snow', told apart by context."),
+  W("ko", "body", "손", "son", "Hand", "Main", "✋"),
+  W("ko", "body", "발", "bal", "Foot", "Pied", "🦶"),
+  W("ko", "body", "입", "ip", "Mouth", "Bouche", "👄"),
+  W("ko", "body", "귀", "gwi", "Ear", "Oreille", "👂"),
+  W("ja", "body", "頭", "atama", "Head", "Tête", "🧠"),
+  W("ja", "body", "目", "me", "Eye", "Œil", "👁️"),
+  W("ja", "body", "手", "te", "Hand", "Main", "✋"),
+  W("ja", "body", "足", "ashi", "Foot / leg", "Pied / jambe", "🦶"),
+  W("ja", "body", "口", "kuchi", "Mouth", "Bouche", "👄"),
+  W("ja", "body", "耳", "mimi", "Ear", "Oreille", "👂"),
+  W("zh", "body", "头", "tóu", "Head", "Tête", "🧠"),
+  W("zh", "body", "眼睛", "yǎnjing", "Eye", "Œil", "👁️"),
+  W("zh", "body", "手", "shǒu", "Hand", "Main", "✋"),
+  W("zh", "body", "脚", "jiǎo", "Foot", "Pied", "🦶"),
+  W("zh", "body", "嘴", "zuǐ", "Mouth", "Bouche", "👄"),
+  W("zh", "body", "耳朵", "ěrduo", "Ear", "Oreille", "👂"),
 ];
 
 export function wordsFor(lang: LearnLang, category?: CategoryId): Word[] {

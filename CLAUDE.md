@@ -66,7 +66,11 @@ client/src/
   lib/importers.ts       parse MAL XML / CSV / JSON / Dasi backup (auto-detect).
   lib/catalog.ts         optional AniList online title search (best-effort).
   lib/sync.ts            SyncProvider interface; local (default) + HTTP provider (VITE_SYNC_API_URL).
-  lib/vocab.ts           learning dataset (KR/JP/ZH) + level/XP/streak helpers.
+  lib/vocab.ts           learning dataset (KR/JP/ZH, 8 categories) + level/XP/streak helpers.
+  lib/srs.ts             SM-2 spaced-repetition scheduling (pure, unit-tested).
+  lib/quiz.ts            quiz generation (MC + typing) + answer normalization (seeded RNG).
+  lib/achievements.ts    daily-goal + achievements helpers (pure, unit-tested).
+  lib/speak.ts           best-effort pronunciation via Web Speech (speechSynthesis).
   lib/format.ts          markerLabel/relativeTime/timecode.
   components/            AppHeader, Notifications, LanguageSwitch, AddWork, ColorSwatches, Bits, DasiLogo.
   pages/                 Home, Collections, ListDetail, Pricing, Settings, Learn, NotFound.
@@ -75,7 +79,7 @@ extension/               MV3: content.js (generic-first detector + site adapters
                          popup.*, library.html/js (standalone library), manifest.json.
 shared/detect.ts         pure detection heuristics (mirrored by content.js), unit-tested.
 server/                  optional Express sync+auth API (api.ts, lib/{crypto,store,merge}.ts).
-tests/                   vitest: detect, backend, importers, vocab.
+tests/                   vitest: detect, backend, importers, vocab, srs, quiz, achievements.
 docs/                    ARCHITECTURE, PRICING, BACKEND, UPDATING, QA.
 .github/workflows/extension-zip.yml  publishes dasi-extension.zip as the "dasi-latest" release.
 ```
@@ -103,10 +107,20 @@ with a vitest in `tests/`. Keep everything typechecking and building.
 - Optional **sync + auth backend** (Express, scrypt + HMAC tokens, swappable
   Store, item-level merge) + client HTTP provider + functional Settings sign-in.
   Verified live: signup→push→new-device login→recover.
-- **Learn module**: KR/JP/ZH vocab by category, flashcards, word detail
-  (definition/example/note), review session, XP/levels/streak, Pro-gated
-  categories/languages. Synced.
-- 43 unit tests; multiple real-browser functional passes; zero page errors.
+- **Learn module**: KR/JP/ZH vocab across **8 categories** (Basics, Numbers,
+  Family, Food, Colors, Time, Verbs, Body), flashcards, word detail
+  (definition/example/note), XP/levels/streak, Pro-gated categories/languages.
+  Synced. Now also:
+  - **SM-2 spaced repetition** — review pulls *due* cards, three grades
+    (Again/Good/Easy) with next-interval previews; per-word `srs` state synced.
+  - **Quizzes** — multiple-choice (meaning/reading) and typing, 10 questions,
+    scored, perfect-run detection.
+  - **Audio pronunciation** — tap-to-hear via `speechSynthesis` (best-effort,
+    hidden when unsupported).
+  - **Daily goal** (10/20/30/50) with progress + **achievements** (11 badges,
+    sticky). Toasts on unlock.
+- 65 unit tests; multiple real-browser functional passes (Learn QA re-verified:
+  quiz, SRS grades, audio, goal, achievements); zero code page errors.
 
 ## Status — NOT DONE / next steps
 
@@ -117,15 +131,15 @@ with a vitest in `tests/`. Keep everything typechecking and building.
 2. **Wire the extension to the backend:** an options page to store API URL +
    token so the extension syncs like the web app (today only the web app does).
 3. **Expand the Learn module** (user wants beginner→expert, "everything sticks"):
-   - More words + categories (Colors, Time, Verbs, Travel, Body, Grammar points)
-     for all three languages; keep translations accurate.
-   - Real per-word images (only emoji today) — needs an asset pipeline or a
-     free image source; keep it optional/offline-friendly.
-   - Audio pronunciation (Web Speech `speechSynthesis` for ja/zh/ko, best-effort).
-   - Quizzes / typing / multiple-choice, spaced-repetition scheduling (SM-2),
-     daily goal, achievements — deepen the sense of accomplishment.
-   - A stats/calendar page (also a Pro value): words learned over time, streak
-     calendar, per-category mastery.
+   - DONE: audio pronunciation; quizzes (MC + typing); SM-2 spaced repetition;
+     daily goal + achievements; +4 categories (Colors, Time, Verbs, Body).
+   - TODO: still more words + categories (Travel, Grammar points, Weather,
+     Places…) for all three languages; keep translations accurate.
+   - TODO: real per-word images (only emoji today) — needs an asset pipeline or
+     a free image source; keep it optional/offline-friendly.
+   - TODO: a **stats/calendar page** (also a Pro value): the store now records
+     `learn.daily` (YYYY-MM-DD → study count) and `learn.srs`, so build words-
+     learned-over-time, a streak calendar, and per-category mastery on top.
 4. **More site adapters + Playwright fixtures** per site (see `wotaku.wiki`,
    `anime-skip.com` for ideas like intro-skip timestamps).
 5. **More languages** (data-only in `strings.ts` + `vocab.ts`).

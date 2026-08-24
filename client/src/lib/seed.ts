@@ -119,7 +119,7 @@ export function seedState(): DasiState {
     sites: seedSites,
     notifications: seedNotifications,
     plan: "free",
-    learn: { lang: "ko", xp: 0, streak: 0, lastStudied: null, mastery: {} },
+    learn: { lang: "ko", xp: 0, streak: 0, lastStudied: null, mastery: {}, srs: {}, dailyGoal: 20, daily: {}, achievements: [], perfectQuizzes: 0 },
     version: 1,
   };
 }

@@ -62,6 +62,16 @@ export interface AppNotification {
 
 export type LearnLang = "ko" | "ja" | "zh";
 
+/** Spaced-repetition card state per word (see lib/srs.ts). */
+export interface SrsCard {
+  ease: number;
+  reps: number;
+  intervalDays: number;
+  due: string; // YYYY-MM-DD
+  last: string | null;
+  lapses: number;
+}
+
 export interface LearnState {
   lang: LearnLang;
   xp: number;
@@ -69,6 +79,16 @@ export interface LearnState {
   lastStudied: string | null; // YYYY-MM-DD
   /** wordId -> mastery (1 = learning, 2 = known). Absent = unseen. */
   mastery: Record<string, 1 | 2>;
+  /** wordId -> SM-2 scheduling card. Absent = never reviewed. */
+  srs: Record<string, SrsCard>;
+  /** Target number of study actions per day. */
+  dailyGoal: number;
+  /** YYYY-MM-DD -> study actions logged that day (daily goal + calendar). */
+  daily: Record<string, number>;
+  /** Unlocked achievement ids (sticky union over time). */
+  achievements: string[];
+  /** Count of perfect quizzes completed. */
+  perfectQuizzes: number;
 }
 
 export interface DasiState {
