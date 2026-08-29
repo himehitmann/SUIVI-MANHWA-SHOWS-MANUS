@@ -19,6 +19,20 @@ Claude-Session: https://claude.ai/code/session_01Mv5LNa2FkJMnnavh7uxc6L
 Push with `git push origin claude/admiring-pasteur-dc5ce1`. Do not open a PR
 unless asked. User writes in French; reply in French, code/docs in English.
 
+### Public vs private branches (keep them separated)
+
+- **Private branch** = `claude/admiring-pasteur-dc5ce1` — the full project, for
+  the owner's use. Develop here. It keeps the internal-only files: this
+  `CLAUDE.md` handoff, `docs/PRICING.md` (pricing strategy / competitor / margin
+  math), `ideas.md`, `todo.md`, `reference-notes.md`, `template.json`.
+- **Public branch** = `public/main` — a **generated mirror** of private with
+  those internal files stripped: the shareable product (app + extension +
+  backend code + technical docs). Never commit to it by hand.
+- After pushing to private, refresh the mirror with
+  `bash scripts/publish-public.sh` (it force-pushes `public/main`, since it is
+  fully derived from private). Update `PRIVATE_PATHS` in that script if a new
+  internal-only file is added.
+
 ## What Dasi is
 
 A **local-first, premium** browser extension + companion web app: a universal
