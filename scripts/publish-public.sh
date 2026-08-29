@@ -43,8 +43,17 @@ for p in "${PRIVATE_PATHS[@]}"; do
   git rm -q -f --ignore-unmatch "$p" >/dev/null 2>&1 || true
 done
 
-git commit -q -m "chore(public): mirror ${SOURCE_SHA} with internal files stripped" || {
-  echo "Nothing to strip (already clean)."; }
+# Flip the build edition to the gated Chrome-Web-Store build. This is the ONLY
+# code difference between the branches: on private every Pro feature is unlocked;
+# on public the normal free/Pro paywall applies.
+EDITION_FILE="client/src/lib/edition.ts"
+if [ -f "$EDITION_FILE" ]; then
+  sed -i 's/^export const EDITION: "private" | "public" = "private";/export const EDITION: "private" | "public" = "public";/' "$EDITION_FILE"
+  git add "$EDITION_FILE"
+fi
+
+git commit -q -m "chore(public): mirror ${SOURCE_SHA} (store edition, internal files stripped)" || {
+  echo "Nothing to change (already clean)."; }
 
 git push -f -u origin "$PUBLIC_BRANCH"
 

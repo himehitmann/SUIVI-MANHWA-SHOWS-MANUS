@@ -430,3 +430,6 @@ a.profile{display:grid;place-items:center;text-decoration:none}
 .stats-foot{display:flex;align-items:center;gap:6px;color:#928C9E;font-size:10px;margin-top:8px}
 @media(max-width:900px){.stats-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.mastery-row{grid-template-columns:90px minmax(0,1fr) 70px}}
+
+/* Owner (private/unlocked) edition banner */
+.owner-banner{display:inline-block;margin:14px auto 0;padding:9px 16px;border-radius:999px;background:linear-gradient(135deg,#F0EAFF,#E9F8F0);color:#6C5AA5;font-size:12px;font-weight:700;box-shadow:0 6px 16px rgba(92,74,140,.08)}

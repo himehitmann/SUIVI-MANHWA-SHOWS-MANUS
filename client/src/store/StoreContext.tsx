@@ -6,6 +6,7 @@ import { createItem, type ItemInput } from "@/lib/item";
 import { XP_KNOWN, XP_LEARNING, XP_REVIEW, levelInfo, nextStreak, todayStr } from "@/lib/vocab";
 import { newCard, qualityOf, schedule, type Grade } from "@/lib/srs";
 import { unlockedAchievements } from "@/lib/achievements";
+import { UNLOCK_ALL } from "@/lib/edition";
 
 const STORAGE_KEY = "dasi.state.v1";
 
@@ -91,6 +92,8 @@ function load(): DasiState {
 }
 
 interface StoreValue extends DasiState {
+  /** Effective Pro access: true when the plan is paid OR this is the unlocked (private) edition. */
+  pro: boolean;
   addItem: (input: ItemInput) => LibraryItem;
   importItems: (items: LibraryItem[]) => number;
   removeItem: (id: string) => void;
@@ -391,6 +394,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<StoreValue>(
     () => ({
       ...state,
+      pro: UNLOCK_ALL || state.plan !== "free",
       addItem,
       importItems,
       removeItem,

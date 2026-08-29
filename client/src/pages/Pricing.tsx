@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { useI18n } from "@/i18n/I18nContext";
 import { useStore } from "@/store/StoreContext";
+import { UNLOCK_ALL } from "@/lib/edition";
 import type { Plan } from "@/lib/types";
 
 interface Tier {
@@ -73,6 +74,7 @@ export default function Pricing() {
           <span className="eyebrow pastel-label">{t("pricing.eyebrow")}</span>
           <h1>{t("pricing.title")}</h1>
           <p>{t("pricing.subtitle")}</p>
+          {UNLOCK_ALL && <div className="owner-banner">✨ {t("pricing.ownerUnlocked")}</div>}
           <div className="billing-toggle" role="tablist">
             <button className={!yearly ? "active" : ""} onClick={() => setYearly(false)} role="tab" aria-selected={!yearly}>
               {t("pricing.billing.monthly")}

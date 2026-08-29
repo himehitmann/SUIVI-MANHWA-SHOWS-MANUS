@@ -35,7 +35,7 @@ export default function Learn() {
   const { t, lang } = useI18n();
   const store = useStore();
   const learn = store.learn;
-  const pro = store.plan !== "free";
+  const pro = store.pro;
   const speakable = canSpeak();
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [detail, setDetail] = useState<Word | null>(null);

@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { useI18n } from "@/i18n/I18nContext";
 import { LANGUAGES } from "@/i18n/strings";
 import { useStore } from "@/store/StoreContext";
+import { UNLOCK_ALL } from "@/lib/edition";
 import { syncProvider } from "@/lib/sync";
 import { parseImport } from "@/lib/importers";
 
@@ -141,7 +142,7 @@ export default function Settings() {
             <h3><Cloud size={16} /> {t("settings.plan")}</h3>
             <div className="settings-line">
               <span>{t("settings.plan")}</span>
-              <strong className="plan-badge">{t(`pricing.${store.plan}`)}</strong>
+              <strong className="plan-badge">{UNLOCK_ALL ? t("settings.ownerPlan") : t(`pricing.${store.plan}`)}</strong>
             </div>
             <Link href="/pricing" className="heart-button center">{t("settings.managePlan")}</Link>
           </section>
