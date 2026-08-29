@@ -5,6 +5,8 @@ import { AppHeader } from "@/components/AppHeader";
 import { useI18n } from "@/i18n/I18nContext";
 import { useStore } from "@/store/StoreContext";
 import { UNLOCK_ALL } from "@/lib/edition";
+import { checkoutUrl } from "@/lib/checkout";
+import { syncProvider } from "@/lib/sync";
 import type { Plan } from "@/lib/types";
 
 interface Tier {
@@ -66,6 +68,24 @@ export default function Pricing() {
 
   const ctaLabel = (plan: Plan) => (plan === "free" ? t("pricing.cta.free") : plan === "pro" ? t("pricing.cta.pro") : t("pricing.cta.lifetime"));
 
+  const subscribe = (plan: Plan) => {
+    if (plan === "free") {
+      store.setPlan("free");
+      return;
+    }
+    // Real payment path: redirect to the configured hosted checkout, tagging the
+    // account so the backend webhook can grant the plan.
+    const session = syncProvider.getSession();
+    const url = checkoutUrl(plan, yearly, { userId: session?.userId, email: session?.email });
+    if (url) {
+      window.location.href = url;
+      return;
+    }
+    // No checkout configured (dev / unlocked owner build): local plan toggle.
+    store.setPlan(plan);
+    toast.success(ctaLabel(plan));
+  };
+
   return (
     <div className="dasi-app">
       <AppHeader />
@@ -114,10 +134,7 @@ export default function Pricing() {
                 <button
                   className={tier.featured ? "primary-cta full" : "heart-button full"}
                   disabled={isCurrent}
-                  onClick={() => {
-                    store.setPlan(tier.plan);
-                    toast.success(ctaLabel(tier.plan));
-                  }}
+                  onClick={() => subscribe(tier.plan)}
                 >
                   {isCurrent ? t("pricing.cta.free") : ctaLabel(tier.plan)}
                 </button>

@@ -50,7 +50,7 @@ and isolated behind interfaces.
 pnpm install
 pnpm dev      # web app, http://localhost:3000
 pnpm check    # tsc --noEmit (must pass)
-pnpm test     # vitest run --config vitest.config.ts (96 tests, must pass)
+pnpm test     # vitest run --config vitest.config.ts (99 tests, must pass)
 pnpm build    # vite build + esbuild server
 ```
 
@@ -80,6 +80,7 @@ client/src/
   lib/importers.ts       parse MAL XML / CSV / JSON / Dasi backup (auto-detect).
   lib/catalog.ts         optional AniList online title search (best-effort).
   lib/sync.ts            SyncProvider interface; local (default) + HTTP provider (VITE_SYNC_API_URL).
+  lib/checkout.ts        hosted checkout-link builder (Stripe Payment Links via env), unit-tested.
   lib/vocab.ts           learning dataset (KR/JP/ZH, 8 categories) + level/XP/streak helpers.
   lib/srs.ts             SM-2 spaced-repetition scheduling (pure, unit-tested).
   lib/quiz.ts            quiz generation (MC + typing) + answer normalization (seeded RNG).
@@ -97,7 +98,7 @@ shared/detect.ts         pure detection heuristics (mirrored by content.js), uni
 server/                  optional Express sync+auth+billing API (api.ts, lib/{crypto,store,
                          store-postgres,merge,billing}.ts). Postgres store + Stripe/Paddle webhooks.
 tests/                   vitest: detect, backend, importers, vocab, srs, quiz, achievements,
-                         stats, billing, store-postgres.
+                         stats, billing, store-postgres, checkout.
 docs/                    ARCHITECTURE, PRICING, BACKEND, UPDATING, QA.
 .github/workflows/extension-zip.yml  publishes dasi-extension.zip as the "dasi-latest" release.
 ```
@@ -165,7 +166,7 @@ locally whenever needed.
   - **Stats/calendar page** (`/learn/stats`, `pages/LearnStats.tsx`): summary
     tiles, 14-day activity chart, 7-day review forecast, 13-week study-calendar
     heatmap, per-category mastery bars. Pure view over `learn.daily/srs/mastery`.
-- 96 unit tests; multiple real-browser functional passes (Learn + Stats QA
+- 99 unit tests; multiple real-browser functional passes (Learn + Stats QA
   re-verified: quiz, SRS grades, audio, goal, achievements, charts, EN/FR);
   zero code page errors.
 
@@ -179,11 +180,15 @@ locally whenever needed.
      tested billing logic (`server/lib/billing.ts`): signature verification,
      event→plan mapping, apply-to-store; lifetime is permanent. Verified E2E
      against the live API (signup→webhook→/license reflects pro/lifetime).
+   - Client **checkout links WIRED** (`client/src/lib/checkout.ts`): the Pricing
+     CTA redirects to a hosted payment link (Stripe Payment Links) from env
+     (`VITE_CHECKOUT_PRO_MONTH/PRO_YEAR/LIFETIME`), tagging `client_reference_id`
+     + `prefilled_email` so the webhook grants the plan; local toggle fallback
+     when unset. Unit-tested.
    - STILL TODO (needs your accounts/credentials): actually deploy Postgres + set
      env (DATABASE_URL, SYNC_JWT_SECRET, STRIPE_*/PADDLE_* secrets + price ids),
-     set `VITE_SYNC_API_URL` for the web build, and create the **checkout link**
-     in the client Pricing page with your publishable keys (the only unwired
-     piece — the webhook already grants the plan). See `docs/BACKEND.md`.
+     set `VITE_SYNC_API_URL` + the `VITE_CHECKOUT_*` payment-link URLs for the
+     web build. All code is in place; see `docs/BACKEND.md`.
 2. **Wire the extension to the backend — DONE:** `extension/options.html/js`
    (Options UI) signs into the same backend as the web app; `background.js` has a
    cloud-sync module (pull → merge → push against `/sync`, best-effort auto-sync

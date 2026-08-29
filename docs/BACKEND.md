@@ -86,10 +86,23 @@ Behaviour: active subscription → `pro` (or the price's plan), one-time payment
 `lifetime`, cancellation/expiry → `free`. **Lifetime is permanent** — a later
 subscription/cancel event never downgrades it.
 
-> The **checkout link itself** (Stripe Checkout / Paddle overlay) is created in
-> the client Pricing page with your publishable keys — that part needs your
-> provider account and is the only piece not wired here; the webhook above is
-> what actually grants the plan.
+### Client checkout links
+
+The Pricing page redirects buyers to a **hosted payment link** you create in your
+provider dashboard (e.g. Stripe Payment Links — no client secret, no extra
+backend). Configure them at web-build time:
+
+```bash
+export VITE_CHECKOUT_PRO_MONTH="https://buy.stripe.com/…"   # $2.99/mo
+export VITE_CHECKOUT_PRO_YEAR="https://buy.stripe.com/…"    # $24.99/yr
+export VITE_CHECKOUT_LIFETIME="https://buy.stripe.com/…"    # $49 one-time
+```
+
+The client appends `client_reference_id` (the signed-in Dasi user id) and
+`prefilled_email` to the link, so the webhook maps the payment to the account
+(see "Linking the payment to the Dasi account" above). When none are set — dev,
+or the unlocked owner build — the Pricing CTA just toggles the plan locally.
+`client/src/lib/checkout.ts` holds the (unit-tested) URL logic.
 
 ## Other production notes
 
