@@ -45,7 +45,7 @@
   const cleanTitle = (raw) => {
     let t = clean(raw);
     // Drop everything after a separator that usually introduces the site name.
-    t = t.replace(/\s*[|–—·\-]\s*(read|watch|manga|manhwa|webtoon|anime|online|free|english|sub|subbed|dub|episode list|chapter list|[A-Za-z0-9]+scans?|mangadex|webtoons?|kissasian|myasiantv|aniwatch|hianime|crunchyroll|netflix|bato|mangago|naver|kakao|viki|wetv|iq|bilibili).*$/i, "");
+    t = t.replace(/\s*[|–—·\-]\s*(read|watch|manga|manhwa|webtoon|anime|online|free|english|sub|subbed|dub|episode list|chapter list|[A-Za-z0-9]+scans?|mangadex|manganato|manganelo|mangakakalot|webtoons?|kissasian|kisskh|myasiantv|aniwatch|hianime|crunchyroll|netflix|bato|mangago|naver|kakao|viki|wetv|iq|bilibili).*$/i, "");
     // Remove trailing chapter/episode markers to keep the work name.
     t = t.replace(/[\s\-:_#]*(?:chapter|chap|ch|episode|ep|season|s|vol(?:ume)?|part)\.?\s*\d+.*$/i, "");
     // Remove trailing years and quality tags.
@@ -156,6 +156,24 @@
       },
     },
     {
+      id: "manganato",
+      match: /manganato|manganelo|chapmanganato|natomanga/,
+      parse() {
+        const m = location.pathname.match(/chapter-(\d+(?:\.\d)?)/i);
+        const title = cleanTitle(qtext(".panel-breadcrumb a:nth-last-child(2)") || qtext("h1") || metaFirst(["meta[property='og:title']"]));
+        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+      },
+    },
+    {
+      id: "mangakakalot",
+      match: /mangakakalot/,
+      parse() {
+        const m = location.pathname.match(/chapter[_-](\d+(?:\.\d)?)/i);
+        const title = cleanTitle(qtext(".manga-info-text h1") || qtext("h1") || metaFirst(["meta[property='og:title']"]));
+        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+      },
+    },
+    {
       id: "aniwatch",
       match: /aniwatch|hianime|(^|\.)zoro\.|(^|\.)9animetv/,
       parse() {
@@ -207,6 +225,16 @@
       parse() {
         const m = location.pathname.match(/-(\d+)-(?:vostfr|vf|vf-hd|episode)/i) || location.pathname.match(/episode-(\d+)/i);
         return { title: cleanTitle(qtext("h1") || metaFirst(["meta[property='og:title']"])), type: "watching", episode: m ? num(m[1]) : undefined };
+      },
+    },
+    {
+      id: "crunchyroll",
+      match: /(^|\.)crunchyroll\.com$/,
+      parse() {
+        const m = location.pathname.match(/\/watch\/[a-z0-9]+\/([a-z0-9-]+)/i);
+        const title = cleanTitle(qtext("h1.title") || qtext("h1") || metaFirst(["meta[property='og:title']"])) || (m ? titleCase(m[1]) : "");
+        const se = parseSeasonEpisode(document.title) || {};
+        return { title, type: "watching", ...se };
       },
     },
     {

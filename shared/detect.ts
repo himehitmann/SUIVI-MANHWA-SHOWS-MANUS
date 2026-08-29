@@ -36,7 +36,7 @@ export function titleCase(slug: string): string {
 export function cleanTitle(raw: string): string {
   let t = clean(raw);
   t = t.replace(
-    /\s*[|–—·\-]\s*(read|watch|manga|manhwa|webtoon|anime|online|free|english|sub|subbed|dub|episode list|chapter list|[A-Za-z0-9]+scans?|mangadex|webtoons?|kissasian|myasiantv|aniwatch|hianime|crunchyroll|netflix|bato|mangago|naver|kakao|viki|wetv|iq|bilibili).*$/i,
+    /\s*[|–—·\-]\s*(read|watch|manga|manhwa|webtoon|anime|online|free|english|sub|subbed|dub|episode list|chapter list|[A-Za-z0-9]+scans?|mangadex|manganato|manganelo|mangakakalot|webtoons?|kissasian|kisskh|myasiantv|aniwatch|hianime|crunchyroll|netflix|bato|mangago|naver|kakao|viki|wetv|iq|bilibili).*$/i,
     "",
   );
   t = t.replace(/[\s\-:_#]*(?:chapter|chap|ch|episode|ep|season|s|vol(?:ume)?|part)\.?\s*\d+.*$/i, "");
@@ -121,6 +121,50 @@ export function adapterFromUrl(url: string): Marker | null {
       id: "naver",
       test: /comic\.naver\.com/i,
       run: () => ({ type: "reading", chapter: toNum(new URL(url).searchParams.get("no") || ""), adapter: "naver" }),
+    },
+    {
+      id: "mangago",
+      test: /mangago\./i,
+      run: () => {
+        const t = pathname.match(/\/read-manga\/([a-z0-9_-]+)/i);
+        const c = pathname.match(/\/c(\d+(?:\.\d)?)\//i);
+        return { type: "reading", title: t ? titleCase(t[1]) : undefined, chapter: c ? toNum(c[1]) : undefined, adapter: "mangago" };
+      },
+    },
+    {
+      id: "manganato",
+      test: /manganato|manganelo|chapmanganato|natomanga/i,
+      run: () => {
+        const c = pathname.match(/chapter-(\d+(?:\.\d)?)/i);
+        return { type: "reading", chapter: c ? toNum(c[1]) : undefined, adapter: "manganato" };
+      },
+    },
+    {
+      id: "mangakakalot",
+      test: /mangakakalot/i,
+      run: () => {
+        const t = pathname.match(/\/manga\/([a-z0-9_-]+)/i) || pathname.match(/\/chapter\/([a-z0-9_-]+)/i);
+        const c = pathname.match(/chapter[_-](\d+(?:\.\d)?)/i);
+        return { type: "reading", title: t ? titleCase(t[1]) : undefined, chapter: c ? toNum(c[1]) : undefined, adapter: "mangakakalot" };
+      },
+    },
+    {
+      id: "kisskh",
+      test: /kisskh/i,
+      run: () => {
+        const m = pathname.match(/\/([^/]+)\/Episode-(\d+)/i);
+        return m
+          ? { title: titleCase(m[1]), type: "watching", episode: toNum(m[2]), adapter: "kisskh" }
+          : { type: "watching", adapter: "kisskh" };
+      },
+    },
+    {
+      id: "crunchyroll",
+      test: /crunchyroll\.com/i,
+      run: () => {
+        const m = pathname.match(/\/watch\/[a-z0-9]+\/([a-z0-9-]+)/i);
+        return { type: "watching", title: m ? titleCase(m[1]) : undefined, adapter: "crunchyroll" };
+      },
     },
   ];
 

@@ -36,7 +36,7 @@ and isolated behind interfaces.
 pnpm install
 pnpm dev      # web app, http://localhost:3000
 pnpm check    # tsc --noEmit (must pass)
-pnpm test     # vitest run --config vitest.config.ts (91 tests, must pass)
+pnpm test     # vitest run --config vitest.config.ts (96 tests, must pass)
 pnpm build    # vite build + esbuild server
 ```
 
@@ -100,8 +100,10 @@ with a vitest in `tests/`. Keep everything typechecking and building.
 - **Collections**: custom lists, color picker, list detail page, **drag-and-drop** reorder.
 - **Pricing** page (Free / Pro $2.99·mo or $24.99·yr / Lifetime $49); **Settings** page.
 - **Detection**: generic-first pipeline + isolated site adapters (Netflix, WEBTOON,
-  Naver, Kakao, AsuraScans, Bato, MangaDex, Mangago, Aniwatch, MyAsianTV,
-  KissAsian, KissKh, Viki, Voiranime, + shared drama adapter). Confidence gating.
+  Naver, Kakao, AsuraScans, Bato, MangaDex, Mangago, Manganato, Mangakakalot,
+  Aniwatch, MyAsianTV, KissAsian, KissKh, Viki, Voiranime, Crunchyroll, + shared
+  drama adapter). URL-only adapters mirrored & unit-tested in `shared/detect.ts`.
+  Confidence gating.
 - Extension: on-demand injection (activeTab), merge policy, **storage.local + sync**
   mirror (cross-device recovery), standalone library page, `onInstalled` migration
   hook, packaged-zip release workflow, INSTALL.md.
@@ -137,7 +139,7 @@ with a vitest in `tests/`. Keep everything typechecking and building.
   - **Stats/calendar page** (`/learn/stats`, `pages/LearnStats.tsx`): summary
     tiles, 14-day activity chart, 7-day review forecast, 13-week study-calendar
     heatmap, per-category mastery bars. Pure view over `learn.daily/srs/mastery`.
-- 91 unit tests; multiple real-browser functional passes (Learn + Stats QA
+- 96 unit tests; multiple real-browser functional passes (Learn + Stats QA
   re-verified: quiz, SRS grades, audio, goal, achievements, charts, EN/FR);
   zero code page errors.
 

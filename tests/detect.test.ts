@@ -73,6 +73,31 @@ describe("adapterFromUrl", () => {
     const r = adapterFromUrl("https://m.comic.naver.com/webtoon/detail?titleId=812645&no=42");
     expect(r).toMatchObject({ adapter: "naver", type: "reading", chapter: 42 });
   });
+  it("extracts a Mangago chapter and title", () => {
+    const r = adapterFromUrl("https://www.mangago.me/read-manga/the_beginning_after_the_end/an/c096/");
+    expect(r).toMatchObject({ adapter: "mangago", type: "reading", chapter: 96 });
+    expect(r?.title?.toLowerCase()).toContain("beginning after the end");
+  });
+  it("extracts a Manganato chapter", () => {
+    const r = adapterFromUrl("https://chapmanganato.to/manga-aa951409/chapter-238");
+    expect(r).toMatchObject({ adapter: "manganato", type: "reading", chapter: 238 });
+  });
+  it("extracts a Mangakakalot chapter and title", () => {
+    const r = adapterFromUrl("https://www.mangakakalot.gg/manga/omniscient-readers-viewpoint/chapter-150");
+    expect(r).toMatchObject({ adapter: "mangakakalot", type: "reading", chapter: 150 });
+    expect(r?.title?.toLowerCase()).toContain("omniscient");
+  });
+  it("extracts a KissKh episode + title", () => {
+    const r = adapterFromUrl("https://kisskh.co/Drama/Physiognomy/Episode-3?id=8123&ep=99");
+    expect(r).toMatchObject({ adapter: "kisskh", type: "watching", episode: 3 });
+    expect(r?.title).toBe("Physiognomy");
+  });
+  it("extracts a Crunchyroll title (no number in URL)", () => {
+    const r = adapterFromUrl("https://www.crunchyroll.com/watch/GZJH3P1D3/the-strongest");
+    expect(r).toMatchObject({ adapter: "crunchyroll", type: "watching" });
+    expect(r?.title?.toLowerCase()).toContain("strongest");
+    expect(r?.episode).toBeUndefined();
+  });
   it("returns null for an unknown site", () => {
     expect(adapterFromUrl("https://example.com/some/page")).toBeNull();
   });
