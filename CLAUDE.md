@@ -106,6 +106,18 @@ Conventions: add a feature by (1) adding EN+FR strings, (2) a store action that
 mutates persisted state (so it auto-syncs), (3) UI, (4) pure logic in `lib/*`
 with a vitest in `tests/`. Keep everything typechecking and building.
 
+### Codebase knowledge graph (graphify)
+
+`graphify` (PyPI `graphifyy`, `uv tool install graphifyy`) builds a local
+tree-sitter knowledge graph of the repo — useful for "what connects X to Y",
+impact analysis, and finding architectural hubs. The Claude skill is installed
+(`graphify install --platform claude`), so `/graphify .` works in-session.
+Build/refresh the graph with `graphify update .`; then `graphify god-nodes`,
+`graphify query "…"`, `graphify explain "Symbol"`, `graphify affected "Symbol"`.
+Output lands in `graphify-out/` — **git-ignored** (large, and its report embeds
+the internal-only docs), so it never reaches the public branch. Regenerate
+locally whenever needed.
+
 ## Status — DONE (all committed, tested)
 
 - English-first UI + real i18n (EN/FR), language switch by the search bar.

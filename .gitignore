@@ -114,3 +114,6 @@ client/public/__manus__/version.json
 
 # Sync backend local data
 .data/
+
+# graphify — generated codebase knowledge graph (large, embeds internal docs; regenerate with `graphify update .`)
+graphify-out/
