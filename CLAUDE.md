@@ -7,7 +7,7 @@ is committed on the working branch.
 
 ## Working branch
 
-Develop on **`claude/admiring-pasteur-dc5ce1`** (do NOT create new branches —
+Develop on **`private`** (do NOT create new branches —
 keep updating this one). Commit in English with a clear body and end every
 commit with:
 
@@ -16,22 +16,24 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01Mv5LNa2FkJMnnavh7uxc6L
 ```
 
-Push with `git push origin claude/admiring-pasteur-dc5ce1`. Do not open a PR
+Push with `git push origin private`. Do not open a PR
 unless asked. User writes in French; reply in French, code/docs in English.
 
-### Public vs private branches (keep them separated)
+### The two branches (there are ONLY two — keep them separated)
 
-- **Private branch** = `claude/admiring-pasteur-dc5ce1` — the full project, for
-  the owner's use. Develop here. It keeps the internal-only files: this
-  `CLAUDE.md` handoff, `docs/PRICING.md` (pricing strategy / competitor / margin
-  math), `ideas.md`, `todo.md`, `reference-notes.md`, `template.json`.
-- **Public branch** = `public/main` — a **generated mirror** of private with
-  those internal files stripped: the shareable product (app + extension +
-  backend code + technical docs). Never commit to it by hand.
-- After pushing to private, refresh the mirror with
-  `bash scripts/publish-public.sh` (it force-pushes `public/main`, since it is
-  fully derived from private). Update `PRIVATE_PATHS` in that script if a new
-  internal-only file is added.
+- **`private`** — the OWNER's build. Develop here. Everything unlocked, **no
+  payment** (`EDITION="private"` → `UNLOCK_ALL`), and it keeps the internal-only
+  files: this `CLAUDE.md` handoff, `docs/PRICING.md`, `ideas.md`, `todo.md`,
+  `reference-notes.md`, `template.json`.
+- **`public`** — the **Chrome-Web-Store** build. A **generated mirror** of
+  `private` with the paywall ON (`EDITION="public"` → normal free/Pro gating) and
+  the internal files stripped. Never commit to it by hand.
+- After every change: commit to `private`, push it, then run
+  `bash scripts/publish-public.sh` — it regenerates `public` from `private`
+  (strips internal files, flips EDITION to "public") and force-pushes it. Update
+  `PRIVATE_PATHS` in that script if a new internal-only file is added.
+- No other branches should exist. Both are verified to build (`pnpm install &&
+  pnpm build`); a fresh clone needs `pnpm install` first.
 
 ## What Dasi is
 

@@ -14,8 +14,8 @@
 # Usage:  bash scripts/publish-public.sh
 set -euo pipefail
 
-PRIVATE_BRANCH="claude/admiring-pasteur-dc5ce1"
-PUBLIC_BRANCH="public/main"
+PRIVATE_BRANCH="private"
+PUBLIC_BRANCH="public"
 
 # Files that must NEVER reach the public branch.
 PRIVATE_PATHS=(
