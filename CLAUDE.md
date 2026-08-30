@@ -25,15 +25,16 @@ unless asked. User writes in French; reply in French, code/docs in English.
   payment** (`EDITION="private"` → `UNLOCK_ALL`), and it keeps the internal-only
   files: this `CLAUDE.md` handoff, `docs/PRICING.md`, `ideas.md`, `todo.md`,
   `reference-notes.md`, `template.json`.
-- **`public`** — the **Chrome-Web-Store** build. A **generated mirror** of
-  `private` with the paywall ON (`EDITION="public"` → normal free/Pro gating) and
-  the internal files stripped. Never commit to it by hand.
+- **`main`** — the **PUBLIC / Chrome-Web-Store** build (repo default branch). A
+  **generated mirror** of `private` with the paywall ON (`EDITION="public"` →
+  normal free/Pro gating) and the internal files stripped. Never commit to it by
+  hand.
 - After every change: commit to `private`, push it, then run
-  `bash scripts/publish-public.sh` — it regenerates `public` from `private`
+  `bash scripts/publish-public.sh` — it regenerates `main` from `private`
   (strips internal files, flips EDITION to "public") and force-pushes it. Update
   `PRIVATE_PATHS` in that script if a new internal-only file is added.
-- No other branches should exist. Both are verified to build (`pnpm install &&
-  pnpm build`); a fresh clone needs `pnpm install` first.
+- Only these two branches should exist. Both build (`pnpm install && pnpm
+  build`); a fresh clone needs `pnpm install` first.
 
 ## What Dasi is
 

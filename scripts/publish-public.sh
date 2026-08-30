@@ -14,8 +14,10 @@
 # Usage:  bash scripts/publish-public.sh
 set -euo pipefail
 
+# The PUBLIC branch is `main` (the repo default): the Chrome-Web-Store build with
+# the paywall on. The PRIVATE branch is the owner's unlocked build.
 PRIVATE_BRANCH="private"
-PUBLIC_BRANCH="public"
+PUBLIC_BRANCH="main"
 
 # Files that must NEVER reach the public branch.
 PRIVATE_PATHS=(
