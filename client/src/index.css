@@ -441,3 +441,36 @@ a.profile{display:grid;place-items:center;text-decoration:none}
 .share-chip{display:grid;place-items:center;min-width:34px;height:34px;padding:0 10px;border-radius:999px;background:#fff;color:#6D6677;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(48,37,77,.06);cursor:pointer;transition:.15s;text-decoration:none}
 .share-chip:hover{transform:translateY(-2px)}
 .share-chip.rate{color:#E0894A;background:#FFF6EC}
+
+/* ---- Public landing page ---- */
+.land{max-width:1080px}
+.land-hero{text-align:center;padding:30px 0 10px}
+.land-hero h1{font-size:clamp(38px,6vw,60px);letter-spacing:-.06em;line-height:1.05;margin:14px 0 12px;font-weight:800}
+.land-sub{max-width:640px;margin:0 auto;color:var(--dasi-muted);font-size:16px;line-height:1.6}
+.land-cta{display:flex;gap:12px;justify-content:center;margin:26px 0 16px;flex-wrap:wrap}
+.land-cta .primary-cta{padding:14px 22px;font-size:14px}
+.land-cta .heart-button{padding:14px 20px}
+.land-badges{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;color:#8C8999;font-size:12px;font-weight:600}
+.land-problem{background:linear-gradient(135deg,#FFF0F5,#F0EAFF);border-radius:24px;padding:34px 40px;margin:34px 0}
+.land-problem h2{font-size:28px;letter-spacing:-.04em;margin:8px 0 10px}
+.land-problem p{color:#6D6677;font-size:15px;line-height:1.7;max-width:760px}
+.land-features,.land-steps,.land-why,.land-plans{margin:44px 0}
+.land-features h2,.land-steps h2,.land-why h2{font-size:30px;letter-spacing:-.04em;margin:8px 0 22px}
+.land-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.land-card{background:#fff;border-radius:18px;padding:22px;box-shadow:0 10px 30px rgba(48,37,77,.05)}
+.land-ico{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#F0EAFF;color:#8C70C6;margin-bottom:12px}
+.land-card strong{font-size:16px;display:block;margin-bottom:6px}
+.land-card p{color:#928C9E;font-size:13px;line-height:1.6}
+.land-steprow{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+.land-step{background:#fff;border-radius:18px;padding:22px;box-shadow:0 10px 30px rgba(48,37,77,.05)}
+.land-num{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#6CBE9E;color:#fff;font-weight:800;margin-bottom:12px}
+.land-step strong{display:block;font-size:16px;margin-bottom:6px}
+.land-step p{color:#928C9E;font-size:13px;line-height:1.6}
+.land-why{background:#fff;border-radius:24px;padding:32px 36px;box-shadow:0 10px 30px rgba(48,37,77,.05)}
+.land-why ul{list-style:none;padding:0;margin:0;display:grid;gap:12px}
+.land-why li{position:relative;padding-left:28px;color:#4B4757;font-size:15px;line-height:1.5}
+.land-why li:before{content:"✓";position:absolute;left:0;top:0;color:#6CBE9E;font-weight:900}
+.land-plans{text-align:center;background:linear-gradient(135deg,#F0EAFF,#E9F8F0);border-radius:24px;padding:40px}
+.land-plans h2{font-size:30px;letter-spacing:-.04em;margin:0 0 10px}
+.land-plans p{color:#6D6677;max-width:560px;margin:0 auto 20px;font-size:15px;line-height:1.6}
+.land-foot{text-align:center;color:#928C9E;font-size:12px;margin:28px 0 0}

@@ -92,3 +92,36 @@ Assume infra + fixed overhead of ~**$40/mo** at small scale (managed DB minimum,
 - **Sync backend:** Supabase (fastest to ship) vs. Cloudflare Workers + D1
   (cheapest at scale). Recommendation: **start on Supabase**, keep the sync API
   behind an interface so it can be swapped without touching the extension.
+
+---
+
+## Competitor survey & positioning (2026 refresh — planning estimates, verify before launch)
+
+| Product | Type | Free | Paid | Model | Gap Dasi exploits |
+| --- | --- | --- | --- | --- | --- |
+| **Simkl** | Anime/TV/film tracker | Yes | ~$3/mo, ~$25/yr (VIP) | Sub | Manual tracking; no in-page one-click save, no language learning |
+| **MyAnimeList** | Anime/manga | Yes | $2.99/mo supporter | Sub | Catalog-first, heavy manual entry |
+| **Trakt** | TV/film | Yes | ~$30/yr VIP | Sub | Needs player integrations; nothing for manga/webtoon |
+| **Kamilist / Serializd / Anime-Planet / Kurozora / Kuroiru / Taiga / Seanime** | Trackers/clients | Yes | Free/donation/one-time | Mixed | List managers, not "save my exact spot on any site" |
+| **Showly** | TV (app) | Yes | One-time unlock | Lifetime | Mobile app, not a browser saver |
+| **Simple Manga Tracker** | Manga (extension) | Yes | Pro (calendar/ranking/alt-source) | Freemium | Right-click manual save; no auto video timecode, no learning |
+| **MochiTranslate** | Manga tool (extension) | — | **$19 lifetime** | Lifetime | Proves extension buyers pay one-time ~$15–20 |
+
+**Positioning.** Dasi is the only *generic-first, one-click, cross-media* saver that also (a) captures the exact video timecode across sites, and (b) bundles a KR/JP/ZH learning module tied to what you read. That learning module is the premium wedge no tracker competitor has.
+
+### What is free vs paid (final)
+
+- **Free (acquisition engine):** unlimited local library, universal detection, one-click save, manual add + online title search, imports (MAL/CSV/JSON/backup), custom lists + drag-drop, video speed + PiP, export/import, Korean **basics + numbers**. Everything that makes the core promise work must be free so reviews and word-of-mouth compound.
+- **Pro — $2.99/mo or $24.99/yr:** encrypted cross-device sync, new chapter/episode alerts, full KR/JP/ZH course + spaced repetition + quizzes + stats, reading calendar, unlimited devices, priority support. These are recurring-value features (server + ongoing content) → fair to gate behind a sub.
+- **Lifetime — $49:** everything in Pro forever + founder badge. Front-loads cash to fund the backend; matches extension-buyer habits (cf. MochiTranslate $19, Showly-style unlocks). Positioned above the ~$19 tools because Dasi does more (sync + full learning).
+
+### Unit economics (per paying user, conservative)
+
+- Infra/user/mo: sync is tiny JSON blobs — realistically **$0.05–$0.15/user/mo** on managed Postgres + a small node host at scale.
+- Processing: Stripe ~2.9% + $0.30 (or Paddle MoR ~5% + $0.50 incl. tax handling).
+- **Pro monthly $2.99** → after ~$0.39 fees ≈ **$2.60 gross**, minus ~$0.10 infra ≈ **~$2.50 net**.
+- **Pro yearly $24.99** → after ~$1.02 fees ≈ **$23.97**, ≈ **$2.00/mo** net after infra — the value anchor.
+- **Lifetime $49** → ≈ **$47 net** once; at $0.10/mo infra it self-funds ~39 years of that user's sync.
+- **Break-even:** ~**25 monthly** or ~**19 yearly** Pro subscribers, **or ~1 lifetime per ~$47 of monthly overhead**. At 200 blended payers (~$2/mo net) ≈ **$400/mo** vs ~$70/mo infra → **~$330/mo profit**, scaling roughly linearly.
+
+> Recommendation: lead with **yearly** (badge "2 months free") and **Lifetime** to front-load cash and minimise churn/processing drag; keep monthly as a low-friction trial path.

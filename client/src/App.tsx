@@ -8,6 +8,7 @@ import Pricing from "@/pages/Pricing";
 import Settings from "@/pages/Settings";
 import Learn from "@/pages/Learn";
 import LearnStats from "@/pages/LearnStats";
+import Landing from "@/pages/Landing";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/list/:id" component={ListDetail} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/settings" component={Settings} />
+      <Route path="/welcome" component={Landing} />
       <Route path="/learn/stats" component={LearnStats} />
       <Route path="/learn" component={Learn} />
       <Route path="/404" component={NotFound} />
