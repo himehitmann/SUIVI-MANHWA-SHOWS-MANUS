@@ -297,6 +297,18 @@
     const chap = parseChapter(context);
     const vol = parseVolume(context);
 
+    // Cover art: prefer Open Graph / Twitter images, then JSON-LD image/thumbnail.
+    const structuredImg =
+      structured && (typeof structured.image === "string" ? structured.image : structured.image?.url || structured.thumbnailUrl);
+    let cover = metaFirst([
+      "meta[property='og:image']",
+      "meta[property='og:image:url']",
+      "meta[name='twitter:image']",
+      "meta[name='twitter:image:src']",
+    ]) || structuredImg || "";
+    if (cover && cover.startsWith("//")) cover = location.protocol + cover;
+    else if (cover && cover.startsWith("/")) cover = location.origin + cover;
+
     const chapter = adapter?.chapter ?? chap?.chapter;
     const season = adapter?.season ?? se?.season ?? (structured?.partOfSeason?.seasonNumber ? num(structured.partOfSeason.seasonNumber) : undefined);
     const episode = adapter?.episode ?? se?.episode ?? (structured?.episodeNumber ? num(structured.episodeNumber) : undefined);
@@ -321,10 +333,11 @@
       season,
       episode,
       episodeTitle: adapter?.episodeTitle || structured?.name || "",
+      cover,
       url: location.href,
       domain: location.hostname.replace(/^www\./, ""),
-      duration: media?.duration || 0,
-      position: media?.currentTime || 0,
+      duration: media && Number.isFinite(media.duration) ? media.duration : 0,
+      position: media && Number.isFinite(media.currentTime) ? media.currentTime : 0,
       hasVideo: Boolean(media),
       source: adapter?.adapter || (structured ? "jsonld" : ogTitle ? "opengraph" : domHeading ? "dom" : "url"),
       confidence,

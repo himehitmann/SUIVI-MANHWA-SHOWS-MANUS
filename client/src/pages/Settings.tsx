@@ -27,10 +27,12 @@ export default function Settings() {
       const s = mode === "in" ? await syncProvider.signIn(email, password) : await syncProvider.signUp(email, password);
       setSession(s);
       setPassword("");
-      // Pull remote, then push the merged result back.
+      // Push local FIRST so the server merges anything saved before signing in
+      // (guest progress) into the account, then pull the merged result. This is
+      // what makes "started without an account, sign in later" never lose data.
+      await syncProvider.push(store.snapshot());
       const remote = await syncProvider.pull();
       if (remote) store.applyState(remote);
-      await syncProvider.push(store.snapshot());
       toast.success(t(mode === "in" ? "toast.signedIn" : "toast.accountCreated"));
     } catch {
       toast.error(t("toast.authFailed"));

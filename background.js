@@ -249,6 +249,15 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       return true;
 
+    // Look up (without saving) whether this work already has a saved position, so
+    // the popup can show the previous marker and ask before overwriting.
+    case "CHECK_EXISTING":
+      read(ITEMS_KEY, []).then((items) => {
+        const key = workKey(message.payload || {});
+        sendResponse({ existing: items.find((i) => i.id === key) || null, key });
+      });
+      return true;
+
     case "DETECT_ACTIVE_TAB":
       api.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
         const tab = tabs[0];

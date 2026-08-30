@@ -8,68 +8,95 @@
       @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap");
       :root { --ink:#252331; --muted:#8C8999; --lav:#F0EAFF; --mint:#E9F8F0; --green:#6CBE9E; --purple:#A18BE0; }
       * { box-sizing:border-box; }
-      body { width:360px; margin:0; padding:20px; font-family:"DM Sans",sans-serif; color:var(--ink); background:#FCFCFE; }
-      .brand { display:flex; align-items:center; gap:9px; font-weight:800; font-size:20px; letter-spacing:-.05em; margin-bottom:18px; }
+      body { width:370px; margin:0; padding:18px; font-family:"DM Sans",sans-serif; color:var(--ink); background:#FCFCFE; }
+      .brand { display:flex; align-items:center; gap:9px; font-weight:800; font-size:20px; letter-spacing:-.05em; margin-bottom:14px; cursor:pointer; background:none; border:0; padding:0; color:var(--ink); }
       .logo { width:26px; height:26px; border-radius:10px 10px 10px 4px; background:linear-gradient(145deg,#BCA8F4,#8FD7C2); display:grid; place-items:center; transform:rotate(-8deg); box-shadow:0 5px 12px rgba(145,121,220,.2); }
       .logo i { width:10px; height:10px; background:#fff; border-radius:4px; opacity:.9; }
-      .shine { font-weight:800; letter-spacing:-.05em; color:#6C5AA5; background:#F0EAFF linear-gradient(-40deg,transparent 0,transparent 40%,#fff 50%,transparent 60%,transparent 100%) 0 0 no-repeat; -webkit-background-clip:text; background-clip:text; background-size:50px; -webkit-text-fill-color:transparent; animation:shine 5s infinite; }
-      @keyframes shine { 0%,10%{background-position:-200px} 20%{background-position:top left} 100%{background-position:200px} }
+      .shine { font-weight:800; letter-spacing:-.05em; color:#6C5AA5; }
+      .brand .tag { margin-left:auto; font-size:9px; font-weight:800; letter-spacing:.06em; color:#5E9D80; background:var(--mint); border-radius:999px; padding:4px 8px; display:flex; align-items:center; gap:5px; }
+      .brand .tag i { width:6px; height:6px; border-radius:50%; background:#6CBE9E; }
       .eyebrow { font-size:10px; letter-spacing:.09em; color:#9B86DA; font-weight:700; margin:0 0 6px; }
-      .card { background:#fff; border-radius:16px; padding:16px; box-shadow:0 8px 24px rgba(92,74,140,.08); }
-      .head { display:flex; justify-content:space-between; align-items:center; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
-      .live { display:flex; align-items:center; gap:5px; color:#5E9D80; }
-      .live i { width:6px; height:6px; border-radius:50%; background:#6CBE9E; }
-      .title { font-size:20px; letter-spacing:-.04em; margin:12px 0 4px; }
-      .meta { color:var(--muted); font-size:12px; margin:0; }
-      .conf { font-size:11px; color:#B98A5A; margin:8px 0 0; display:none; }
+      .card { background:#fff; border-radius:16px; padding:15px; box-shadow:0 8px 24px rgba(92,74,140,.08); }
+      .detected { display:flex; gap:12px; }
+      .cover { width:52px; height:70px; border-radius:9px; flex:none; overflow:hidden; background:linear-gradient(145deg,#EDE6FF,#E4F5EC); display:grid; place-items:center; }
+      .cover img { width:100%; height:100%; object-fit:cover; display:block; }
+      .cover span { font-size:22px; font-weight:800; color:#fff; }
+      .info { min-width:0; flex:1; }
+      .kind { font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); display:flex; align-items:center; gap:5px; }
+      .kind b { width:6px; height:6px; border-radius:50%; background:var(--green); }
+      .kind.watching b { background:var(--purple); }
+      .title { font-size:16px; letter-spacing:-.02em; margin:5px 0 4px; line-height:1.2; }
+      .marker { font-size:12px; color:#6D6677; font-weight:600; }
+      .time { font-size:12px; color:var(--purple); font-weight:700; margin-top:3px; }
+      .conf { font-size:11px; color:#B98A5A; margin:9px 0 0; display:none; }
       .conf.show { display:block; }
-      .bar { height:5px; background:#EDE8F6; border-radius:99px; margin:16px 0 6px; overflow:hidden; }
-      .bar i { display:block; height:100%; width:0; background:#6CBE9E; border-radius:99px; }
-      .pos { font-size:11px; color:var(--muted); }
-      .actions { display:flex; gap:8px; margin-top:14px; }
+      .prev { display:none; align-items:flex-start; gap:8px; margin-top:12px; padding:10px 12px; background:#FFF6EC; border-radius:10px; font-size:12px; color:#9A6A3B; }
+      .prev.show { display:flex; }
+      .prev b { display:block; color:#7A5326; font-size:11px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px; }
       button { font:inherit; border:0; cursor:pointer; border-radius:10px; font-weight:700; }
+      .actions { display:flex; gap:8px; margin-top:14px; }
       .primary { flex:1; background:#6CBE9E; color:#fff; padding:11px; font-size:13px; }
       .primary:hover { background:#4CA37E; }
+      .primary.warn { background:#E0894A; } .primary.warn:hover { background:#C9773A; }
       .primary:disabled { opacity:.5; cursor:default; }
-      .secondary { background:#F0EAFF; color:#62519B; padding:11px 13px; font-size:13px; }
+      .secondary { background:#F0EAFF; color:#62519B; padding:11px 13px; font-size:13px; display:flex; align-items:center; gap:6px; }
       .secondary:hover { background:#E3D6FF; }
       .row { display:flex; gap:8px; margin-top:10px; }
       .row button { flex:1; background:#F5F4FA; color:#6D6677; padding:10px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:6px; }
       .row button:hover { background:#EDE6FF; color:#705BBA; }
-      .tools { display:none; margin-top:10px; padding:13px; background:#F7F5FC; border-radius:12px; }
-      .tools.open { display:block; }
+      .tools { margin-top:12px; padding:12px 13px; background:#F7F5FC; border-radius:12px; }
+      .tools-title { font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:9px; }
       .speed-line { display:flex; align-items:center; justify-content:space-between; font-size:12px; }
       .speed-actions { display:flex; align-items:center; gap:9px; }
       .step { display:grid; place-items:center; width:28px; height:28px; border-radius:50%; background:#E4D9FA; color:#6F5CBD; }
       .step:hover { background:#A18BE0; color:#fff; }
       .speed-val { min-width:40px; text-align:center; font-weight:700; }
       .pip { width:100%; margin-top:11px; padding:9px; border-radius:999px; background:#A18BE0; color:#fff; font-size:11px; }
-      .foot { display:flex; justify-content:space-between; color:var(--muted); font-size:10px; margin-top:16px; }
-      @media (prefers-reduced-motion: reduce) { .shine { animation:none; -webkit-text-fill-color:#6C5AA5; } }
+      .pip:disabled { opacity:.5; cursor:default; }
+      .foot { display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:10px; margin-top:14px; }
+      .foot button { background:none; color:#9892A5; font-size:10px; padding:0; }
+      .foot button:hover { color:#705BBA; text-decoration:underline; }
+      @media (prefers-reduced-motion: reduce) { .shine { color:#6C5AA5; } }
     </style>
   </head>
   <body>
-    <div class="brand"><span class="logo"><i></i></span><span class="shine">Dasi</span></div>
+    <button class="brand" id="brand" title="Open Dasi">
+      <span class="logo"><i></i></span><span class="shine">Dasi</span>
+      <span class="tag"><i></i> Local</span>
+    </button>
+
     <p class="eyebrow">ON THIS PAGE</p>
     <div class="card">
-      <div class="head">
-        <span id="type">Detecting…</span>
-        <span class="live"><i></i> Local</span>
+      <div class="detected">
+        <div class="cover" id="cover" data-initial="D"><span id="coverInitial">D</span></div>
+        <div class="info">
+          <div class="kind" id="kind"><b></b> <span id="kindLabel">Detecting…</span></div>
+          <h1 class="title" id="title">Reading the page…</h1>
+          <div class="marker" id="marker">Checking title, chapter and player…</div>
+          <div class="time" id="time" style="display:none"></div>
+        </div>
       </div>
-      <h1 class="title" id="title">Reading the page…</h1>
-      <p class="meta" id="meta">Checking title, structured data and player</p>
+
       <p class="conf" id="conf"></p>
-      <div class="bar"><i id="fill"></i></div>
-      <span class="pos" id="pos">No saved position yet</span>
+
+      <div class="prev" id="prev">
+        <div>
+          <b>Already saved</b>
+          <span id="prevText"></span>
+        </div>
+      </div>
+
       <div class="actions">
         <button class="primary" id="save" disabled>Save my position</button>
-        <button class="secondary" id="library">Library</button>
+        <button class="secondary" id="open" title="Open the Dasi app">▤ Open Dasi</button>
       </div>
+
       <div class="row">
         <button id="save-site">☆ Save this site</button>
-        <button id="tools-toggle">▤ Video tools</button>
       </div>
-      <div class="tools" id="tools">
+
+      <div class="tools">
+        <div class="tools-title">Video tools</div>
         <div class="speed-line">
           <span>Playback speed</span>
           <div class="speed-actions">
@@ -81,7 +108,11 @@
         <button class="pip" id="pip">Open Picture-in-Picture</button>
       </div>
     </div>
-    <div class="foot"><span>Ctrl + Shift + S</span><span id="sync-link" style="cursor:pointer">Set up sync →</span></div>
+
+    <div class="foot">
+      <span>Ctrl + Shift + S to save</span>
+      <button id="sync-link">Set up sync (optional)</button>
+    </div>
     <script src="popup.js"></script>
   </body>
 </html>

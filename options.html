@@ -20,6 +20,10 @@
       .sub { color:var(--muted); font-size:13px; margin:0 0 22px; }
       .card { background:#fff; border-radius:18px; padding:22px; box-shadow:0 10px 30px rgba(92,74,140,.08); }
       label { display:block; font-size:11px; font-weight:700; color:var(--muted); margin:14px 0 6px; }
+      .opt { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#5E9D80; background:var(--mint); border-radius:999px; padding:3px 9px; vertical-align:middle; margin-left:6px; }
+      .hint-inline { font-weight:500; color:#B0AAB9; text-transform:none; letter-spacing:0; }
+      .field-hint { font-size:11px; color:#928C9E; margin:6px 0 0; line-height:1.5; }
+      .sub b { color:var(--ink); }
       input { width:100%; font:inherit; font-size:14px; color:var(--ink); border:0; background:#F5F4FA; border-radius:11px; padding:12px 14px; outline:0; }
       input:focus { box-shadow:inset 0 0 0 2px #C9B8F2; }
       button { font:inherit; border:0; cursor:pointer; border-radius:11px; font-weight:700; }
@@ -49,16 +53,18 @@
     <div class="wrap">
       <div class="brand"><span class="logo"><i></i></span><span class="shine">Dasi</span></div>
       <p class="eyebrow">EXTENSION SETTINGS</p>
-      <h1>Cloud sync</h1>
+      <h1>Cloud sync <span class="opt">optional</span></h1>
       <p class="sub">
-        Optional. Sign in to the same account as the Dasi web app to sync your library across devices.
-        Everything keeps working locally without it.
+        Dasi works fully without an account — everything is saved on this device.
+        Sign in <b>only</b> if you want the same library on another computer. Anything you
+        saved before signing in is kept and merged into your account, so no progress is lost.
       </p>
 
       <!-- Signed out -->
       <div class="card" id="signed-out">
-        <label for="apiUrl">Backend URL</label>
+        <label for="apiUrl">Backend URL <span class="hint-inline">— the sync server address</span></label>
         <input id="apiUrl" type="url" placeholder="https://your-dasi-api.example.com/api" autocomplete="off" />
+        <p class="field-hint">Needed only for cross-device sync: the address of the Dasi backend you (or the app) run. Leave this whole section alone to stay 100% local.</p>
         <label for="email">Email</label>
         <input id="email" type="email" placeholder="you@example.com" autocomplete="username" />
         <label for="password">Password</label>

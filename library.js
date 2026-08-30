@@ -44,7 +44,9 @@ function render() {
   } else {
     grid.innerHTML = list
       .map((i) => {
-        const cover = i.cover ? `<img src="${i.cover}" alt="">` : (i.title || "?")[0];
+        const cover = i.cover
+          ? `<img src="${escapeHtml(i.cover)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`
+          : escapeHtml((i.title || "?")[0]);
         return `<article class="item">
           <div class="cover" style="background:${i.accent || "#E4D9FA"}">${cover}</div>
           <div style="min-width:0;flex:1">
