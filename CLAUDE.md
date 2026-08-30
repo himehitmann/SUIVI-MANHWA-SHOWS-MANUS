@@ -65,8 +65,10 @@ import { chromium } from "/opt/node22/lib/node_modules/playwright/index.mjs";
 chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox"] })
 ```
 
-Load the MV3 extension unpacked from `extension/` (manifest is there, **not** at
-repo root). On-demand injection needs the `activeTab` user gesture, so headless
+Load the MV3 extension unpacked from the **repo root** (`manifest.json` and the
+extension files — background.js, content.js, popup.*, options.*, library.*,
+icon.png — live at the root; `bash scripts/pack-extension.sh` bundles just those
+into `dasi-extension.zip`). On-demand injection needs the `activeTab` user gesture, so headless
 direct injection is denied by design — test `content.js` by injecting it into a
 page with a `window.chrome` shim (see prior QA in `docs/QA.md`).
 
@@ -93,10 +95,12 @@ client/src/
   lib/format.ts          markerLabel/relativeTime/timecode.
   components/            AppHeader, Notifications, LanguageSwitch, AddWork, ColorSwatches, Bits, DasiLogo.
   pages/                 Home, Collections, ListDetail, Pricing, Settings, Learn, LearnStats, NotFound.
-extension/               MV3: content.js (generic-first detector + site adapters),
-                         background.js (on-demand inject, merge, storage.local+sync mirror,
-                         onInstalled migration, optional cloud-sync module mirroring lib/sync.ts),
-                         options.html/js (cloud-sync settings), popup.*, library.html/js, manifest.json.
+(repo root)/             MV3 extension files live at the root so the project folder
+                         loads directly: manifest.json, content.js (generic-first
+                         detector + site adapters), background.js (on-demand inject,
+                         merge, storage.local+sync mirror, onInstalled migration,
+                         optional cloud-sync module mirroring lib/sync.ts),
+                         options.html/js (cloud-sync settings), popup.*, library.html/js.
 shared/detect.ts         pure detection heuristics (mirrored by content.js), unit-tested.
 server/                  optional Express sync+auth+billing API (api.ts, lib/{crypto,store,
                          store-postgres,merge,billing}.ts). Postgres store + Stripe/Paddle webhooks.

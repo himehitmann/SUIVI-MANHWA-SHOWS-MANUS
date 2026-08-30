@@ -8,7 +8,13 @@ on:
   push:
     branches: [main, private]
     paths:
-      - "extension/**"
+      - "manifest.json"
+      - "*.js"
+      - "popup.html"
+      - "options.html"
+      - "library.html"
+      - "icon.png"
+      - "scripts/pack-extension.sh"
       - ".github/workflows/extension-zip.yml"
   workflow_dispatch:
 
@@ -21,11 +27,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Zip the extension folder
+      - name: Zip the extension files (manifest at the zip root)
         run: |
-          cd extension
-          zip -r ../dasi-extension.zip . -x '*.DS_Store'
-          cd ..
+          bash scripts/pack-extension.sh
           unzip -l dasi-extension.zip
 
       - name: Upload as workflow artifact

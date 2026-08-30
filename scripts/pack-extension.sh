@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# Package the extension into a ready-to-load zip whose ROOT is manifest.json,
-# so "Load unpacked" (or a Chrome Web Store upload) works without hunting for the
-# manifest inside the repo. Output: dasi-extension.zip at the repo root.
+# Package the extension into a ready-to-load / store-ready zip whose ROOT is
+# manifest.json. The extension files live at the repository root (so the repo
+# folder itself loads directly as an unpacked extension); this script bundles
+# just those files, leaving the web app / server / docs out.
 #
 # Usage:  bash scripts/pack-extension.sh
 set -euo pipefail
@@ -10,9 +11,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/dasi-extension.zip"
 
+# The files that make up the extension (see manifest.json).
+FILES=(
+  manifest.json background.js content.js
+  popup.html popup.js options.html options.js library.html library.js
+  icon.png
+)
+
+cd "$ROOT"
 rm -f "$OUT"
-cd "$ROOT/extension"
-zip -r "$OUT" . -x '*.DS_Store' >/dev/null
+zip "$OUT" "${FILES[@]}" >/dev/null
 echo "Built: $OUT"
 unzip -l "$OUT" | tail -n +2 | head -20
 echo
