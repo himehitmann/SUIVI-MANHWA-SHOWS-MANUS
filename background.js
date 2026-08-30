@@ -15,15 +15,46 @@ const LISTS_KEY = "dasi.lists";
 const SETTINGS_KEY = "dasi.settings";
 const DEFAULT_SETTINGS = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" } };
 
-const normalize = (v) => (v || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-// Canonical work id — MUST match the web app's workId() (client/src/lib/item.ts)
-// so the same work merges across the extension and the web app over sync:
-// lowercased, punctuation-stripped, chapter/episode markers removed, hyphenated.
-const workKey = (p) =>
-  normalize(p.workId || p.title)
-    .replace(/\b(chapter|chap|ch|episode|ep|season|vol|volume|page|part)\s*\d+\b/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
+// Canonical work id + fuzzy matching — MUST mirror the web app's item.ts
+// (normalizeTitle / workId / sameWork) so the same work merges across the
+// extension and the web app, and across DIFFERENT sites even when the title
+// differs slightly (spelling, word order, an article, a subtitle).
+const LEADING_ARTICLE = /^(the|a|an|le|la|les|un|une|el|los|las|der|die|das)\s+/;
+const normalizeTitle = (title) => {
+  let t = (title || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
+  t = t.replace(/\b(chapter|chap|ch|episode|epi|ep|season|saison|vol|volume|page|part|arc|cour)\s*\d+\b/g, " ");
+  t = t.replace(/\bs\s*\d+\s*e\s*\d+\b/g, " ");
+  t = t.replace(/第?\s*\d+\s*[화話话巻卷章回]/g, " ");
+  t = t.replace(/[\u2000-\u206F\u3000-\u303F\uFF00-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65]/g, " ");
+  t = t.replace(/[^0-9a-z\u0080-\uffff]+/gi, " ").trim();
+  t = t.replace(LEADING_ARTICLE, "");
+  return t.replace(/\s+/g, " ").trim();
+};
+const workKey = (p) => {
+  const n = normalizeTitle(p.workId || p.title);
+  return n ? n.replace(/\s+/g, "-") : "";
+};
+const editRatio = (a, b) => {
+  if (a === b) return 1;
+  if (!a.length || !b.length) return 0;
+  const m = a.length, n = b.length, d = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    let prev = d[0];
+    d[0] = i;
+    for (let j = 1; j <= n; j++) { const tmp = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = tmp; }
+  }
+  return 1 - d[n] / Math.max(m, n);
+};
+const sameWork = (a, b) => {
+  const na = normalizeTitle(a), nb = normalizeTitle(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const ta = new Set(na.split(" ").filter(Boolean)), tb = new Set(nb.split(" ").filter(Boolean));
+  if (ta.size === tb.size && [...ta].every((x) => tb.has(x))) return true;
+  const [small, big] = ta.size <= tb.size ? [ta, tb] : [tb, ta];
+  if (small.size >= 2) { let inter = 0; small.forEach((x) => big.has(x) && inter++); if (inter === small.size && small.size / big.size >= 0.6) return true; }
+  return editRatio(na, nb) >= 0.9;
+};
 
 const numericProgress = (p) =>
   p.chapter || p.episode || p.page || (p.duration && p.position ? p.position / p.duration : 0) || 0;
@@ -224,8 +255,14 @@ function autoSync() {
 
 async function writeItem(payload) {
   const items = await read(ITEMS_KEY, []);
-  const key = workKey(payload);
-  const existing = items.find((i) => i.id === key);
+  let key = workKey(payload);
+  let existing = items.find((i) => i.id === key);
+  // Cross-site merge: no exact id match → look for the same work saved under a
+  // slightly different title on another site, and keep its id so they converge.
+  if (!existing && payload.type !== "game") {
+    const fuzzy = items.find((i) => i.type === payload.type && i.id !== key && sameWork(i.title, payload.title));
+    if (fuzzy) { existing = fuzzy; key = fuzzy.id; }
+  }
   const incomingScore = numericProgress(payload);
   const existingScore = existing ? numericProgress(existing) : -1;
 

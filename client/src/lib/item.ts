@@ -3,14 +3,70 @@ import type { ContentType, ItemStatus, LibraryItem } from "./types";
 
 const ACCENTS = ["#D9F4EA", "#DDE7FF", "#F0DFFF", "#FFE7D6", "#FFEAF2", "#E9F5FF"];
 
-/** Stable, human work key: lowercased, punctuation-stripped, chapter/episode markers removed. */
+const LEADING_ARTICLE = /^(the|a|an|le|la|les|un|une|el|los|las|der|die|das)\s+/;
+
+/**
+ * Normalized title used to decide whether two saves are the SAME work across
+ * different sites: lowercased, accents stripped, chapter/episode/season markers
+ * removed, a leading article dropped, and everything but letters/numbers (across
+ * scripts — Latin, Hangul, Kana, Han…) collapsed to single spaces.
+ */
+export function normalizeTitle(title: string): string {
+  let t = (title || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
+  t = t.replace(/\b(chapter|chap|ch|episode|epi|ep|season|saison|vol|volume|page|part|arc|cour)\s*\d+\b/g, " ");
+  t = t.replace(/\bs\s*\d+\s*e\s*\d+\b/g, " "); // s01e02 style
+  t = t.replace(/第?\s*\d+\s*[화話话巻卷章回]/g, " "); // CJK/KR counters: 第12話, 12화, 3章…
+  // Strip general / CJK / fullwidth punctuation (em dash, 、。！…) then keep
+  // digits, Latin letters and any non-ASCII letter (Hangul, Kana, Han…);
+  // collapse the rest. Avoids \p{} so it works on the ES5 target.
+  t = t.replace(/[\u2000-\u206F\u3000-\u303F\uFF00-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65]/g, " ");
+  t = t.replace(/[^0-9a-z-￿]+/gi, " ").trim();
+  t = t.replace(LEADING_ARTICLE, "");
+  return t.replace(/\s+/g, " ").trim();
+}
+
+/** Stable, human work key derived from the normalized title. */
 export function workId(title: string): string {
-  return (title || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\b(chapter|chap|ch|episode|ep|season|vol|volume|page|part)\s*\d+\b/g, "")
-    .trim()
-    .replace(/\s+/g, "-") || `item-${Math.random().toString(36).slice(2, 8)}`;
+  const n = normalizeTitle(title);
+  return (n ? n.replace(/\s+/g, "-") : "") || `item-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function editRatio(a: string, b: string): number {
+  if (a === b) return 1;
+  if (!a.length || !b.length) return 0;
+  const m = a.length, n = b.length;
+  const d = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    let prev = d[0];
+    d[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = d[j];
+      d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return 1 - d[n] / Math.max(m, n);
+}
+
+/**
+ * Whether two titles denote the same work — used to merge the same series saved
+ * on different sites even when the titles differ in spelling, word order, an
+ * article, or a subtitle. Conservative to avoid merging distinct works.
+ */
+export function sameWork(a: string, b: string): boolean {
+  const na = normalizeTitle(a), nb = normalizeTitle(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const ta = new Set(na.split(" ").filter(Boolean));
+  const tb = new Set(nb.split(" ").filter(Boolean));
+  if (ta.size === tb.size && Array.from(ta).every((x) => tb.has(x))) return true; // same tokens, any order
+  const [small, big] = ta.size <= tb.size ? [ta, tb] : [tb, ta];
+  if (small.size >= 2) {
+    let inter = 0;
+    small.forEach((x) => big.has(x) && inter++);
+    if (inter === small.size && small.size / big.size >= 0.6) return true; // subtitle superset
+  }
+  return editRatio(na, nb) >= 0.9; // spelling / romanization variants
 }
 
 export function accentFor(title: string): string {
