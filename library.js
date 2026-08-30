@@ -2,6 +2,7 @@
 const api = globalThis.chrome;
 let items = [];
 let sites = [];
+let notifications = [];
 let filter = "all";
 let query = "";
 
@@ -29,47 +30,109 @@ function relative(ts) {
   return d === 1 ? "yesterday" : `${d} days ago`;
 }
 
+function coverHtml(i, big) {
+  if (i.cover) return `<img src="${escapeHtml(i.cover)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`;
+  return escapeHtml((i.title || "?")[0].toUpperCase());
+}
+
+function update(id, patch) {
+  const it = items.find((x) => x.id === id);
+  if (it) Object.assign(it, patch); // optimistic
+  render();
+  api.runtime.sendMessage({ type: "UPDATE_ITEM", id, patch }, (r) => {
+    if (r?.items) { items = r.items; render(); }
+  });
+}
+
+function renderHero() {
+  const hero = document.getElementById("hero");
+  const inProgress = items
+    .filter((i) => (i.progress || 0) < 100)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+  if (!inProgress) { hero.hidden = true; return; }
+  const i = inProgress;
+  hero.hidden = false;
+  hero.innerHTML = `
+    <div class="hero-cover" style="background:${i.accent || "#B9A4F0"}">${coverHtml(i, true)}</div>
+    <div class="hero-body">
+      <p class="hero-eyebrow">Continue ${i.type === "watching" ? "watching" : "reading"}</p>
+      <h2 class="hero-title">${escapeHtml(i.title || "Untitled")}</h2>
+      <p class="hero-marker">${escapeHtml(marker(i))} · ${relative(i.updatedAt)}</p>
+      <div class="bar"><i style="width:${Math.min(100, i.progress || 0)}%;background:${accentFor(i.type)}"></i></div>
+      <a class="resume" href="${escapeHtml(i.url || "#")}" target="_blank" rel="noreferrer">▶ Resume</a>
+    </div>`;
+}
+
+function renderStats() {
+  const wrap = document.getElementById("stats");
+  const reading = items.filter((i) => i.type === "reading").length;
+  const watching = items.filter((i) => i.type === "watching").length;
+  const favs = items.filter((i) => i.favorite).length;
+  const done = items.filter((i) => (i.progress || 0) >= 100).length;
+  const chips = [
+    [items.length, "Tracked"],
+    [reading, "Reading"],
+    [watching, "Watching"],
+    [favs, "Favorites"],
+    [done, "Finished"],
+  ];
+  wrap.innerHTML = chips.map(([n, l]) => `<div class="chip"><b>${n}</b><span>${l}</span></div>`).join("");
+}
+
+function cardHtml(i) {
+  const cover = coverHtml(i);
+  const rating = i.rating || 0;
+  const stars = [1, 2, 3, 4, 5]
+    .map((n) => `<span class="${n <= rating ? "on" : ""}" data-rate="${i.id}" data-v="${n}">★</span>`)
+    .join("");
+  const tags = (i.tags || []).length
+    ? `<div class="tags">${i.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>`
+    : "";
+  return `<article class="item">
+    <button class="fav ${i.favorite ? "on" : ""}" data-fav="${i.id}" title="Favorite">★</button>
+    <div class="cover" style="background:${i.accent || "#E4D9FA"}">${cover}</div>
+    <div style="min-width:0;flex:1">
+      <h3>${escapeHtml(i.title || "Untitled")}</h3>
+      <p>${escapeHtml(marker(i))}</p>
+      <div class="bar"><i style="width:${Math.min(100, i.progress || 0)}%;background:${accentFor(i.type)}"></i></div>
+      <small>${i.progress || 0}% · ${relative(i.updatedAt)}</small>
+      <div class="rate">${stars}</div>
+      ${tags}
+    </div>
+    <div class="item-actions">
+      <a class="open" href="${escapeHtml(i.url || "#")}" target="_blank" rel="noreferrer">Open</a>
+      <button class="del" data-id="${i.id}">Remove</button>
+    </div>
+  </article>`;
+}
+
 function render() {
+  renderHero();
+  renderStats();
   const grid = document.getElementById("grid");
   const q = query.toLowerCase();
   const list = items.filter((i) => {
     if (filter === "favorites" && !i.favorite) return false;
     if ((filter === "reading" || filter === "watching") && i.type !== filter) return false;
     if (!q) return true;
-    return `${i.title} ${marker(i)}`.toLowerCase().includes(q);
+    return `${i.title} ${marker(i)} ${(i.tags || []).join(" ")}`.toLowerCase().includes(q);
   });
 
   if (list.length === 0) {
     grid.innerHTML = `<p class="empty">Nothing saved yet. Open a chapter or an episode and hit save in the Dasi popup.</p>`;
   } else {
-    grid.innerHTML = list
-      .map((i) => {
-        const cover = i.cover
-          ? `<img src="${escapeHtml(i.cover)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`
-          : escapeHtml((i.title || "?")[0]);
-        return `<article class="item">
-          <div class="cover" style="background:${i.accent || "#E4D9FA"}">${cover}</div>
-          <div style="min-width:0;flex:1">
-            <h3>${escapeHtml(i.title || "Untitled")}</h3>
-            <p>${escapeHtml(marker(i))}</p>
-            <div class="bar"><i style="width:${Math.min(100, i.progress || 0)}%;background:${accentFor(i.type)}"></i></div>
-            <small>${i.progress || 0}% · ${relative(i.updatedAt)}</small>
-          </div>
-          <div class="item-actions">
-            <a class="open" href="${i.url}" target="_blank" rel="noreferrer">Open</a>
-            <button class="del" data-id="${i.id}">Remove</button>
-          </div>
-        </article>`;
-      })
-      .join("");
+    const sorted = [...list].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    grid.innerHTML = sorted.map(cardHtml).join("");
   }
 
   const wrap = document.getElementById("sites-wrap");
   if (sites.length) {
     wrap.hidden = false;
     document.getElementById("sites").innerHTML = sites
-      .map((s) => `<a href="${s.url}" target="_blank" rel="noreferrer">${escapeHtml(s.name)}</a>`)
+      .map((s) => `<a href="${escapeHtml(s.url)}" target="_blank" rel="noreferrer">${escapeHtml(s.name)}</a>`)
       .join("");
+  } else {
+    wrap.hidden = true;
   }
 }
 
@@ -89,12 +152,27 @@ document.getElementById("brand")?.addEventListener("click", () => {
 });
 
 document.getElementById("grid").addEventListener("click", (e) => {
-  const btn = e.target.closest(".del");
-  if (!btn) return;
-  api.runtime.sendMessage({ type: "REMOVE_ITEM", id: btn.dataset.id }, (r) => {
-    items = r?.items || items.filter((i) => i.id !== btn.dataset.id);
-    render();
-  });
+  const del = e.target.closest(".del");
+  if (del) {
+    api.runtime.sendMessage({ type: "REMOVE_ITEM", id: del.dataset.id }, (r) => {
+      items = r?.items || items.filter((i) => i.id !== del.dataset.id);
+      render();
+    });
+    return;
+  }
+  const fav = e.target.closest(".fav");
+  if (fav) {
+    const it = items.find((x) => x.id === fav.dataset.fav);
+    if (it) update(it.id, { favorite: !it.favorite });
+    return;
+  }
+  const star = e.target.closest("[data-rate]");
+  if (star) {
+    const id = star.dataset.rate;
+    const v = Number(star.dataset.v);
+    const it = items.find((x) => x.id === id);
+    update(id, { rating: it && it.rating === v ? 0 : v }); // click same star again clears
+  }
 });
 
 document.getElementById("tabs").addEventListener("click", (e) => {
@@ -109,8 +187,6 @@ document.getElementById("q").addEventListener("input", (e) => {
   query = e.target.value;
   render();
 });
-
-let notifications = [];
 
 document.getElementById("export").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify({ version: 1, items, sites, notifications }, null, 2)], { type: "application/json" });

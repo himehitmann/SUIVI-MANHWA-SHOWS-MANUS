@@ -313,6 +313,18 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       return true;
 
+    // Patch a saved item (favorite, rating, tags, status…) from the library page.
+    case "UPDATE_ITEM":
+      read(ITEMS_KEY, []).then((items) => {
+        const patch = message.patch || {};
+        const next = items.map((i) => (i.id === message.id ? { ...i, ...patch, updatedAt: Date.now() } : i));
+        writeData({ [ITEMS_KEY]: next }).then(() => {
+          sendResponse({ items: next });
+          autoSync();
+        });
+      });
+      return true;
+
     case "SYNC_STATUS":
       Promise.all([getSyncConfig(), api.storage.local.get(SYNC_META_KEY)]).then(([cfg, m]) =>
         sendResponse({
