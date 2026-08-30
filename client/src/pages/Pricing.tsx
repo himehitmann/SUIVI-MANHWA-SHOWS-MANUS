@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, Cloud, Infinity as InfinityIcon, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
+import { ShareBar } from "@/components/ShareBar";
 import { useI18n } from "@/i18n/I18nContext";
 import { useStore } from "@/store/StoreContext";
 import { UNLOCK_ALL } from "@/lib/edition";
@@ -149,6 +150,8 @@ export default function Pricing() {
             <p>{t("account.syncNote")}</p>
           </div>
         </div>
+
+        <ShareBar />
       </main>
     </div>
   );

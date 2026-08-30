@@ -53,6 +53,13 @@
       .speed-val { min-width:40px; text-align:center; font-weight:700; }
       .pip { width:100%; margin-top:11px; padding:9px; border-radius:999px; background:#A18BE0; color:#fff; font-size:11px; }
       .pip:disabled { opacity:.5; cursor:default; }
+      .share { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid #F0EEF5; }
+      .rate { background:#FFF6EC; color:#E0894A; font-size:11px; font-weight:800; padding:8px 12px; border-radius:999px; letter-spacing:.02em; }
+      .rate:hover { background:#FFE9D2; }
+      .share-icons { display:flex; gap:6px; }
+      .sh { width:30px; height:30px; border-radius:50%; background:#F5F4FA; color:#6D6677; font-size:12px; font-weight:800; display:grid; place-items:center; transition:.15s; }
+      .sh:hover { transform:translateY(-2px); }
+      #sh-x:hover{background:#111;color:#fff} #sh-fb:hover{background:#1877F2;color:#fff} #sh-wa:hover{background:#25D366;color:#fff} #sh-rd:hover{background:#FF4500;color:#fff} #sh-cp:hover{background:#EDE6FF;color:#705BBA}
       .foot { display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:10px; margin-top:14px; }
       .foot button { background:none; color:#9892A5; font-size:10px; padding:0; }
       .foot button:hover { color:#705BBA; text-decoration:underline; }
@@ -106,6 +113,17 @@
           </div>
         </div>
         <button class="pip" id="pip">Open Picture-in-Picture</button>
+      </div>
+
+      <div class="share">
+        <button class="rate" id="rate" title="Rate Dasi on the Chrome Web Store">★★★★★ Rate</button>
+        <div class="share-icons">
+          <button class="sh" id="sh-x" title="Share on X" aria-label="Share on X">𝕏</button>
+          <button class="sh" id="sh-fb" title="Share on Facebook" aria-label="Share on Facebook">f</button>
+          <button class="sh" id="sh-wa" title="Share on WhatsApp" aria-label="Share on WhatsApp">✆</button>
+          <button class="sh" id="sh-rd" title="Share on Reddit" aria-label="Share on Reddit">r/</button>
+          <button class="sh" id="sh-cp" title="Copy share link" aria-label="Copy link">🔗</button>
+        </div>
       </div>
     </div>
 

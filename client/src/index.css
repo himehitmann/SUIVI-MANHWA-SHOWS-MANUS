@@ -433,3 +433,11 @@ a.profile{display:grid;place-items:center;text-decoration:none}
 
 /* Owner (private/unlocked) edition banner */
 .owner-banner{display:inline-block;margin:14px auto 0;padding:9px 16px;border-radius:999px;background:linear-gradient(135deg,#F0EAFF,#E9F8F0);color:#6C5AA5;font-size:12px;font-weight:700;box-shadow:0 6px 16px rgba(92,74,140,.08)}
+
+/* Share / rate bar (web app) */
+.share-bar{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:26px auto 0;padding:16px 22px;background:linear-gradient(135deg,#F0EAFF,#E9F8F0);border-radius:18px;max-width:560px}
+.share-bar-label{font-size:13px;font-weight:700;color:#6C5AA5}
+.share-bar-btns{display:flex;gap:8px;align-items:center}
+.share-chip{display:grid;place-items:center;min-width:34px;height:34px;padding:0 10px;border-radius:999px;background:#fff;color:#6D6677;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(48,37,77,.06);cursor:pointer;transition:.15s;text-decoration:none}
+.share-chip:hover{transform:translateY(-2px)}
+.share-chip.rate{color:#E0894A;background:#FFF6EC}

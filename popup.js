@@ -164,6 +164,21 @@ $("#pip").onclick = () =>
     });
   });
 
+// Rate + share. Store URL is a single constant to swap once the listing is live.
+const DASI_STORE_URL = "https://chromewebstore.google.com/detail/dasi";
+const DASI_SHARE_TEXT = "Dasi — never lose your spot in any manga, webtoon, anime or series. Save & resume in one click.";
+const openUrl = (u) => api.tabs.create({ url: u });
+$("#rate").onclick = () => openUrl(DASI_STORE_URL);
+$("#sh-x").onclick = () => openUrl(`https://twitter.com/intent/tweet?text=${encodeURIComponent(DASI_SHARE_TEXT)}&url=${encodeURIComponent(DASI_STORE_URL)}`);
+$("#sh-fb").onclick = () => openUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(DASI_STORE_URL)}`);
+$("#sh-wa").onclick = () => openUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(DASI_SHARE_TEXT + " " + DASI_STORE_URL)}`);
+$("#sh-rd").onclick = () => openUrl(`https://www.reddit.com/submit?url=${encodeURIComponent(DASI_STORE_URL)}&title=${encodeURIComponent(DASI_SHARE_TEXT)}`);
+$("#sh-cp").onclick = () => {
+  try { navigator.clipboard?.writeText(DASI_STORE_URL); } catch {}
+  $("#sh-cp").textContent = "✓";
+  setTimeout(() => ($("#sh-cp").textContent = "🔗"), 1200);
+};
+
 // Sync is optional — footer link just opens the settings, never required.
 $("#sync-link").onclick = () => api.runtime.openOptionsPage();
 api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => {
