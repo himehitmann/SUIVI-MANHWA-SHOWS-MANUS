@@ -85,9 +85,10 @@ function cardHtml(i) {
   const stars = [1, 2, 3, 4, 5]
     .map((n) => `<span class="${n <= rating ? "on" : ""}" data-rate="${i.id}" data-v="${n}">★</span>`)
     .join("");
-  const tags = (i.tags || []).length
-    ? `<div class="tags">${i.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>`
-    : "";
+  const tagChips = (i.tags || [])
+    .map((t) => `<span class="tag" data-untag="${i.id}" data-t="${escapeHtml(t)}" title="Remove tag">${escapeHtml(t)} ✕</span>`)
+    .join("");
+  const tags = `<div class="tags">${tagChips}<span class="tag add" data-addtag="${i.id}">+ tag</span></div>`;
   return `<article class="item">
     <button class="fav ${i.favorite ? "on" : ""}" data-fav="${i.id}" title="Favorite">★</button>
     <div class="cover" style="background:${i.accent || "#E4D9FA"}">${cover}</div>
@@ -172,6 +173,20 @@ document.getElementById("grid").addEventListener("click", (e) => {
     const v = Number(star.dataset.v);
     const it = items.find((x) => x.id === id);
     update(id, { rating: it && it.rating === v ? 0 : v }); // click same star again clears
+    return;
+  }
+  const addTag = e.target.closest("[data-addtag]");
+  if (addTag) {
+    const it = items.find((x) => x.id === addTag.dataset.addtag);
+    const raw = prompt("Add a tag");
+    const t = raw && raw.trim();
+    if (it && t) update(it.id, { tags: [...new Set([...(it.tags || []), t])] });
+    return;
+  }
+  const untag = e.target.closest("[data-untag]");
+  if (untag) {
+    const it = items.find((x) => x.id === untag.dataset.untag);
+    if (it) update(it.id, { tags: (it.tags || []).filter((x) => x !== untag.dataset.t) });
   }
 });
 

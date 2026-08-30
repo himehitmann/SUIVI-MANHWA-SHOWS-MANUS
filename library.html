@@ -61,7 +61,9 @@
       .rate span:hover { transform:scale(1.2); }
       .rate span.on { color:#F4B740; }
       .tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; }
-      .tag { font-size:9px; font-weight:700; letter-spacing:.03em; background:#F0EAFF; color:#7E6BC0; border-radius:6px; padding:2px 7px; }
+      .tag { font-size:9px; font-weight:700; letter-spacing:.03em; background:#F0EAFF; color:#7E6BC0; border-radius:6px; padding:2px 7px; cursor:pointer; user-select:none; transition:background .12s; }
+      .tag:hover { background:#E3D6FF; }
+      .tag.add { background:transparent; border:1px dashed #CFC6E6; color:#9A93AC; }
       .item-actions { display:flex; flex-direction:column; gap:6px; margin-left:auto; align-self:flex-start; }
       .item-actions a, .item-actions button { border:0; cursor:pointer; font:inherit; font-size:11px; border-radius:8px; padding:6px 10px; text-align:center; text-decoration:none; }
       .open { background:#EDE6FF; color:#705BBA; }
