@@ -13,7 +13,7 @@ OUT="$ROOT/dasi-extension.zip"
 
 # The files that make up the extension (see manifest.json).
 FILES=(
-  manifest.json background.js content.js
+  manifest.json background.js content.js edition.js
   popup.html popup.js options.html options.js library.html library.js
   icon.png
 )

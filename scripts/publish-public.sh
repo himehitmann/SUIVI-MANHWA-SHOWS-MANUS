@@ -54,6 +54,13 @@ if [ -f "$EDITION_FILE" ]; then
   git add "$EDITION_FILE"
 fi
 
+# Same edition flip for the vanilla extension pages (Plans paywall).
+EXT_EDITION_FILE="edition.js"
+if [ -f "$EXT_EDITION_FILE" ]; then
+  sed -i 's/^const DASI_EDITION = "private";/const DASI_EDITION = "public";/' "$EXT_EDITION_FILE"
+  git add "$EXT_EDITION_FILE"
+fi
+
 git commit -q -m "chore(public): mirror ${SOURCE_SHA} (store edition, internal files stripped)" || {
   echo "Nothing to change (already clean)."; }
 

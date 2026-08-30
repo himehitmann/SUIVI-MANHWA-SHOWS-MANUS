@@ -247,6 +247,48 @@
       },
     },
     {
+      id: "steam",
+      match: /store\.steampowered\.com/,
+      parse() {
+        const title = clean(qtext(".apphub_AppName") || metaFirst(["meta[property='og:title']"]));
+        const priceEl = clean(
+          qtext(".game_purchase_price") ||
+            qtext(".discount_final_price") ||
+            qtext("#gameHeaderImageCtn .price") ||
+            "",
+        );
+        const price = /free/i.test(priceEl) ? "Free" : priceEl || undefined;
+        const releaseDate = clean(qtext(".release_date .date") || qtext(".release_date")) || undefined;
+        const trailer = document.querySelector(".highlight_movie")?.getAttribute("data-mp4-hd-source") || undefined;
+        const cover = metaFirst(["meta[property='og:image']"]) || undefined;
+        return { title, type: "game", price, releaseDate, trailer, cover, platform: "Steam" };
+      },
+    },
+    {
+      id: "epic",
+      match: /(store\.)?epicgames\.com/,
+      parse() {
+        const title = clean(metaFirst(["meta[property='og:title']", "h1"])).replace(/\s*[|-].*$/, "");
+        const price = clean(qtext('[data-testid="price"]') || "") || undefined;
+        return { title, type: "game", price, platform: "Epic Games" };
+      },
+    },
+    {
+      id: "gamestores",
+      match: /gog\.com|store\.playstation\.com|xbox\.com\/.*\/games|nintendo\.[a-z.]+\/.*\/(store|games)|playstation\.com\/.*\/games/,
+      parse() {
+        const title = clean(metaFirst(["meta[property='og:title']", "h1"])).replace(/\s*[|-].*$/, "");
+        const platform = /playstation/.test(location.hostname)
+          ? "PlayStation"
+          : /xbox/.test(location.hostname)
+            ? "Xbox"
+            : /nintendo/.test(location.hostname)
+              ? "Nintendo"
+              : "GOG";
+        return { title, type: "game", platform };
+      },
+    },
+    {
       id: "generic-drama",
       match: /wetv\.vip|iq\.com|bilibili\.tv|hidrama|ridomovies|onetouchtv|chia-anime|dramastore|vidbox|yarrlist/,
       parse() {
@@ -423,6 +465,10 @@
       cover,
       synopsis,
       genres,
+      price: adapter?.price,
+      releaseDate: adapter?.releaseDate,
+      trailer: adapter?.trailer,
+      platform: adapter?.platform,
       url: location.href,
       domain: location.hostname.replace(/^www\./, ""),
       duration: media && Number.isFinite(media.duration) ? media.duration : 0,

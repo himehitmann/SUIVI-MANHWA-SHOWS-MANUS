@@ -13,7 +13,7 @@ const SITES_KEY = "dasi.sites";
 const NOTIF_KEY = "dasi.notifications";
 const LISTS_KEY = "dasi.lists";
 const SETTINGS_KEY = "dasi.settings";
-const DEFAULT_SETTINGS = { notifyNew: true };
+const DEFAULT_SETTINGS = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" } };
 
 const normalize = (v) => (v || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 // Canonical work id — MUST match the web app's workId() (client/src/lib/item.ts)
