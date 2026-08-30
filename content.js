@@ -315,13 +315,58 @@
     if (cover && cover.startsWith("//")) cover = location.protocol + cover;
     else if (cover && cover.startsWith("/")) cover = location.origin + cover;
 
-    const chapter = adapter?.chapter ?? chap?.chapter;
-    const season = adapter?.season ?? se?.season ?? (structured?.partOfSeason?.seasonNumber ? num(structured.partOfSeason.seasonNumber) : undefined);
-    const episode = adapter?.episode ?? se?.episode ?? (structured?.episodeNumber ? num(structured.episodeNumber) : undefined);
+    let chapter = adapter?.chapter ?? chap?.chapter;
+    let season = adapter?.season ?? se?.season ?? (structured?.partOfSeason?.seasonNumber ? num(structured.partOfSeason.seasonNumber) : undefined);
+    let episode = adapter?.episode ?? se?.episode ?? (structured?.episodeNumber ? num(structured.episodeNumber) : undefined);
     const volume = adapter?.volume ?? vol?.volume;
 
+    // Reading vs watching. A page that is clearly a comic/manga/manhwa/webtoon
+    // (or exposes a chapter) is ALWAYS reading, so a manhwa never says "episode".
+    const readingHint = /manga|manhwa|manhua|webtoon|comic|chapter|chapitre|\bch\b|\bnovel\b|light-?novel|scan(?:s|lation)?/i.test(
+      context + " " + location.hostname,
+    );
     let type = adapter?.type;
-    if (!type) type = media ? "watching" : chapter ? "reading" : episode || season ? "watching" : "reading";
+    if (!type) {
+      if (chapter || readingHint) type = "reading";
+      else if (media) type = "watching";
+      else if (episode || season) type = "watching";
+      else type = "reading";
+    }
+
+    // A "reading" work is measured in chapters. If a manhwa/webtoon exposed its
+    // position as an "episode" number, fold it into the chapter so the UI never
+    // shows "Episode" for something you read.
+    if (type === "reading") {
+      if (chapter == null && episode != null) chapter = episode;
+      episode = undefined;
+      season = undefined;
+    }
+
+    // Synopsis + genres (auto-tags), captured once so the library can show them
+    // without any network call. Best-effort; empty is fine.
+    const synopsis = clean(
+      metaFirst([
+        "meta[property='og:description']",
+        "meta[name='twitter:description']",
+        "meta[name='description']",
+      ]) || (structured && typeof structured.description === "string" ? structured.description : ""),
+    ).slice(0, 600);
+    const rawGenres = []
+      .concat(structured?.genre || [])
+      .concat(typeof structured?.keywords === "string" ? structured.keywords.split(",") : structured?.keywords || [])
+      .concat(
+        [...document.querySelectorAll('meta[property="article:tag"], meta[property="book:tag"]')].map((m) =>
+          m.getAttribute("content"),
+        ),
+      );
+    const genres = [
+      ...new Set(
+        rawGenres
+          .map((g) => clean(g))
+          .filter((g) => g && g.length < 24 && !/^\d+$/.test(g))
+          .map((g) => g.replace(/\b\w/g, (c) => c.toUpperCase())),
+      ),
+    ].slice(0, 6);
 
     /*
      * A saved "work" is the SERIES, never a single episode — otherwise every
@@ -376,6 +421,8 @@
       episode,
       episodeTitle: adapter?.episodeTitle || structured?.name || "",
       cover,
+      synopsis,
+      genres,
       url: location.href,
       domain: location.hostname.replace(/^www\./, ""),
       duration: media && Number.isFinite(media.duration) ? media.duration : 0,

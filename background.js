@@ -11,6 +11,9 @@ const api = globalThis.chrome;
 const ITEMS_KEY = "dasi.items";
 const SITES_KEY = "dasi.sites";
 const NOTIF_KEY = "dasi.notifications";
+const LISTS_KEY = "dasi.lists";
+const SETTINGS_KEY = "dasi.settings";
+const DEFAULT_SETTINGS = { notifyNew: true };
 
 const normalize = (v) => (v || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 // Canonical work id — MUST match the web app's workId() (client/src/lib/item.ts)
@@ -148,17 +151,28 @@ async function syncNow() {
   const remote = getRes.ok ? await getRes.json().catch(() => ({ blob: null })) : { blob: null };
   const rb = remote.blob || null;
 
-  const [items, sites, notifs] = await Promise.all([read(ITEMS_KEY, []), read(SITES_KEY, []), read(NOTIF_KEY, [])]);
+  const [items, sites, notifs, lists] = await Promise.all([
+    read(ITEMS_KEY, []),
+    read(SITES_KEY, []),
+    read(NOTIF_KEY, []),
+    read(LISTS_KEY, []),
+  ]);
   const mergedItems = mergeItems(rb && rb.items, items);
   const mergedSites = mergeById(rb && rb.sites, sites);
   const mergedNotifs = mergeById(rb && rb.notifications, notifs);
-  await writeData({ [ITEMS_KEY]: mergedItems, [SITES_KEY]: mergedSites, [NOTIF_KEY]: mergedNotifs });
+  const mergedLists = mergeById(rb && rb.lists, lists);
+  await writeData({ [ITEMS_KEY]: mergedItems, [SITES_KEY]: mergedSites, [NOTIF_KEY]: mergedNotifs, [LISTS_KEY]: mergedLists });
 
-  // Push the merged library, preserving web-only slices (lists/learn/plan) that
-  // the extension doesn't own so a push never wipes them.
-  const blob = { items: mergedItems, sites: mergedSites, notifications: mergedNotifs, updatedAt: Date.now() };
+  // Push the merged library, preserving web-only slices (learn/plan) that the
+  // extension doesn't own so a push never wipes them.
+  const blob = {
+    items: mergedItems,
+    sites: mergedSites,
+    notifications: mergedNotifs,
+    lists: mergedLists,
+    updatedAt: Date.now(),
+  };
   if (rb) {
-    if (rb.lists) blob.lists = rb.lists;
     if (rb.learn) blob.learn = rb.learn;
     if (rb.plan) blob.plan = rb.plan;
   }
@@ -205,11 +219,28 @@ async function writeItem(payload) {
     return { item: existing, conflict: true, kept: "existing" };
   }
 
+  // Series-stable cover: keep the first cover we captured; only replace it when
+  // a save comes from a series/overview page (no chapter/episode marker), which
+  // carries the real series art rather than an episode thumbnail. A manual
+  // coverOverride always wins at render time.
+  const incomingIsSeriesLevel = !(payload.chapter || payload.episode || payload.season || payload.volume);
+  let cover = existing?.cover || "";
+  if (payload.cover && (!cover || incomingIsSeriesLevel)) cover = payload.cover;
+
   const merged = {
     ...existing,
     ...incoming,
+    cover,
+    coverOverride: existing?.coverOverride || undefined,
+    synopsis: payload.synopsis || existing?.synopsis || "",
+    // Auto-tags: seed from detected genres on first save, then user-owned.
+    tags: existing?.tags ?? (Array.isArray(payload.genres) ? payload.genres : []),
+    // Furthest point ever reached (for "mark all up to here", progress display).
+    latestChapter: Math.max(existing?.latestChapter || 0, payload.chapter || 0) || undefined,
+    latestEpisode: Math.max(existing?.latestEpisode || 0, payload.episode || 0) || undefined,
     createdAt: existing?.createdAt || Date.now(),
     favorite: existing?.favorite || false,
+    rating: existing?.rating || 0,
     sources: [...new Set([...(existing?.sources || []), payload.domain].filter(Boolean))],
   };
 
@@ -272,16 +303,78 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         read(ITEMS_KEY, []),
         read(SITES_KEY, []),
         read(NOTIF_KEY, []),
+        read(LISTS_KEY, []),
+        read(SETTINGS_KEY, DEFAULT_SETTINGS),
         api.storage.local.get(["dasi.currentDetection", "dasi.lastConflict"]),
-      ]).then(([items, sites, notifications, state]) =>
+      ]).then(([items, sites, notifications, lists, settings, state]) =>
         sendResponse({
           items,
           sites,
           notifications,
+          lists,
+          settings: { ...DEFAULT_SETTINGS, ...(settings || {}) },
           currentDetection: state["dasi.currentDetection"],
           lastConflict: state["dasi.lastConflict"],
         }),
       );
+      return true;
+
+    case "SET_SETTINGS":
+      read(SETTINGS_KEY, DEFAULT_SETTINGS).then((s) => {
+        const next = { ...DEFAULT_SETTINGS, ...(s || {}), ...(message.patch || {}) };
+        writeData({ [SETTINGS_KEY]: next }).then(() => {
+          sendResponse({ settings: next });
+          autoSync();
+        });
+      });
+      return true;
+
+    // ---- Custom lists (collections) ------------------------------------------
+    case "LIST_CREATE":
+      read(LISTS_KEY, []).then((lists) => {
+        const list = {
+          id: "l_" + Math.random().toString(36).slice(2, 10),
+          name: (message.name || "New list").slice(0, 60),
+          cover: message.cover || "#EDE6FF",
+          itemIds: [],
+          createdAt: Date.now(),
+        };
+        const next = [...lists, list];
+        writeData({ [LISTS_KEY]: next }).then(() => {
+          sendResponse({ lists: next, list });
+          autoSync();
+        });
+      });
+      return true;
+
+    case "LIST_UPDATE": // rename / change cover
+      read(LISTS_KEY, []).then((lists) => {
+        const next = lists.map((l) => (l.id === message.id ? { ...l, ...(message.patch || {}) } : l));
+        writeData({ [LISTS_KEY]: next }).then(() => {
+          sendResponse({ lists: next });
+          autoSync();
+        });
+      });
+      return true;
+
+    case "LIST_DELETE":
+      read(LISTS_KEY, []).then((lists) => {
+        const next = lists.filter((l) => l.id !== message.id);
+        writeData({ [LISTS_KEY]: next }).then(() => {
+          sendResponse({ lists: next });
+          autoSync();
+        });
+      });
+      return true;
+
+    case "LIST_SET_ITEMS": // assign membership + order in one shot
+      read(LISTS_KEY, []).then((lists) => {
+        const next = lists.map((l) => (l.id === message.id ? { ...l, itemIds: message.itemIds || [] } : l));
+        writeData({ [LISTS_KEY]: next }).then(() => {
+          sendResponse({ lists: next });
+          autoSync();
+        });
+      });
       return true;
 
     case "ADD_SITE":
@@ -299,6 +392,8 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (Array.isArray(payload.items)) patch[ITEMS_KEY] = payload.items;
         if (Array.isArray(payload.sites)) patch[SITES_KEY] = payload.sites;
         if (Array.isArray(payload.notifications)) patch[NOTIF_KEY] = payload.notifications;
+        if (Array.isArray(payload.lists)) patch[LISTS_KEY] = payload.lists;
+        if (payload.settings) patch[SETTINGS_KEY] = { ...DEFAULT_SETTINGS, ...payload.settings };
         writeData(patch).then(() => sendResponse({ ok: true }));
       }
       return true;
