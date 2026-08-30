@@ -6,6 +6,8 @@ let items = [], sites = [], notifications = [], lists = [];
 let settings = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" } };
 let filter = "all", query = "", currentListId = null, view = "home";
 let spotIdx = 0, spotItems = [], spotTimer = null;
+let userPlan = null; // "pro" | "lifetime" | null, from the sync backend
+const isPro = () => UNLOCK_ALL || userPlan === "pro" || userPlan === "lifetime";
 
 const NEW_WINDOW = 14 * 24 * 3600 * 1000;
 const SOON_WINDOW = 30 * 24 * 3600 * 1000;
@@ -331,26 +333,51 @@ function showGameForm() {
 function renderPlans() {
   const el = document.getElementById("view-plans");
   const feat = (arr) => arr.map((x) => `<li>${I.check} ${esc(x)}</li>`).join("");
+  const cur = isPro() ? (userPlan === "lifetime" ? "lifetime" : "pro") : "free";
+  const label = (plan, cta) => (UNLOCK_ALL ? (plan === "free" ? "" : t("currentPlan")) : cur === plan ? t("currentPlan") : cta);
   el.innerHTML = `
     <h1>${t("plansTitle")}</h1><p class="sub">${t("plansSub")}</p>
     ${UNLOCK_ALL ? `<div class="unlocked-banner">${I.crown} ${t("unlocked")}</div>` : ""}
     <div class="plan-grid">
       <div class="plan">
-        <h3>Free</h3><div class="price">$0</div><div class="per">forever</div>
-        <ul>${feat(["Local tracking, unlimited works", "Manual add + imports", "Lists, tags, ratings", "Games watchlist"])}</ul>
-        <button class="cta" data-plan="free">${UNLOCK_ALL ? t("currentPlan") : t("getStarted")}</button>
+        <h3>Free</h3><div class="price">$0</div><div class="per">forever · local-first</div>
+        <ul>${feat([
+          "Unlimited tracking — manga, manhwa, webtoons, anime, series, films, games",
+          "Auto-detect & one-click save, resume anywhere",
+          "Lists, tags, ratings, synopsis, series grouping",
+          "Episode / chapter seen tracking",
+          "Import from MAL, CSV, JSON + local backup",
+          "Every UI language",
+          "Page translation — up to 5 pages / day",
+        ])}</ul>
+        <button class="cta" data-plan="free"${cur === "free" || UNLOCK_ALL ? " disabled" : ""}>${label("free", t("getStarted")) || t("currentPlan")}</button>
       </div>
       <div class="plan feat"><span class="ptag">${t("mostPopular")}</span>
-        <h3>Pro</h3><div class="price">$2.99<small>/mo</small></div><div class="per">or $24.99/yr</div>
-        <ul>${feat(["Everything in Free", "Encrypted multi-device sync", "New-episode & release alerts", "Full stats & insights", "Priority new features"])}</ul>
-        <button class="cta" data-plan="pro">${UNLOCK_ALL ? t("currentPlan") : t("goPro")}</button>
+        <h3>Pro</h3><div class="price">$2.99<small>/mo</small></div><div class="per">or $24.99/yr — save 30%</div>
+        <ul>${feat([
+          "Everything in Free",
+          "Encrypted multi-device sync — unlimited devices",
+          "New-episode & game-release alerts (notifications)",
+          "Unlimited page translation, every language, priority engine",
+          "Full stats & insights — streaks, trends, forecasts",
+          "Custom list covers & profile (upload, crop, reposition)",
+          "Priority support & early features",
+        ])}</ul>
+        <button class="cta" data-plan="pro"${cur === "pro" ? " disabled" : ""}>${label("pro", t("goPro"))}</button>
       </div>
       <div class="plan">
-        <h3>Lifetime</h3><div class="price">$49</div><div class="per">one-time</div>
-        <ul>${feat(["Everything in Pro", "Forever, no subscription", "Founder badge", "All future updates"])}</ul>
-        <button class="cta" data-plan="lifetime">${UNLOCK_ALL ? t("currentPlan") : t("getLifetime")}</button>
+        <h3>Lifetime</h3><div class="price">$49</div><div class="per">one-time · best value</div>
+        <ul>${feat([
+          "Everything in Pro, forever",
+          "No subscription, ever",
+          "Founder badge on your profile",
+          "All future updates included",
+          "Support an independent, local-first tool",
+        ])}</ul>
+        <button class="cta" data-plan="lifetime"${cur === "lifetime" ? " disabled" : ""}>${label("lifetime", t("getLifetime"))}</button>
       </div>
-    </div>`;
+    </div>
+    <p class="sub" style="margin-top:18px">Local tracking is free forever and never depends on our servers. Paid tiers fund the optional sync, alerts and translation engine.</p>`;
   el.querySelectorAll("[data-plan]").forEach((b) => (b.onclick = () => {
     if (UNLOCK_ALL) { toast(t("unlocked")); return; }
     api.runtime.openOptionsPage();
@@ -555,7 +582,7 @@ function wireSettings() {
   document.getElementById("sync-link").onclick = () => api.runtime.openOptionsPage();
   buildShare(document.getElementById("share"));
   buildRateStore(document.getElementById("rate-store"));
-  api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => { void api.runtime.lastError; const el = document.getElementById("sync-state"); if (s && s.configured && el) el.textContent = s.meta && s.meta.lastError ? "Signed in — sync needs attention" : `Synced as ${s.email || "you"}`; });
+  api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => { void api.runtime.lastError; userPlan = (s && s.plan) || null; const el = document.getElementById("sync-state"); if (s && s.configured && el) el.textContent = s.meta && s.meta.lastError ? "Signed in — sync needs attention" : `Synced as ${s.email || "you"}`; });
 }
 function doExport() {
   const blob = new Blob([JSON.stringify({ version: 2, items, sites, notifications, lists, settings }, null, 2)], { type: "application/json" });

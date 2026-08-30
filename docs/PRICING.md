@@ -125,3 +125,39 @@ Assume infra + fixed overhead of ~**$40/mo** at small scale (managed DB minimum,
 - **Break-even:** ~**25 monthly** or ~**19 yearly** Pro subscribers, **or ~1 lifetime per ~$47 of monthly overhead**. At 200 blended payers (~$2/mo net) ≈ **$400/mo** vs ~$70/mo infra → **~$330/mo profit**, scaling roughly linearly.
 
 > Recommendation: lead with **yearly** (badge "2 months free") and **Lifetime** to front-load cash and minimise churn/processing drag; keep monthly as a low-friction trial path.
+
+## 8. Tier value map (v2 — what each price unlocks)
+
+Rule of thumb: **Free = the whole local-first tracker** (never crippled), **Pro
+= everything that costs us money to run** (sync infra, alerts, translation
+engine), **Lifetime = Pro without the meter, front-loaded cash.**
+
+### Free — $0, forever, offline
+- Unlimited tracking across all media (manga/manhwa/manhua/webtoons/comics/
+  novels/anime/series/films **and games**).
+- Auto-detect + one-click save + resume; series grouping; episode/chapter
+  *seen* tracking; lists, tags, ratings, synopsis.
+- Manual add + imports (MAL XML / CSV / JSON) + local backup export/import.
+- Full UI in every shipped language.
+- **Page translation: 5 pages/day** (enough to try it; metered because the
+  translation engine has real per-call cost).
+
+### Pro — $2.99/mo or $24.99/yr (save ~30%)
+Everything that has an ongoing server cost or is a power-user convenience:
+- **Encrypted multi-device sync**, unlimited devices (the core infra cost).
+- **New-episode & game-release alerts** (needs background release checks).
+- **Unlimited page translation**, every language, priority engine.
+- **Full stats & insights** (streaks, trends, forecasts).
+- **Custom list covers & profile** (upload / crop / reposition).
+- Priority support + early access.
+
+### Lifetime — $49 one-time
+- Everything in Pro, forever, no subscription.
+- Founder badge; all future updates.
+- Rationale: front-loads cash, removes churn/processing drag, and appeals to
+  the extension audience that prefers one-time buys (see §2 comparables).
+
+**Gating in code:** `edition.ts` / `edition.js` `UNLOCK_ALL` unlocks everything
+on the private build. On the public build the client checks the plan from the
+sync backend (`isPro()` = plan ∈ {pro, lifetime}); free users get the metered
+translation limit and the sync/alerts CTAs route to checkout.

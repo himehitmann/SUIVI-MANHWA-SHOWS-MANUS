@@ -250,6 +250,63 @@ async function writeItem(payload) {
   return { item: merged, conflict: Boolean(existing), kept: "incoming" };
 }
 
+/*
+ * Optional translation relay. The in-page translator (translate.js) hands us an
+ * array of strings and a target language; we translate them (keyless Google
+ * endpoint, MyMemory fallback) and hand them back. Runs in the background so the
+ * cross-origin fetch uses the extension's host permissions instead of the
+ * page's CSP. Best-effort: a failed segment returns the original text.
+ */
+async function gtxTranslate(text, target) {
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(text)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`gtx_${r.status}`);
+  const j = await r.json();
+  return Array.isArray(j && j[0]) ? j[0].map((s) => (s && s[0]) || "").join("") : text;
+}
+async function mymemoryTranslate(text, target) {
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0, 480))}&langpair=${encodeURIComponent("en|" + target)}`;
+  const r = await fetch(url);
+  const j = await r.json();
+  return (j && j.responseData && j.responseData.translatedText) || text;
+}
+async function translateOne(text, target) {
+  try {
+    return await gtxTranslate(text, target);
+  } catch {
+    try {
+      return await mymemoryTranslate(text, target);
+    } catch {
+      return text;
+    }
+  }
+}
+/** Translate an array of strings, batching with a newline join to cut calls. */
+async function translateTexts(texts, target) {
+  const out = new Array(texts.length);
+  const cap = Math.min(texts.length, 500);
+  const SEP = "\n";
+  let i = 0;
+  while (i < cap) {
+    const chunk = texts.slice(i, i + 20);
+    const joined = chunk.join(SEP);
+    let ok = false;
+    if (joined.length < 4000) {
+      try {
+        const tr = await gtxTranslate(joined, target);
+        const parts = tr.split(SEP);
+        if (parts.length === chunk.length) { parts.forEach((p, k) => (out[i + k] = p)); ok = true; }
+      } catch {
+        /* fall through to per-item */
+      }
+    }
+    if (!ok) for (let k = 0; k < chunk.length; k++) out[i + k] = await translateOne(chunk[k], target);
+    i += chunk.length;
+  }
+  for (let k = cap; k < texts.length; k++) out[k] = texts[k]; // beyond cap: keep original
+  return out;
+}
+
 /** Inject the detector into a tab (idempotent) and return its detection. */
 async function detectTab(tabId) {
   try {
@@ -416,6 +473,30 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         writeData({ [ITEMS_KEY]: next }).then(() => {
           sendResponse({ items: next });
           autoSync();
+        });
+      });
+      return true;
+
+    // Translate an array of page strings (called by the injected translate.js).
+    case "DASI_MT":
+      translateTexts(message.texts || [], message.target || "en")
+        .then((translations) => sendResponse({ ok: true, translations }))
+        .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
+      return true;
+
+    // Inject the in-page translator into the active tab and run it.
+    case "TRANSLATE_PAGE":
+      api.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
+        const tab = tabs[0];
+        if (!tab?.id) return sendResponse({ ok: false, error: "no_tab" });
+        try {
+          await api.scripting.executeScript({ target: { tabId: tab.id }, files: ["translate.js"] });
+        } catch (e) {
+          return sendResponse({ ok: false, error: "restricted_page" });
+        }
+        api.tabs.sendMessage(tab.id, { type: "DASI_TRANSLATE", lang: message.lang || "en" }, () => {
+          void api.runtime.lastError;
+          sendResponse({ ok: true });
         });
       });
       return true;

@@ -71,6 +71,13 @@
       .foot { display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:10px; margin-top:14px; }
       .foot button { background:none; color:#9892A5; font-size:10px; padding:0; }
       .foot button:hover { color:#705BBA; text-decoration:underline; }
+      .tr-line { display:flex; gap:8px; align-items:center; }
+      .tr-line select { flex:1; font:inherit; font-size:12px; border:0; background:#fff; border-radius:8px; padding:8px 9px; color:var(--ink); box-shadow:inset 0 0 0 1px #E4D9FA; outline:0; }
+      .tr-go { background:#A18BE0; color:#fff; padding:8px 12px; font-size:12px; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+      .tr-go:hover { background:#8A72D4; }
+      .tr-go:disabled { opacity:.5; cursor:default; }
+      .tr-status { font-size:11px; color:var(--muted); margin-top:8px; min-height:14px; }
+      .tr-status.up { color:#B98A5A; }
       @media (prefers-reduced-motion: reduce) { .shine { color:#6C5AA5; } }
     </style>
   </head>
@@ -124,6 +131,15 @@
         <button class="pip" id="pip">Open Picture-in-Picture</button>
       </div>
 
+      <div class="tools" style="margin-top:10px">
+        <div class="tools-title">Translate this page</div>
+        <div class="tr-line">
+          <select id="tr-lang" aria-label="Target language"></select>
+          <button id="tr-go" class="tr-go"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7M9 3v2c0 5-3 8-6 9"/><path d="M5 11c2 2 5 3 7 3"/><path d="M13 21l4-9 4 9M14.5 18h5"/></svg> Translate</button>
+        </div>
+        <div class="tr-status" id="tr-status"></div>
+      </div>
+
       <div class="share">
         <div class="stars" id="stars" title="Rate Dasi 5★ on the Chrome Web Store" role="button" aria-label="Rate on the Chrome Web Store">
           <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span>
@@ -142,6 +158,7 @@
       <span>Ctrl + Shift + S to save</span>
       <button id="sync-link">Set up sync (optional)</button>
     </div>
+    <script src="edition.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

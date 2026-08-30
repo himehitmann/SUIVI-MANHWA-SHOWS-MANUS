@@ -192,9 +192,73 @@ $("#sh-cp").onclick = () => {
   setTimeout(() => ($("#sh-cp").textContent = "🔗"), 1200);
 };
 
+/*
+ * One-click page translation. Pick a target language and Dasi translates the
+ * current page's text in place (optional, best-effort; revert from the on-page
+ * pill). Free plan is metered to 5 pages/day; Pro/Lifetime and the owner build
+ * are unlimited.
+ */
+const TR_LANGS = [
+  ["en", "English"], ["fr", "Français"], ["es", "Español"], ["de", "Deutsch"], ["it", "Italiano"],
+  ["pt", "Português"], ["nl", "Nederlands"], ["ru", "Русский"], ["uk", "Українська"], ["pl", "Polski"],
+  ["tr", "Türkçe"], ["ar", "العربية"], ["fa", "فارسی"], ["hi", "हिन्दी"], ["id", "Indonesia"],
+  ["vi", "Tiếng Việt"], ["th", "ไทย"], ["ja", "日本語"], ["ko", "한국어"], ["zh-CN", "中文 (简)"],
+  ["zh-TW", "中文 (繁)"], ["fil", "Filipino"], ["ms", "Melayu"], ["sv", "Svenska"], ["no", "Norsk"],
+  ["da", "Dansk"], ["fi", "Suomi"], ["cs", "Čeština"], ["el", "Ελληνικά"], ["he", "עברית"],
+  ["ro", "Română"], ["hu", "Magyar"], ["bg", "Български"], ["sr", "Српски"], ["hr", "Hrvatski"],
+];
+const UNLOCK = typeof DASI_UNLOCK_ALL !== "undefined" ? DASI_UNLOCK_ALL : true;
+const FREE_TR_LIMIT = 5;
+let popupSettings = { translateLang: "en" };
+let popupPlan = null;
+
+const trSel = $("#tr-lang");
+TR_LANGS.forEach(([code, name]) => { const o = document.createElement("option"); o.value = code; o.textContent = name; trSel.appendChild(o); });
+
+api.runtime.sendMessage({ type: "GET_STATE" }, (state) => {
+  void api.runtime.lastError;
+  popupSettings = { translateLang: (state && state.settings && state.settings.translateLang) || (navigator.language || "en").slice(0, 2), ...(state && state.settings) };
+  trSel.value = [...trSel.options].some((o) => o.value === popupSettings.translateLang) ? popupSettings.translateLang : "en";
+});
+
+trSel.onchange = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: trSel.value } }, () => void api.runtime.lastError);
+
+const isProPopup = () => UNLOCK || popupPlan === "pro" || popupPlan === "lifetime";
+function trUsageToday() {
+  const today = new Date().toISOString().slice(0, 10);
+  const u = popupSettings.trUsage || {};
+  return u.date === today ? u.count || 0 : 0;
+}
+function bumpTrUsage() {
+  const today = new Date().toISOString().slice(0, 10);
+  const count = trUsageToday() + 1;
+  popupSettings.trUsage = { date: today, count };
+  api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { trUsage: popupSettings.trUsage } }, () => void api.runtime.lastError);
+}
+
+$("#tr-go").onclick = () => {
+  if (!isProPopup() && trUsageToday() >= FREE_TR_LIMIT) {
+    const s = $("#tr-status");
+    s.textContent = `Free limit reached (${FREE_TR_LIMIT}/day). Go Pro for unlimited translation.`;
+    s.classList.add("up");
+    return;
+  }
+  const lang = trSel.value;
+  $("#tr-status").classList.remove("up");
+  $("#tr-status").textContent = "Translating the page…";
+  $("#tr-go").disabled = true;
+  api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang }, (r) => {
+    void api.runtime.lastError;
+    $("#tr-go").disabled = false;
+    if (r && r.ok) { $("#tr-status").textContent = "Done — see the pill on the page (revert there)."; bumpTrUsage(); }
+    else $("#tr-status").textContent = r && r.error === "restricted_page" ? "Can't translate this page." : "Translation unavailable here.";
+  });
+};
+
 // Sync is optional — footer link just opens the settings, never required.
 $("#sync-link").onclick = () => api.runtime.openOptionsPage();
 api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => {
   void api.runtime.lastError;
+  popupPlan = (s && s.plan) || null;
   if (s && s.configured) $("#sync-link").textContent = s.meta && s.meta.lastError ? "Sync needs attention" : "Synced ✓";
 });
