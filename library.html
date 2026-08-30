@@ -222,6 +222,15 @@
       .li-row b { font-size:13px; } .li-row small { display:block; color:var(--muted); font-size:11px; }
       .back-btn { display:inline-flex; align-items:center; gap:7px; border:0; background:none; color:var(--lav-ink); font-weight:600; font-size:13px; cursor:pointer; padding:0 0 14px; }
 
+      .crop-scrim { position:fixed; inset:0; background:rgba(40,32,60,.45); backdrop-filter:blur(3px); opacity:0; pointer-events:none; transition:.2s; z-index:90; } .crop-scrim.open { opacity:1; pointer-events:auto; }
+      .cropper { position:fixed; top:50%; left:50%; transform:translate(-50%,-46%) scale(.96); opacity:0; pointer-events:none; width:340px; max-width:94vw; background:#fff; border-radius:20px; box-shadow:0 30px 70px rgba(50,36,90,.35); padding:22px; z-index:91; transition:.22s; }
+      .cropper.open { opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
+      .cropper h3 { margin:0 0 2px; font-size:17px; letter-spacing:-.02em; } .crop-hint { margin:0 0 16px; font-size:12px; color:var(--muted); }
+      .crop-view { width:280px; height:280px; margin:0 auto; border-radius:16px; overflow:hidden; background:#F0EEF6; touch-action:none; cursor:grab; position:relative; }
+      .crop-view.circle { border-radius:50%; } .crop-view:active { cursor:grabbing; }
+      .crop-view canvas { display:block; width:280px; height:280px; }
+      #crop-zoom { width:100%; margin:16px 0 4px; accent-color:var(--lav-ink); }
+      .crop-actions { display:flex; align-items:center; gap:8px; margin-top:8px; }
       .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#241F33; color:#fff; padding:11px 18px; border-radius:12px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:.25s; z-index:80; box-shadow:0 12px 30px rgba(0,0,0,.25); } .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
       input[type=file] { display:none; }
     </style>
@@ -264,6 +273,22 @@
 
     <div class="scrim" id="scrim"></div>
     <aside class="drawer" id="drawer"></aside>
+
+    <div class="crop-scrim" id="crop-scrim"></div>
+    <div class="cropper" id="cropper" role="dialog" aria-modal="true">
+      <h3 id="crop-title">Adjust image</h3>
+      <p class="crop-hint">Drag to reposition · slide to zoom</p>
+      <div class="crop-view" id="crop-view"><canvas id="crop-canvas" width="280" height="280"></canvas></div>
+      <input type="range" id="crop-zoom" min="1" max="3" step="0.01" value="1" />
+      <div class="crop-actions">
+        <button class="btn" id="crop-file">Choose image</button>
+        <span style="flex:1"></span>
+        <button class="btn" id="crop-cancel">Cancel</button>
+        <button class="btn primary" id="crop-save">Save</button>
+      </div>
+      <input id="crop-input" type="file" accept="image/*" />
+    </div>
+
     <div class="toast" id="toast"></div>
     <script src="edition.js"></script>
     <script src="library.js"></script>

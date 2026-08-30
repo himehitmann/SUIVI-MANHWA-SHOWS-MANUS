@@ -424,7 +424,7 @@ function wireListDetail(l) {
   document.getElementById("back-lists").onclick = backToLists;
   const name = document.getElementById("list-name");
   name.onchange = () => listMsg("LIST_UPDATE", { id: l.id, patch: { name: name.value.trim() || "Untitled" } });
-  document.getElementById("list-cover-btn").onclick = () => changeCover((v) => listMsg("LIST_UPDATE", { id: l.id, patch: { cover: v } }));
+  document.getElementById("list-cover-btn").onclick = () => changeCover((v) => listMsg("LIST_UPDATE", { id: l.id, patch: { cover: v } }), "square");
   document.getElementById("list-del").onclick = () => { if (confirm(`${t("delete")} "${l.name}"?`)) listMsg("LIST_DELETE", { id: l.id }, backToLists); };
   document.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => setListItems(l.id, [...(l.itemIds || []), b.dataset.add])));
   document.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => setListItems(l.id, (l.itemIds || []).filter((x) => x !== b.dataset.remove))));
@@ -535,10 +535,90 @@ function renderDrawerTags(i) {
 }
 function setListItemsSilent(id, itemIds) { const l = lists.find((x) => x.id === id); if (l) l.itemIds = itemIds; api.runtime.sendMessage({ type: "LIST_SET_ITEMS", id, itemIds }, (r) => { if (r?.lists) lists = r.lists; }); }
 function closeDrawer() { document.getElementById("scrim").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); }
-function changeCover(apply) {
-  const c = prompt("Cover — paste an image URL, type 'upload' to pick a file, or leave blank to clear:", "");
+/* ---- image cropper (upload · zoom · reposition), Discord-style ---- */
+const CROP_V = 280, CROP_T = 512;
+let cropState = null; // { img, zoom, ox, oy, onSave, shape }
+function openCropper({ shape = "square", onSave, initial, title }) {
+  cropState = { img: null, zoom: 1, ox: 0, oy: 0, onSave, shape };
+  const view = document.getElementById("crop-view");
+  view.classList.toggle("circle", shape === "circle");
+  document.getElementById("crop-title").textContent = title || "Adjust image";
+  document.getElementById("crop-zoom").value = 1;
+  document.getElementById("crop-scrim").classList.add("open");
+  document.getElementById("cropper").classList.add("open");
+  clearCanvas();
+  if (initial) loadCropImage(initial); else document.getElementById("crop-input").click();
+}
+function closeCropper() {
+  document.getElementById("crop-scrim").classList.remove("open");
+  document.getElementById("cropper").classList.remove("open");
+  cropState = null;
+}
+function clearCanvas() {
+  const c = document.getElementById("crop-canvas"), x = c.getContext("2d");
+  x.clearRect(0, 0, CROP_V, CROP_V); x.fillStyle = "#F0EEF6"; x.fillRect(0, 0, CROP_V, CROP_V);
+}
+function loadCropImage(src) {
+  const img = new Image();
+  img.onload = () => {
+    const cover = Math.max(CROP_T / img.naturalWidth, CROP_T / img.naturalHeight);
+    cropState.img = img; cropState.cover = cover; cropState.zoom = 1;
+    const dw = img.naturalWidth * cover, dh = img.naturalHeight * cover;
+    cropState.ox = (CROP_T - dw) / 2; cropState.oy = (CROP_T - dh) / 2;
+    document.getElementById("crop-zoom").value = 1;
+    drawCrop();
+  };
+  img.src = src;
+}
+function cropDims() { const s = cropState.cover * cropState.zoom; return { dw: cropState.img.naturalWidth * s, dh: cropState.img.naturalHeight * s }; }
+function clampCrop() { const { dw, dh } = cropDims(); cropState.ox = Math.min(0, Math.max(CROP_T - dw, cropState.ox)); cropState.oy = Math.min(0, Math.max(CROP_T - dh, cropState.oy)); }
+function drawCrop() {
+  if (!cropState || !cropState.img) return;
+  clampCrop();
+  const c = document.getElementById("crop-canvas"), x = c.getContext("2d");
+  const r = CROP_V / CROP_T, { dw, dh } = cropDims();
+  x.clearRect(0, 0, CROP_V, CROP_V);
+  x.drawImage(cropState.img, cropState.ox * r, cropState.oy * r, dw * r, dh * r);
+}
+function exportCrop() {
+  const c = document.createElement("canvas"); c.width = CROP_T; c.height = CROP_T;
+  const x = c.getContext("2d"); const { dw, dh } = cropDims();
+  x.fillStyle = "#fff"; x.fillRect(0, 0, CROP_T, CROP_T);
+  x.drawImage(cropState.img, cropState.ox, cropState.oy, dw, dh);
+  return c.toDataURL("image/jpeg", 0.86);
+}
+(function wireCropper() {
+  const view = document.getElementById("crop-view");
+  let drag = null;
+  const down = (e) => { if (!cropState || !cropState.img) return; const pt = e.touches ? e.touches[0] : e; drag = { x: pt.clientX, y: pt.clientY }; };
+  const move = (e) => {
+    if (!drag || !cropState || !cropState.img) return;
+    const pt = e.touches ? e.touches[0] : e; const r = CROP_T / CROP_V;
+    cropState.ox += (pt.clientX - drag.x) * r; cropState.oy += (pt.clientY - drag.y) * r;
+    drag = { x: pt.clientX, y: pt.clientY }; drawCrop(); if (e.cancelable) e.preventDefault();
+  };
+  const up = () => (drag = null);
+  view.addEventListener("mousedown", down); window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+  view.addEventListener("touchstart", down, { passive: true }); view.addEventListener("touchmove", move, { passive: false }); view.addEventListener("touchend", up);
+  document.getElementById("crop-zoom").addEventListener("input", (e) => {
+    if (!cropState || !cropState.img) return;
+    const before = cropDims(); const fx = (CROP_T / 2 - cropState.ox) / before.dw, fy = (CROP_T / 2 - cropState.oy) / before.dh;
+    cropState.zoom = Number(e.target.value); const after = cropDims();
+    cropState.ox = CROP_T / 2 - fx * after.dw; cropState.oy = CROP_T / 2 - fy * after.dh; drawCrop();
+  });
+  document.getElementById("crop-file").onclick = () => document.getElementById("crop-input").click();
+  document.getElementById("crop-input").addEventListener("change", (e) => {
+    const f = e.target.files && e.target.files[0]; e.target.value = "";
+    if (!f) return; const rd = new FileReader(); rd.onload = () => loadCropImage(String(rd.result)); rd.readAsDataURL(f);
+  });
+  document.getElementById("crop-cancel").onclick = closeCropper;
+  document.getElementById("crop-save").onclick = () => { if (cropState && cropState.img && cropState.onSave) cropState.onSave(exportCrop()); closeCropper(); };
+})();
+
+function changeCover(apply, shape) {
+  const c = prompt("Cover — paste an image URL, type 'upload' to pick & crop a file, or leave blank to clear:", "");
   if (c === null) return;
-  if (c.trim().toLowerCase() === "upload") { const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.onchange = () => { const f = inp.files && inp.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => apply(String(r.result)); r.readAsDataURL(f); }; inp.click(); return; }
+  if (c.trim().toLowerCase() === "upload") { openCropper({ shape: shape || "square", title: t("cover"), onSave: apply }); return; }
   apply(c.trim());
 }
 
@@ -570,9 +650,9 @@ function renderSettings() {
 }
 function wireSettings() {
   const nameEl = document.getElementById("set-name");
-  const saveProfile = (patch) => { settings.profile = { ...(settings.profile || {}), ...patch }; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { profile: settings.profile } }, (r) => { if (r?.settings) settings = r.settings; paintAvatar(); }); };
+  const saveProfile = (patch) => { settings.profile = { ...(settings.profile || {}), ...patch }; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { profile: settings.profile } }, (r) => { if (r?.settings) settings = r.settings; paintAvatar(); renderProfileMenu(); }); };
   nameEl.onchange = () => saveProfile({ name: nameEl.value.trim() });
-  const pickPhoto = () => { const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.onchange = () => { const f = inp.files && inp.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { saveProfile({ avatar: String(r.result) }); renderSettings(); }; r.readAsDataURL(f); }; inp.click(); };
+  const pickPhoto = () => openCropper({ shape: "circle", title: t("changePhoto"), onSave: (data) => { saveProfile({ avatar: data }); renderSettings(); } });
   document.getElementById("set-photo").onclick = pickPhoto;
   document.getElementById("set-avatar").onclick = pickPhoto;
   document.getElementById("sw-notify").onclick = () => { settings.notifyNew = !settings.notifyNew; document.getElementById("sw-notify").classList.toggle("on", settings.notifyNew); api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { notifyNew: settings.notifyNew } }, (r) => { if (r?.settings) settings = r.settings; }); };
@@ -696,7 +776,8 @@ document.getElementById("list-grid").addEventListener("click", (e) => {
   const card = e.target.closest("[data-list]"); if (card) openList(card.dataset.list);
 });
 document.getElementById("scrim").onclick = closeDrawer;
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); closeMenus(); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); closeMenus(); if (cropState) closeCropper(); } });
+document.getElementById("crop-scrim").onclick = closeCropper;
 
 /* ---- boot ---- */
 function hydrate(state) {
