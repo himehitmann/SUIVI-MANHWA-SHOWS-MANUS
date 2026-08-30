@@ -105,6 +105,33 @@ export function createApiRouter(store: Store = createStore(process.env.SYNC_DB_F
     return res.json({ token: signToken({ sub: user.id }, SECRET), user: publicUser(user) });
   });
 
+  // Change the signed-in user's email (must be unique).
+  router.post("/auth/email", async (req: Request, res: Response) => {
+    const session = auth(req);
+    if (!session) return res.status(401).json({ error: "unauthorized" });
+    const { email } = req.body || {};
+    if (!EMAIL_RE.test(email || "")) return res.status(400).json({ error: "invalid_email" });
+    const user = await store.getUserById(session.id);
+    if (!user) return res.status(401).json({ error: "unauthorized" });
+    const clash = await store.getUserByEmail(email);
+    if (clash && clash.id !== user.id) return res.status(409).json({ error: "email_taken" });
+    await store.updateUser({ ...user, email });
+    return res.json({ user: publicUser({ ...user, email }) });
+  });
+
+  // Change the signed-in user's password (requires the current one).
+  router.post("/auth/password", async (req: Request, res: Response) => {
+    const session = auth(req);
+    if (!session) return res.status(401).json({ error: "unauthorized" });
+    const { current, next } = req.body || {};
+    if (typeof next !== "string" || next.length < 8) return res.status(400).json({ error: "weak_password" });
+    const user = await store.getUserById(session.id);
+    if (!user) return res.status(401).json({ error: "unauthorized" });
+    if (!verifyPassword(current || "", user.passwordHash)) return res.status(401).json({ error: "invalid_credentials" });
+    await store.updateUser({ ...user, passwordHash: hashPassword(next) });
+    return res.json({ ok: true });
+  });
+
   router.get("/me", async (req: Request, res: Response) => {
     const session = auth(req);
     if (!session) return res.status(401).json({ error: "unauthorized" });

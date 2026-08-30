@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { hashPassword, signToken, verifyPassword, verifyToken } from "../server/lib/crypto";
 import { mergeBlobs, type SyncBlob } from "../server/lib/merge";
+import { createStore } from "../server/lib/store";
 
 describe("password hashing", () => {
   it("verifies the correct password and rejects wrong ones", () => {
@@ -54,5 +55,36 @@ describe("sync merge", () => {
     const merged = mergeBlobs(remote, incoming);
     expect(merged.plan).toBe("pro");
     expect(merged.lists).toEqual([{ id: "L2" }]);
+  });
+});
+
+describe("account changes (email / password)", () => {
+  const mkUser = (email: string, pw: string) => ({ id: crypto.randomUUID(), email, passwordHash: hashPassword(pw), plan: "free" as const, createdAt: Date.now() });
+
+  it("changes the password and invalidates the old one", async () => {
+    const store = createStore();
+    const user = mkUser("a@x.com", "oldpass12");
+    await store.createUser(user);
+    // rotate: verify current, then persist a new hash (mirrors /auth/password)
+    expect(verifyPassword("oldpass12", user.passwordHash)).toBe(true);
+    await store.updateUser({ ...user, passwordHash: hashPassword("newpass34") });
+    const after = await store.getUserById(user.id);
+    expect(verifyPassword("newpass34", after!.passwordHash)).toBe(true);
+    expect(verifyPassword("oldpass12", after!.passwordHash)).toBe(false);
+  });
+
+  it("changes the email but refuses one already taken", async () => {
+    const store = createStore();
+    const a = mkUser("a@x.com", "pass1234");
+    const b = mkUser("b@x.com", "pass1234");
+    await store.createUser(a);
+    await store.createUser(b);
+    // b tries to take a's email → clash detected (mirrors /auth/email guard)
+    const clash = await store.getUserByEmail("a@x.com");
+    expect(clash && clash.id !== b.id).toBe(true);
+    // a moves to a free address → succeeds and is findable
+    await store.updateUser({ ...a, email: "a2@x.com" });
+    expect((await store.getUserByEmail("a2@x.com"))?.id).toBe(a.id);
+    expect(await store.getUserByEmail("a@x.com")).toBeNull();
   });
 });

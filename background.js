@@ -528,6 +528,29 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       return true;
 
+    case "SYNC_CHANGE_EMAIL":
+      getSyncConfig().then(async (cfg) => {
+        if (!cfg || !cfg.token) return sendResponse({ ok: false, error: "not_signed_in" });
+        try {
+          const res = await apiCall(cfg, "/auth/email", { method: "POST", body: JSON.stringify({ email: message.email }) });
+          if (!res.ok) { const e = await res.json().catch(() => ({})); return sendResponse({ ok: false, error: e.error || `http_${res.status}` }); }
+          await api.storage.local.set({ [SYNC_CFG_KEY]: { ...cfg, email: message.email } });
+          sendResponse({ ok: true });
+        } catch (e) { sendResponse({ ok: false, error: String(e && e.message) }); }
+      });
+      return true;
+
+    case "SYNC_CHANGE_PASSWORD":
+      getSyncConfig().then(async (cfg) => {
+        if (!cfg || !cfg.token) return sendResponse({ ok: false, error: "not_signed_in" });
+        try {
+          const res = await apiCall(cfg, "/auth/password", { method: "POST", body: JSON.stringify({ current: message.current, next: message.next }) });
+          if (!res.ok) { const e = await res.json().catch(() => ({})); return sendResponse({ ok: false, error: e.error || `http_${res.status}` }); }
+          sendResponse({ ok: true });
+        } catch (e) { sendResponse({ ok: false, error: String(e && e.message) }); }
+      });
+      return true;
+
     case "SYNC_SIGN_OUT":
       api.storage.local.set({ [SYNC_CFG_KEY]: null, [SYNC_META_KEY]: {} }).then(() => sendResponse({ ok: true }));
       return true;

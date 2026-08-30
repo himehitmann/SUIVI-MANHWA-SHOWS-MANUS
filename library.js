@@ -21,10 +21,10 @@ const LANGS = {
     continue:"Jump back in", newWeek:"New this week", becauseYouLove:"Because you love {g}", yourGenres:"Your genres", recentlyAdded:"Recently added",
     resume:"Resume", details:"Details", welcomeTitle:"Welcome to Dasi", welcomeBody:"Open any manga, webtoon, anime, series or game and hit save in the Dasi popup. It lands here — beautifully.",
     tracked:"Tracked", reading:"Reading", watching:"Watching", favorites:"Favorites", finished:"Finished",
-    all:"All", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress", released:"Released", markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
+    all:"All", status:"Status", current:"In progress", planned:"Planned", completed:"Completed", on_hold:"On hold", dropped:"Dropped", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress", released:"Released", markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
     newList:"New list", cover:"Cover", rename:"Rename", delete:"Delete", inThisList:"In this list", addWorks:"Add works", allLists:"All lists", dragReorder:"drag to reorder",
     gamesSub:"Track awaited games — release dates, prices, trailers and pre-registrations.", addGame:"Add a game", title:"Title", platform:"Platform", releaseDate:"Release date", price:"Price", trailer:"Trailer", watchTrailer:"Watch trailer", preRegistered:"Pre-registered", released:"Released", comingSoon:"Coming soon", add:"Add", cancel:"Cancel", free:"Free",
-    editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", newAlerts:"New-episode alerts", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", cloudSync:"Cloud sync", cloudSyncSub:"Optional — sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Dasi.", spread:"Spread the word", enjoying:"Enjoying Dasi?",
+    editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", language:"Language", uiLanguage:"App language", translateLanguage:"Default translation language", account:"Account", email:"Email", changeEmail:"Change email", changePassword:"Change password", currentPassword:"Current password", newPassword:"New password", save:"Save", signedInAs:"Signed in as", notSignedIn:"Not signed in — sync is optional.", newAlerts:"New-episode alerts", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", cloudSync:"Cloud sync", cloudSyncSub:"Optional — sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Dasi.", spread:"Spread the word", enjoying:"Enjoying Dasi?",
     plansTitle:"Choose your plan", plansSub:"Free forever for local tracking. Go Pro for sync, alerts and more.", unlocked:"Owner edition — every Pro feature is unlocked.", mostPopular:"Most popular", getStarted:"Get started", goPro:"Go Pro", getLifetime:"Get Lifetime", currentPlan:"Current",
     updatesNone:"Nothing new right now", updatesSome:"{n} with something new" },
   fr: { name:"Français", home:"Accueil", library:"Bibliothèque", lists:"Listes", games:"Jeux", plans:"Abonnements", settings:"Paramètres",
@@ -32,10 +32,10 @@ const LANGS = {
     continue:"Reprendre", newWeek:"Nouveautés de la semaine", becauseYouLove:"Parce que tu aimes {g}", yourGenres:"Tes genres", recentlyAdded:"Ajoutés récemment",
     resume:"Reprendre", details:"Détails", welcomeTitle:"Bienvenue sur Dasi", welcomeBody:"Ouvre un manga, webtoon, anime, série ou jeu et clique sur enregistrer dans la bulle Dasi. Ça arrive ici — élégamment.",
     tracked:"Suivis", reading:"Lecture", watching:"Visionnage", favorites:"Favoris", finished:"Terminés",
-    all:"Tout", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression", released:"Sortis", markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
+    all:"Tout", status:"Statut", current:"En cours", planned:"Prévu", completed:"Terminé", on_hold:"En pause", dropped:"Abandonné", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression", released:"Sortis", markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
     newList:"Nouvelle liste", cover:"Couverture", rename:"Renommer", delete:"Supprimer", inThisList:"Dans cette liste", addWorks:"Ajouter des œuvres", allLists:"Toutes les listes", dragReorder:"glisser pour réordonner",
     gamesSub:"Suis les jeux attendus — dates de sortie, prix, trailers et préinscriptions.", addGame:"Ajouter un jeu", title:"Titre", platform:"Plateforme", releaseDate:"Date de sortie", price:"Prix", trailer:"Trailer", watchTrailer:"Voir le trailer", preRegistered:"Préinscrit", released:"Sorti", comingSoon:"Bientôt", add:"Ajouter", cancel:"Annuler", free:"Gratuit",
-    editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", newAlerts:"Alertes nouveaux épisodes", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel — connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Dasi.", spread:"Fais passer le mot", enjoying:"Tu aimes Dasi ?",
+    editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", language:"Langue", uiLanguage:"Langue de l'appli", translateLanguage:"Langue de traduction par défaut", account:"Compte", email:"E-mail", changeEmail:"Changer l'e-mail", changePassword:"Changer le mot de passe", currentPassword:"Mot de passe actuel", newPassword:"Nouveau mot de passe", save:"Enregistrer", signedInAs:"Connecté en tant que", notSignedIn:"Non connecté — la sync est optionnelle.", newAlerts:"Alertes nouveaux épisodes", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel — connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Dasi.", spread:"Fais passer le mot", enjoying:"Tu aimes Dasi ?",
     plansTitle:"Choisis ton abonnement", plansSub:"Gratuit à vie pour le suivi local. Passe Pro pour la sync, les alertes et plus.", unlocked:"Édition propriétaire — toutes les fonctions Pro sont débloquées.", mostPopular:"Le plus populaire", getStarted:"Commencer", goPro:"Passer Pro", getLifetime:"À vie", currentPlan:"Actuel",
     updatesNone:"Rien de nouveau pour l'instant", updatesSome:"{n} avec du nouveau" },
   es: { name:"Español", home:"Inicio", library:"Biblioteca", lists:"Listas", games:"Juegos", plans:"Planes", settings:"Ajustes", search:"Buscar",
@@ -65,6 +65,8 @@ const LANGS = {
     welcomeBody:"Abre um manga, webtoon, anime, série ou jogo e guarda na janela do Dasi. Aparece aqui.", comingSoon:"Em breve", add:"Adicionar", cancel:"Cancelar", open:"Abrir", markFinished:"Marcar terminado", markUnfinished:"Marcar em curso", released:"Lançados", markAll:"Marcar tudo como visto", upToDate:"Em dia", unseenN:"{n} por ver", progress:"Progresso", rating:"Avaliação", tags:"Etiquetas", synopsis:"Sinopse", newList:"Nova lista", delete:"Eliminar", allLists:"Todas as listas", editProfile:"Editar perfil", backup:"Cópia de segurança", export:"Exportar", import:"Importar", removeLib:"Remover da biblioteca", updatesNone:"Nada de novo por agora", updatesSome:"{n} com novidades" },
 };
 const t = (k, p) => { let s = (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || k; if (p) for (const key in p) s = s.replace(`{${key}}`, p[key]); return s; };
+// Target languages for page translation (broad list, matches the popup).
+const TR_LANGS = [["en","English"],["fr","Français"],["es","Español"],["de","Deutsch"],["it","Italiano"],["pt","Português"],["nl","Nederlands"],["ru","Русский"],["uk","Українська"],["pl","Polski"],["tr","Türkçe"],["ar","العربية"],["fa","فارسی"],["hi","हिन्दी"],["id","Indonesia"],["vi","Tiếng Việt"],["th","ไทย"],["ja","日本語"],["ko","한국어"],["zh-CN","中文 (简)"],["zh-TW","中文 (繁)"],["fil","Filipino"],["ms","Melayu"],["sv","Svenska"],["no","Norsk"],["da","Dansk"],["fi","Suomi"],["cs","Čeština"],["el","Ελληνικά"],["he","עברית"],["ro","Română"],["hu","Magyar"],["bg","Български"],["sr","Српски"],["hr","Hrvatski"]];
 
 /* ---- SVG icons ---- */
 const I = {
@@ -95,6 +97,8 @@ const accentFor = (i) => (i.type === "watching" ? "#7E9BE6" : i.type === "game" 
 const coverUrl = (i) => i.coverOverride || i.cover || "";
 // Current position and how many entries are released — the basis for "unseen".
 const currentNum = (i) => (i.type === "watching" ? i.episode || 0 : i.chapter || 0);
+const STATUSES = ["current", "planned", "completed", "on_hold", "dropped"];
+const itemState = (i) => i.state || ((i.progress || 0) >= 100 ? "completed" : "current");
 const unseen = (i) => (i.type === "game" ? 0 : Math.max(0, (i.total || 0) - currentNum(i)));
 // "New for you": you have unseen released entries, OR it changed recently.
 const isNew = (i) => i.type !== "game" && (i.progress || 0) < 100 && (unseen(i) > 0 || Date.now() - (i.updatedAt || 0) < NEW_WINDOW);
@@ -233,7 +237,7 @@ function renderStats() {
   document.getElementById("stats").innerHTML = s.map(([n, l]) => `<div class="chip"><b>${n}</b><span>${l}</span></div>`).join("");
 }
 function renderFilters() {
-  const f = [["all", t("all")], ["reading", t("reading")], ["watching", t("watching")], ["favorites", t("favorites")]];
+  const f = [["all", t("all")], ["reading", t("reading")], ["watching", t("watching")], ["favorites", t("favorites")], ["planned", t("planned")], ["completed", t("completed")], ["on_hold", t("on_hold")], ["dropped", t("dropped")]];
   document.getElementById("filters").innerHTML = f.map(([k, l]) => `<button data-f="${k}" class="${filter === k ? "active" : ""}">${l}</button>`).join("");
 }
 function cardHtml(i) {
@@ -243,7 +247,7 @@ function cardHtml(i) {
     <button class="fav ${i.favorite ? "on" : ""}" data-fav="${i.id}">${I.star}</button>
     <div class="cover" style="background:${i.accent || accentFor(i)}">${coverInner(i)}${flagLabel(i) ? `<span class="new-flag">${esc(flagLabel(i))}</span>` : ""}</div>
     <div class="card-body">
-      <h3>${esc(i.title || "Untitled")}</h3><p>${esc(marker(i))}</p>
+      <h3>${esc(i.title || "Untitled")}</h3><p>${esc(marker(i))}${itemState(i) !== "current" ? ` · <b style="color:var(--lav-ink)">${t(itemState(i))}</b>` : ""}</p>
       ${(i.progress || 0) > 0 ? `<div class="bar"><i style="width:${Math.min(100, i.progress)}%;background:${accentFor(i)}"></i></div>` : ""}
       <small>${relative(i.updatedAt)}</small>
       <div class="rate">${[1,2,3,4,5].map((n) => `<span data-rate="${i.id}" data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= rating ? "on" : ""}"`)}</span>`).join("")}</div>
@@ -258,6 +262,7 @@ function renderGrid() {
     if (i.type === "game") return false;
     if (filter === "favorites" && !i.favorite) return false;
     if ((filter === "reading" || filter === "watching") && i.type !== filter) return false;
+    if (STATUSES.includes(filter) && itemState(i) !== filter) return false;
     if (!q) return true;
     return `${i.title} ${marker(i)} ${(i.tags || []).join(" ")}`.toLowerCase().includes(q);
   });
@@ -268,9 +273,9 @@ function renderGrid() {
 function gameCardHtml(i) {
   const released = isReleased(i), soon = isSoon(i);
   return `<div class="game-card">
-    <div class="game-cover">${coverInner(i, 24)}</div>
+    <div class="game-cover" data-open="${i.id}" style="cursor:pointer">${coverInner(i, 24)}</div>
     <div class="game-body">
-      <h3>${esc(i.title)}</h3>
+      <h3 data-open="${i.id}" style="cursor:pointer">${esc(i.title)}</h3>
       <div class="game-meta">
         ${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}
         ${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}${soon ? " · " + t("comingSoon") : released ? " · " + t("released") : ""}</span>` : ""}
@@ -295,6 +300,7 @@ function renderGames() {
     <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">${games.length ? games.map(gameCardHtml).join("") : `<p class="empty">${t("gamesSub")}</p>`}</div>`;
   document.getElementById("add-game").onclick = showGameForm;
   el.querySelectorAll("[data-prereg]").forEach((l) => (l.onclick = () => { const it = items.find((x) => x.id === l.dataset.prereg); if (it) update(it.id, { preregistered: !it.preregistered }); }));
+  el.querySelectorAll("[data-open]").forEach((n) => (n.onclick = () => openDrawer(n.dataset.open)));
   el.querySelectorAll("[data-rmgame]").forEach((b) => (b.onclick = () => { if (confirm("Remove this game?")) api.runtime.sendMessage({ type: "REMOVE_ITEM", id: b.dataset.rmgame }, (r) => { items = r?.items || items; renderAll(); }); }));
 }
 function showGameForm() {
@@ -475,9 +481,10 @@ function openDrawer(id) {
         ${episodeGrid(i)}
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
           ${i.total && unseen(i) > 0 ? `<button class="btn primary" id="dr-markall">${I.check} ${t("markAll")}</button>` : ""}
-          <button class="btn ${(i.progress || 0) >= 100 ? "" : "primary"}" id="dr-done">${I.check} ${(i.progress || 0) >= 100 ? t("markUnfinished") : t("markFinished")}</button>
           <a class="btn" href="${esc(i.url || "#")}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>
         </div>`}
+      ${isGame ? "" : `<div class="section-t">${t("status")}</div>
+      <div class="chips-wrap" id="dr-status">${STATUSES.map((s) => `<button class="chip-toggle ${itemState(i) === s ? "on" : ""}" data-status="${s}">${itemState(i) === s ? I.check : ""} ${t(s)}</button>`).join("")}</div>`}
       <div class="section-t">${t("rating")}</div>
       <div class="rate-big" id="dr-rate">${[1,2,3,4,5].map((n) => `<span data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= (i.rating || 0) ? "on" : ""}"`)}</span>`).join("")}</div>
       <div class="section-t">${t("tags")}</div><div class="tag-edit" id="dr-tags"></div>
@@ -517,12 +524,18 @@ function wireDrawer(i, isWatch, isGame) {
     if (eps) eps.querySelectorAll("[data-ep]").forEach((c) => (c.onclick = () => { setNum(Number(c.dataset.ep)); setTimeout(() => openDrawer(i.id), 30); }));
     const markall = document.getElementById("dr-markall");
     if (markall) markall.onclick = () => { setNum(i.total || currentNum(i)); setTimeout(() => openDrawer(i.id), 30); };
-    document.getElementById("dr-done").onclick = () => { const done = (i.progress || 0) >= 100; update(i.id, { progress: done ? 0 : 100, status: done ? "in_progress" : "completed" }); setTimeout(() => openDrawer(i.id), 30); };
   } else {
     document.getElementById("dr-prereg").onclick = () => { update(i.id, { preregistered: !i.preregistered }); setTimeout(() => openDrawer(i.id), 30); };
   }
   document.getElementById("dr-cover").onclick = () => changeCover((v) => { update(i.id, { coverOverride: v }); setTimeout(() => openDrawer(i.id), 30); });
   document.querySelectorAll("#dr-rate span").forEach((s) => (s.onclick = () => { const v = Number(s.dataset.v); update(i.id, { rating: i.rating === v ? 0 : v }); setTimeout(() => openDrawer(i.id), 30); }));
+  document.querySelectorAll("#dr-status [data-status]").forEach((b) => (b.onclick = () => {
+    const s = b.dataset.status; const patch = { state: s };
+    if (s === "completed") { patch.progress = 100; patch.status = "completed"; }
+    else if (s === "planned") { patch.progress = 0; patch.status = "in_progress"; }
+    else patch.status = "in_progress";
+    update(i.id, patch); setTimeout(() => openDrawer(i.id), 30);
+  }));
   renderDrawerTags(i);
   document.querySelectorAll("#dr-lists [data-list]").forEach((b) => (b.onclick = () => { const l = lists.find((x) => x.id === b.dataset.list); if (!l) return; const has = (l.itemIds || []).includes(i.id); setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== i.id) : [...(l.itemIds || []), i.id]); setTimeout(() => openDrawer(i.id), 30); }));
   document.getElementById("dr-remove").onclick = () => { if (!confirm(`${t("removeLib")}?`)) return; api.runtime.sendMessage({ type: "REMOVE_ITEM", id: i.id }, (r) => { items = r?.items || items.filter((x) => x.id !== i.id); closeDrawer(); renderAll(); }); };
@@ -634,6 +647,15 @@ function renderSettings() {
       <div class="grow"><input class="field" id="set-name" placeholder="${t("displayName")}" value="${esc(p.name || "")}" style="max-width:280px" /></div>
       <button class="btn" id="set-photo">${I.image} ${t("changePhoto")}</button>
     </div></div>
+    <div class="section-t">${t("account")}</div>
+    <div class="panel" id="account-panel"></div>
+    <div class="section-t">${t("language")}</div>
+    <div class="panel">
+      <div class="row"><div class="grow"><b>${t("uiLanguage")}</b></div>
+        <select class="field" id="set-uilang" style="max-width:200px">${Object.entries(LANGS).map(([c, L]) => `<option value="${c}" ${settings.lang === c ? "selected" : ""}>${esc(L.name)}</option>`).join("")}</select></div>
+      <div class="row"><div class="grow"><b>${t("translateLanguage")}</b></div>
+        <select class="field" id="set-trlang" style="max-width:200px">${TR_LANGS.map(([c, n]) => `<option value="${c}" ${(settings.translateLang || "en") === c ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></div>
+    </div>
     <div class="section-t">${t("newAlerts")}</div>
     <div class="panel"><div class="row"><div class="grow"><b>${t("newAlerts")}</b><small>${t("newAlertsSub")}</small></div><button class="switch ${settings.notifyNew ? "on" : ""}" id="sw-notify"></button></div></div>
     <div class="section-t">${t("backup")}</div>
@@ -656,6 +678,11 @@ function wireSettings() {
   document.getElementById("set-photo").onclick = pickPhoto;
   document.getElementById("set-avatar").onclick = pickPhoto;
   document.getElementById("sw-notify").onclick = () => { settings.notifyNew = !settings.notifyNew; document.getElementById("sw-notify").classList.toggle("on", settings.notifyNew); api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { notifyNew: settings.notifyNew } }, (r) => { if (r?.settings) settings = r.settings; }); };
+  const uilang = document.getElementById("set-uilang");
+  uilang.onchange = () => { settings.lang = uilang.value; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { lang: settings.lang } }, (r) => { if (r?.settings) settings = r.settings; document.documentElement.lang = settings.lang; renderNav(); renderAll(); renderSettings(); }); };
+  const trlang = document.getElementById("set-trlang");
+  trlang.onchange = () => { settings.translateLang = trlang.value; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: settings.translateLang } }, (r) => { if (r?.settings) settings = r.settings; }); };
+  renderAccountPanel();
   document.getElementById("export").onclick = doExport;
   document.getElementById("import").onclick = () => document.getElementById("file").click();
   document.getElementById("file").addEventListener("change", doImport);
@@ -663,6 +690,34 @@ function wireSettings() {
   buildShare(document.getElementById("share"));
   buildRateStore(document.getElementById("rate-store"));
   api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => { void api.runtime.lastError; userPlan = (s && s.plan) || null; const el = document.getElementById("sync-state"); if (s && s.configured && el) el.textContent = s.meta && s.meta.lastError ? "Signed in — sync needs attention" : `Synced as ${s.email || "you"}`; });
+}
+function renderAccountPanel() {
+  const el = document.getElementById("account-panel");
+  if (!el) return;
+  api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => {
+    void api.runtime.lastError;
+    userPlan = (s && s.plan) || userPlan;
+    if (!s || !s.configured) {
+      el.innerHTML = `<div class="row"><div class="grow"><b>${t("notSignedIn")}</b><small>${t("cloudSyncSub")}</small></div><button class="btn primary" id="acc-signin">${t("manageSync")}</button></div>`;
+      document.getElementById("acc-signin").onclick = () => api.runtime.openOptionsPage();
+      return;
+    }
+    el.innerHTML = `
+      <div class="row"><div class="grow"><b>${esc(s.email || "")}</b><small>${t("signedInAs")} · ${esc(s.plan || "free")}</small></div><button class="btn" id="acc-manage">${t("manageSync")}</button></div>
+      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changeEmail")}</b></div><input class="field" id="acc-email" type="email" placeholder="new@email.com" style="max-width:200px" /><button class="btn" id="acc-email-btn">${t("save")}</button></div>
+      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changePassword")}</b></div><input class="field" id="acc-pw-cur" type="password" placeholder="${t("currentPassword")}" style="max-width:150px" /><input class="field" id="acc-pw-new" type="password" placeholder="${t("newPassword")}" style="max-width:150px" /><button class="btn" id="acc-pw-btn">${t("save")}</button></div>`;
+    document.getElementById("acc-manage").onclick = () => api.runtime.openOptionsPage();
+    document.getElementById("acc-email-btn").onclick = () => {
+      const v = document.getElementById("acc-email").value.trim();
+      if (!v) return;
+      api.runtime.sendMessage({ type: "SYNC_CHANGE_EMAIL", email: v }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changeEmail") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) renderAccountPanel(); });
+    };
+    document.getElementById("acc-pw-btn").onclick = () => {
+      const cur = document.getElementById("acc-pw-cur").value, nw = document.getElementById("acc-pw-new").value;
+      if (!nw) return;
+      api.runtime.sendMessage({ type: "SYNC_CHANGE_PASSWORD", current: cur, next: nw }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changePassword") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) { document.getElementById("acc-pw-cur").value = ""; document.getElementById("acc-pw-new").value = ""; } });
+    };
+  });
 }
 function doExport() {
   const blob = new Blob([JSON.stringify({ version: 2, items, sites, notifications, lists, settings }, null, 2)], { type: "application/json" });
