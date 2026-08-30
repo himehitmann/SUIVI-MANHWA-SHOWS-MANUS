@@ -6,7 +6,7 @@ name: Package extension
 
 on:
   push:
-    branches: [claude/admiring-pasteur-dc5ce1, main]
+    branches: [main, private]
     paths:
       - "extension/**"
       - ".github/workflows/extension-zip.yml"
