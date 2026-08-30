@@ -238,6 +238,15 @@
       },
     },
     {
+      id: "miraculous",
+      match: /miraculous\.to/,
+      parse() {
+        const m = location.pathname.match(/season-(\d+)\/episode-(\d+)/i) || parseSeasonEpisode(document.title || "");
+        const se = m && m.length ? { season: num(m[1]), episode: num(m[2]) } : (m || {});
+        return { title: "Miraculous", type: "watching", ...se, episodeTitle: cleanTitle(qtext("h1")) };
+      },
+    },
+    {
       id: "generic-drama",
       match: /wetv\.vip|iq\.com|bilibili\.tv|hidrama|ridomovies|onetouchtv|chia-anime|dramastore|vidbox|yarrlist/,
       parse() {
@@ -287,9 +296,6 @@
     const ogTitle = metaFirst(["meta[property='og:title']", "meta[name='twitter:title']"]);
     const domHeading = qtext("h1");
 
-    const rawTitle = adapter?.title || structured?.name || structured?.headline || cleanTitle(ogTitle) || cleanTitle(domHeading) || cleanTitle(document.title) || location.hostname;
-    const title = clean(rawTitle) || location.hostname;
-
     const context = clean([document.title, ogTitle, domHeading, decodeURIComponent(location.pathname)].join(" "));
 
     const media = largestVideo();
@@ -316,6 +322,42 @@
 
     let type = adapter?.type;
     if (!type) type = media ? "watching" : chapter ? "reading" : episode || season ? "watching" : "reading";
+
+    /*
+     * A saved "work" is the SERIES, never a single episode — otherwise every
+     * episode becomes a new entry (no overwrite, and searching the series name
+     * finds nothing). For episodic content we therefore look hard for the series
+     * name: JSON-LD partOfSeries, a breadcrumb, then the site/brand name; the
+     * page/episode title is only a fallback.
+     */
+    const seriesName = clean(
+      structured?.partOfSeries?.name ||
+        structured?.partOfSeason?.partOfSeries?.name ||
+        (structured?.partOfSeries && structured.partOfSeries["@type"] ? structured.partOfSeries.name : ""),
+    );
+    const ogSite = metaFirst(["meta[property='og:site_name']"]);
+    const crumbs = [...document.querySelectorAll('[itemprop="itemListElement"] [itemprop="name"], .breadcrumb a, .breadcrumbs a, nav[aria-label*="readcrumb" i] a')]
+      .map((e) => clean(e.getAttribute("content") || e.textContent))
+      .filter(Boolean);
+    const crumbSeries = crumbs
+      .reverse()
+      .find((c) => c && !/^(home|accueil|episodes?|episode|watch|regarder|browse|tv|series|s[ée]ries?|anime|animes?|movies?|films?|read|manga)$/i.test(c) && !/^\d+$/.test(c));
+    const brand = (() => {
+      const b = clean(ogSite).replace(/\.(to|com|net|org|tv|io|co|vip|su|cc|me|rip|onl|es|do)$/i, "").trim();
+      return b ? cleanTitle(b) || b : "";
+    })();
+
+    const episodic = type === "watching" && Boolean(season || episode);
+    const rawTitle =
+      adapter?.title ||
+      seriesName ||
+      (episodic ? crumbSeries || brand : "") ||
+      (episodic ? "" : structured?.name || structured?.headline) ||
+      cleanTitle(ogTitle) ||
+      cleanTitle(domHeading) ||
+      cleanTitle(document.title) ||
+      location.hostname;
+    const title = clean(rawTitle) || location.hostname;
 
     // Confidence: highest when a dedicated adapter or structured data agreed.
     let confidence = 0.5;

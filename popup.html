@@ -54,12 +54,20 @@
       .pip { width:100%; margin-top:11px; padding:9px; border-radius:999px; background:#A18BE0; color:#fff; font-size:11px; }
       .pip:disabled { opacity:.5; cursor:default; }
       .share { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid #F0EEF5; }
-      .rate { background:#FFF6EC; color:#E0894A; font-size:11px; font-weight:800; padding:8px 12px; border-radius:999px; letter-spacing:.02em; }
-      .rate:hover { background:#FFE9D2; }
+      .stars { display:inline-flex; cursor:pointer; gap:2px; }
+      .stars span { font-size:17px; color:#E4DFEA; transition:transform .12s, color .12s; line-height:1; }
+      .stars span.on { color:#FFB23E; }
+      .stars:hover span { transform:scale(1.06); }
+      .stars span.pop { transform:scale(1.35); }
+      .speed-input { width:52px; text-align:center; font:inherit; font-weight:700; font-size:12px; color:var(--ink); border:0; background:#fff; border-radius:8px; padding:5px 4px; outline:0; box-shadow:inset 0 0 0 1px #E4D9FA; }
+      .speed-input::-webkit-inner-spin-button { opacity:.4; }
+      .speed-x { font-size:11px; color:#9C98A6; margin-left:-2px; }
       .share-icons { display:flex; gap:6px; }
-      .sh { width:30px; height:30px; border-radius:50%; background:#F5F4FA; color:#6D6677; font-size:12px; font-weight:800; display:grid; place-items:center; transition:.15s; }
-      .sh:hover { transform:translateY(-2px); }
-      #sh-x:hover{background:#111;color:#fff} #sh-fb:hover{background:#1877F2;color:#fff} #sh-wa:hover{background:#25D366;color:#fff} #sh-rd:hover{background:#FF4500;color:#fff} #sh-cp:hover{background:#EDE6FF;color:#705BBA}
+      .sh { width:30px; height:30px; border-radius:50%; background:#F5F4FA; display:grid; place-items:center; transition:transform .15s, background .15s; padding:0; }
+      .sh svg { width:15px; height:15px; fill:#6D6677; transition:fill .15s; }
+      .sh:hover { transform:translateY(-2px) scale(1.05); }
+      .sh.x:hover{background:#111} .sh.fb:hover{background:#1877F2} .sh.wa:hover{background:#25D366} .sh.rd:hover{background:#FF4500} .sh.cp:hover{background:#7C5CD6}
+      .sh:hover svg { fill:#fff; }
       .foot { display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:10px; margin-top:14px; }
       .foot button { background:none; color:#9892A5; font-size:10px; padding:0; }
       .foot button:hover { color:#705BBA; text-decoration:underline; }
@@ -108,7 +116,8 @@
           <span>Playback speed</span>
           <div class="speed-actions">
             <button class="step" id="slower">−</button>
-            <strong class="speed-val" id="speed">1×</strong>
+            <input class="speed-input" id="speed-input" type="number" min="0.25" max="3" step="0.25" value="1" aria-label="Playback speed" />
+            <span class="speed-x">×</span>
             <button class="step" id="faster">＋</button>
           </div>
         </div>
@@ -116,13 +125,15 @@
       </div>
 
       <div class="share">
-        <button class="rate" id="rate" title="Rate Dasi on the Chrome Web Store">★★★★★ Rate</button>
+        <div class="stars" id="stars" title="Rate Dasi 5★ on the Chrome Web Store" role="button" aria-label="Rate on the Chrome Web Store">
+          <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span>
+        </div>
         <div class="share-icons">
-          <button class="sh" id="sh-x" title="Share on X" aria-label="Share on X">𝕏</button>
-          <button class="sh" id="sh-fb" title="Share on Facebook" aria-label="Share on Facebook">f</button>
-          <button class="sh" id="sh-wa" title="Share on WhatsApp" aria-label="Share on WhatsApp">✆</button>
-          <button class="sh" id="sh-rd" title="Share on Reddit" aria-label="Share on Reddit">r/</button>
-          <button class="sh" id="sh-cp" title="Copy share link" aria-label="Copy link">🔗</button>
+          <button class="sh x" id="sh-x" title="Share on X" aria-label="Share on X"><svg viewBox="0 0 24 24"><path d="M18.24 2H21.5l-7.5 8.57L22.5 22h-6.6l-5.17-6.76L4.8 22H1.54l8.02-9.17L1.5 2h6.77l4.67 6.18L18.24 2Zm-1.16 18h1.83L7.02 3.9H5.06L17.08 20Z"/></svg></button>
+          <button class="sh fb" id="sh-fb" title="Share on Facebook" aria-label="Share on Facebook"><svg viewBox="0 0 24 24"><path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12Z"/></svg></button>
+          <button class="sh wa" id="sh-wa" title="Share on WhatsApp" aria-label="Share on WhatsApp"><svg viewBox="0 0 24 24"><path d="M12.04 2a9.9 9.9 0 0 0-8.5 14.97L2 22l5.16-1.35A9.9 9.9 0 1 0 12.04 2Zm0 1.8a8.1 8.1 0 0 1 5.73 13.83A8.1 8.1 0 0 1 7.5 18.8l-.36-.21-3.06.8.82-2.98-.24-.38A8.1 8.1 0 0 1 12.04 3.8Zm-2.9 4.02c-.15 0-.4.06-.6.29-.2.22-.78.76-.78 1.86s.8 2.16.91 2.31c.11.15 1.57 2.5 3.9 3.4 1.94.75 2.34.6 2.76.56.42-.04 1.36-.55 1.55-1.09.19-.53.19-.99.13-1.09-.06-.1-.2-.15-.42-.26-.22-.11-1.36-.67-1.57-.75-.21-.08-.36-.11-.51.11-.15.22-.58.75-.72.9-.13.15-.26.17-.48.06-.22-.11-.94-.35-1.79-1.11-.66-.59-1.11-1.32-1.24-1.54-.13-.22-.01-.34.1-.45.1-.1.22-.26.33-.39.11-.13.15-.22.22-.37.07-.15.04-.28-.02-.39-.06-.11-.5-1.26-.69-1.72-.18-.44-.36-.38-.5-.39l-.42-.01Z"/></svg></button>
+          <button class="sh rd" id="sh-rd" title="Share on Reddit" aria-label="Share on Reddit"><svg viewBox="0 0 24 24"><path d="M22 11.6a2.1 2.1 0 0 0-3.55-1.5 10.3 10.3 0 0 0-5.2-1.64l.88-4.15 2.9.62a1.5 1.5 0 1 0 .17-.98l-3.3-.7a.5.5 0 0 0-.59.38l-1 4.7a10.4 10.4 0 0 0-5.32 1.64 2.1 2.1 0 1 0-2.3 3.42 4.2 4.2 0 0 0-.04.66c0 3.3 3.85 5.98 8.6 5.98s8.6-2.68 8.6-5.98a4 4 0 0 0-.04-.65A2.1 2.1 0 0 0 22 11.6ZM7.6 13.1a1.4 1.4 0 1 1 2.8 0 1.4 1.4 0 0 1-2.8 0Zm7.86 3.68c-.98.98-3.9.98-4.9 0a.4.4 0 0 1 .56-.56c.65.64 3.02.65 3.77 0a.4.4 0 1 1 .57.56Zm-.06-2.28a1.4 1.4 0 1 1 0-2.8 1.4 1.4 0 0 1 0 2.8Z"/></svg></button>
+          <button class="sh cp" id="sh-cp" title="Copy share link" aria-label="Copy link"><svg viewBox="0 0 24 24"><path d="M10.6 13.4a1 1 0 0 0 1.42 0l4.24-4.24a3 3 0 1 0-4.24-4.25l-1.2 1.2a1 1 0 1 0 1.42 1.42l1.2-1.2a1 1 0 1 1 1.42 1.41l-4.25 4.24a1 1 0 0 0 0 1.42Zm2.8-2.8a1 1 0 0 0-1.42 0L7.74 14.84a1 1 0 1 1-1.42-1.42l4.25-4.24a1 1 0 1 0-1.42-1.42L4.9 12a3 3 0 1 0 4.25 4.24l4.24-4.24a1 1 0 0 0 0-1.42Z"/></svg></button>
         </div>
       </div>
     </div>

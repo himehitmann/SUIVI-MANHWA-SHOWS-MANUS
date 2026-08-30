@@ -98,6 +98,11 @@ describe("adapterFromUrl", () => {
     expect(r?.title?.toLowerCase()).toContain("strongest");
     expect(r?.episode).toBeUndefined();
   });
+  it("uses the SERIES title (not the episode name) on Miraculous", () => {
+    const r = adapterFromUrl("https://miraculous.to/en/season-6/episode-26-nemesis.html");
+    expect(r).toMatchObject({ adapter: "miraculous", type: "watching", season: 6, episode: 26 });
+    expect(r?.title).toBe("Miraculous");
+  });
   it("returns null for an unknown site", () => {
     expect(adapterFromUrl("https://example.com/some/page")).toBeNull();
   });

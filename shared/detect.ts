@@ -159,6 +159,14 @@ export function adapterFromUrl(url: string): Marker | null {
       },
     },
     {
+      id: "miraculous",
+      test: /miraculous\.to/i,
+      run: () => {
+        const m = pathname.match(/season-(\d+)\/episode-(\d+)/i);
+        return { title: "Miraculous", type: "watching", season: m ? toNum(m[1]) : undefined, episode: m ? toNum(m[2]) : undefined, adapter: "miraculous" };
+      },
+    },
+    {
       id: "crunchyroll",
       test: /crunchyroll\.com/i,
       run: () => {

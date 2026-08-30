@@ -133,9 +133,10 @@ $("#save-site").onclick = () => {
   } catch {
     domain = url;
   }
+  // Name the favourite by the SITE (domain), never the current episode title.
   const site = {
     id: Math.random().toString(36).slice(2, 10),
-    name: (activeTab?.title || domain).split(/[|\-–]/)[0].trim().slice(0, 30) || domain,
+    name: domain,
     url: `${new URL(url).protocol}//${new URL(url).host}`,
     domain,
     color: "#F0EAFF",
@@ -145,15 +146,18 @@ $("#save-site").onclick = () => {
   });
 };
 
-const setSpeed = (delta) => {
-  speed = Math.min(4, Math.max(0.25, Number((speed + delta).toFixed(2))));
-  $("#speed").textContent = `${speed}×`;
+// Playback speed: 0.25×–3×, adjustable with −/+ or by typing the number.
+const applySpeed = (v) => {
+  speed = Math.min(3, Math.max(0.25, Math.round(Number(v) * 100) / 100 || 1));
+  const inp = $("#speed-input");
+  if (inp) inp.value = String(speed);
   api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (tabs[0]?.id) api.tabs.sendMessage(tabs[0].id, { type: "SET_PLAYBACK_SPEED", speed });
   });
 };
-$("#slower").onclick = () => setSpeed(-0.25);
-$("#faster").onclick = () => setSpeed(0.25);
+$("#slower").onclick = () => applySpeed(speed - 0.25);
+$("#faster").onclick = () => applySpeed(speed + 0.25);
+$("#speed-input").addEventListener("change", (e) => applySpeed(e.target.value));
 
 $("#pip").onclick = () =>
   api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -168,7 +172,16 @@ $("#pip").onclick = () =>
 const DASI_STORE_URL = "https://chromewebstore.google.com/detail/dasi";
 const DASI_SHARE_TEXT = "Dasi — never lose your spot in any manga, webtoon, anime or series. Save & resume in one click.";
 const openUrl = (u) => api.tabs.create({ url: u });
-$("#rate").onclick = () => openUrl(DASI_STORE_URL);
+// Animated 5-star rating → opens the Chrome Web Store review page.
+const stars = [...document.querySelectorAll("#stars span")];
+const paintStars = (n) => stars.forEach((s, i) => s.classList.toggle("on", i < n));
+stars.forEach((s) => s.addEventListener("mouseenter", () => paintStars(Number(s.dataset.v))));
+$("#stars").addEventListener("mouseleave", () => paintStars(0));
+$("#stars").addEventListener("click", () => {
+  paintStars(5);
+  stars.forEach((s, i) => setTimeout(() => { s.classList.add("pop"); setTimeout(() => s.classList.remove("pop"), 160); }, i * 60));
+  setTimeout(() => openUrl(DASI_STORE_URL), 400);
+});
 $("#sh-x").onclick = () => openUrl(`https://twitter.com/intent/tweet?text=${encodeURIComponent(DASI_SHARE_TEXT)}&url=${encodeURIComponent(DASI_STORE_URL)}`);
 $("#sh-fb").onclick = () => openUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(DASI_STORE_URL)}`);
 $("#sh-wa").onclick = () => openUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(DASI_SHARE_TEXT + " " + DASI_STORE_URL)}`);

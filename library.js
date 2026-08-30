@@ -77,6 +77,17 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// Clickable logo → back to the top / reset view (this page is the home).
+document.getElementById("brand")?.addEventListener("click", () => {
+  filter = "all";
+  query = "";
+  const q = document.getElementById("q");
+  if (q) q.value = "";
+  [...document.querySelectorAll("#tabs button")].forEach((b) => b.classList.toggle("active", b.dataset.f === "all"));
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
 document.getElementById("grid").addEventListener("click", (e) => {
   const btn = e.target.closest(".del");
   if (!btn) return;
