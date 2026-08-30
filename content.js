@@ -340,6 +340,27 @@
 
     const context = clean([document.title, ogTitle, domHeading, decodeURIComponent(location.pathname)].join(" "));
 
+    // Highest chapter/episode number listed anywhere on the page (episode lists,
+    // chapter menus, "latest chapter" links). Lets Dasi know how many entries are
+    // released — so it can tell you what you have NOT seen yet — with no network.
+    const scanAvailable = () => {
+      const re = /(?:chapter|chap|ch|episode|epi?|ep|화|話|第|話数)\s*[:#.\-]?\s*(\d{1,5})(?:\.\d)?/gi;
+      let max = 0;
+      const els = document.querySelectorAll("a, li, option, [class*='ep' i], [class*='chapter' i]");
+      const limit = Math.min(els.length, 5000);
+      for (let i = 0; i < limit; i++) {
+        const s = els[i].textContent || "";
+        if (s.length > 120) continue;
+        let m;
+        re.lastIndex = 0;
+        while ((m = re.exec(s))) {
+          const n = parseInt(m[1], 10);
+          if (n > max && n < 99999) max = n;
+        }
+      }
+      return max || undefined;
+    };
+
     const media = largestVideo();
     const se = parseSeasonEpisode(context);
     const chap = parseChapter(context);
@@ -469,6 +490,7 @@
       releaseDate: adapter?.releaseDate,
       trailer: adapter?.trailer,
       platform: adapter?.platform,
+      available: type === "game" ? undefined : scanAvailable(),
       url: location.href,
       domain: location.hostname.replace(/^www\./, ""),
       duration: media && Number.isFinite(media.duration) ? media.duration : 0,

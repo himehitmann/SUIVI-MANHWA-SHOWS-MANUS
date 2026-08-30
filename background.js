@@ -68,6 +68,30 @@ const writeData = async (obj) => {
 };
 
 /*
+ * Notifications. When a tracked work gains newly-released entries (or an awaited
+ * game reaches its release date), we record an in-app notification and — if the
+ * user hasn't turned them off — raise a system notification. Local and
+ * best-effort: no network, no polling of sites we aren't already on.
+ */
+async function pushNotification(rec) {
+  const list = await read(NOTIF_KEY, []);
+  const next = [{ id: "n_" + Math.random().toString(36).slice(2, 10), read: false, ts: Date.now(), ...rec }, ...list].slice(0, 120);
+  await writeData({ [NOTIF_KEY]: next });
+  return next;
+}
+async function systemNotify(title, message, id) {
+  try {
+    const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
+    if (s && s.notifyNew === false) return;
+    if (api.notifications && api.notifications.create) {
+      api.notifications.create(id || "dasi_" + Date.now(), { type: "basic", iconUrl: "icon.png", title, message });
+    }
+  } catch {
+    /* notifications unavailable */
+  }
+}
+
+/*
  * Optional cloud sync (mirrors the web app's HTTP provider, lib/sync.ts).
  *
  * Config is device-local auth — { apiUrl, token, email, plan } — kept ONLY in
@@ -238,6 +262,8 @@ async function writeItem(payload) {
     // Furthest point ever reached (for "mark all up to here", progress display).
     latestChapter: Math.max(existing?.latestChapter || 0, payload.chapter || 0) || undefined,
     latestEpisode: Math.max(existing?.latestEpisode || 0, payload.episode || 0) || undefined,
+    // How many entries are released (auto-detected from the page, never lowered).
+    total: Math.max(existing?.total || 0, payload.available || 0, payload.chapter || 0, payload.episode || 0) || existing?.total || undefined,
     createdAt: existing?.createdAt || Date.now(),
     favorite: existing?.favorite || false,
     rating: existing?.rating || 0,
@@ -247,6 +273,19 @@ async function writeItem(payload) {
   const next = [merged, ...items.filter((i) => i.id !== key)].slice(0, 800);
   await writeData({ [ITEMS_KEY]: next });
   await api.storage.local.set({ "dasi.lastConflict": null });
+
+  // Newly-released entries on a work we were already tracking → notify.
+  if (existing && merged.type !== "game") {
+    const cur = merged.type === "watching" ? merged.episode || 0 : merged.chapter || 0;
+    const newTotal = merged.total || 0;
+    if (newTotal > (existing.total || 0) && newTotal > cur) {
+      const n = newTotal - cur;
+      const unit = merged.type === "watching" ? "episode" : "chapter";
+      const msg = `${n} new ${unit}${n > 1 ? "s" : ""} available`;
+      await pushNotification({ itemId: key, title: merged.title, message: msg, url: merged.url });
+      systemNotify(merged.title, msg, "dasi_" + key);
+    }
+  }
   return { item: merged, conflict: Boolean(existing), kept: "incoming" };
 }
 
@@ -374,6 +413,17 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           lastConflict: state["dasi.lastConflict"],
         }),
       );
+      return true;
+
+    case "NOTIF_READ_ALL":
+      read(NOTIF_KEY, []).then((list) => {
+        const next = list.map((n) => ({ ...n, read: true }));
+        writeData({ [NOTIF_KEY]: next }).then(() => sendResponse({ notifications: next }));
+      });
+      return true;
+
+    case "NOTIF_CLEAR":
+      writeData({ [NOTIF_KEY]: [] }).then(() => sendResponse({ notifications: [] }));
       return true;
 
     case "SET_SETTINGS":
@@ -596,6 +646,43 @@ api.runtime.onInstalled.addListener(async () => {
     await api.storage.local.set({ "dasi.schema": SCHEMA_VERSION });
   }
 });
+
+/*
+ * Awaited games: once a day (and on startup) flip any game whose release date
+ * has passed from "upcoming" to released, and notify. No network — purely the
+ * dates you already saved.
+ */
+async function checkGameReleases() {
+  const items = await read(ITEMS_KEY, []);
+  let changed = false;
+  for (const i of items) {
+    if (i.type === "game" && !i.released && i.releaseDate) {
+      const d = Date.parse(i.releaseDate);
+      if (Number.isFinite(d) && d <= Date.now()) {
+        i.released = true;
+        i.updatedAt = Date.now();
+        changed = true;
+        await pushNotification({ itemId: i.id, title: i.title, message: "is out now", url: i.url });
+        systemNotify(i.title, "is out now", "dasi_game_" + i.id);
+      }
+    }
+  }
+  if (changed) await writeData({ [ITEMS_KEY]: items });
+}
+try {
+  api.alarms?.create("dasi-daily", { periodInMinutes: 720 });
+  api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") checkGameReleases(); });
+} catch {
+  /* alarms unavailable */
+}
+checkGameReleases();
+
+// Notification click → open the related page.
+try {
+  api.notifications?.onClicked.addListener(() => api.tabs.create({ url: api.runtime.getURL("library.html") }));
+} catch {
+  /* noop */
+}
 
 // Keyboard shortcut: detect the active tab and save immediately.
 api.commands.onCommand.addListener(async (command) => {

@@ -6,7 +6,7 @@
   "action": { "default_title": "Open Dasi", "default_popup": "popup.html" },
   "options_ui": { "page": "options.html", "open_in_tab": true },
   "background": { "service_worker": "background.js" },
-  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "permissions": ["activeTab", "scripting", "storage", "tabs", "notifications", "alarms"],
   "host_permissions": ["https://translate.googleapis.com/*", "https://api.mymemory.translated.net/*"],
   "commands": {
     "save-progress": {

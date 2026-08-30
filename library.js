@@ -26,7 +26,7 @@ const LANGS = {
     gamesSub:"Track awaited games — release dates, prices, trailers and pre-registrations.", addGame:"Add a game", title:"Title", platform:"Platform", releaseDate:"Release date", price:"Price", trailer:"Trailer", watchTrailer:"Watch trailer", preRegistered:"Pre-registered", released:"Released", comingSoon:"Coming soon", add:"Add", cancel:"Cancel", free:"Free",
     editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", language:"Language", uiLanguage:"App language", translateLanguage:"Default translation language", account:"Account", email:"Email", changeEmail:"Change email", changePassword:"Change password", currentPassword:"Current password", newPassword:"New password", save:"Save", signedInAs:"Signed in as", notSignedIn:"Not signed in — sync is optional.", newAlerts:"New-episode alerts", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", cloudSync:"Cloud sync", cloudSyncSub:"Optional — sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Dasi.", spread:"Spread the word", enjoying:"Enjoying Dasi?",
     plansTitle:"Choose your plan", plansSub:"Free forever for local tracking. Go Pro for sync, alerts and more.", unlocked:"Owner edition — every Pro feature is unlocked.", mostPopular:"Most popular", getStarted:"Get started", goPro:"Go Pro", getLifetime:"Get Lifetime", currentPlan:"Current",
-    updatesNone:"Nothing new right now", updatesSome:"{n} with something new" },
+    updatesNone:"Nothing new right now", updatesSome:"{n} with something new", updates:"Updates" },
   fr: { name:"Français", home:"Accueil", library:"Bibliothèque", lists:"Listes", games:"Jeux", plans:"Abonnements", settings:"Paramètres",
     search:"Rechercher", librarySub:"Tout ce que tu as enregistré, gardé sur cet appareil.", listsSub:"Classe tes œuvres à ta façon — glisse pour réordonner, choisis une couverture.",
     continue:"Reprendre", newWeek:"Nouveautés de la semaine", becauseYouLove:"Parce que tu aimes {g}", yourGenres:"Tes genres", recentlyAdded:"Ajoutés récemment",
@@ -37,7 +37,7 @@ const LANGS = {
     gamesSub:"Suis les jeux attendus — dates de sortie, prix, trailers et préinscriptions.", addGame:"Ajouter un jeu", title:"Titre", platform:"Plateforme", releaseDate:"Date de sortie", price:"Prix", trailer:"Trailer", watchTrailer:"Voir le trailer", preRegistered:"Préinscrit", released:"Sorti", comingSoon:"Bientôt", add:"Ajouter", cancel:"Annuler", free:"Gratuit",
     editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", language:"Langue", uiLanguage:"Langue de l'appli", translateLanguage:"Langue de traduction par défaut", account:"Compte", email:"E-mail", changeEmail:"Changer l'e-mail", changePassword:"Changer le mot de passe", currentPassword:"Mot de passe actuel", newPassword:"Nouveau mot de passe", save:"Enregistrer", signedInAs:"Connecté en tant que", notSignedIn:"Non connecté — la sync est optionnelle.", newAlerts:"Alertes nouveaux épisodes", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel — connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Dasi.", spread:"Fais passer le mot", enjoying:"Tu aimes Dasi ?",
     plansTitle:"Choisis ton abonnement", plansSub:"Gratuit à vie pour le suivi local. Passe Pro pour la sync, les alertes et plus.", unlocked:"Édition propriétaire — toutes les fonctions Pro sont débloquées.", mostPopular:"Le plus populaire", getStarted:"Commencer", goPro:"Passer Pro", getLifetime:"À vie", currentPlan:"Actuel",
-    updatesNone:"Rien de nouveau pour l'instant", updatesSome:"{n} avec du nouveau" },
+    updatesNone:"Rien de nouveau pour l'instant", updatesSome:"{n} avec du nouveau", updates:"Notifications" },
   es: { name:"Español", home:"Inicio", library:"Biblioteca", lists:"Listas", games:"Juegos", plans:"Planes", settings:"Ajustes", search:"Buscar",
     continue:"Continuar", newWeek:"Novedades de la semana", becauseYouLove:"Porque te gusta {g}", yourGenres:"Tus géneros", recentlyAdded:"Añadidos recientemente",
     resume:"Reanudar", details:"Detalles", welcomeTitle:"Bienvenido a Dasi", tracked:"Seguidos", reading:"Lectura", watching:"Viendo", favorites:"Favoritos", finished:"Terminados", all:"Todo",
@@ -782,7 +782,29 @@ function renderLangMenu() {
     document.documentElement.lang = settings.lang; renderNav(); renderAll();
   }));
 }
-function closeMenus() { document.getElementById("profile-menu").classList.remove("open"); document.getElementById("lang-menu").classList.remove("open"); }
+function closeMenus() { document.getElementById("profile-menu").classList.remove("open"); document.getElementById("lang-menu").classList.remove("open"); document.getElementById("notif-menu").classList.remove("open"); }
+
+function renderNotifMenu() {
+  const el = document.getElementById("notif-menu");
+  const list = (notifications || []).slice(0, 40);
+  el.innerHTML = `<div class="notif-head"><b>${t("updates") || "Updates"}</b>${list.length ? `<button id="notif-clear">${t("delete")}</button>` : ""}</div>` +
+    (list.length ? list.map((n) => `<div class="notif-item" data-nitem="${esc(n.itemId || "")}" data-nurl="${esc(n.url || "")}"><span class="dot2 ${n.read ? "read" : ""}"></span><div><b>${esc(n.title || "")}</b><small>${esc(n.message || "")} · ${relative(n.ts)}</small></div></div>`).join("")
+      : `<div class="notif-empty">${t("updatesNone")}</div>`);
+  const clr = document.getElementById("notif-clear");
+  if (clr) clr.onclick = (e) => { e.stopPropagation(); api.runtime.sendMessage({ type: "NOTIF_CLEAR" }, (r) => { notifications = r?.notifications || []; renderNotifMenu(); renderBell(); }); };
+  el.querySelectorAll("[data-nitem]").forEach((row) => (row.onclick = () => {
+    closeMenus();
+    const id = row.dataset.nitem;
+    if (id && items.find((x) => x.id === id)) openDrawer(id);
+    else if (row.dataset.nurl) api.tabs.create({ url: row.dataset.nurl });
+  }));
+}
+function renderBell() {
+  const unread = (notifications || []).filter((n) => !n.read).length;
+  const bell = document.getElementById("bell");
+  bell.querySelector(".badge-dot")?.remove();
+  if (unread) { const b = document.createElement("span"); b.className = "badge-dot"; b.textContent = unread > 9 ? "9+" : unread; bell.appendChild(b); }
+}
 
 function switchView(v) {
   view = v; closeMenus();
@@ -806,18 +828,25 @@ function renderAll() {
   if (view === "games") renderGames();
   if (view === "plans") renderPlans();
   if (currentListId) renderListDetail();
-  const newCount = items.filter(isNew).length;
-  const bell = document.getElementById("bell");
-  bell.querySelector(".badge-dot")?.remove();
-  if (newCount) { const b = document.createElement("span"); b.className = "badge-dot"; b.textContent = newCount; bell.appendChild(b); }
+  renderBell();
 }
 
 /* ---- global events ---- */
 document.getElementById("nav").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) switchView(b.dataset.v); });
 document.getElementById("brand").onclick = () => { filter = "all"; query = ""; document.getElementById("q").value = ""; switchView("home"); };
-document.getElementById("bell").onclick = () => { const n = items.filter(isNew).length; switchView("home"); toast(n ? t("updatesSome", { n }) : t("updatesNone")); };
-document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); document.getElementById("lang-menu").classList.remove("open"); document.getElementById("profile-menu").classList.toggle("open"); };
-document.getElementById("lang-btn").onclick = (e) => { e.stopPropagation(); document.getElementById("profile-menu").classList.remove("open"); document.getElementById("lang-menu").classList.toggle("open"); };
+document.getElementById("bell").onclick = (e) => {
+  e.stopPropagation();
+  const menu = document.getElementById("notif-menu");
+  const willOpen = !menu.classList.contains("open");
+  closeMenus();
+  if (willOpen) {
+    renderNotifMenu();
+    menu.classList.add("open");
+    if ((notifications || []).some((n) => !n.read)) api.runtime.sendMessage({ type: "NOTIF_READ_ALL" }, (r) => { notifications = r?.notifications || notifications.map((n) => ({ ...n, read: true })); renderBell(); });
+  }
+};
+document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("profile-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
+document.getElementById("lang-btn").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("lang-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
 document.addEventListener("click", (e) => { if (!e.target.closest(".top-right")) closeMenus(); });
 document.getElementById("q").addEventListener("input", (e) => { query = e.target.value; if (view !== "library") switchView("library"); renderGrid(); });
 document.getElementById("filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.f; renderFilters(); renderGrid(); });

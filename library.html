@@ -54,6 +54,13 @@
       .menu .sep { height:1px; background:var(--line); margin:6px 4px; }
       .lang-menu { position:absolute; top:56px; right:60px; background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow-lg); padding:6px; z-index:50; display:none; width:170px; }
       .lang-menu.open { display:block; animation:pop .16s ease; }
+      .notif-menu { right:52px; width:300px; max-height:60vh; overflow-y:auto; }
+      .notif-head { display:flex; align-items:center; justify-content:space-between; padding:8px 10px 6px; }
+      .notif-head b { font-size:13px; } .notif-head button { width:auto; font-size:11px; color:var(--lav-ink); padding:4px 6px; }
+      .notif-item { display:flex; gap:10px; align-items:flex-start; padding:10px; border-radius:10px; cursor:pointer; }
+      .notif-item:hover { background:#F3F1F9; } .notif-item .dot2 { width:8px; height:8px; border-radius:50%; background:var(--rose); margin-top:5px; flex-shrink:0; }
+      .notif-item .dot2.read { background:transparent; } .notif-item b { font-size:13px; display:block; } .notif-item small { font-size:11px; color:var(--muted); }
+      .notif-empty { text-align:center; color:var(--muted); font-size:12px; padding:22px 6px; }
       .lang-menu button { width:100%; display:flex; align-items:center; gap:9px; border:0; background:none; text-align:left; padding:9px 10px; border-radius:9px; font-size:13px; font-weight:600; color:#4E4960; cursor:pointer; }
       .lang-menu button:hover { background:#F3F1F9; } .lang-menu button.on { background:var(--lav); color:var(--lav-ink); }
 
@@ -244,6 +251,7 @@
         <button class="icon-btn" id="bell" title="Updates"><svg class="ic" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
         <button class="avatar" id="avatar" title="Profile"></button>
         <div class="lang-menu" id="lang-menu"></div>
+        <div class="menu notif-menu" id="notif-menu"></div>
         <div class="menu" id="profile-menu"></div>
       </div>
     </header>
