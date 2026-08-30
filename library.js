@@ -19,7 +19,7 @@ const LANGS = {
     continue:"Jump back in", newWeek:"New this week", becauseYouLove:"Because you love {g}", yourGenres:"Your genres", recentlyAdded:"Recently added",
     resume:"Resume", details:"Details", welcomeTitle:"Welcome to Dasi", welcomeBody:"Open any manga, webtoon, anime, series or game and hit save in the Dasi popup. It lands here — beautifully.",
     tracked:"Tracked", reading:"Reading", watching:"Watching", favorites:"Favorites", finished:"Finished",
-    all:"All", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
+    all:"All", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress", released:"Released", markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
     newList:"New list", cover:"Cover", rename:"Rename", delete:"Delete", inThisList:"In this list", addWorks:"Add works", allLists:"All lists", dragReorder:"drag to reorder",
     gamesSub:"Track awaited games — release dates, prices, trailers and pre-registrations.", addGame:"Add a game", title:"Title", platform:"Platform", releaseDate:"Release date", price:"Price", trailer:"Trailer", watchTrailer:"Watch trailer", preRegistered:"Pre-registered", released:"Released", comingSoon:"Coming soon", add:"Add", cancel:"Cancel", free:"Free",
     editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", newAlerts:"New-episode alerts", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", cloudSync:"Cloud sync", cloudSyncSub:"Optional — sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Dasi.", spread:"Spread the word", enjoying:"Enjoying Dasi?",
@@ -30,7 +30,7 @@ const LANGS = {
     continue:"Reprendre", newWeek:"Nouveautés de la semaine", becauseYouLove:"Parce que tu aimes {g}", yourGenres:"Tes genres", recentlyAdded:"Ajoutés récemment",
     resume:"Reprendre", details:"Détails", welcomeTitle:"Bienvenue sur Dasi", welcomeBody:"Ouvre un manga, webtoon, anime, série ou jeu et clique sur enregistrer dans la bulle Dasi. Ça arrive ici — élégamment.",
     tracked:"Suivis", reading:"Lecture", watching:"Visionnage", favorites:"Favoris", finished:"Terminés",
-    all:"Tout", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
+    all:"Tout", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression", released:"Sortis", markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
     newList:"Nouvelle liste", cover:"Couverture", rename:"Renommer", delete:"Supprimer", inThisList:"Dans cette liste", addWorks:"Ajouter des œuvres", allLists:"Toutes les listes", dragReorder:"glisser pour réordonner",
     gamesSub:"Suis les jeux attendus — dates de sortie, prix, trailers et préinscriptions.", addGame:"Ajouter un jeu", title:"Titre", platform:"Plateforme", releaseDate:"Date de sortie", price:"Prix", trailer:"Trailer", watchTrailer:"Voir le trailer", preRegistered:"Préinscrit", released:"Sorti", comingSoon:"Bientôt", add:"Ajouter", cancel:"Annuler", free:"Gratuit",
     editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", newAlerts:"Alertes nouveaux épisodes", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel — connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Dasi.", spread:"Fais passer le mot", enjoying:"Tu aimes Dasi ?",
@@ -39,23 +39,28 @@ const LANGS = {
   es: { name:"Español", home:"Inicio", library:"Biblioteca", lists:"Listas", games:"Juegos", plans:"Planes", settings:"Ajustes", search:"Buscar",
     continue:"Continuar", newWeek:"Novedades de la semana", becauseYouLove:"Porque te gusta {g}", yourGenres:"Tus géneros", recentlyAdded:"Añadidos recientemente",
     resume:"Reanudar", details:"Detalles", welcomeTitle:"Bienvenido a Dasi", tracked:"Seguidos", reading:"Lectura", watching:"Viendo", favorites:"Favoritos", finished:"Terminados", all:"Todo",
-    gamesSub:"Sigue juegos esperados — fechas, precios, tráilers y prerregistros.", addGame:"Añadir un juego", plansTitle:"Elige tu plan", mostPopular:"Más popular", goPro:"Hazte Pro", getLifetime:"De por vida", free:"Gratis", watchTrailer:"Ver tráiler", preRegistered:"Prerregistrado" },
+    gamesSub:"Sigue juegos esperados — fechas, precios, tráilers y prerregistros.", addGame:"Añadir un juego", plansTitle:"Elige tu plan", plansSub:"Gratis para siempre para el seguimiento local. Pro para sync, alertas y más.", mostPopular:"Más popular", goPro:"Hazte Pro", getLifetime:"De por vida", getStarted:"Empezar", currentPlan:"Actual", free:"Gratis", watchTrailer:"Ver tráiler", preRegistered:"Prerregistrado",
+    welcomeBody:"Abre cualquier manga, webtoon, anime, serie o juego y guarda en la ventana de Dasi. Aparece aquí.", comingSoon:"Próximamente", add:"Añadir", cancel:"Cancelar", open:"Abrir", markFinished:"Marcar terminado", markUnfinished:"Marcar en curso", released:"Publicados", markAll:"Marcar todo como visto", upToDate:"Al día", unseenN:"{n} sin ver", progress:"Progreso", rating:"Valoración", tags:"Etiquetas", synopsis:"Sinopsis", newList:"Nueva lista", delete:"Eliminar", allLists:"Todas las listas", editProfile:"Editar perfil", backup:"Copia de seguridad", export:"Exportar", import:"Importar", removeLib:"Quitar de la biblioteca", updatesNone:"Nada nuevo por ahora", updatesSome:"{n} con novedades" },
   de: { name:"Deutsch", home:"Start", library:"Bibliothek", lists:"Listen", games:"Spiele", plans:"Abos", settings:"Einstellungen", search:"Suchen",
     continue:"Weiterlesen", newWeek:"Neu diese Woche", becauseYouLove:"Weil du {g} magst", yourGenres:"Deine Genres", recentlyAdded:"Kürzlich hinzugefügt",
     resume:"Fortsetzen", details:"Details", welcomeTitle:"Willkommen bei Dasi", tracked:"Verfolgt", reading:"Lesen", watching:"Sehen", favorites:"Favoriten", finished:"Beendet", all:"Alle",
-    gamesSub:"Verfolge erwartete Spiele — Release, Preise, Trailer und Vorregistrierungen.", addGame:"Spiel hinzufügen", plansTitle:"Wähle deinen Plan", mostPopular:"Am beliebtesten", goPro:"Pro werden", getLifetime:"Lebenslang", free:"Gratis", watchTrailer:"Trailer ansehen", preRegistered:"Vorregistriert" },
+    gamesSub:"Verfolge erwartete Spiele — Release, Preise, Trailer und Vorregistrierungen.", addGame:"Spiel hinzufügen", plansTitle:"Wähle deinen Plan", plansSub:"Für immer gratis fürs lokale Tracking. Pro für Sync, Hinweise und mehr.", mostPopular:"Am beliebtesten", goPro:"Pro werden", getLifetime:"Lebenslang", getStarted:"Loslegen", currentPlan:"Aktuell", free:"Gratis", watchTrailer:"Trailer ansehen", preRegistered:"Vorregistriert",
+    welcomeBody:"Öffne ein Manga, Webtoon, Anime, eine Serie oder ein Spiel und speichere im Dasi-Popup. Es landet hier.", comingSoon:"Demnächst", add:"Hinzufügen", cancel:"Abbrechen", open:"Öffnen", markFinished:"Als fertig markieren", markUnfinished:"Als offen markieren", released:"Erschienen", markAll:"Alles als gesehen markieren", upToDate:"Aktuell", unseenN:"{n} ungesehen", progress:"Fortschritt", rating:"Bewertung", tags:"Tags", synopsis:"Zusammenfassung", newList:"Neue Liste", delete:"Löschen", allLists:"Alle Listen", editProfile:"Profil bearbeiten", backup:"Backup", export:"Exportieren", import:"Importieren", removeLib:"Aus Bibliothek entfernen", updatesNone:"Nichts Neues gerade", updatesSome:"{n} mit Neuem" },
   ja: { name:"日本語", home:"ホーム", library:"ライブラリ", lists:"リスト", games:"ゲーム", plans:"プラン", settings:"設定", search:"検索",
     continue:"続きから", newWeek:"今週の新着", becauseYouLove:"{g}が好きだから", yourGenres:"あなたのジャンル", recentlyAdded:"最近追加",
     resume:"再開", details:"詳細", welcomeTitle:"Dasiへようこそ", tracked:"追跡中", reading:"読書", watching:"視聴", favorites:"お気に入り", finished:"完了", all:"すべて",
-    gamesSub:"気になるゲームを追跡 — 発売日・価格・トレーラー・事前登録。", addGame:"ゲームを追加", plansTitle:"プランを選択", mostPopular:"人気", goPro:"Proにする", getLifetime:"買い切り", free:"無料", watchTrailer:"トレーラー", preRegistered:"事前登録済み" },
+    gamesSub:"気になるゲームを追跡 — 発売日・価格・トレーラー・事前登録。", addGame:"ゲームを追加", plansTitle:"プランを選択", plansSub:"ローカル管理は永久無料。同期・通知などはProで。", mostPopular:"人気", goPro:"Proにする", getLifetime:"買い切り", getStarted:"はじめる", currentPlan:"現在", free:"無料", watchTrailer:"トレーラー", preRegistered:"事前登録済み",
+    welcomeBody:"マンガ・ウェブトゥーン・アニメ・ドラマ・ゲームを開いてDasiのポップアップで保存すると、ここに表示されます。", comingSoon:"近日", add:"追加", cancel:"キャンセル", open:"開く", markFinished:"完了にする", markUnfinished:"未完了にする", released:"配信済み", markAll:"すべて視聴済みにする", upToDate:"最新", unseenN:"未視聴 {n}", progress:"進捗", rating:"評価", tags:"タグ", synopsis:"あらすじ", newList:"新規リスト", delete:"削除", allLists:"すべてのリスト", editProfile:"プロフィール編集", backup:"バックアップ", export:"エクスポート", import:"インポート", removeLib:"ライブラリから削除", updatesNone:"今は新着なし", updatesSome:"新着 {n} 件" },
   ko: { name:"한국어", home:"홈", library:"라이브러리", lists:"리스트", games:"게임", plans:"플랜", settings:"설정", search:"검색",
     continue:"이어보기", newWeek:"이번 주 신규", becauseYouLove:"{g}을(를) 좋아해서", yourGenres:"내 장르", recentlyAdded:"최근 추가",
     resume:"계속", details:"상세", welcomeTitle:"Dasi에 오신 걸 환영합니다", tracked:"추적", reading:"읽기", watching:"시청", favorites:"즐겨찾기", finished:"완료", all:"전체",
-    gamesSub:"기대되는 게임 추적 — 출시일·가격·트레일러·사전예약.", addGame:"게임 추가", plansTitle:"플랜 선택", mostPopular:"인기", goPro:"Pro 시작", getLifetime:"평생", free:"무료", watchTrailer:"트레일러", preRegistered:"사전예약됨" },
+    gamesSub:"기대되는 게임 추적 — 출시일·가격·트레일러·사전예약.", addGame:"게임 추가", plansTitle:"플랜 선택", plansSub:"로컬 추적은 평생 무료. 동기화·알림 등은 Pro로.", mostPopular:"인기", goPro:"Pro 시작", getLifetime:"평생", getStarted:"시작하기", currentPlan:"현재", free:"무료", watchTrailer:"트레일러", preRegistered:"사전예약됨",
+    welcomeBody:"만화·웹툰·애니·드라마·게임을 열고 Dasi 팝업에서 저장하면 여기에 표시됩니다.", comingSoon:"출시 예정", add:"추가", cancel:"취소", open:"열기", markFinished:"완료로 표시", markUnfinished:"미완료로 표시", released:"공개됨", markAll:"모두 봤음으로 표시", upToDate:"최신", unseenN:"미시청 {n}", progress:"진행", rating:"평점", tags:"태그", synopsis:"줄거리", newList:"새 리스트", delete:"삭제", allLists:"모든 리스트", editProfile:"프로필 편집", backup:"백업", export:"내보내기", import:"가져오기", removeLib:"라이브러리에서 제거", updatesNone:"지금은 새 소식 없음", updatesSome:"새 소식 {n}개" },
   pt: { name:"Português", home:"Início", library:"Biblioteca", lists:"Listas", games:"Jogos", plans:"Planos", settings:"Definições", search:"Pesquisar",
     continue:"Continuar", newWeek:"Novidades da semana", becauseYouLove:"Porque gostas de {g}", yourGenres:"Os teus géneros", recentlyAdded:"Adicionados recentemente",
     resume:"Retomar", details:"Detalhes", welcomeTitle:"Bem-vindo ao Dasi", tracked:"Seguidos", reading:"Leitura", watching:"A ver", favorites:"Favoritos", finished:"Terminados", all:"Tudo",
-    gamesSub:"Segue jogos esperados — lançamentos, preços, trailers e pré-registos.", addGame:"Adicionar jogo", plansTitle:"Escolhe o teu plano", mostPopular:"Mais popular", goPro:"Ser Pro", getLifetime:"Vitalício", free:"Grátis", watchTrailer:"Ver trailer", preRegistered:"Pré-registado" },
+    gamesSub:"Segue jogos esperados — lançamentos, preços, trailers e pré-registos.", addGame:"Adicionar jogo", plansTitle:"Escolhe o teu plano", plansSub:"Grátis para sempre no seguimento local. Pro para sync, alertas e mais.", mostPopular:"Mais popular", goPro:"Ser Pro", getLifetime:"Vitalício", getStarted:"Começar", currentPlan:"Atual", free:"Grátis", watchTrailer:"Ver trailer", preRegistered:"Pré-registado",
+    welcomeBody:"Abre um manga, webtoon, anime, série ou jogo e guarda na janela do Dasi. Aparece aqui.", comingSoon:"Em breve", add:"Adicionar", cancel:"Cancelar", open:"Abrir", markFinished:"Marcar terminado", markUnfinished:"Marcar em curso", released:"Lançados", markAll:"Marcar tudo como visto", upToDate:"Em dia", unseenN:"{n} por ver", progress:"Progresso", rating:"Avaliação", tags:"Etiquetas", synopsis:"Sinopse", newList:"Nova lista", delete:"Eliminar", allLists:"Todas as listas", editProfile:"Editar perfil", backup:"Cópia de segurança", export:"Exportar", import:"Importar", removeLib:"Remover da biblioteca", updatesNone:"Nada de novo por agora", updatesSome:"{n} com novidades" },
 };
 const t = (k, p) => { let s = (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || k; if (p) for (const key in p) s = s.replace(`{${key}}`, p[key]); return s; };
 
@@ -86,7 +91,11 @@ const I = {
 
 const accentFor = (i) => (i.type === "watching" ? "#7E9BE6" : i.type === "game" ? "#E08A4F" : "#5FB79A");
 const coverUrl = (i) => i.coverOverride || i.cover || "";
-const isNew = (i) => Date.now() - (i.updatedAt || 0) < NEW_WINDOW && (i.progress || 0) < 100 && i.type !== "game";
+// Current position and how many entries are released — the basis for "unseen".
+const currentNum = (i) => (i.type === "watching" ? i.episode || 0 : i.chapter || 0);
+const unseen = (i) => (i.type === "game" ? 0 : Math.max(0, (i.total || 0) - currentNum(i)));
+// "New for you": you have unseen released entries, OR it changed recently.
+const isNew = (i) => i.type !== "game" && (i.progress || 0) < 100 && (unseen(i) > 0 || Date.now() - (i.updatedAt || 0) < NEW_WINDOW);
 const parseDate = (s) => { if (!s) return null; const d = Date.parse(s); return Number.isFinite(d) ? d : null; };
 const isSoon = (i) => { const d = parseDate(i.releaseDate); return d && d > Date.now() && d - Date.now() < SOON_WINDOW; };
 const isReleased = (i) => { const d = parseDate(i.releaseDate); return i.released || (d && d <= Date.now()); };
@@ -108,6 +117,8 @@ function relative(ts) {
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
 function initials(s) { return (s || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?"; }
 function coverInner(i, fs) { const u = coverUrl(i); return u ? `<img src="${esc(u)}" referrerpolicy="no-referrer" onerror="this.remove()">` : `<span${fs ? ` style="font-size:${fs}px"` : ""}>${esc((i.title || "?")[0].toUpperCase())}</span>`; }
+// Badge label: "+3" when there are unseen released entries, else NEW / Soon.
+function flagLabel(i) { const u = unseen(i); if (u > 0) return `+${u}`; if (isNew(i)) return "NEW"; if (isSoon(i)) return t("comingSoon"); return ""; }
 
 let toastT;
 function toast(m) { const el = document.getElementById("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 1800); }
@@ -126,7 +137,8 @@ function topGenres() {
   return Object.entries(count).sort((a, b) => b[1] - a[1]);
 }
 function posterHtml(i) {
-  const flag = isNew(i) ? `<span class="flag">${t("newWeek").split(" ")[0].toUpperCase()}</span>` : isSoon(i) ? `<span class="flag soon">${t("comingSoon")}</span>` : "";
+  const lbl = flagLabel(i);
+  const flag = lbl ? `<span class="flag ${isSoon(i) && unseen(i) === 0 ? "soon" : ""}">${esc(lbl)}</span>` : "";
   return `<div class="poster" data-open="${i.id}">
     <div class="art" style="background:${i.accent || accentFor(i)}">${coverInner(i, 30)}${flag}
       ${(i.progress || 0) > 0 && (i.progress || 0) < 100 ? `<div class="prog"><i style="width:${i.progress}%;background:${accentFor(i)}"></i></div>` : ""}
@@ -227,7 +239,7 @@ function cardHtml(i) {
   const tags = (i.tags || []).slice(0, 4).map((x) => `<span class="tag">${esc(x)}</span>`).join("");
   return `<article class="card" data-open="${i.id}">
     <button class="fav ${i.favorite ? "on" : ""}" data-fav="${i.id}">${I.star}</button>
-    <div class="cover" style="background:${i.accent || accentFor(i)}">${coverInner(i)}${isNew(i) ? '<span class="new-flag">NEW</span>' : ""}</div>
+    <div class="cover" style="background:${i.accent || accentFor(i)}">${coverInner(i)}${flagLabel(i) ? `<span class="new-flag">${esc(flagLabel(i))}</span>` : ""}</div>
     <div class="card-body">
       <h3>${esc(i.title || "Untitled")}</h3><p>${esc(marker(i))}</p>
       ${(i.progress || 0) > 0 ? `<div class="bar"><i style="width:${Math.min(100, i.progress)}%;background:${accentFor(i)}"></i></div>` : ""}
@@ -432,7 +444,13 @@ function openDrawer(id) {
       : `
         <div class="section-t">${t("progress")}</div>
         <div class="stepper"><button id="dr-minus">${I.minus}</button><input id="dr-num" type="number" min="0" value="${cur}" /><button id="dr-plus">${I.plus}</button><span>${unit}${isWatch && i.season ? ` · Season ${i.season}` : ""}</span></div>
-        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn ${(i.progress || 0) >= 100 ? "" : "primary"}" id="dr-done">${I.check} ${(i.progress || 0) >= 100 ? t("markUnfinished") : t("markFinished")}</button><a class="btn" href="${esc(i.url || "#")}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a></div>`}
+        <div class="released-row"><span class="rel-label">${t("released")}</span><input id="dr-total" type="number" min="0" value="${i.total || ""}" placeholder="?" /><span class="rel-hint">${unseen(i) > 0 ? t("unseenN", { n: unseen(i) }) : i.total ? t("upToDate") : ""}</span></div>
+        ${episodeGrid(i)}
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          ${i.total && unseen(i) > 0 ? `<button class="btn primary" id="dr-markall">${I.check} ${t("markAll")}</button>` : ""}
+          <button class="btn ${(i.progress || 0) >= 100 ? "" : "primary"}" id="dr-done">${I.check} ${(i.progress || 0) >= 100 ? t("markUnfinished") : t("markFinished")}</button>
+          <a class="btn" href="${esc(i.url || "#")}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>
+        </div>`}
       <div class="section-t">${t("rating")}</div>
       <div class="rate-big" id="dr-rate">${[1,2,3,4,5].map((n) => `<span data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= (i.rating || 0) ? "on" : ""}"`)}</span>`).join("")}</div>
       <div class="section-t">${t("tags")}</div><div class="tag-edit" id="dr-tags"></div>
@@ -444,6 +462,17 @@ function openDrawer(id) {
   d.classList.add("open");
   wireDrawer(i, isWatch, isGame);
 }
+// A grid of episode/chapter cells: filled = seen (<= current), empty = unseen.
+// Clicking cell N sets your current position to N. Hidden when total is unknown
+// or too large to render as a grid (the stepper still covers those).
+function episodeGrid(i) {
+  const total = i.total || 0;
+  if (!total || total > 300) return "";
+  const cur = currentNum(i);
+  let cells = "";
+  for (let n = 1; n <= total; n++) cells += `<button class="ep ${n <= cur ? "seen" : ""}" data-ep="${n}">${n}</button>`;
+  return `<div class="ep-grid" id="dr-eps">${cells}</div>`;
+}
 function wireDrawer(i, isWatch, isGame) {
   document.getElementById("dr-close").onclick = closeDrawer;
   const syn = document.getElementById("dr-syn"), synT = document.getElementById("dr-syn-toggle");
@@ -452,9 +481,15 @@ function wireDrawer(i, isWatch, isGame) {
     const num = document.getElementById("dr-num");
     const key = isWatch ? "episode" : "chapter", latestKey = isWatch ? "latestEpisode" : "latestChapter";
     const setNum = (v) => { const n = Math.max(0, Math.round(Number(v) || 0)); num.value = n; const p = { [key]: n || undefined }; p[latestKey] = Math.max(i[latestKey] || 0, n) || undefined; update(i.id, p); };
-    document.getElementById("dr-minus").onclick = () => setNum((Number(num.value) || 0) - 1);
-    document.getElementById("dr-plus").onclick = () => setNum((Number(num.value) || 0) + 1);
-    num.onchange = () => setNum(num.value);
+    document.getElementById("dr-minus").onclick = () => { setNum((Number(num.value) || 0) - 1); setTimeout(() => openDrawer(i.id), 30); };
+    document.getElementById("dr-plus").onclick = () => { setNum((Number(num.value) || 0) + 1); setTimeout(() => openDrawer(i.id), 30); };
+    num.onchange = () => { setNum(num.value); setTimeout(() => openDrawer(i.id), 30); };
+    const total = document.getElementById("dr-total");
+    if (total) total.onchange = () => { update(i.id, { total: Math.max(0, Math.round(Number(total.value) || 0)) || undefined }); setTimeout(() => openDrawer(i.id), 30); };
+    const eps = document.getElementById("dr-eps");
+    if (eps) eps.querySelectorAll("[data-ep]").forEach((c) => (c.onclick = () => { setNum(Number(c.dataset.ep)); setTimeout(() => openDrawer(i.id), 30); }));
+    const markall = document.getElementById("dr-markall");
+    if (markall) markall.onclick = () => { setNum(i.total || currentNum(i)); setTimeout(() => openDrawer(i.id), 30); };
     document.getElementById("dr-done").onclick = () => { const done = (i.progress || 0) >= 100; update(i.id, { progress: done ? 0 : 100, status: done ? "in_progress" : "completed" }); setTimeout(() => openDrawer(i.id), 30); };
   } else {
     document.getElementById("dr-prereg").onclick = () => { update(i.id, { preregistered: !i.preregistered }); setTimeout(() => openDrawer(i.id), 30); };
