@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>Dasi</title>
+    <title>Yomu</title>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap");
       :root { --ink:#252331; --muted:#8C8999; --lav:#F0EAFF; --mint:#E9F8F0; --green:#6CBE9E; --purple:#A18BE0; }
@@ -12,7 +12,8 @@
       .brand { display:flex; align-items:center; gap:9px; font-weight:800; font-size:20px; letter-spacing:-.05em; margin-bottom:14px; cursor:pointer; background:none; border:0; padding:0; color:var(--ink); }
       .logo { width:26px; height:26px; border-radius:10px 10px 10px 4px; background:linear-gradient(145deg,#BCA8F4,#8FD7C2); display:grid; place-items:center; transform:rotate(-8deg); box-shadow:0 5px 12px rgba(145,121,220,.2); }
       .logo i { width:10px; height:10px; background:#fff; border-radius:4px; opacity:.9; }
-      .shine { font-weight:800; letter-spacing:-.05em; color:#6C5AA5; }
+      .shine { font-weight:800; letter-spacing:-.05em; color:#6C5AA5; background:linear-gradient(100deg,#6C5AA5 0%,#6C5AA5 42%,#EFE7FF 50%,#6C5AA5 58%,#6C5AA5 100%); background-size:260% 100%; background-position:120% center; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; animation:sheen 4.5s ease-in-out infinite; }
+      @keyframes sheen { 0%,12% { background-position:120% center; } 55%,100% { background-position:-60% center; } }
       .brand .tag { margin-left:auto; font-size:9px; font-weight:800; letter-spacing:.06em; color:#5E9D80; background:var(--mint); border-radius:999px; padding:4px 8px; display:flex; align-items:center; gap:5px; }
       .brand .tag i { width:6px; height:6px; border-radius:50%; background:#6CBE9E; }
       .eyebrow { font-size:10px; letter-spacing:.09em; color:#9B86DA; font-weight:700; margin:0 0 6px; }
@@ -78,12 +79,12 @@
       .tr-go:disabled { opacity:.5; cursor:default; }
       .tr-status { font-size:11px; color:var(--muted); margin-top:8px; min-height:14px; }
       .tr-status.up { color:#B98A5A; }
-      @media (prefers-reduced-motion: reduce) { .shine { color:#6C5AA5; } }
+      @media (prefers-reduced-motion: reduce) { .shine { animation:none; -webkit-text-fill-color:#6C5AA5; } }
     </style>
   </head>
   <body>
-    <button class="brand" id="brand" title="Open Dasi">
-      <span class="logo"><i></i></span><span class="shine">Dasi</span>
+    <button class="brand" id="brand" title="Open Yomu">
+      <span class="logo"><i></i></span><span class="shine">Yomu</span>
       <span class="tag"><i></i> Local</span>
     </button>
 
@@ -110,7 +111,7 @@
 
       <div class="actions">
         <button class="primary" id="save" disabled>Save my position</button>
-        <button class="secondary" id="open" title="Open the Dasi app"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M20 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5"/></svg> Open Dasi</button>
+        <button class="secondary" id="open" title="Open the Yomu app"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M20 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5"/></svg> Open Yomu</button>
       </div>
 
       <div class="row">
@@ -141,7 +142,7 @@
       </div>
 
       <div class="share">
-        <div class="stars" id="stars" title="Rate Dasi 5★ on the Chrome Web Store" role="button" aria-label="Rate on the Chrome Web Store">
+        <div class="stars" id="stars" title="Rate Yomu 5★ on the Chrome Web Store" role="button" aria-label="Rate on the Chrome Web Store">
           <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span>
         </div>
         <div class="share-icons">

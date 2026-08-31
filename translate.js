@@ -1,5 +1,5 @@
 /*
- * Dasi in-page translator — injected on demand (activeTab) when you press
+ * Yomu in-page translator — injected on demand (activeTab) when you press
  * "Translate" in the popup. It collects the visible text on the current page
  * (manga/webtoon reader, novel, drama page, store page…), asks the background
  * to translate it into your chosen language, and swaps it in place with a
@@ -9,7 +9,7 @@
  * Text-based pages (real characters in the DOM — many Japanese/Korean/Chinese
  * webtoons and novels) translate directly. Image-only scanlations have no text
  * to read, so the pill says so; picture translation would need the optional
- * Dasi translation server (OCR) and is out of scope for the local path.
+ * Yomu translation server (OCR) and is out of scope for the local path.
  */
 (() => {
   const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "IFRAME", "CODE", "PRE", "TEXTAREA", "INPUT", "SELECT", "SVG", "CANVAS", "BUTTON"]);
@@ -68,7 +68,7 @@
    * Manga / webtoon IMAGE translation. When the page is image-based (nothing
    * translatable as text) and an image-translation server is configured
    * (Settings → Integrations: a manga-image-translator instance, self-hosted or
-   * shared), Dasi sends each large panel's URL to it and swaps in the translated
+   * shared), Yomu sends each large panel's URL to it and swaps in the translated
    * image the server returns. Mirrors how manga-image-translator / cotrans work,
    * but driven from the extension. Requires the server to allow CORS.
    */
@@ -77,12 +77,12 @@
     const base = imgServer.replace(/\/+$/, "");
     const imgs = [...document.images].filter((im) => im.naturalWidth > 240 && im.naturalHeight > 240 && !im.dataset.dasiTr);
     if (!imgs.length) {
-      setPill(`<span>Dasi — no manga panels found on this page.</span> ${link("dasi-tr-x", "close")}`);
+      setPill(`<span>Yomu — no manga panels found on this page.</span> ${link("dasi-tr-x", "close")}`);
       const x = document.getElementById("dasi-tr-x"); if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
       return;
     }
     let done = 0, ok = 0;
-    setPill(`<span>Dasi — translating ${imgs.length} panels…</span>`);
+    setPill(`<span>Yomu — translating ${imgs.length} panels…</span>`);
     for (const im of imgs) {
       im.dataset.dasiTr = "1";
       try {
@@ -102,13 +102,13 @@
         }
       } catch (e) { /* server unreachable / CORS */ }
       done++;
-      setPill(`<span>Dasi — translating panels ${done}/${imgs.length}…</span>`);
+      setPill(`<span>Yomu — translating panels ${done}/${imgs.length}…</span>`);
     }
     if (ok) {
-      setPill(`<span>Dasi · ${ok} panels translated → ${String(lang).toUpperCase()}</span> ${link("dasi-tr-revert", "revert")}`);
+      setPill(`<span>Yomu · ${ok} panels translated → ${String(lang).toUpperCase()}</span> ${link("dasi-tr-revert", "revert")}`);
       document.getElementById("dasi-tr-revert").onclick = (e) => { e.preventDefault(); revert(); };
     } else {
-      setPill(`<span>Dasi — image translation failed. Check the server URL &amp; that it allows CORS.</span> ${link("dasi-tr-x", "close")}`);
+      setPill(`<span>Yomu — image translation failed. Check the server URL &amp; that it allows CORS.</span> ${link("dasi-tr-x", "close")}`);
       const x = document.getElementById("dasi-tr-x"); if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
     }
   }
@@ -119,16 +119,16 @@
       // No readable text → image-based. Fall back to image translation if a
       // server is configured; otherwise say so.
       if (imgServer) { translateImages(lang); return; }
-      setPill(`<span>Dasi — image-based page. Add a manga-image-translator server in Settings to translate panels.</span> ${link("dasi-tr-x", "close")}`);
+      setPill(`<span>Yomu — image-based page. Add a manga-image-translator server in Settings to translate panels.</span> ${link("dasi-tr-x", "close")}`);
       document.getElementById("dasi-tr-x").onclick = (e) => { e.preventDefault(); removePill(); };
       return;
     }
-    setPill(`<span>Dasi — translating ${nodes.length} blocks…</span>`);
+    setPill(`<span>Yomu — translating ${nodes.length} blocks…</span>`);
     const texts = nodes.map((n) => n.nodeValue);
     chrome.runtime.sendMessage({ type: "DASI_MT", texts, target: lang }, (res) => {
       void chrome.runtime.lastError;
       if (!res || !res.ok) {
-        setPill(`<span>Dasi — translation unavailable.</span> ${link("dasi-tr-x", "close")}`);
+        setPill(`<span>Yomu — translation unavailable.</span> ${link("dasi-tr-x", "close")}`);
         const x = document.getElementById("dasi-tr-x");
         if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
         return;
@@ -145,12 +145,12 @@
         // Text came back unchanged → likely the real content is in images.
         // Translate panels if a server is configured.
         if (imgServer) { translateImages(lang); return; }
-        setPill(`<span>Dasi — couldn't translate this page (it looks image-based).</span> ${link("dasi-tr-x", "close")}`);
+        setPill(`<span>Yomu — couldn't translate this page (it looks image-based).</span> ${link("dasi-tr-x", "close")}`);
         const x = document.getElementById("dasi-tr-x");
         if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
         return;
       }
-      setPill(`<span>Dasi · translated ${changed} → ${String(lang).toUpperCase()}</span> ${link("dasi-tr-revert", "revert")}`);
+      setPill(`<span>Yomu · translated ${changed} → ${String(lang).toUpperCase()}</span> ${link("dasi-tr-revert", "revert")}`);
       document.getElementById("dasi-tr-revert").onclick = (e) => { e.preventDefault(); revert(); };
     });
   }

@@ -1,5 +1,5 @@
 /*
- * Dasi popup — fast confirm flow. On open it asks the background to detect the
+ * Yomu popup — fast confirm flow. On open it asks the background to detect the
  * active tab (injecting the content script on demand), shows what was found —
  * cover, title, marker and (for video) the current timecode — and whether the
  * work is already saved, so you consciously overwrite the previous position.
@@ -48,7 +48,7 @@ function render() {
   if (!detection) {
     $("#kindLabel").textContent = "Nothing detected";
     $("#title").textContent = "Nothing detected yet";
-    $("#marker").textContent = "Open a readable page or a video, then reopen Dasi.";
+    $("#marker").textContent = "Open a readable page or a video, then reopen Yomu.";
     $("#save").disabled = true;
     return;
   }
@@ -170,7 +170,7 @@ $("#pip").onclick = () =>
 
 // Rate + share. Store URL is a single constant to swap once the listing is live.
 const DASI_STORE_URL = "https://chromewebstore.google.com/detail/dasi";
-const DASI_SHARE_TEXT = "Dasi — never lose your spot in any manga, webtoon, anime or series. Save & resume in one click.";
+const DASI_SHARE_TEXT = "Yomu — never lose your spot in any manga, webtoon, anime or series. Save & resume in one click.";
 const openUrl = (u) => api.tabs.create({ url: u });
 // Animated 5-star rating → opens the Chrome Web Store review page.
 const stars = [...document.querySelectorAll("#stars span")];
@@ -193,7 +193,7 @@ $("#sh-cp").onclick = () => {
 };
 
 /*
- * One-click page translation. Pick a target language and Dasi translates the
+ * One-click page translation. Pick a target language and Yomu translates the
  * current page's text in place (optional, best-effort; revert from the on-page
  * pill). Free plan is metered to 5 pages/day; Pro/Lifetime and the owner build
  * are unlimited.
