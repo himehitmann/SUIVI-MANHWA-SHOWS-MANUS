@@ -9,7 +9,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$ROOT/dasi-extension.zip"
+OUT="$ROOT/yomu-extension.zip"
 
 # The files that make up the extension (see manifest.json).
 FILES=(
@@ -24,5 +24,5 @@ zip "$OUT" "${FILES[@]}" >/dev/null
 echo "Built: $OUT"
 unzip -l "$OUT" | tail -n +2 | head -20
 echo
-echo "Load it: unzip dasi-extension.zip, then chrome://extensions → Developer mode"
+echo "Load it: unzip yomu-extension.zip, then chrome://extensions → Developer mode"
 echo "→ Load unpacked → select the unzipped folder (the one with manifest.json)."

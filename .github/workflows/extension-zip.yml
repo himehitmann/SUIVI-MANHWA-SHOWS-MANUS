@@ -1,7 +1,7 @@
 name: Package extension
 
 # Builds a ready-to-load Chrome/Edge extension zip and publishes it as the
-# "dasi-latest" release, so the extension can be downloaded, unzipped and loaded
+# "yomu-latest" release, so the extension can be downloaded, unzipped and loaded
 # without hunting for the manifest inside the repo.
 
 on:
@@ -30,20 +30,20 @@ jobs:
       - name: Zip the extension files (manifest at the zip root)
         run: |
           bash scripts/pack-extension.sh
-          unzip -l dasi-extension.zip
+          unzip -l yomu-extension.zip
 
       - name: Upload as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dasi-extension
-          path: dasi-extension.zip
+          name: yomu-extension
+          path: yomu-extension.zip
 
-      - name: Publish/refresh the dasi-latest release
+      - name: Publish/refresh the yomu-latest release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NOTES="Download dasi-extension.zip, unzip it, then in chrome://extensions enable Developer mode and click 'Load unpacked' and select the unzipped folder (the one containing manifest.json)."
-          gh release view dasi-latest >/dev/null 2>&1 \
-            && gh release edit dasi-latest --notes "$NOTES" \
-            || gh release create dasi-latest -t "Dasi extension (latest)" -n "$NOTES"
-          gh release upload dasi-latest dasi-extension.zip --clobber
+          NOTES="Download yomu-extension.zip, unzip it, then in chrome://extensions enable Developer mode and click 'Load unpacked' and select the unzipped folder (the one containing manifest.json)."
+          gh release view yomu-latest >/dev/null 2>&1 \
+            && gh release edit yomu-latest --notes "$NOTES" \
+            || gh release create yomu-latest -t "Yomu extension (latest)" -n "$NOTES"
+          gh release upload yomu-latest yomu-extension.zip --clobber
