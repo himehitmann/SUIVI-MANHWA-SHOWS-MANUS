@@ -161,3 +161,63 @@ Everything that has an ongoing server cost or is a power-user convenience:
 on the private build. On the public build the client checks the plan from the
 sync backend (`isPro()` = plan ∈ {pro, lifetime}); free users get the metered
 translation limit and the sync/alerts CTAs route to checkout.
+
+## 9. Competitive scan (2025) + path to €20,000
+
+### 9.1 What competitors charge (and don't)
+| Competitor | What it does | Price | Gap Yomu exploits |
+|---|---|---|---|
+| Trakt | TV/movie tracking | VIP $2.50/mo, $30/yr | No manga/manhwa/webtoon, no reading, no in-page save, no translation |
+| Simkl | Anime/TV/movie | Pro ~$3/mo | Same: no reading side, no page translation |
+| MyAnimeList / AniList | Anime/manga catalogs | Free / donation | Catalogs, not *trackers on the page you're reading*; no auto-detect, no resume |
+| Kitsu / Kenmei | Manga tracking | Free / Kenmei Pro ~$3/mo | Kenmei is manga-only; no anime/series/films/games, no translation, no games |
+| Netflix/WEBTOON "continue" | Per-platform resume | Free | Locked to one platform — Yomu is **cross-site, cross-medium** |
+| MangaTranslator tools | Image translation | Free (self-host) / $19 lifetime | Painful setup; Yomu bundles it into the same tracker |
+
+**Key insight:** every competitor is single-medium (manga *or* TV) and single-surface. **Nobody** offers one tracker that (a) auto-detects and resumes on *any* site, (b) spans manga/manhwa/webtoons/anime/series/films/**games**, and (c) translates the page you're on. That bundle is the paid wedge.
+
+### 9.2 Paid wedge — what free users can't get (justifies the sub)
+- **Encrypted multi-device sync**, unlimited devices (real infra cost).
+- **New-episode & game-release alerts** (background release checks).
+- **Unlimited page + manga-image translation** (free = 5 pages/day).
+- **Advanced stats & insights** (streaks, trends, forecasts, per-genre mastery).
+- **Custom covers & profile** (upload/crop), **smart auto-lists**.
+- **Priority detection** for new sites + early features.
+- Free stays generous (unlimited local tracking, lists, tags, ratings, search-by-name) so installs stay high; the meter is only on the things that cost us money.
+
+### 9.3 Prices (current): Pro **$3.99/mo**, **$29.99/yr** (2 months free), Lifetime **$59**.
+Net per sale after ~3%+$0.30 Stripe fees and ~€0.10/mo infra (≈ EUR, $1≈€0.92):
+- Monthly: ≈ **€3.05 net/mo**
+- Yearly: ≈ **€25.8 net** (≈ €2.15/mo)
+- Lifetime: ≈ **€51 net** once
+
+### 9.4 How many customers to reach €20,000
+Two readings of the goal:
+
+**A) €20,000 total (milestone / one good year):**
+| Mix | Customers needed |
+|---|---|
+| Lifetime only (€51) | **≈ 393 buyers** |
+| Yearly only (€25.8) | **≈ 775 subscribers/yr** |
+| Monthly only (kept 12 mo, €3.05) | **≈ 547 subscribers** held a year |
+| **Blended (realistic):** 150 lifetime (€7.6k) + 300 yearly (€7.7k) + 130 monthly×12 (€4.8k) | **≈ 580 payers → €20.1k** |
+
+**B) €20,000 / month recurring (financial freedom):**
+- ≈ **6,550 monthly** subs, or ≈ **775 yearly** subs *renewing each month cohort*, or a blend. Practically: **~5,000–7,000 active paying users** → a mature product, reachable at scale.
+
+### 9.5 Install → revenue funnel (how many installs that implies)
+Chrome extensions in this niche convert **2–5%** of active users to paid.
+| Installs | Active (60%) | Payers @3% | If avg €35/payer/yr |
+|---|---|---|---|
+| 5,000 | 3,000 | 90 | €3,150 |
+| 20,000 | 12,000 | 360 | **€12,600** |
+| 40,000 | 24,000 | 720 | **€25,200** |
+| 100,000 | 60,000 | 1,800 | €63,000 |
+
+**Takeaway:** ~**35–45k installs at a 3% blended conversion and ~€35 average annual value per payer clears €20k/yr.** Levers to get there: (1) rank for "manga tracker / continue reading" + "webtoon translate" in the Web Store, (2) keep the free tier delightful for word-of-mouth, (3) push **Yearly + Lifetime** first (front-loads cash, kills churn), (4) the translation feature is the viral hook — it's the one thing no free tracker has.
+
+### 9.6 Growth bets to widen the moat (product)
+- Bigger catalog coverage (TMDB films via optional key, more site adapters).
+- Social: public profiles, shareable lists, "what my friends are reading".
+- Smart recommendations from your genres (already seeded on Home).
+- Reading/watch-time analytics, yearly "wrapped".
