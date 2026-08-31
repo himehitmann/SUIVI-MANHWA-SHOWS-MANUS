@@ -323,6 +323,9 @@ async function writeItem(payload) {
       systemNotify(merged.title, msg, "dasi_" + key);
     }
   }
+  // First time we see this work → enrich it from AniList in the background so
+  // it gets a real series cover, synopsis, tags and released count.
+  if (merged.type !== "game" && !merged.enrichedAt) enrichWork(key).then(() => autoSync()).catch(() => {});
   return { item: merged, conflict: Boolean(existing), kept: "incoming" };
 }
 
@@ -381,6 +384,67 @@ async function translateTexts(texts, target) {
   }
   for (let k = cap; k < texts.length; k++) out[k] = texts[k]; // beyond cap: keep original
   return out;
+}
+
+/*
+ * Optional online enrichment via AniList (keyless GraphQL). Fills in the fields
+ * a page often lacks — a proper SERIES cover, synopsis, genres/tags, and the
+ * released episode/chapter count — so a work saved from a single episode still
+ * gets rich, correct metadata. Also powers "search by name to add". Best-effort
+ * and non-blocking: failures leave the local-first data untouched.
+ */
+const ANILIST_URL = "https://graphql.anilist.co";
+const stripHtml = (s) => (s || "").replace(/<br\s*\/?>(\s*)/gi, " ").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/\s+/g, " ").trim();
+const READING_FORMATS = new Set(["MANGA", "NOVEL", "ONE_SHOT"]);
+function mediaToResult(m) {
+  const title = (m.title && (m.title.english || m.title.romaji || m.title.native)) || "";
+  const type = READING_FORMATS.has(m.format) ? "reading" : "watching";
+  return {
+    title,
+    type,
+    cover: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || "",
+    synopsis: stripHtml(m.description).slice(0, 700),
+    genres: Array.isArray(m.genres) ? m.genres.slice(0, 6) : [],
+    total: type === "reading" ? m.chapters || undefined : m.episodes || undefined,
+    season: m.seasonYear || undefined,
+    format: m.format || "",
+    url: m.siteUrl || "",
+  };
+}
+async function anilistSearch(query) {
+  const gql = `query($s:String){Page(perPage:10){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id title{romaji english native} coverImage{extraLarge large} description genres seasonYear format siteUrl episodes chapters}}}`;
+  const res = await fetch(ANILIST_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ query: gql, variables: { s: query } }),
+  });
+  if (!res.ok) throw new Error(`anilist_${res.status}`);
+  const data = await res.json();
+  const media = (data && data.data && data.data.Page && data.data.Page.media) || [];
+  return media.map(mediaToResult).filter((r) => r.title);
+}
+/** Enrich one stored work in place from AniList (once per work). */
+async function enrichWork(id) {
+  const items = await read(ITEMS_KEY, []);
+  const it = items.find((x) => x.id === id);
+  if (!it || it.type === "game" || it.enrichedAt) return;
+  let results;
+  try {
+    results = await anilistSearch(it.title);
+  } catch {
+    return;
+  }
+  const match = results.find((r) => sameWork(r.title, it.title) && (r.type === it.type || !it.type));
+  const patch = { enrichedAt: Date.now() };
+  if (match) {
+    if (!it.coverOverride && match.cover) patch.cover = match.cover; // real series cover (fixes episode-thumbnail covers)
+    if (!it.synopsis && match.synopsis) patch.synopsis = match.synopsis;
+    if ((!it.tags || !it.tags.length) && match.genres.length) patch.tags = match.genres;
+    if (match.total && match.total > (it.total || 0)) patch.total = match.total;
+    if (!it.season && it.type === "watching" && match.season) patch.season = match.season;
+  }
+  const next = items.map((x) => (x.id === id ? { ...x, ...patch } : x));
+  await writeData({ [ITEMS_KEY]: next });
 }
 
 /** Inject the detector into a tab (idempotent) and return its detection. */
@@ -562,6 +626,13 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           autoSync();
         });
       });
+      return true;
+
+    // Online search-to-add (AniList): returns catalog results for a title.
+    case "CATALOG_SEARCH":
+      anilistSearch(message.query || "")
+        .then((results) => sendResponse({ ok: true, results }))
+        .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
       return true;
 
     // Translate an array of page strings (called by the injected translate.js).

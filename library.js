@@ -875,7 +875,46 @@ document.getElementById("bell").onclick = (e) => {
 document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("profile-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
 document.getElementById("lang-btn").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("lang-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
 document.addEventListener("click", (e) => { if (!e.target.closest(".top-right")) closeMenus(); });
-document.getElementById("q").addEventListener("input", (e) => { query = e.target.value; if (view !== "library") switchView("library"); renderGrid(); });
+document.getElementById("q").addEventListener("input", (e) => { query = e.target.value; if (view !== "library") switchView("library"); renderGrid(); if (!query) clearSearchResults(); });
+document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library") switchView("library"); catalogSearch(query.trim()); } });
+
+function clearSearchResults() { const el = document.getElementById("search-results"); if (el) el.innerHTML = ""; }
+function catalogSearch(q) {
+  const el = document.getElementById("search-results");
+  el.innerHTML = `<div class="sr-wrap"><p class="sr-head">${esc(q)} — …</p></div>`;
+  api.runtime.sendMessage({ type: "CATALOG_SEARCH", query: q }, (r) => {
+    void api.runtime.lastError;
+    if (!r || !r.ok || !r.results || !r.results.length) {
+      el.innerHTML = `<div class="sr-wrap"><p class="sr-head">${t("addByName")}: no online match — you can still add it manually from Games, or keep browsing your library.</p></div>`;
+      return;
+    }
+    el.innerHTML = `<div class="sr-wrap"><p class="sr-head">${t("addByName")} · ${esc(q)}</p>${r.results.map((m, idx) => srRow(m, idx)).join("")}</div>`;
+    r.results.forEach((m, idx) => {
+      const btn = el.querySelector(`[data-add-cat="${idx}"]`);
+      if (btn) btn.onclick = () => addFromCatalog(m, btn);
+    });
+  });
+}
+function srRow(m, idx) {
+  const tags = (m.genres || []).slice(0, 3).map((g) => `<span class="tag">${esc(g)}</span>`).join("");
+  const meta = [m.format, m.season].filter(Boolean).join(" · ");
+  return `<div class="sr-row">
+    <div class="sc">${m.cover ? `<img src="${esc(m.cover)}" referrerpolicy="no-referrer" onerror="this.remove()">` : esc((m.title || "?")[0])}</div>
+    <div class="si"><b>${esc(m.title)}</b><small>${esc(meta)}${m.synopsis ? " — " + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
+    <button class="btn primary" data-add-cat="${idx}">${I.plus} ${t("add")}</button>
+  </div>`;
+}
+function addFromCatalog(m, btn) {
+  const payload = {
+    title: m.title, type: m.type || "reading", cover: m.cover || undefined, synopsis: m.synopsis || undefined,
+    genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? m.season : undefined,
+    url: m.url || "", domain: "anilist", enrichedAt: Date.now(),
+  };
+  if (btn) { btn.disabled = true; btn.innerHTML = I.check; }
+  api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload }, () => {
+    api.runtime.sendMessage({ type: "GET_STATE" }, (s) => { hydrate(s); toast(m.title + " ✓"); });
+  });
+}
 document.getElementById("filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.f; renderFilters(); renderGrid(); });
 document.getElementById("grid").addEventListener("click", (e) => {
   const fav = e.target.closest(".fav"); if (fav) { const it = items.find((x) => x.id === fav.dataset.fav); if (it) update(it.id, { favorite: !it.favorite }); return; }

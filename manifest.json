@@ -7,7 +7,7 @@
   "options_ui": { "page": "options.html", "open_in_tab": true },
   "background": { "service_worker": "background.js" },
   "permissions": ["activeTab", "scripting", "storage", "tabs", "notifications", "alarms"],
-  "host_permissions": ["https://translate.googleapis.com/*", "https://api.mymemory.translated.net/*"],
+  "host_permissions": ["https://translate.googleapis.com/*", "https://api.mymemory.translated.net/*", "https://graphql.anilist.co/*"],
   "commands": {
     "save-progress": {
       "suggested_key": { "default": "Ctrl+Shift+S", "mac": "MacCtrl+Shift+S" },
