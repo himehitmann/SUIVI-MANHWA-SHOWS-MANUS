@@ -929,7 +929,7 @@ function catalogSearch(q) {
 }
 function srRow(m, idx) {
   const tags = (m.genres || []).slice(0, 3).map((g) => `<span class="tag">${esc(g)}</span>`).join("");
-  const meta = [m.format, m.season].filter(Boolean).join(" · ");
+  const meta = [m.format, m.season, m.price].filter(Boolean).join(" · ");
   return `<div class="sr-row">
     <div class="sc">${m.cover ? `<img src="${esc(m.cover)}" referrerpolicy="no-referrer" onerror="this.remove()">` : esc((m.title || "?")[0])}</div>
     <div class="si"><b>${esc(m.title)}</b><small>${esc(meta)}${m.synopsis ? " — " + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
@@ -940,7 +940,8 @@ function addFromCatalog(m, btn) {
   const payload = {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, synopsis: m.synopsis || undefined,
     genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? m.season : undefined,
-    url: m.url || "", domain: "anilist", enrichedAt: Date.now(),
+    price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
+    url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
   };
   if (btn) { btn.disabled = true; btn.innerHTML = I.check; }
   api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload }, () => {

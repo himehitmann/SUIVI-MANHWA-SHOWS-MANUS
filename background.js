@@ -423,6 +423,51 @@ async function anilistSearch(query) {
   const media = (data && data.data && data.data.Page && data.data.Page.media) || [];
   return media.map(mediaToResult).filter((r) => r.title);
 }
+/** Books via OpenLibrary (keyless). */
+async function openLibrarySearch(query) {
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=5&fields=title,author_name,cover_i,first_publish_year,subject`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`openlibrary_${res.status}`);
+  const data = await res.json();
+  return (data.docs || []).filter((d) => d.title).map((d) => ({
+    title: d.title,
+    type: "reading",
+    cover: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : "",
+    synopsis: Array.isArray(d.author_name) && d.author_name.length ? `by ${d.author_name[0]}` : "",
+    genres: Array.isArray(d.subject) ? d.subject.slice(0, 4) : [],
+    total: undefined,
+    season: undefined,
+    format: "Book",
+    url: "",
+  }));
+}
+/** Games via the Steam storefront search (keyless). */
+async function steamSearch(query) {
+  const url = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&cc=us&l=en`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`steam_${res.status}`);
+  const data = await res.json();
+  return (data.items || []).filter((g) => g.name).slice(0, 6).map((g) => ({
+    title: g.name,
+    type: "game",
+    cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/header.jpg`,
+    synopsis: "",
+    genres: [],
+    price: g.price ? `$${(g.price.final / 100).toFixed(2)}` : undefined,
+    platform: "Steam",
+    format: "Game",
+    url: `https://store.steampowered.com/app/${g.id}`,
+  }));
+}
+/** Unified catalog search across AniList (anime/manga), Steam (games) and
+ * OpenLibrary (books) — whatever answers, merged. Each source is best-effort. */
+async function catalogSearchAll(query) {
+  const settled = await Promise.allSettled([anilistSearch(query), steamSearch(query), openLibrarySearch(query)]);
+  const out = [];
+  for (const r of settled) if (r.status === "fulfilled") out.push(...r.value);
+  return out.slice(0, 18);
+}
+
 /** Enrich one stored work in place from AniList (once per work). */
 async function enrichWork(id) {
   const items = await read(ITEMS_KEY, []);
@@ -637,7 +682,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Online search-to-add (AniList): returns catalog results for a title.
     case "CATALOG_SEARCH":
-      anilistSearch(message.query || "")
+      catalogSearchAll(message.query || "")
         .then((results) => sendResponse({ ok: true, results }))
         .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
       return true;
