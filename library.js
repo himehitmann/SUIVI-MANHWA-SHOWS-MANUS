@@ -22,7 +22,7 @@ const LANGS = {
     resume:"Resume", details:"Details", addByName:"Add by name", welcomeTitle:"Welcome to Dasi", welcomeBody:"Dasi remembers where you stopped in anything you read or watch — manga, webtoons, anime, series, films and games. Open a page, hit save, and resume in one click from here.",
     valSaveT:"Save anywhere", valSaveB:"One click on any site — no more lost bookmarks.", valAllT:"One library for everything", valAllB:"Manga, anime, series, films and games together.", valResumeT:"Resume in a click", valResumeB:"Pick up exactly where you left off, on any device.",
     tracked:"Tracked", reading:"Reading", watching:"Watching", favorites:"Favorites", finished:"Finished",
-    all:"All", status:"Status", current:"In progress", planned:"Planned", completed:"Completed", on_hold:"On hold", dropped:"Dropped", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress", released:"Released", markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
+    all:"All", status:"Status", current:"In progress", planned:"Planned", completed:"Completed", on_hold:"On hold", dropped:"Dropped", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress", released:"Released", markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", editDetails:"Edit details", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
     newList:"New list", cover:"Cover", rename:"Rename", delete:"Delete", inThisList:"In this list", addWorks:"Add works", allLists:"All lists", dragReorder:"drag to reorder",
     gamesSub:"Track awaited games — release dates, prices, trailers and pre-registrations.", addGame:"Add a game", title:"Title", platform:"Platform", releaseDate:"Release date", price:"Price", trailer:"Trailer", watchTrailer:"Watch trailer", preRegistered:"Pre-registered", released:"Released", comingSoon:"Coming soon", add:"Add", cancel:"Cancel", free:"Free",
     editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", language:"Language", uiLanguage:"App language", translateLanguage:"Default translation language", account:"Account", email:"Email", changeEmail:"Change email", changePassword:"Change password", currentPassword:"Current password", newPassword:"New password", save:"Save", signedInAs:"Signed in as", notSignedIn:"Not signed in — sync is optional.", newAlerts:"New-episode alerts", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", cloudSync:"Cloud sync", cloudSyncSub:"Optional — sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Dasi.", spread:"Spread the word", enjoying:"Enjoying Dasi?",
@@ -34,7 +34,7 @@ const LANGS = {
     resume:"Reprendre", details:"Détails", addByName:"Ajouter par nom", welcomeTitle:"Bienvenue sur Dasi", welcomeBody:"Dasi retient où tu t'es arrêté dans tout ce que tu lis ou regardes — manga, webtoons, anime, séries, films et jeux. Ouvre une page, clique sur enregistrer, et reprends d'un clic depuis ici.",
     valSaveT:"Enregistre partout", valSaveB:"Un clic sur n'importe quel site — fini les favoris perdus.", valAllT:"Une seule bibliothèque", valAllB:"Manga, anime, séries, films et jeux réunis.", valResumeT:"Reprends d'un clic", valResumeB:"Reprends exactement où tu étais, sur tous tes appareils.",
     tracked:"Suivis", reading:"Lecture", watching:"Visionnage", favorites:"Favoris", finished:"Terminés",
-    all:"Tout", status:"Statut", current:"En cours", planned:"Prévu", completed:"Terminé", on_hold:"En pause", dropped:"Abandonné", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression", released:"Sortis", markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
+    all:"Tout", status:"Statut", current:"En cours", planned:"Prévu", completed:"Terminé", on_hold:"En pause", dropped:"Abandonné", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression", released:"Sortis", markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", editDetails:"Modifier la fiche", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
     newList:"Nouvelle liste", cover:"Couverture", rename:"Renommer", delete:"Supprimer", inThisList:"Dans cette liste", addWorks:"Ajouter des œuvres", allLists:"Toutes les listes", dragReorder:"glisser pour réordonner",
     gamesSub:"Suis les jeux attendus — dates de sortie, prix, trailers et préinscriptions.", addGame:"Ajouter un jeu", title:"Titre", platform:"Plateforme", releaseDate:"Date de sortie", price:"Prix", trailer:"Trailer", watchTrailer:"Voir le trailer", preRegistered:"Préinscrit", released:"Sorti", comingSoon:"Bientôt", add:"Ajouter", cancel:"Annuler", free:"Gratuit",
     editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", language:"Langue", uiLanguage:"Langue de l'appli", translateLanguage:"Langue de traduction par défaut", account:"Compte", email:"E-mail", changeEmail:"Changer l'e-mail", changePassword:"Changer le mot de passe", currentPassword:"Mot de passe actuel", newPassword:"Nouveau mot de passe", save:"Enregistrer", signedInAs:"Connecté en tant que", notSignedIn:"Non connecté — la sync est optionnelle.", newAlerts:"Alertes nouveaux épisodes", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel — connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Dasi.", spread:"Fais passer le mot", enjoying:"Tu aimes Dasi ?",
@@ -531,6 +531,16 @@ function openDrawer(id) {
       <div class="section-t">${t("tags")}</div><div class="tag-edit" id="dr-tags"></div>
       <div class="section-t">${t("lists")}</div>
       <div class="chips-wrap" id="dr-lists">${lists.map((l) => `<button class="chip-toggle ${memberIn.includes(l.id) ? "on" : ""}" data-list="${l.id}">${memberIn.includes(l.id) ? I.check : I.plus} ${esc(l.name)}</button>`).join("") || `<span style="color:var(--muted);font-size:12px">${t("newList")}…</span>`}</div>
+      <div class="section-t">${t("editDetails")}</div>
+      <div class="edit-grid">
+        <input class="field" id="dr-title" value="${esc(i.title || "")}" placeholder="${t("title")}" />
+        <select class="field" id="dr-type">
+          <option value="reading" ${i.type === "reading" ? "selected" : ""}>${t("reading")}</option>
+          <option value="watching" ${i.type === "watching" ? "selected" : ""}>${t("watching")}</option>
+          <option value="game" ${i.type === "game" ? "selected" : ""}>${t("games")}</option>
+        </select>
+        ${!isGame ? `<input class="field" id="dr-season" type="number" min="0" value="${i.season || ""}" placeholder="${isWatch ? "Season" : "Vol."}" />` : ""}
+      </div>
       <div class="section-t">${t("manage")}</div><button class="btn danger" id="dr-remove">${I.trash} ${t("removeLib")}</button>
     </div>`;
   document.getElementById("scrim").classList.add("open");
@@ -579,6 +589,12 @@ function wireDrawer(i, isWatch, isGame) {
   }));
   renderDrawerTags(i);
   document.querySelectorAll("#dr-lists [data-list]").forEach((b) => (b.onclick = () => { const l = lists.find((x) => x.id === b.dataset.list); if (!l) return; const has = (l.itemIds || []).includes(i.id); setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== i.id) : [...(l.itemIds || []), i.id]); setTimeout(() => openDrawer(i.id), 30); }));
+  const titleEl = document.getElementById("dr-title");
+  if (titleEl) titleEl.onchange = () => { const v = titleEl.value.trim(); if (v && v !== i.title) { update(i.id, { title: v }); setTimeout(() => openDrawer(i.id), 30); } };
+  const typeEl = document.getElementById("dr-type");
+  if (typeEl) typeEl.onchange = () => { update(i.id, { type: typeEl.value }); setTimeout(() => openDrawer(i.id), 30); };
+  const seasonEl = document.getElementById("dr-season");
+  if (seasonEl) seasonEl.onchange = () => { const v = Math.max(0, Math.round(Number(seasonEl.value) || 0)); update(i.id, isWatch ? { season: v || undefined } : { volume: v || undefined }); setTimeout(() => openDrawer(i.id), 30); };
   document.getElementById("dr-remove").onclick = () => { if (!confirm(`${t("removeLib")}?`)) return; api.runtime.sendMessage({ type: "REMOVE_ITEM", id: i.id }, (r) => { items = r?.items || items.filter((x) => x.id !== i.id); closeDrawer(); renderAll(); }); };
 }
 function renderDrawerTags(i) {
