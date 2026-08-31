@@ -4,5 +4,5 @@
  * scripts/publish-public.sh rewrites the literal below to "public" for the
  * Chrome-Web-Store mirror. Keep the literal on its own line (line-precise sed).
  */
-const DASI_EDITION = "private";
+const DASI_EDITION = "public";
 const DASI_UNLOCK_ALL = DASI_EDITION === "private";

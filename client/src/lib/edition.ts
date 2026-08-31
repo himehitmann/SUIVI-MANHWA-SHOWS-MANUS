@@ -10,7 +10,7 @@
  * Keep this the ONLY place the edition is declared, and keep the literal on its
  * own line (the publish script does a line-precise replacement).
  */
-export const EDITION: "private" | "public" = "private";
+export const EDITION: "private" | "public" = "public";
 
 /** When true, all Pro-gated features are unlocked regardless of plan. */
 export const UNLOCK_ALL = EDITION === "private";
