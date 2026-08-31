@@ -95,6 +95,10 @@ function render() {
   }
   $("#save").disabled = false;
   $("#pip").disabled = !d.hasVideo;
+  // Video tools only make sense on a video page — hide them otherwise so the
+  // popup stays compact and doesn't scroll.
+  const vt = document.getElementById("video-tools");
+  if (vt) vt.style.display = d.hasVideo ? "" : "none";
 }
 
 // Kick off detection, then check for an existing save (cross-site, by title).

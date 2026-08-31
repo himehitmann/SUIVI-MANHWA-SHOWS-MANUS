@@ -31,10 +31,10 @@
       .logo i { width:9px; height:9px; background:#fff; border-radius:3px; opacity:.92; }
       .shine { background:linear-gradient(100deg,#6B57B8 30%,#B6A2F0 50%,#6B57B8 70%); background-size:200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; animation:shine 5s linear infinite; }
       @keyframes shine { to { background-position:200% center; } }
-      .search { display:flex; align-items:center; gap:9px; background:#F3F1F9; border:1px solid transparent; border-radius:12px; padding:9px 13px; width:min(320px,34vw); color:var(--muted); transition:.15s; margin-left:12px; }
+      .search { display:flex; align-items:center; gap:9px; background:#F3F1F9; border:1px solid transparent; border-radius:12px; padding:9px 13px; width:min(300px,28vw); color:var(--muted); transition:.15s; margin-left:auto; }
       .search:focus-within { background:#fff; border-color:#DCD3F0; box-shadow:0 4px 14px rgba(120,100,200,.08); }
       .search input { border:0; outline:0; background:transparent; width:100%; font-size:13.5px; color:var(--ink); }
-      .top-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+      .top-right { display:flex; align-items:center; gap:10px; }
       .lang-btn, .icon-btn { display:flex; align-items:center; gap:6px; height:40px; padding:0 11px; border-radius:12px; border:1px solid var(--line); background:#fff; color:#6E6980; cursor:pointer; position:relative; transition:.15s; }
       .icon-btn { width:40px; justify-content:center; padding:0; }
       .lang-btn:hover, .icon-btn:hover { background:#F3F1F9; color:var(--ink); }
@@ -64,12 +64,37 @@
       .lang-menu button { width:100%; display:flex; align-items:center; gap:9px; border:0; background:none; text-align:left; padding:9px 10px; border-radius:9px; font-size:13px; font-weight:600; color:#4E4960; cursor:pointer; }
       .lang-menu button:hover { background:#F3F1F9; } .lang-menu button.on { background:var(--lav); color:var(--lav-ink); }
 
-      /* ---- nav ---- */
-      nav.tabs { display:flex; gap:4px; padding:0 clamp(16px,4vw,56px); border-bottom:1px solid var(--line); position:sticky; top:69px; background:rgba(251,250,254,.85); backdrop-filter:blur(16px); z-index:20; overflow-x:auto; }
-      nav.tabs button { border:0; background:none; cursor:pointer; padding:14px 14px; font-size:13.5px; font-weight:600; color:#8A8698; position:relative; white-space:nowrap; transition:color .15s; }
-      nav.tabs button:hover { color:var(--ink); }
-      nav.tabs button.active { color:var(--lav-ink); }
-      nav.tabs button.active::after { content:""; position:absolute; left:12px; right:12px; bottom:-1px; height:2.5px; border-radius:99px; background:var(--lav-ink); }
+      /* ---- nav (inline in the top bar) ---- */
+      nav.tabs { display:flex; gap:2px; margin-left:8px; }
+      nav.tabs button { border:0; background:none; cursor:pointer; padding:9px 13px; font-size:13.5px; font-weight:600; color:#8A8698; position:relative; white-space:nowrap; border-radius:10px; transition:color .15s, background .15s; }
+      nav.tabs button:hover { color:var(--ink); background:#F3F1F9; }
+      nav.tabs button.active { color:var(--lav-ink); background:var(--lav); }
+      @media (max-width:720px){ nav.tabs button{ padding:8px 9px; font-size:12.5px; } .brand .shine{ display:none; } }
+
+      /* global button feel */
+      button { transition:transform .12s ease, box-shadow .15s ease, background .15s ease, color .15s ease, filter .15s ease; }
+      button:active:not(:disabled) { transform:scale(.96); }
+
+      /* lists strip inside Library */
+      .lists-strip-head { display:flex; align-items:center; justify-content:space-between; margin:22px 0 2px; }
+      .lists-strip-head h2 { font-size:16px; letter-spacing:-.02em; margin:0; }
+      .btn.sm { padding:6px 11px; font-size:12px; }
+      .strip-list { flex:0 0 auto; width:150px; cursor:pointer; }
+      .strip-list .lc { width:150px; height:84px; border-radius:14px; background-size:cover; background-position:center; display:grid; place-items:center; color:#fff; font-weight:800; font-size:22px; box-shadow:var(--shadow); transition:transform .16s, box-shadow .16s; }
+      .strip-list:hover .lc { transform:translateY(-3px); box-shadow:var(--shadow-lg); }
+      .strip-list b { display:block; font-size:12.5px; margin-top:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .strip-list small { font-size:10.5px; color:var(--muted); }
+      .strip-new { flex:0 0 auto; width:150px; height:84px; border:1.5px dashed #D6CEEA; border-radius:14px; background:transparent; color:#8E86A6; display:grid; place-items:center; cursor:pointer; }
+      .strip-new:hover { border-color:var(--lav-ink); color:var(--lav-ink); }
+
+      /* catalog search-to-add results */
+      .sr-wrap { margin:6px 0 18px; }
+      .sr-head { font-size:12px; color:var(--muted); font-weight:600; margin:0 0 10px; }
+      .sr-row { display:flex; gap:12px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px; margin-bottom:8px; box-shadow:var(--shadow); }
+      .sr-row .sc { width:46px; height:62px; border-radius:8px; overflow:hidden; flex-shrink:0; background:#EDE8F6; display:grid; place-items:center; color:#fff; font-weight:800; }
+      .sr-row .sc img { width:100%; height:100%; object-fit:cover; }
+      .sr-row .si { flex:1; min-width:0; } .sr-row .si b { font-size:14px; } .sr-row .si small { display:block; color:var(--muted); font-size:11px; margin-top:2px; }
+      .sr-row .st { display:flex; gap:4px; flex-wrap:wrap; margin-top:5px; }
 
       main { max-width:1140px; margin:auto; padding:26px clamp(16px,4vw,56px) 100px; }
       .view { display:none; animation:fade .28s ease; }
@@ -122,7 +147,11 @@
       .onboard .big { width:70px; height:70px; margin:0 auto 18px; border-radius:20px 20px 20px 8px; background:linear-gradient(145deg,#B7A2F2,#8AD3C0); display:grid; place-items:center; transform:rotate(-8deg); box-shadow:var(--shadow-lg); }
       .onboard .big i { width:22px; height:22px; background:#fff; border-radius:7px; }
       .onboard h2 { font-size:24px; letter-spacing:-.03em; margin:0 0 8px; }
-      .onboard p { color:var(--muted); max-width:440px; margin:0 auto; font-size:14px; line-height:1.6; }
+      .onboard p { color:var(--muted); max-width:460px; margin:0 auto; font-size:14px; line-height:1.6; }
+      .value-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin:34px 0 8px; }
+      .value-card { display:flex; gap:13px; align-items:flex-start; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px 18px; box-shadow:var(--shadow); }
+      .value-card .vc-ic { display:grid; place-items:center; width:38px; height:38px; border-radius:11px; background:var(--lav); color:var(--lav-ink); flex-shrink:0; }
+      .value-card b { font-size:14px; display:block; margin-bottom:3px; } .value-card small { color:var(--muted); font-size:12px; line-height:1.5; }
 
       /* ---- grid (library) ---- */
       .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:11px; margin:0 0 22px; }
@@ -180,8 +209,14 @@
       .plan .per { font-size:12px; color:var(--muted); margin-bottom:16px; }
       .plan ul { list-style:none; padding:0; margin:0 0 20px; display:flex; flex-direction:column; gap:9px; }
       .plan li { display:flex; gap:9px; font-size:13px; color:#4E4960; } .plan li .ic { width:16px; height:16px; color:var(--green); margin-top:2px; }
-      .plan .cta { margin-top:auto; border:0; cursor:pointer; border-radius:12px; padding:12px; font-weight:700; font-size:13.5px; background:#F2F0F8; color:var(--lav-ink); }
-      .plan.feat .cta { background:var(--lav-ink); color:#fff; } .plan .cta:hover { filter:brightness(.97); }
+      .plan { transition:transform .18s ease, box-shadow .18s ease; }
+      .plan:hover { transform:translateY(-4px); box-shadow:0 24px 54px rgba(92,74,140,.16); }
+      .plan .cta { margin-top:auto; border:0; cursor:pointer; border-radius:12px; padding:13px; font-weight:700; font-size:13.5px; background:#F2F0F8; color:var(--lav-ink); transition:transform .15s ease, box-shadow .15s ease, filter .15s ease; }
+      .plan .cta:not(:disabled):hover { transform:translateY(-2px); box-shadow:0 10px 22px rgba(107,87,184,.22); }
+      .plan.feat .cta { background:linear-gradient(135deg,#7A66CE,#5FB79A); color:#fff; box-shadow:0 8px 20px rgba(107,87,184,.28); }
+      .plan .cta:disabled { opacity:.55; cursor:default; }
+      .btn:not(:disabled):hover { transform:translateY(-1px); }
+      .resume:active, .btn-glass:active { transform:scale(.97); }
       .unlocked-banner { display:flex; align-items:center; gap:12px; background:linear-gradient(120deg,#EAF7F1,#EFEAFF); border:1px solid #DBEDE4; border-radius:16px; padding:16px 20px; margin-bottom:18px; font-size:14px; font-weight:600; color:#3E7A63; }
 
       /* settings */
@@ -245,7 +280,8 @@
   <body>
     <header>
       <button class="brand" id="brand" title="Home"><span class="logo"><i></i></span><span class="shine">Dasi</span></button>
-      <label class="search"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="q" placeholder="Search" /></label>
+      <nav class="tabs" id="nav"></nav>
+      <label class="search"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="q" placeholder="Search or add by name…" /></label>
       <div class="top-right">
         <button class="lang-btn" id="lang-btn"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg><b id="lang-code">EN</b></button>
         <button class="icon-btn" id="bell" title="Updates"><svg class="ic" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
@@ -255,22 +291,19 @@
         <div class="menu" id="profile-menu"></div>
       </div>
     </header>
-    <nav class="tabs" id="nav"></nav>
 
     <main>
       <section class="view active" id="view-home"></section>
       <section class="view" id="view-library">
-        <h1 data-t="library"></h1>
-        <p class="sub" data-t="librarySub"></p>
-        <div class="stats" id="stats"></div>
-        <div class="filters" id="filters"></div>
-        <div class="grid" id="grid"></div>
-      </section>
-      <section class="view" id="view-lists">
-        <div id="lists-index">
-          <h1 data-t="lists"></h1>
-          <p class="sub" data-t="listsSub"></p>
-          <div class="list-grid" id="list-grid"></div>
+        <div id="lib-main">
+          <h1 data-t="library"></h1>
+          <p class="sub" data-t="librarySub"></p>
+          <div id="search-results"></div>
+          <div class="stats" id="stats"></div>
+          <div class="lists-strip-head"><h2 data-t="lists"></h2><button class="btn sm" id="add-list-inline"></button></div>
+          <div class="scroll-x" id="list-strip"></div>
+          <div class="filters" id="filters"></div>
+          <div class="grid" id="grid"></div>
         </div>
         <div id="list-detail" hidden></div>
       </section>

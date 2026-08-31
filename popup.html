@@ -8,7 +8,7 @@
       @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap");
       :root { --ink:#252331; --muted:#8C8999; --lav:#F0EAFF; --mint:#E9F8F0; --green:#6CBE9E; --purple:#A18BE0; }
       * { box-sizing:border-box; }
-      body { width:370px; margin:0; padding:18px; font-family:"DM Sans",sans-serif; color:var(--ink); background:#FCFCFE; }
+      body { width:370px; margin:0; padding:14px; font-family:"DM Sans",sans-serif; color:var(--ink); background:#FCFCFE; }
       .brand { display:flex; align-items:center; gap:9px; font-weight:800; font-size:20px; letter-spacing:-.05em; margin-bottom:14px; cursor:pointer; background:none; border:0; padding:0; color:var(--ink); }
       .logo { width:26px; height:26px; border-radius:10px 10px 10px 4px; background:linear-gradient(145deg,#BCA8F4,#8FD7C2); display:grid; place-items:center; transform:rotate(-8deg); box-shadow:0 5px 12px rgba(145,121,220,.2); }
       .logo i { width:10px; height:10px; background:#fff; border-radius:4px; opacity:.9; }
@@ -117,7 +117,7 @@
         <button id="save-site"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.9 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg> Save this site</button>
       </div>
 
-      <div class="tools">
+      <div class="tools" id="video-tools" style="display:none">
         <div class="tools-title">Video tools</div>
         <div class="speed-line">
           <span>Playback speed</span>
@@ -155,8 +155,8 @@
     </div>
 
     <div class="foot">
-      <span>Ctrl + Shift + S to save</span>
-      <button id="sync-link">Set up sync (optional)</button>
+      <button id="sync-link">Sync (optional)</button>
+      <span style="opacity:.7">Ctrl+Shift+S</span>
     </div>
     <script src="edition.js"></script>
     <script src="popup.js"></script>
