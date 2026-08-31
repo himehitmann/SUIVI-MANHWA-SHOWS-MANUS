@@ -399,6 +399,10 @@ const READING_FORMATS = new Set(["MANGA", "NOVEL", "ONE_SHOT"]);
 function mediaToResult(m) {
   const title = (m.title && (m.title.english || m.title.romaji || m.title.native)) || "";
   const type = READING_FORMATS.has(m.format) ? "reading" : "watching";
+  let format = m.format || "";
+  if (m.format === "MANGA") format = m.countryOfOrigin === "KR" ? "MANHWA" : m.countryOfOrigin === "CN" ? "MANHUA" : "MANGA";
+  else if (m.format === "NOVEL") format = "NOVEL";
+  else if (type === "watching") format = m.format === "MOVIE" ? "MOVIE" : "ANIME";
   return {
     title,
     type,
@@ -407,12 +411,12 @@ function mediaToResult(m) {
     genres: Array.isArray(m.genres) ? m.genres.slice(0, 6) : [],
     total: type === "reading" ? m.chapters || undefined : m.episodes || undefined,
     season: m.seasonYear || undefined,
-    format: m.format || "",
+    format,
     url: m.siteUrl || "",
   };
 }
 async function anilistSearch(query) {
-  const gql = `query($s:String){Page(perPage:10){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id title{romaji english native} coverImage{extraLarge large} description genres seasonYear format siteUrl episodes chapters}}}`;
+  const gql = `query($s:String){Page(perPage:10){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id title{romaji english native} coverImage{extraLarge large} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
   const res = await fetch(ANILIST_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -459,6 +463,24 @@ async function steamSearch(query) {
     url: `https://store.steampowered.com/app/${g.id}`,
   }));
 }
+/** Live-action TV series via TVMaze (keyless) — covers Western/American shows. */
+async function tvmazeSearch(query) {
+  const url = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`tvmaze_${res.status}`);
+  const data = await res.json();
+  return (data || []).slice(0, 6).map((row) => row.show).filter((sh) => sh && sh.name).map((sh) => ({
+    title: sh.name,
+    type: "watching",
+    cover: (sh.image && (sh.image.original || sh.image.medium)) || "",
+    synopsis: stripHtml(sh.summary).slice(0, 500),
+    genres: Array.isArray(sh.genres) ? sh.genres.slice(0, 4) : [],
+    season: (sh.premiered || "").slice(0, 4) || undefined,
+    format: "Series",
+    url: sh.url || "",
+  }));
+}
+
 /** Films & TV via TMDB (needs the user's free API key from settings). */
 async function tmdbSearch(query, key) {
   const url = `https://api.themoviedb.org/3/search/multi?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(query)}&include_adult=false`;
@@ -502,7 +524,7 @@ async function rawgSearch(query, key) {
  * RAWG run only when a key is configured. Each source is best-effort. */
 async function catalogSearchAll(query) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-  const tasks = [anilistSearch(query), steamSearch(query), openLibrarySearch(query)];
+  const tasks = [anilistSearch(query), steamSearch(query), openLibrarySearch(query), tvmazeSearch(query)];
   if (s && s.tmdbKey) tasks.push(tmdbSearch(query, s.tmdbKey));
   if (s && s.rawgKey) tasks.push(rawgSearch(query, s.rawgKey));
   const settled = await Promise.allSettled(tasks);
@@ -536,6 +558,7 @@ async function enrichWork(id) {
     if ((!it.tags || !it.tags.length) && match.genres.length) patch.tags = match.genres;
     if (match.total && match.total > (it.total || 0)) patch.total = match.total;
     if (!it.season && it.type === "watching" && match.season) patch.season = match.season;
+    if (!it.format && match.format) patch.format = match.format;
   }
   const next = items.map((x) => (x.id === id ? { ...x, ...patch } : x));
   await writeData({ [ITEMS_KEY]: next });

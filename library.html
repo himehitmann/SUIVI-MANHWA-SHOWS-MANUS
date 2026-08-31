@@ -31,7 +31,7 @@
       .logo i { width:9px; height:9px; background:#fff; border-radius:3px; opacity:.92; }
       .shine { background:linear-gradient(100deg,#6B57B8 30%,#B6A2F0 50%,#6B57B8 70%); background-size:200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; animation:shine 5s linear infinite; }
       @keyframes shine { to { background-position:200% center; } }
-      .search { display:flex; align-items:center; gap:9px; background:#F3F1F9; border:1px solid transparent; border-radius:12px; padding:9px 13px; width:min(300px,28vw); color:var(--muted); transition:.15s; margin-left:auto; }
+      .search { display:flex; align-items:center; gap:9px; background:#F3F1F9; border:1px solid transparent; border-radius:12px; padding:10px 14px; width:min(420px,38vw); color:var(--muted); transition:.15s; margin:0 auto; }
       .search:focus-within { background:#fff; border-color:#DCD3F0; box-shadow:0 4px 14px rgba(120,100,200,.08); }
       .search input { border:0; outline:0; background:transparent; width:100%; font-size:13.5px; color:var(--ink); }
       .top-right { display:flex; align-items:center; gap:10px; }
@@ -91,6 +91,29 @@
       .site-chip:hover { transform:translateY(-2px); border-color:#D9CFF0; }
       .site-chip .fav-dot { width:22px; height:22px; border-radius:7px; background:var(--lav); color:var(--lav-ink); display:grid; place-items:center; font-weight:800; font-size:11px; }
       .site-chip .rm-site { opacity:.45; cursor:pointer; } .site-chip .rm-site:hover { opacity:1; }
+      /* category badge */
+      .cat-badge { position:absolute; top:6px; right:6px; font-size:8.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:2px 6px; border-radius:6px; background:rgba(36,31,51,.72); color:#fff; backdrop-filter:blur(3px); }
+      .card .cat-inline { font-size:9px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--lav-ink); background:var(--lav); border-radius:5px; padding:1px 6px; margin-left:6px; vertical-align:middle; }
+      /* quick add to list */
+      .quick-add { position:absolute; bottom:11px; right:11px; width:28px; height:28px; border-radius:9px; border:1px solid var(--line); background:#fff; color:var(--lav-ink); display:grid; place-items:center; cursor:pointer; opacity:0; transition:.15s; }
+      .card:hover .quick-add { opacity:1; } .quick-add:hover { background:var(--lav); }
+      .quick-add .ic { width:15px; height:15px; }
+      .qa-menu { position:absolute; z-index:70; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-lg); padding:6px; min-width:180px; max-height:260px; overflow-y:auto; }
+      .qa-menu button { width:100%; display:flex; align-items:center; gap:8px; border:0; background:none; text-align:left; padding:8px 10px; border-radius:8px; font-size:12.5px; font-weight:600; color:#4E4960; cursor:pointer; }
+      .qa-menu button:hover { background:#F3F1F9; } .qa-menu .qa-on { color:var(--lav-ink); }
+      /* bigger list strip cards with a count chip */
+      .strip-list { width:172px; } .strip-list .lc { width:172px; height:100px; position:relative; }
+      .strip-list .lc .cnt { position:absolute; bottom:7px; right:8px; background:rgba(36,31,51,.72); color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:99px; }
+      .advanced { margin-top:20px; border-top:1px solid var(--line); padding-top:12px; }
+      .advanced summary { cursor:pointer; font-size:13px; font-weight:600; color:var(--muted); list-style:none; }
+      .advanced summary::-webkit-details-marker { display:none; }
+      .advanced summary::before { content:"▸ "; }
+      .advanced[open] summary::before { content:"▾ "; }
+      /* search results filter chips */
+      .sr-filters { display:flex; gap:7px; flex-wrap:wrap; margin:0 0 12px; }
+      .sr-filters button { border:0; cursor:pointer; border-radius:999px; padding:6px 12px; background:#F2F0F8; color:#7D7989; font-size:12px; font-weight:600; }
+      .sr-filters button.active { background:var(--lav); color:var(--lav-ink); }
+      .sr-row .cat { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--lav-ink); background:var(--lav); border-radius:5px; padding:1px 6px; margin-left:6px; }
 
       /* catalog search-to-add results */
       .sr-wrap { margin:6px 0 18px; }

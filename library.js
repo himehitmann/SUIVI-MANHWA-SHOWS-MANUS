@@ -22,7 +22,7 @@ const LANGS = {
     resume:"Resume", details:"Details", addByName:"Add by name", welcomeTitle:"Welcome to Dasi", welcomeBody:"Dasi remembers where you stopped in anything you read or watch — manga, webtoons, anime, series, films and games. Open a page, hit save, and resume in one click from here.",
     valSaveT:"Save anywhere", valSaveB:"One click on any site — no more lost bookmarks.", valAllT:"One library for everything", valAllB:"Manga, anime, series, films and games together.", valResumeT:"Resume in a click", valResumeB:"Pick up exactly where you left off, on any device.",
     tracked:"Tracked", reading:"Reading", watching:"Watching", favorites:"Favorites", finished:"Finished",
-    all:"All", status:"Status", current:"In progress", planned:"Planned", completed:"Completed", on_hold:"On hold", dropped:"Dropped", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress", released:"Released", markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", editDetails:"Edit details", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
+    all:"All", status:"Status", current:"In progress", planned:"Planned", completed:"Completed", on_hold:"On hold", dropped:"Dropped", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress", released:"Released", markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", editDetails:"Edit details", advanced:"Advanced", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
     newList:"New list", cover:"Cover", rename:"Rename", delete:"Delete", inThisList:"In this list", addWorks:"Add works", allLists:"All lists", dragReorder:"drag to reorder",
     gamesSub:"Track awaited games — release dates, prices, trailers and pre-registrations.", addGame:"Add a game", title:"Title", platform:"Platform", releaseDate:"Release date", price:"Price", trailer:"Trailer", watchTrailer:"Watch trailer", preRegistered:"Pre-registered", released:"Released", comingSoon:"Coming soon", add:"Add", cancel:"Cancel", free:"Free",
     editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", language:"Language", uiLanguage:"App language", translateLanguage:"Default translation language", account:"Account", email:"Email", changeEmail:"Change email", changePassword:"Change password", currentPassword:"Current password", newPassword:"New password", save:"Save", signedInAs:"Signed in as", notSignedIn:"Not signed in — sync is optional.", newAlerts:"New-episode alerts", integrations:"Integrations & keys", filmsSeries:"Films & series", keyHint:"Optional free API key —", imgTranslate:"Manga image translation", imgTranslateHint:"Optional — a manga-image-translator server URL. See", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", cloudSync:"Cloud sync", cloudSyncSub:"Optional — sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Dasi.", spread:"Spread the word", enjoying:"Enjoying Dasi?",
@@ -34,7 +34,7 @@ const LANGS = {
     resume:"Reprendre", details:"Détails", addByName:"Ajouter par nom", welcomeTitle:"Bienvenue sur Dasi", welcomeBody:"Dasi retient où tu t'es arrêté dans tout ce que tu lis ou regardes — manga, webtoons, anime, séries, films et jeux. Ouvre une page, clique sur enregistrer, et reprends d'un clic depuis ici.",
     valSaveT:"Enregistre partout", valSaveB:"Un clic sur n'importe quel site — fini les favoris perdus.", valAllT:"Une seule bibliothèque", valAllB:"Manga, anime, séries, films et jeux réunis.", valResumeT:"Reprends d'un clic", valResumeB:"Reprends exactement où tu étais, sur tous tes appareils.",
     tracked:"Suivis", reading:"Lecture", watching:"Visionnage", favorites:"Favoris", finished:"Terminés",
-    all:"Tout", status:"Statut", current:"En cours", planned:"Prévu", completed:"Terminé", on_hold:"En pause", dropped:"Abandonné", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression", released:"Sortis", markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", editDetails:"Modifier la fiche", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
+    all:"Tout", status:"Statut", current:"En cours", planned:"Prévu", completed:"Terminé", on_hold:"En pause", dropped:"Abandonné", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression", released:"Sortis", markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", editDetails:"Modifier la fiche", advanced:"Avancé", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
     newList:"Nouvelle liste", cover:"Couverture", rename:"Renommer", delete:"Supprimer", inThisList:"Dans cette liste", addWorks:"Ajouter des œuvres", allLists:"Toutes les listes", dragReorder:"glisser pour réordonner",
     gamesSub:"Suis les jeux attendus — dates de sortie, prix, trailers et préinscriptions.", addGame:"Ajouter un jeu", title:"Titre", platform:"Plateforme", releaseDate:"Date de sortie", price:"Prix", trailer:"Trailer", watchTrailer:"Voir le trailer", preRegistered:"Préinscrit", released:"Sorti", comingSoon:"Bientôt", add:"Ajouter", cancel:"Annuler", free:"Gratuit",
     editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", language:"Langue", uiLanguage:"Langue de l'appli", translateLanguage:"Langue de traduction par défaut", account:"Compte", email:"E-mail", changeEmail:"Changer l'e-mail", changePassword:"Changer le mot de passe", currentPassword:"Mot de passe actuel", newPassword:"Nouveau mot de passe", save:"Enregistrer", signedInAs:"Connecté en tant que", notSignedIn:"Non connecté — la sync est optionnelle.", newAlerts:"Alertes nouveaux épisodes", integrations:"Intégrations & clés", filmsSeries:"Films & séries", keyHint:"Clé API gratuite optionnelle —", imgTranslate:"Traduction d'images manga", imgTranslateHint:"Optionnel — URL d'un serveur manga-image-translator. Voir", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel — connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Dasi.", spread:"Fais passer le mot", enjoying:"Tu aimes Dasi ?",
@@ -97,6 +97,21 @@ const I = {
 };
 
 const accentFor = (i) => (i.type === "watching" ? "#7E9BE6" : i.type === "game" ? "#E08A4F" : "#5FB79A");
+// Human category for a work (Manga / Manhwa / Webtoon / Novel / Anime / Series /
+// Film / Book / Game) from its stored format, with a sensible fallback.
+function catLabel(i) {
+  const f = String(i.format || "").toUpperCase();
+  if (i.type === "game" || f === "GAME") return "Game";
+  if (f === "MANHWA") return "Manhwa";
+  if (f === "MANHUA") return "Manhua";
+  if (f === "MANGA") return "Manga";
+  if (f === "NOVEL" || f === "ONE_SHOT" || f === "LIGHT_NOVEL") return "Novel";
+  if (f === "BOOK") return "Book";
+  if (f === "MOVIE") return "Film";
+  if (f === "SERIES") return "Series";
+  if (f === "ANIME" || f === "TV" || f === "ONA" || f === "OVA" || f === "SPECIAL" || f === "TV_SHORT") return "Anime";
+  return i.type === "reading" ? "Comic" : i.type === "watching" ? "Video" : "Game";
+}
 const coverUrl = (i) => i.coverOverride || i.cover || "";
 // Current position and how many entries are released — the basis for "unseen".
 const currentNum = (i) => (i.type === "watching" ? i.episode || 0 : i.chapter || 0);
@@ -149,7 +164,7 @@ function posterHtml(i) {
   const lbl = flagLabel(i);
   const flag = lbl ? `<span class="flag ${isSoon(i) && unseen(i) === 0 ? "soon" : ""}">${esc(lbl)}</span>` : "";
   return `<div class="poster" data-open="${i.id}">
-    <div class="art" style="background:${i.accent || accentFor(i)}">${coverInner(i, 30)}${flag}
+    <div class="art" style="background:${i.accent || accentFor(i)}"><span class="cat-badge">${esc(catLabel(i))}</span>${coverInner(i, 30)}${flag}
       ${(i.progress || 0) > 0 && (i.progress || 0) < 100 ? `<div class="prog"><i style="width:${i.progress}%;background:${accentFor(i)}"></i></div>` : ""}
     </div>
     <h4>${esc(i.title || "Untitled")}</h4><small>${esc(marker(i))}</small>
@@ -270,7 +285,7 @@ function cardHtml(i) {
   const tags = (i.tags || []).slice(0, 4).map((x) => `<span class="tag">${esc(x)}</span>`).join("");
   return `<article class="card" data-open="${i.id}">
     <button class="fav ${i.favorite ? "on" : ""}" data-fav="${i.id}">${I.star}</button>
-    <div class="cover" style="background:${i.accent || accentFor(i)}">${coverInner(i)}${flagLabel(i) ? `<span class="new-flag">${esc(flagLabel(i))}</span>` : ""}</div>
+    <div class="cover" style="background:${i.accent || accentFor(i)}">${coverInner(i)}<span class="cat-badge">${esc(catLabel(i))}</span>${flagLabel(i) ? `<span class="new-flag" style="top:auto;bottom:5px">${esc(flagLabel(i))}</span>` : ""}</div>
     <div class="card-body">
       <h3>${esc(i.title || "Untitled")}</h3><p>${esc(marker(i))}${itemState(i) !== "current" ? ` · <b style="color:var(--lav-ink)">${t(itemState(i))}</b>` : ""}</p>
       ${(i.progress || 0) > 0 ? `<div class="bar"><i style="width:${Math.min(100, i.progress)}%;background:${accentFor(i)}"></i></div>` : ""}
@@ -278,6 +293,7 @@ function cardHtml(i) {
       <div class="rate">${[1,2,3,4,5].map((n) => `<span data-rate="${i.id}" data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= rating ? "on" : ""}"`)}</span>`).join("")}</div>
       ${tags ? `<div class="tags">${tags}</div>` : ""}
     </div>
+    <button class="quick-add" data-quickadd="${i.id}" title="${t("addWorks")}">${I.plus}</button>
   </article>`;
 }
 function renderGrid() {
@@ -384,7 +400,7 @@ function renderPlans() {
         <button class="cta" data-plan="free"${cur === "free" || UNLOCK_ALL ? " disabled" : ""}>${label("free", t("getStarted")) || t("currentPlan")}</button>
       </div>
       <div class="plan feat"><span class="ptag">${t("mostPopular")}</span>
-        <h3>Pro</h3><div class="price">$2.99<small>/mo</small></div><div class="per">or $24.99/yr — save 30%</div>
+        <h3>Pro</h3><div class="price">$3.99<small>/mo</small></div><div class="per">or $29.99/yr — 2 months free</div>
         <ul>${feat([
           "Everything in Free",
           "Encrypted multi-device sync — unlimited devices",
@@ -397,7 +413,7 @@ function renderPlans() {
         <button class="cta" data-plan="pro"${cur === "pro" ? " disabled" : ""}>${label("pro", t("goPro"))}</button>
       </div>
       <div class="plan">
-        <h3>Lifetime</h3><div class="price">$49</div><div class="per">one-time · best value</div>
+        <h3>Lifetime</h3><div class="price">$59</div><div class="per">one-time · best value</div>
         <ul>${feat([
           "Everything in Pro, forever",
           "No subscription, ever",
@@ -421,10 +437,41 @@ function isImg(v) { return v && /^https?:|^data:/.test(v); }
 function renderLists() {
   const strip = document.getElementById("list-strip");
   if (!strip) return;
-  strip.innerHTML = lists.map((l) => `<div class="strip-list" data-list="${l.id}">
-      <div class="lc" style="${listCover(l)}">${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}</div>
-      <b>${esc(l.name)}</b><small>${(l.itemIds || []).length} ${(l.itemIds || []).length === 1 ? "work" : "works"}</small>
-    </div>`).join("") + `<button class="strip-new" id="new-list">${I.plus}</button>`;
+  strip.innerHTML = lists.map((l) => { const n = (l.itemIds || []).length; return `<div class="strip-list" data-list="${l.id}">
+      <div class="lc" style="${listCover(l)}">${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
+      <b>${esc(l.name)}</b><small>${n} ${n === 1 ? "work" : "works"}</small>
+    </div>`; }).join("") + `<button class="strip-new" id="new-list">${I.plus}</button>`;
+}
+/* Quick add-to-list menu anchored to a card's + button. */
+let qaMenuEl = null;
+function closeQuickAdd() { if (qaMenuEl) { qaMenuEl.remove(); qaMenuEl = null; } }
+function openQuickAdd(itemId, anchor) {
+  closeQuickAdd();
+  const build = () => {
+    const rows = lists.map((l) => { const on = (l.itemIds || []).includes(itemId); return `<button data-ql="${l.id}" class="${on ? "qa-on" : ""}">${on ? I.check : I.plus} ${esc(l.name)} <span style="margin-left:auto;color:var(--muted);font-size:11px">${(l.itemIds || []).length}</span></button>`; }).join("");
+    return `${rows}<div style="height:1px;background:var(--line);margin:5px 4px"></div><button data-ql-new>${I.plus} ${t("newList")}</button>`;
+  };
+  const m = document.createElement("div");
+  m.className = "qa-menu";
+  m.innerHTML = build();
+  document.body.appendChild(m);
+  qaMenuEl = m;
+  const r = anchor.getBoundingClientRect();
+  m.style.top = `${Math.min(window.innerHeight - m.offsetHeight - 8, r.bottom + 6)}px`;
+  m.style.left = `${Math.min(window.innerWidth - m.offsetWidth - 8, r.left - m.offsetWidth + r.width)}px`;
+  const rewire = () => { m.innerHTML = build(); wire(); };
+  const wire = () => {
+    m.querySelectorAll("[data-ql]").forEach((b) => (b.onclick = (e) => {
+      e.stopPropagation();
+      const l = lists.find((x) => x.id === b.dataset.ql); if (!l) return;
+      const has = (l.itemIds || []).includes(itemId);
+      setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== itemId) : [...(l.itemIds || []), itemId]);
+      rewire();
+    }));
+    const nb = m.querySelector("[data-ql-new]");
+    if (nb) nb.onclick = (e) => { e.stopPropagation(); const name = (prompt(t("newList")) || "").trim(); if (!name) return; api.runtime.sendMessage({ type: "LIST_CREATE", name }, (rr) => { if (rr?.lists) lists = rr.lists; const last = lists[lists.length - 1]; if (last) setListItemsSilent(last.id, [...(last.itemIds || []), itemId]); rewire(); renderLists(); }); };
+  };
+  wire();
 }
 function renderSites() {
   const block = document.getElementById("sites-block");
@@ -462,9 +509,9 @@ function renderListDetail() {
     <div id="list-items">${members.length ? members.map((i) => `<div class="li-row" draggable="true" data-id="${i.id}">
         <span class="grip">${I.grip}</span>
         <div class="li-cover" style="background:${i.accent || accentFor(i)}">${coverInner(i)}</div>
-        <div style="flex:1;min-width:0"><b>${esc(i.title)}</b><small>${esc(marker(i))}</small></div>
+        <div style="flex:1;min-width:0"><b>${esc(i.title)}</b><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>
         <button class="btn danger" data-remove="${i.id}">${t("delete")}</button></div>`).join("") : `<p class="empty" style="padding:24px 0">—</p>`}</div>
-    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><div class="chips-wrap">${notIn.map((i) => `<button class="chip-toggle" data-add="${i.id}">${I.plus} ${esc(i.title)}</button>`).join("")}</div>` : ""}`;
+    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><div class="chips-wrap">${notIn.map((i) => `<button class="chip-toggle" data-add="${i.id}"><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(i.title)}</button>`).join("")}</div>` : ""}`;
   wireListDetail(l);
 }
 function wireListDetail(l) {
@@ -713,12 +760,6 @@ function renderSettings() {
       <div class="row"><div class="grow"><b>${t("translateLanguage")}</b></div>
         <select class="field" id="set-trlang" style="max-width:200px">${TR_LANGS.map(([c, n]) => `<option value="${c}" ${(settings.translateLang || "en") === c ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></div>
     </div>
-    <div class="section-t">${t("integrations")}</div>
-    <div class="panel">
-      <div class="row"><div class="grow"><b>TMDB — ${t("filmsSeries")}</b><small>${t("keyHint")} <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer" style="color:var(--lav-ink)">themoviedb.org</a></small></div><input class="field" id="set-tmdb" placeholder="API key" value="${esc(settings.tmdbKey || "")}" style="max-width:220px" /></div>
-      <div class="row"><div class="grow"><b>RAWG — ${t("games")}</b><small>${t("keyHint")} <a href="https://rawg.io/apidocs" target="_blank" rel="noreferrer" style="color:var(--lav-ink)">rawg.io</a></small></div><input class="field" id="set-rawg" placeholder="API key" value="${esc(settings.rawgKey || "")}" style="max-width:220px" /></div>
-      <div class="row"><div class="grow"><b>${t("imgTranslate")}</b><small>${t("imgTranslateHint")} <a href="https://github.com/zyddnys/manga-image-translator" target="_blank" rel="noreferrer" style="color:var(--lav-ink)">manga-image-translator</a></small></div><input class="field" id="set-imgserver" placeholder="http://127.0.0.1:5003" value="${esc(settings.imgServer || "")}" style="max-width:220px" /></div>
-    </div>
     <div class="section-t">${t("newAlerts")}</div>
     <div class="panel"><div class="row"><div class="grow"><b>${t("newAlerts")}</b><small>${t("newAlertsSub")}</small></div><button class="switch ${settings.notifyNew ? "on" : ""}" id="sw-notify"></button></div></div>
     <div class="section-t">${t("backup")}</div>
@@ -730,7 +771,12 @@ function renderSettings() {
     <div class="panel">
       <div class="row" style="flex-wrap:wrap"><div class="grow"><b>${t("rateShare")}</b><small>${t("rateShareSub")}</small></div><div class="rate-big" id="rate-store"></div></div>
       <div class="row"><div class="grow"><b>${t("spread")}</b></div><div class="share-row" id="share"></div></div>
-    </div>`;
+    </div>
+    <details class="advanced"><summary>${t("advanced")}</summary>
+      <div class="panel" style="margin-top:12px">
+        <div class="row"><div class="grow"><b>${t("imgTranslate")}</b><small>${t("imgTranslateHint")} <a href="https://github.com/zyddnys/manga-image-translator" target="_blank" rel="noreferrer" style="color:var(--lav-ink)">manga-image-translator</a></small></div><input class="field" id="set-imgserver" placeholder="http://127.0.0.1:5003" value="${esc(settings.imgServer || "")}" style="max-width:220px" /></div>
+      </div>
+    </details>`;
   wireSettings();
 }
 function wireSettings() {
@@ -742,7 +788,7 @@ function wireSettings() {
   document.getElementById("set-avatar").onclick = pickPhoto;
   document.getElementById("sw-notify").onclick = () => { settings.notifyNew = !settings.notifyNew; document.getElementById("sw-notify").classList.toggle("on", settings.notifyNew); api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { notifyNew: settings.notifyNew } }, (r) => { if (r?.settings) settings = r.settings; }); };
   const uilang = document.getElementById("set-uilang");
-  uilang.onchange = () => { settings.lang = uilang.value; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { lang: settings.lang } }, (r) => { if (r?.settings) settings = r.settings; document.documentElement.lang = settings.lang; renderNav(); renderAll(); renderSettings(); }); };
+  uilang.onchange = () => applyLanguage(uilang.value);
   const trlang = document.getElementById("set-trlang");
   trlang.onchange = () => { settings.translateLang = trlang.value; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: settings.translateLang } }, (r) => { if (r?.settings) settings = r.settings; }); };
   const bindKey = (id, key) => { const el = document.getElementById(id); if (el) el.onchange = () => { const v = el.value.trim(); settings[key] = v; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { [key]: v } }, (r) => { if (r?.settings) settings = r.settings; toast("✓"); }); }; };
@@ -841,11 +887,7 @@ function renderProfileMenu() {
 }
 function renderLangMenu() {
   document.getElementById("lang-menu").innerHTML = Object.entries(LANGS).map(([code, L]) => `<button class="${settings.lang === code ? "on" : ""}" data-lang="${code}">${esc(L.name)} <span style="margin-left:auto;color:var(--muted);font-size:11px">${code.toUpperCase()}</span></button>`).join("");
-  document.querySelectorAll("#lang-menu [data-lang]").forEach((b) => (b.onclick = () => {
-    settings.lang = b.dataset.lang; closeMenus();
-    api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { lang: settings.lang } }, (r) => { if (r?.settings) settings = r.settings; });
-    document.documentElement.lang = settings.lang; renderNav(); renderAll();
-  }));
+  document.querySelectorAll("#lang-menu [data-lang]").forEach((b) => (b.onclick = () => { closeMenus(); applyLanguage(b.dataset.lang); }));
 }
 function closeMenus() { document.getElementById("profile-menu").classList.remove("open"); document.getElementById("lang-menu").classList.remove("open"); document.getElementById("notif-menu").classList.remove("open"); }
 
@@ -871,6 +913,17 @@ function renderBell() {
   if (unread) { const b = document.createElement("span"); b.className = "badge-dot"; b.textContent = unread > 9 ? "9+" : unread; bell.appendChild(b); }
 }
 
+function applyLanguage(code) {
+  settings.lang = code;
+  document.documentElement.lang = code;
+  api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { lang: code } }, (r) => { if (r?.settings) settings = r.settings; });
+  renderNav(); renderLangMenu(); renderProfileMenu(); renderAll();
+  // Re-render whichever view is active so ALL text updates immediately.
+  if (view === "games") renderGames();
+  else if (view === "plans") renderPlans();
+  else if (view === "settings") renderSettings();
+  else if (view === "home") renderHome();
+}
 function switchView(v) {
   view = v; closeMenus();
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${v}`));
@@ -899,8 +952,8 @@ function renderAll() {
 }
 
 /* ---- global events ---- */
-document.getElementById("nav").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) switchView(b.dataset.v); });
-document.getElementById("brand").onclick = () => { filter = "all"; query = ""; document.getElementById("q").value = ""; switchView("home"); };
+document.getElementById("nav").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { query = ""; document.getElementById("q").value = ""; clearSearchResults(); switchView(b.dataset.v); } });
+document.getElementById("brand").onclick = () => { filter = "all"; query = ""; document.getElementById("q").value = ""; clearSearchResults(); switchView("home"); };
 document.getElementById("bell").onclick = (e) => {
   e.stopPropagation();
   const menu = document.getElementById("notif-menu");
@@ -914,7 +967,7 @@ document.getElementById("bell").onclick = (e) => {
 };
 document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("profile-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
 document.getElementById("lang-btn").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("lang-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
-document.addEventListener("click", (e) => { if (!e.target.closest(".top-right")) closeMenus(); });
+document.addEventListener("click", (e) => { if (!e.target.closest(".top-right")) closeMenus(); if (!e.target.closest(".qa-menu") && !e.target.closest(".quick-add")) closeQuickAdd(); });
 document.getElementById("q").addEventListener("input", (e) => { query = e.target.value; if (view !== "library") switchView("library"); renderGrid(); if (!query) clearSearchResults(); });
 document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library") switchView("library"); catalogSearch(query.trim()); } });
 
@@ -928,19 +981,29 @@ function catalogSearch(q) {
       el.innerHTML = `<div class="sr-wrap"><p class="sr-head">${t("addByName")}: no online match — you can still add it manually from Games, or keep browsing your library.</p></div>`;
       return;
     }
-    el.innerHTML = `<div class="sr-wrap"><p class="sr-head">${t("addByName")} · ${esc(q)}</p>${r.results.map((m, idx) => srRow(m, idx)).join("")}</div>`;
-    r.results.forEach((m, idx) => {
-      const btn = el.querySelector(`[data-add-cat="${idx}"]`);
-      if (btn) btn.onclick = () => addFromCatalog(m, btn);
-    });
+    lastResults = r.results;
+    srFilter = "all";
+    renderSearchResults(q);
   });
+}
+let lastResults = [];
+let srFilter = "all";
+function renderSearchResults(q) {
+  const el = document.getElementById("search-results");
+  const cats = ["all", ...[...new Set(lastResults.map((m) => catLabel(m)))]];
+  const shown = lastResults.filter((m) => srFilter === "all" || catLabel(m) === srFilter);
+  el.innerHTML = `<div class="sr-wrap"><p class="sr-head">${t("addByName")} · ${esc(q)} · ${lastResults.length}</p>
+    <div class="sr-filters">${cats.map((c) => `<button data-srf="${esc(c)}" class="${srFilter === c ? "active" : ""}">${c === "all" ? t("all") : esc(c)}</button>`).join("")}</div>
+    ${shown.map((m) => srRow(m, lastResults.indexOf(m))).join("")}</div>`;
+  el.querySelectorAll("[data-srf]").forEach((b) => (b.onclick = () => { srFilter = b.dataset.srf; renderSearchResults(q); }));
+  shown.forEach((m) => { const idx = lastResults.indexOf(m); const btn = el.querySelector(`[data-add-cat="${idx}"]`); if (btn) btn.onclick = () => addFromCatalog(m, btn); });
 }
 function srRow(m, idx) {
   const tags = (m.genres || []).slice(0, 3).map((g) => `<span class="tag">${esc(g)}</span>`).join("");
-  const meta = [m.format, m.season, m.price].filter(Boolean).join(" · ");
+  const meta = [m.season, m.price].filter(Boolean).join(" · ");
   return `<div class="sr-row">
     <div class="sc">${m.cover ? `<img src="${esc(m.cover)}" referrerpolicy="no-referrer" onerror="this.remove()">` : esc((m.title || "?")[0])}</div>
-    <div class="si"><b>${esc(m.title)}</b><small>${esc(meta)}${m.synopsis ? " — " + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
+    <div class="si"><b>${esc(m.title)}<span class="cat">${esc(catLabel(m))}</span></b><small>${esc(meta)}${m.synopsis ? (meta ? " — " : "") + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
     <button class="btn primary" data-add-cat="${idx}">${I.plus} ${t("add")}</button>
   </div>`;
 }
@@ -948,7 +1011,7 @@ function addFromCatalog(m, btn) {
   const payload = {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, synopsis: m.synopsis || undefined,
     genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? m.season : undefined,
-    price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
+    format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
   };
   if (btn) { btn.disabled = true; btn.innerHTML = I.check; }
@@ -958,6 +1021,7 @@ function addFromCatalog(m, btn) {
 }
 document.getElementById("filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.f; renderFilters(); renderGrid(); });
 document.getElementById("grid").addEventListener("click", (e) => {
+  const qa = e.target.closest(".quick-add"); if (qa) { e.stopPropagation(); openQuickAdd(qa.dataset.quickadd, qa); return; }
   const fav = e.target.closest(".fav"); if (fav) { const it = items.find((x) => x.id === fav.dataset.fav); if (it) update(it.id, { favorite: !it.favorite }); return; }
   const rate = e.target.closest("[data-rate]"); if (rate) { const it = items.find((x) => x.id === rate.dataset.rate); const v = Number(rate.dataset.v); update(rate.dataset.rate, { rating: it && it.rating === v ? 0 : v }); return; }
   const card = e.target.closest("[data-open]"); if (card) openDrawer(card.dataset.open);
