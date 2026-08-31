@@ -14,7 +14,12 @@
 (() => {
   const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "IFRAME", "CODE", "PRE", "TEXTAREA", "INPUT", "SELECT", "SVG", "CANVAS", "BUTTON"]);
   const originals = new Map(); // textNode -> original string
+  const imgOriginals = new Map(); // img element -> original src
   let pill = null;
+  let imgServer = "";
+
+  // 2-letter UI language → manga-image-translator target code.
+  const MIT_LANG = { en: "ENG", fr: "FRA", es: "ESP", de: "DEU", it: "ITA", pt: "PTB", ru: "RUS", uk: "UKR", pl: "PLK", tr: "TRK", ar: "ARA", vi: "VIN", th: "THA", id: "IND", ja: "JPN", ko: "KOR", "zh-CN": "CHS", "zh-TW": "CHT", nl: "NLD", hu: "HUN", cs: "CSY", ro: "ROM" };
 
   const hasLetters = (s) => /[^\s\d\p{P}\p{S}]/u.test(s);
 
@@ -54,13 +59,67 @@
   function revert() {
     originals.forEach((txt, node) => { try { node.nodeValue = txt; } catch (e) {} });
     originals.clear();
+    imgOriginals.forEach((src, im) => { try { im.src = src; im.removeAttribute("data-dasi-tr"); } catch (e) {} });
+    imgOriginals.clear();
     removePill();
+  }
+
+  /*
+   * Manga / webtoon IMAGE translation. When the page is image-based (nothing
+   * translatable as text) and an image-translation server is configured
+   * (Settings → Integrations: a manga-image-translator instance, self-hosted or
+   * shared), Dasi sends each large panel's URL to it and swaps in the translated
+   * image the server returns. Mirrors how manga-image-translator / cotrans work,
+   * but driven from the extension. Requires the server to allow CORS.
+   */
+  async function translateImages(lang) {
+    const code = MIT_LANG[lang] || MIT_LANG[String(lang || "").slice(0, 2)] || "ENG";
+    const base = imgServer.replace(/\/+$/, "");
+    const imgs = [...document.images].filter((im) => im.naturalWidth > 240 && im.naturalHeight > 240 && !im.dataset.dasiTr);
+    if (!imgs.length) {
+      setPill(`<span>Dasi — no manga panels found on this page.</span> ${link("dasi-tr-x", "close")}`);
+      const x = document.getElementById("dasi-tr-x"); if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
+      return;
+    }
+    let done = 0, ok = 0;
+    setPill(`<span>Dasi — translating ${imgs.length} panels…</span>`);
+    for (const im of imgs) {
+      im.dataset.dasiTr = "1";
+      try {
+        const res = await fetch(`${base}/translate/with-url/image`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: im.currentSrc || im.src, config: { translator: { translator: "google", target_lang: code } } }),
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          if (blob && blob.type.indexOf("image") === 0) {
+            if (!imgOriginals.has(im)) imgOriginals.set(im, im.src);
+            im.srcset = "";
+            im.src = URL.createObjectURL(blob);
+            ok++;
+          }
+        }
+      } catch (e) { /* server unreachable / CORS */ }
+      done++;
+      setPill(`<span>Dasi — translating panels ${done}/${imgs.length}…</span>`);
+    }
+    if (ok) {
+      setPill(`<span>Dasi · ${ok} panels translated → ${String(lang).toUpperCase()}</span> ${link("dasi-tr-revert", "revert")}`);
+      document.getElementById("dasi-tr-revert").onclick = (e) => { e.preventDefault(); revert(); };
+    } else {
+      setPill(`<span>Dasi — image translation failed. Check the server URL &amp; that it allows CORS.</span> ${link("dasi-tr-x", "close")}`);
+      const x = document.getElementById("dasi-tr-x"); if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
+    }
   }
 
   function translate(lang) {
     const nodes = collect();
     if (!nodes.length) {
-      setPill(`<span>Dasi — no readable text on this page (image-based).</span> ${link("dasi-tr-x", "close")}`);
+      // No readable text → image-based. Fall back to image translation if a
+      // server is configured; otherwise say so.
+      if (imgServer) { translateImages(lang); return; }
+      setPill(`<span>Dasi — image-based page. Add a manga-image-translator server in Settings to translate panels.</span> ${link("dasi-tr-x", "close")}`);
       document.getElementById("dasi-tr-x").onclick = (e) => { e.preventDefault(); removePill(); };
       return;
     }
@@ -83,9 +142,9 @@
         }
       });
       if (!changed) {
-        // Nothing actually changed: usually the readable content is inside
-        // images (scanlations) which text translation can't touch, or the
-        // service returned the text unchanged.
+        // Text came back unchanged → likely the real content is in images.
+        // Translate panels if a server is configured.
+        if (imgServer) { translateImages(lang); return; }
         setPill(`<span>Dasi — couldn't translate this page (it looks image-based).</span> ${link("dasi-tr-x", "close")}`);
         const x = document.getElementById("dasi-tr-x");
         if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
@@ -100,7 +159,7 @@
   if (!window.__dasiTranslateBound) {
     window.__dasiTranslateBound = true;
     chrome.runtime.onMessage.addListener((m, _s, resp) => {
-      if (m.type === "DASI_TRANSLATE") { translate(m.lang); resp && resp({ ok: true }); return true; }
+      if (m.type === "DASI_TRANSLATE") { imgServer = m.imgServer || ""; translate(m.lang); resp && resp({ ok: true }); return true; }
       if (m.type === "DASI_TRANSLATE_REVERT") { revert(); resp && resp({ ok: true }); return true; }
       return false;
     });

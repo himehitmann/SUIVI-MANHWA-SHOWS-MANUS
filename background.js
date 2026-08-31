@@ -13,7 +13,7 @@ const SITES_KEY = "dasi.sites";
 const NOTIF_KEY = "dasi.notifications";
 const LISTS_KEY = "dasi.lists";
 const SETTINGS_KEY = "dasi.settings";
-const DEFAULT_SETTINGS = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" } };
+const DEFAULT_SETTINGS = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" }, tmdbKey: "", rawgKey: "", imgServer: "" };
 
 // Canonical work id + fuzzy matching — MUST mirror the web app's item.ts
 // (normalizeTitle / workId / sameWork) so the same work merges across the
@@ -459,13 +459,62 @@ async function steamSearch(query) {
     url: `https://store.steampowered.com/app/${g.id}`,
   }));
 }
-/** Unified catalog search across AniList (anime/manga), Steam (games) and
- * OpenLibrary (books) — whatever answers, merged. Each source is best-effort. */
+/** Films & TV via TMDB (needs the user's free API key from settings). */
+async function tmdbSearch(query, key) {
+  const url = `https://api.themoviedb.org/3/search/multi?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(query)}&include_adult=false`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`tmdb_${res.status}`);
+  const data = await res.json();
+  return (data.results || [])
+    .filter((r) => (r.media_type === "movie" || r.media_type === "tv") && (r.title || r.name))
+    .slice(0, 6)
+    .map((r) => ({
+      title: r.title || r.name,
+      type: "watching",
+      cover: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : "",
+      synopsis: (r.overview || "").slice(0, 500),
+      genres: [],
+      season: (r.release_date || r.first_air_date || "").slice(0, 4) || undefined,
+      format: r.media_type === "tv" ? "TV" : "Movie",
+      url: `https://www.themoviedb.org/${r.media_type}/${r.id}`,
+    }));
+}
+/** Games via RAWG (needs the user's free API key from settings). */
+async function rawgSearch(query, key) {
+  const url = `https://api.rawg.io/api/games?key=${encodeURIComponent(key)}&search=${encodeURIComponent(query)}&page_size=6`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`rawg_${res.status}`);
+  const data = await res.json();
+  return (data.results || []).filter((g) => g.name).map((g) => ({
+    title: g.name,
+    type: "game",
+    cover: g.background_image || "",
+    synopsis: "",
+    genres: (g.genres || []).map((x) => x.name).slice(0, 4),
+    releaseDate: g.released || undefined,
+    platform: (g.platforms && g.platforms[0] && g.platforms[0].platform && g.platforms[0].platform.name) || "PC",
+    format: "Game",
+    url: g.slug ? `https://rawg.io/games/${g.slug}` : "",
+  }));
+}
+/** Unified catalog search across AniList (anime/manga), Steam & RAWG (games),
+ * OpenLibrary (books) and TMDB (films/TV). Keyless sources always run; TMDB and
+ * RAWG run only when a key is configured. Each source is best-effort. */
 async function catalogSearchAll(query) {
-  const settled = await Promise.allSettled([anilistSearch(query), steamSearch(query), openLibrarySearch(query)]);
+  const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
+  const tasks = [anilistSearch(query), steamSearch(query), openLibrarySearch(query)];
+  if (s && s.tmdbKey) tasks.push(tmdbSearch(query, s.tmdbKey));
+  if (s && s.rawgKey) tasks.push(rawgSearch(query, s.rawgKey));
+  const settled = await Promise.allSettled(tasks);
   const out = [];
   for (const r of settled) if (r.status === "fulfilled") out.push(...r.value);
-  return out.slice(0, 18);
+  // De-dup by normalized title+type, keep the richest (with a cover first).
+  const seen = new Map();
+  for (const r of out) {
+    const k = normalizeTitle(r.title) + "|" + r.type;
+    if (!seen.has(k) || (!seen.get(k).cover && r.cover)) seen.set(k, r);
+  }
+  return [...seen.values()].slice(0, 20);
 }
 
 /** Enrich one stored work in place from AniList (once per work). */
@@ -704,7 +753,8 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         } catch (e) {
           return sendResponse({ ok: false, error: "restricted_page" });
         }
-        api.tabs.sendMessage(tab.id, { type: "DASI_TRANSLATE", lang: message.lang || "en" }, () => {
+        const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
+        api.tabs.sendMessage(tab.id, { type: "DASI_TRANSLATE", lang: message.lang || "en", imgServer: (s && s.imgServer) || "" }, () => {
           void api.runtime.lastError;
           sendResponse({ ok: true });
         });
