@@ -593,6 +593,13 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       return true;
 
+    case "REMOVE_SITE":
+      read(SITES_KEY, []).then((sites) => {
+        const next = sites.filter((s) => (s.id || s.url) !== message.id);
+        writeData({ [SITES_KEY]: next }).then(() => { sendResponse({ sites: next }); autoSync(); });
+      });
+      return true;
+
     case "IMPORT_STATE":
       {
         const payload = message.payload || {};

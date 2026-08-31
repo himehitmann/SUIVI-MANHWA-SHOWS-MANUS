@@ -18,7 +18,7 @@ const SHARE_TEXT = "Dasi — never lose your spot in any manga, webtoon, anime, 
 const LANGS = {
   en: { name:"English", home:"Home", library:"Library", lists:"Lists", games:"Games", plans:"Plans", settings:"Settings",
     search:"Search", librarySub:"Everything you saved, kept on this device.", listsSub:"Group your works your way — drag to reorder, pick a cover.",
-    continue:"Jump back in", newWeek:"New this week", becauseYouLove:"Because you love {g}", yourGenres:"Your genres", recentlyAdded:"Recently added",
+    continue:"Jump back in", newWeek:"New this week", becauseYouLove:"Because you love {g}", yourGenres:"Your genres", recentlyAdded:"Recently added", sitesTitle:"Your sites",
     resume:"Resume", details:"Details", addByName:"Add by name", welcomeTitle:"Welcome to Dasi", welcomeBody:"Dasi remembers where you stopped in anything you read or watch — manga, webtoons, anime, series, films and games. Open a page, hit save, and resume in one click from here.",
     valSaveT:"Save anywhere", valSaveB:"One click on any site — no more lost bookmarks.", valAllT:"One library for everything", valAllB:"Manga, anime, series, films and games together.", valResumeT:"Resume in a click", valResumeB:"Pick up exactly where you left off, on any device.",
     tracked:"Tracked", reading:"Reading", watching:"Watching", favorites:"Favorites", finished:"Finished",
@@ -30,7 +30,7 @@ const LANGS = {
     updatesNone:"Nothing new right now", updatesSome:"{n} with something new", updates:"Updates" },
   fr: { name:"Français", home:"Accueil", library:"Bibliothèque", lists:"Listes", games:"Jeux", plans:"Abonnements", settings:"Paramètres",
     search:"Rechercher", librarySub:"Tout ce que tu as enregistré, gardé sur cet appareil.", listsSub:"Classe tes œuvres à ta façon — glisse pour réordonner, choisis une couverture.",
-    continue:"Reprendre", newWeek:"Nouveautés de la semaine", becauseYouLove:"Parce que tu aimes {g}", yourGenres:"Tes genres", recentlyAdded:"Ajoutés récemment",
+    continue:"Reprendre", newWeek:"Nouveautés de la semaine", becauseYouLove:"Parce que tu aimes {g}", yourGenres:"Tes genres", recentlyAdded:"Ajoutés récemment", sitesTitle:"Tes sites",
     resume:"Reprendre", details:"Détails", addByName:"Ajouter par nom", welcomeTitle:"Bienvenue sur Dasi", welcomeBody:"Dasi retient où tu t'es arrêté dans tout ce que tu lis ou regardes — manga, webtoons, anime, séries, films et jeux. Ouvre une page, clique sur enregistrer, et reprends d'un clic depuis ici.",
     valSaveT:"Enregistre partout", valSaveB:"Un clic sur n'importe quel site — fini les favoris perdus.", valAllT:"Une seule bibliothèque", valAllB:"Manga, anime, séries, films et jeux réunis.", valResumeT:"Reprends d'un clic", valResumeB:"Reprends exactement où tu étais, sur tous tes appareils.",
     tracked:"Suivis", reading:"Lecture", watching:"Visionnage", favorites:"Favoris", finished:"Terminés",
@@ -425,6 +425,21 @@ function renderLists() {
       <div class="lc" style="${listCover(l)}">${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}</div>
       <b>${esc(l.name)}</b><small>${(l.itemIds || []).length} ${(l.itemIds || []).length === 1 ? "work" : "works"}</small>
     </div>`).join("") + `<button class="strip-new" id="new-list">${I.plus}</button>`;
+}
+function renderSites() {
+  const block = document.getElementById("sites-block");
+  const strip = document.getElementById("site-strip");
+  if (!block) return;
+  if (!sites.length) { block.hidden = true; return; }
+  block.hidden = false;
+  const h = document.getElementById("sites-h");
+  if (h) h.textContent = t("sitesTitle");
+  strip.innerHTML = sites.map((s) => `<a class="site-chip" href="${esc(s.url)}" target="_blank" rel="noreferrer"><span class="fav-dot">${esc((s.name || "?")[0].toUpperCase())}</span>${esc(s.name)}<span class="rm-site" data-rmsite="${esc(s.id || s.url)}">${I.close.replace('class="ic"', 'class="ic" style="width:12px;height:12px"')}</span></a>`).join("");
+  strip.querySelectorAll("[data-rmsite]").forEach((x) => (x.onclick = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const id = x.dataset.rmsite;
+    api.runtime.sendMessage({ type: "REMOVE_SITE", id }, (r) => { sites = r?.sites || sites.filter((s) => (s.id || s.url) !== id); renderSites(); });
+  }));
 }
 function openList(id) { currentListId = id; document.getElementById("lib-main").hidden = true; document.getElementById("list-detail").hidden = false; renderListDetail(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function renderListDetail() {
@@ -837,7 +852,7 @@ function switchView(v) {
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${v}`));
   document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.v === v));
   if (v === "home") { renderHome(); } else clearInterval(spotTimer);
-  if (v === "library") { if (!currentListId) { document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true; } renderLists(); }
+  if (v === "library") { if (!currentListId) { document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true; } renderLists(); renderSites(); }
   if (v === "games") renderGames();
   if (v === "plans") renderPlans();
   if (v === "settings") renderSettings();
@@ -851,6 +866,7 @@ function renderAll() {
   renderFilters();
   renderGrid();
   renderLists();
+  renderSites();
   if (view === "home") renderHome();
   if (view === "games") renderGames();
   if (view === "plans") renderPlans();

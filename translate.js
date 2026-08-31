@@ -74,14 +74,24 @@
         if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
         return;
       }
+      let changed = 0;
       res.translations.forEach((tx, i) => {
         const node = nodes[i];
         if (tx && node && tx !== node.nodeValue) {
           if (!originals.has(node)) originals.set(node, node.nodeValue);
-          try { node.nodeValue = tx; } catch (e) {}
+          try { node.nodeValue = tx; changed++; } catch (e) {}
         }
       });
-      setPill(`<span>Dasi · translated → ${String(lang).toUpperCase()}</span> ${link("dasi-tr-revert", "revert")}`);
+      if (!changed) {
+        // Nothing actually changed: usually the readable content is inside
+        // images (scanlations) which text translation can't touch, or the
+        // service returned the text unchanged.
+        setPill(`<span>Dasi — couldn't translate this page (it looks image-based).</span> ${link("dasi-tr-x", "close")}`);
+        const x = document.getElementById("dasi-tr-x");
+        if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
+        return;
+      }
+      setPill(`<span>Dasi · translated ${changed} → ${String(lang).toUpperCase()}</span> ${link("dasi-tr-revert", "revert")}`);
       document.getElementById("dasi-tr-revert").onclick = (e) => { e.preventDefault(); revert(); };
     });
   }
