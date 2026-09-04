@@ -247,12 +247,20 @@ $("#tr-go").onclick = () => {
   $("#tr-status").classList.remove("up");
   $("#tr-status").textContent = "Translating the page…";
   $("#tr-go").disabled = true;
-  api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang }, (r) => {
+  // Manga/webtoon panels are images; translating them (OCR) needs to fetch the
+  // panel from its site. Ask once for that access — text pages don't need it,
+  // so denying still lets text translation work.
+  const go = () => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang }, (r) => {
     void api.runtime.lastError;
     $("#tr-go").disabled = false;
     if (r && r.ok) { $("#tr-status").textContent = "Done — see the pill on the page (revert there)."; bumpTrUsage(); }
     else $("#tr-status").textContent = r && r.error === "restricted_page" ? "Can't translate this page." : "Translation unavailable here.";
   });
+  try {
+    api.permissions.request({ origins: ["<all_urls>"] }, () => { void api.runtime.lastError; go(); });
+  } catch {
+    go();
+  }
 };
 
 // Sync is optional — footer link just opens the settings, never required.

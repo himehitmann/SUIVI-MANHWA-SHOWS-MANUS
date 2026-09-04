@@ -6,9 +6,9 @@
  * "payment links" (e.g. Stripe Payment Links) configured at build time via env,
  * so there is NO secret in the client and no extra backend code:
  *
- *   VITE_CHECKOUT_PRO_MONTH   → $2.99/mo link
- *   VITE_CHECKOUT_PRO_YEAR    → $24.99/yr link
- *   VITE_CHECKOUT_LIFETIME    → $49 one-time link
+ *   VITE_CHECKOUT_PRO_MONTH   → $3.99/mo link
+ *   VITE_CHECKOUT_PRO_YEAR    → $29.99/yr link
+ *   VITE_CHECKOUT_LIFETIME    → $59 one-time link
  *
  * We append `client_reference_id` (the Dasi user id) and `prefilled_email` so
  * the webhook can map the payment back to the account. When no link is

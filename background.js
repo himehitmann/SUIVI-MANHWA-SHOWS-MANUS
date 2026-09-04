@@ -564,6 +564,74 @@ async function enrichWork(id) {
   await writeData({ [ITEMS_KEY]: next });
 }
 
+/*
+ * Manga / webtoon IMAGE translation (OCR). Runs in the background so it can
+ * fetch cross-origin panels and talk to the translation service without CORS.
+ * Two backends:
+ *   - a self-hosted manga-image-translator server (Settings → Advanced), which
+ *     returns a full translated PNG for /translate/with-url/image; or
+ *   - the public cotrans service (default, zero-config): upload the panel, poll
+ *     for the translation mask, then composite mask over the original here.
+ * Best-effort: any failure returns {ok:false} and the page is left untouched.
+ */
+async function fetchBlob(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`img_${r.status}`);
+  return await r.blob();
+}
+async function blobToDataUrl(blob) {
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  const CH = 0x8000;
+  for (let i = 0; i < buf.length; i += CH) bin += String.fromCharCode.apply(null, buf.subarray(i, i + CH));
+  return `data:${blob.type || "image/png"};base64,${btoa(bin)}`;
+}
+async function selfHostImage(server, imageUrl, code) {
+  const res = await fetch(server.replace(/\/+$/, "") + "/translate/with-url/image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: imageUrl, config: { translator: { translator: "google", target_lang: code } } }),
+  });
+  if (!res.ok) throw new Error(`server_${res.status}`);
+  const blob = await res.blob();
+  if (blob.type.indexOf("image") !== 0) throw new Error("server_notimg");
+  return await blobToDataUrl(blob);
+}
+async function cotransImage(imageUrl, code) {
+  const file = await fetchBlob(imageUrl);
+  const fd = new FormData();
+  fd.append("file", file, "panel");
+  const q = new URLSearchParams({ target_language: code, detector: "default", direction: "default", translator: "google", size: "M" }).toString();
+  const up = await fetch(`https://api.cotrans.touhou.ai/task/upload/v1?${q}`, { method: "POST", body: fd });
+  if (!up.ok) throw new Error(`cotrans_up_${up.status}`);
+  const meta = await up.json();
+  const id = meta && (meta.id || meta.task_id);
+  if (!id) throw new Error("cotrans_noid");
+  let maskUrl = null;
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    let j;
+    try { const st = await fetch(`https://api.cotrans.touhou.ai/task/${id}/status/v1`); if (!st.ok) continue; j = await st.json(); } catch { continue; }
+    if (!j) continue;
+    if (j.type === "error" || j.status === "error") throw new Error("cotrans_err");
+    const r = j.result || (j.type === "result" ? j : null);
+    if (r && (r.translation_mask || r.translated || r.result)) { maskUrl = r.translation_mask || r.translated || r.result; break; }
+  }
+  if (!maskUrl) throw new Error("cotrans_timeout");
+  const [oB, mB] = await Promise.all([fetchBlob(imageUrl), fetchBlob(maskUrl)]);
+  const [oBmp, mBmp] = await Promise.all([createImageBitmap(oB), createImageBitmap(mB)]);
+  const cv = new OffscreenCanvas(oBmp.width, oBmp.height);
+  const ctx = cv.getContext("2d");
+  ctx.drawImage(oBmp, 0, 0);
+  ctx.drawImage(mBmp, 0, 0, oBmp.width, oBmp.height);
+  const out = await cv.convertToBlob({ type: "image/png" });
+  return await blobToDataUrl(out);
+}
+async function translateImage(imageUrl, code) {
+  const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
+  return s && s.imgServer ? selfHostImage(s.imgServer, imageUrl, code) : cotransImage(imageUrl, code);
+}
+
 /** Inject the detector into a tab (idempotent) and return its detection. */
 async function detectTab(tabId) {
   try {
@@ -756,6 +824,13 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "CATALOG_SEARCH":
       catalogSearchAll(message.query || "")
         .then((results) => sendResponse({ ok: true, results }))
+        .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
+      return true;
+
+    // Translate one manga/webtoon panel by URL (OCR), returns a data URL.
+    case "TRANSLATE_IMAGE":
+      translateImage(message.url, message.code || "ENG")
+        .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
         .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
       return true;
 

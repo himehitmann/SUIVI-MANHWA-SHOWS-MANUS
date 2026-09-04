@@ -23,6 +23,7 @@ PUBLIC_BRANCH="main"
 PRIVATE_PATHS=(
   CLAUDE.md            # session handoff (contains internal roadmap + session URL)
   docs/PRICING.md      # pricing strategy, competitor survey, margin math
+  docs/DEPLOY-PAYMENTS.md # operational go-live + payments guide (owner only)
   ideas.md             # internal product/design brainstorming
   todo.md              # internal task notes
   reference-notes.md   # internal research notes
