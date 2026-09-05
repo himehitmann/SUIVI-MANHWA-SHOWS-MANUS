@@ -289,6 +289,105 @@
       },
     },
     {
+      id: "comick",
+      match: /comick\.(io|fun|cc|me)$/,
+      parse() {
+        const title = cleanTitle(qtext("h1") || metaFirst(["meta[property='og:title']"]));
+        const chap = parseChapter(document.title + " " + location.pathname.replace(/-/g, " "));
+        return { title, type: "reading", ...(chap || {}) };
+      },
+    },
+    {
+      id: "mangafire",
+      match: /mangafire\.[a-z]+$/,
+      parse() {
+        const m = location.pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
+        const title = cleanTitle(qtext("h1") || metaFirst(["meta[property='og:title']"]));
+        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+      },
+    },
+    {
+      id: "mangapark",
+      match: /mangapark\.(net|io|to|org|com|me)$/,
+      parse() {
+        const title = cleanTitle(qtext("h3 a") || qtext("h1") || metaFirst(["meta[property='og:title']"]));
+        const chap = parseChapter(qtext(".chapter") || document.title || location.pathname.replace(/-/g, " "));
+        return { title, type: "reading", ...(chap || {}) };
+      },
+    },
+    {
+      id: "toonily",
+      match: /toonily\.(com|net|me)$/,
+      parse() {
+        const m = location.pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
+        const title = cleanTitle(qtext(".breadcrumb a:nth-last-child(2)") || qtext("h1") || metaFirst(["meta[property='og:title']"]));
+        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+      },
+    },
+    {
+      id: "mangabuddy",
+      match: /mangabuddy\.com$|mangaclash|manhuaus|topmanhua/,
+      parse() {
+        const m = location.pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
+        const title = cleanTitle(qtext(".name.box h1") || qtext("h1") || metaFirst(["meta[property='og:title']"]));
+        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+      },
+    },
+    {
+      id: "mangapill",
+      match: /mangapill\.com$/,
+      parse() {
+        const m = location.pathname.match(/chapter-(\d+(?:-\d+)?)/i);
+        const title = cleanTitle(metaFirst(["meta[property='og:title']", "h1"]));
+        return { title, type: "reading", chapter: m ? num(String(m[1]).split("-")[0]) : undefined };
+      },
+    },
+    {
+      id: "reaperscans",
+      match: /reaperscans\.com$|flamecomics\.[a-z]+$|resetscans|drakescans|nightscans|luminscans/,
+      parse() {
+        const m = location.pathname.match(/chapter[-\/](\d+(?:\.\d+)?)/i);
+        const title = cleanTitle(qtext("h1") || qtext(".entry-title") || metaFirst(["meta[property='og:title']"]));
+        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+      },
+    },
+    {
+      id: "tapas",
+      match: /tapas\.io$/,
+      parse() {
+        const title = cleanTitle(qtext(".series-header__title") || metaFirst(["meta[property='og:title']"]));
+        const ep = parseChapter(document.title) || { chapter: num((qtext(".episode-title") || "").match(/\d+/)?.[0]) };
+        return { title, type: "reading", ...(ep || {}) };
+      },
+    },
+    {
+      id: "anitaku",
+      match: /anitaku\.|gogoanime|gogoanimes|anitaku\.to|gogotaku/,
+      parse() {
+        const m = location.pathname.match(/-episode-(\d+(?:\.\d+)?)/i);
+        const title = m ? titleCase(location.pathname.replace(/^\//, "").replace(/-episode-.*/i, "")) : cleanTitle(qtext("h1") || metaFirst(["meta[property='og:title']"]));
+        return { title, type: "watching", episode: m ? num(m[1]) : undefined };
+      },
+    },
+    {
+      id: "animepahe",
+      match: /animepahe\.[a-z]+$/,
+      parse() {
+        const title = cleanTitle(qtext(".theatre-info h1 a") || qtext("h1") || metaFirst(["meta[property='og:title']"]));
+        const ep = parseSeasonEpisode(document.title) || { episode: num((document.title.match(/-\s*(\d+)\s*$/) || [])[1]) };
+        return { title, type: "watching", ...(ep || {}) };
+      },
+    },
+    {
+      id: "novelfull",
+      match: /novelupdates\.com$|scribblehub\.com$|royalroad\.com$|novelfull|lightnovelpub|webnovel\.com$|wattpad\.com$/,
+      parse() {
+        const title = cleanTitle(qtext(".chapter-title") || qtext("h1") || metaFirst(["meta[property='og:title']"]));
+        const chap = parseChapter(document.title + " " + location.pathname.replace(/-/g, " "));
+        return { title, type: "reading", ...(chap || {}) };
+      },
+    },
+    {
       id: "generic-drama",
       match: /wetv\.vip|iq\.com|bilibili\.tv|hidrama|ridomovies|onetouchtv|chia-anime|dramastore|vidbox|yarrlist/,
       parse() {

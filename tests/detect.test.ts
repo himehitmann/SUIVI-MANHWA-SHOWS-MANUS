@@ -65,6 +65,28 @@ describe("adapterFromUrl", () => {
     const r = adapterFromUrl("https://kissasian.cam/Drama/Goodbye-My-Princess/Episode-12");
     expect(r).toMatchObject({ adapter: "kissasian", type: "watching", episode: 12 });
   });
+  it("extracts MangaFire chapter", () => {
+    const r = adapterFromUrl("https://mangafire.to/read/one-piece.dkw/en/chapter-1152");
+    expect(r).toMatchObject({ adapter: "mangafire", type: "reading", chapter: 1152 });
+  });
+  it("extracts Toonily title + chapter", () => {
+    const r = adapterFromUrl("https://toonily.com/webtoon/solo-leveling/chapter-110/");
+    expect(r).toMatchObject({ adapter: "toonily", type: "reading", chapter: 110 });
+    expect(r?.title).toBe("Solo Leveling");
+  });
+  it("extracts MangaBuddy chapter", () => {
+    const r = adapterFromUrl("https://mangabuddy.com/the-beginning-after-the-end/chapter-200");
+    expect(r).toMatchObject({ adapter: "mangabuddy", type: "reading", chapter: 200 });
+  });
+  it("extracts Reaper/Flame chapter", () => {
+    const r = adapterFromUrl("https://reaperscans.com/series/nano-machine/chapter-215");
+    expect(r).toMatchObject({ adapter: "reaperscans", type: "reading", chapter: 215 });
+  });
+  it("extracts Anitaku/Gogo episode + title", () => {
+    const r = adapterFromUrl("https://anitaku.to/one-piece-episode-1122");
+    expect(r).toMatchObject({ adapter: "anitaku", type: "watching", episode: 1122 });
+    expect(r?.title).toBe("One Piece");
+  });
   it("extracts a Voiranime episode", () => {
     const r = adapterFromUrl("https://voiranime.rip/anime/one-piece/one-piece-1122-vostfr/");
     expect(r).toMatchObject({ adapter: "voir", type: "watching", episode: 1122 });

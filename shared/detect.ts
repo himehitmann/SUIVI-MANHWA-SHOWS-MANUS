@@ -167,6 +167,47 @@ export function adapterFromUrl(url: string): Marker | null {
       },
     },
     {
+      id: "mangafire",
+      test: /mangafire\./i,
+      run: () => {
+        const m = pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
+        return { type: "reading", chapter: m ? toNum(m[1]) : undefined, adapter: "mangafire" };
+      },
+    },
+    {
+      id: "toonily",
+      test: /toonily\./i,
+      run: () => {
+        const t = pathname.match(/\/(?:webtoon|serie)\/([a-z0-9-]+)/i);
+        const m = pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
+        return { type: "reading", title: t ? titleCase(t[1]) : undefined, chapter: m ? toNum(m[1]) : undefined, adapter: "toonily" };
+      },
+    },
+    {
+      id: "mangabuddy",
+      test: /mangabuddy\.com|mangaclash|topmanhua/i,
+      run: () => {
+        const m = pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
+        return { type: "reading", chapter: m ? toNum(m[1]) : undefined, adapter: "mangabuddy" };
+      },
+    },
+    {
+      id: "reaperscans",
+      test: /reaperscans\.com|flamecomics\.|nightscans|drakescans/i,
+      run: () => {
+        const m = pathname.match(/chapter[-/](\d+(?:\.\d+)?)/i);
+        return { type: "reading", chapter: m ? toNum(m[1]) : undefined, adapter: "reaperscans" };
+      },
+    },
+    {
+      id: "anitaku",
+      test: /anitaku\.|gogoanime|gogotaku/i,
+      run: () => {
+        const m = pathname.match(/([a-z0-9-]+)-episode-(\d+(?:\.\d+)?)/i);
+        return m ? { title: titleCase(m[1]), type: "watching", episode: toNum(m[2]), adapter: "anitaku" } : { type: "watching", adapter: "anitaku" };
+      },
+    },
+    {
       id: "crunchyroll",
       test: /crunchyroll\.com/i,
       run: () => {
