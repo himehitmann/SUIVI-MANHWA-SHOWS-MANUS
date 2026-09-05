@@ -76,8 +76,15 @@
    * image the server returns. Mirrors how manga-image-translator / cotrans work,
    * but driven from the extension. Requires the server to allow CORS.
    */
-  const askImage = (url, code) => new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: "TRANSLATE_IMAGE", url, code }, (r) => { void chrome.runtime.lastError; resolve(r || { ok: false }); });
+  // Guess the source language of the page so OCR picks the right model.
+  function srcGuess() {
+    const h = (location.host + location.pathname).toLowerCase();
+    if (/naver|kakao|webtoon|manhwa|lezhin|bomtoon|kr[.\/]/.test(h)) return "kor";
+    if (/bilibili|manhua|qq\.com|dongman|kuaikan|ac\.qq|zh[-.]/.test(h)) return "chs";
+    return "jpn";
+  }
+  const askImage = (url, code, target) => new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "TRANSLATE_IMAGE", url, code, target, src: srcGuess() }, (r) => { void chrome.runtime.lastError; resolve(r || { ok: false }); });
   });
 
   // Resolve the real source of a (possibly lazy-loaded) panel image.
@@ -140,7 +147,7 @@
       while (cursor < imgs.length && !cancelled) {
         const im = imgs[cursor++];
         im.dataset.dasiTr = "1";
-        const r = await askImage(realSrc(im), code);
+        const r = await askImage(realSrc(im), code, String(lang || "en").slice(0, 5));
         if (r && r.ok && r.dataUrl) {
           if (!imgOriginals.has(im)) imgOriginals.set(im, im.src);
           try { im.removeAttribute("srcset"); im.src = r.dataUrl; ok++; } catch (e) {}
@@ -162,10 +169,10 @@
   // If page TEXT was translated, keep a revert link and note it, but never hide
   // that the manga panels themselves could not be translated.
   function imageFailPill(err, textCount, lang) {
-    const down = !imgServer; // no server configured → public service (often offline)
-    const why = down
-      ? "manga panels need the OCR server — enable it in Settings → Manga image translation (free, ~2 min)"
-      : `the translation server didn't respond${err ? " (" + err + ")" : ""} — check the URL in Settings`;
+    const busy = /429|rate|limit|timeout|ocr_/i.test(err || "");
+    const why = busy
+      ? "the translation service is busy — try again in a moment"
+      : "couldn't read the text in these panels";
     const prefix = textCount ? `translated ${textCount} text, but ` : "";
     const revert = textCount ? ` ${link("dasi-tr-revert", "revert")}` : ` ${link("dasi-tr-x", "close")}`;
     setPill(`<span>Yomu — ${prefix}${why}.</span>${revert}`);

@@ -7,7 +7,7 @@
   "options_ui": { "page": "options.html", "open_in_tab": true },
   "background": { "service_worker": "background.js" },
   "permissions": ["activeTab", "scripting", "storage", "tabs", "notifications", "alarms"],
-  "host_permissions": ["https://translate.googleapis.com/*", "https://api.mymemory.translated.net/*", "https://graphql.anilist.co/*", "https://openlibrary.org/*", "https://store.steampowered.com/*", "https://api.tvmaze.com/*", "https://api.cotrans.touhou.ai/*"],
+  "host_permissions": ["https://translate.googleapis.com/*", "https://api.mymemory.translated.net/*", "https://graphql.anilist.co/*", "https://openlibrary.org/*", "https://store.steampowered.com/*", "https://cdn.cloudflare.steamstatic.com/*", "https://api.tvmaze.com/*", "https://api.ocr.space/*"],
   "optional_host_permissions": ["<all_urls>"],
   "commands": {
     "save-progress": {

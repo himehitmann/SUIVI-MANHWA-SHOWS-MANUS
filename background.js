@@ -13,7 +13,7 @@ const SITES_KEY = "dasi.sites";
 const NOTIF_KEY = "dasi.notifications";
 const LISTS_KEY = "dasi.lists";
 const SETTINGS_KEY = "dasi.settings";
-const DEFAULT_SETTINGS = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" }, tmdbKey: "", rawgKey: "", imgServer: "" };
+const DEFAULT_SETTINGS = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" }, tmdbKey: "", rawgKey: "", imgServer: "", ocrKey: "", ocrSrc: "" };
 
 // Canonical work id + fuzzy matching — MUST mirror the web app's item.ts
 // (normalizeTitle / workId / sameWork) so the same work merges across the
@@ -568,22 +568,56 @@ function steamItems(list, released) {
     url: `https://store.steampowered.com/app/${g.id}`,
   }));
 }
-// Only surface real, notable games — skip demos, soundtracks, packs/bundles and
-// anything without a proper store capsule, so discovery shows the big titles.
-function bigGames(list, released) {
-  const junk = /(soundtrack|ost|artbook|art book|season pass|- pack|bundle|demo|playtest|dedicated server|wallpaper)/i;
-  return steamItems((list || []).filter((g) => g && (g.name || g.title) && !junk.test(g.name || g.title)), released);
+// Non-games / hardware / filler to keep out of discovery.
+const STEAM_SKIP = new Set(["1675200", "1531210", "353370", "353380"]); // Steam Deck, Index, controllers
+const STEAM_JUNK = /(soundtrack|ost|artbook|art ?book|season pass|- pack|bundle|demo|playtest|dedicated server|wallpaper|steam deck|valve index|controller|hardware)/i;
+// Parse the Steam store search "results_html" into {id, name, price}.
+function parseSteamSearch(html) {
+  const out = [];
+  const parts = String(html || "").split('data-ds-appid="');
+  for (let i = 1; i < parts.length && out.length < 40; i++) {
+    const chunk = parts[i];
+    const idm = chunk.match(/^(\d+)/);
+    const tm = chunk.match(/<span class="title">([^<]+)<\/span>/i);
+    if (!idm || !tm) continue;
+    const pm = chunk.match(/discount_final_price[^>]*>([^<]+)</i) || chunk.match(/search_price[^>]*>\s*([^<\r\n]+?)\s*</i);
+    const name = tm[1].trim().replace(/&amp;/g, "&").replace(/&#0?39;/g, "'");
+    out.push({ id: idm[1], name, price: pm ? pm[1].trim().replace(/&nbsp;/g, "") : "" });
+  }
+  return out;
+}
+// The real "most anticipated" / "biggest" lists come from the store search sorted
+// by wishlists / top-sellers — these are the AAA titles users expect. Portrait
+// capsules (library_600x900) fit the cards cleanly (no cropped landscape banners).
+async function steamSearchList(filter) {
+  const url = `https://store.steampowered.com/search/results/?query&start=0&count=40&dynamic_data=&sort_by=_ASC&filter=${filter}&infinite=1&json=1&cc=us&l=en`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`steam_search_${res.status}`);
+  const j = await res.json();
+  return parseSteamSearch(j.results_html || "");
+}
+function steamGames(list, soon) {
+  return (list || [])
+    .filter((g) => g && g.id && g.name && !STEAM_SKIP.has(g.id) && !STEAM_JUNK.test(g.name))
+    .slice(0, 14)
+    .map((g) => ({
+      title: g.name,
+      type: "game",
+      cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/library_600x900.jpg`,
+      coverFallback: `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/header.jpg`,
+      price: g.price || undefined,
+      platform: "Steam",
+      format: "Game",
+      released: !soon,
+      releaseDate: soon ? "Coming soon" : undefined,
+      url: `https://store.steampowered.com/app/${g.id}`,
+    }));
 }
 async function steamDiscover() {
-  const res = await fetch("https://store.steampowered.com/api/featuredcategories?cc=us&l=en");
-  if (!res.ok) throw new Error(`steam_feat_${res.status}`);
-  const j = await res.json();
-  // coming_soon = the most-anticipated upcoming games Steam features;
-  // top_sellers = the biggest games right now.
-  const soon = bigGames(j.coming_soon && j.coming_soon.items, false).map((x) => ({ ...x, releaseDate: "Coming soon" }));
-  const hot = bigGames(j.top_sellers && j.top_sellers.items, true);
-  const fresh = bigGames(j.new_releases && j.new_releases.items, true);
-  return { soon, hot: hot.length ? hot : fresh };
+  const [soonR, hotR] = await Promise.allSettled([steamSearchList("popularcomingsoon"), steamSearchList("topsellers")]);
+  const soon = soonR.status === "fulfilled" ? steamGames(soonR.value, true) : [];
+  const hot = hotR.status === "fulfilled" ? steamGames(hotR.value, false) : [];
+  return { soon, hot };
 }
 // Live-action drama/series discovery (keyless, via TVMaze). Split by country so
 // the Home can offer K-Drama / C-Drama / J-Drama / Series tabs like Webtoon.
@@ -726,33 +760,83 @@ async function selfHostImage(server, imageUrl, code) {
   if (blob2.type.indexOf("image") !== 0) throw new Error("server_notimg");
   return await blobToDataUrl(blob2);
 }
-async function cotransImage(imageUrl, code) {
-  const file = await fetchBlob(imageUrl);
-  const fd = new FormData();
-  fd.append("file", file, "panel");
-  const q = new URLSearchParams({ target_language: code, detector: "default", direction: "default", translator: "google", size: "M" }).toString();
-  const up = await fetch(`https://api.cotrans.touhou.ai/task/upload/v1?${q}`, { method: "POST", body: fd });
-  if (!up.ok) throw new Error(`cotrans_up_${up.status}`);
-  const meta = await up.json();
-  const id = meta && (meta.id || meta.task_id);
-  if (!id) throw new Error("cotrans_noid");
-  let maskUrl = null;
-  for (let i = 0; i < 40; i++) {
-    await new Promise((r) => setTimeout(r, 1500));
-    let j;
-    try { const st = await fetch(`https://api.cotrans.touhou.ai/task/${id}/status/v1`); if (!st.ok) continue; j = await st.json(); } catch { continue; }
-    if (!j) continue;
-    if (j.type === "error" || j.status === "error") throw new Error("cotrans_err");
-    const r = j.result || (j.type === "result" ? j : null);
-    if (r && (r.translation_mask || r.translated || r.result)) { maskUrl = r.translation_mask || r.translated || r.result; break; }
-  }
-  if (!maskUrl) throw new Error("cotrans_timeout");
-  const [oB, mB] = await Promise.all([fetchBlob(imageUrl), fetchBlob(maskUrl)]);
-  const [oBmp, mBmp] = await Promise.all([createImageBitmap(oB), createImageBitmap(mB)]);
-  const cv = new OffscreenCanvas(oBmp.width, oBmp.height);
+// Downscale a panel to fit the free OCR tier; keeps the bitmap for compositing.
+async function scaledJpeg(blob, maxDim, quality) {
+  const bmp = await createImageBitmap(blob);
+  const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * scale));
+  const h = Math.max(1, Math.round(bmp.height * scale));
+  const cv = new OffscreenCanvas(w, h);
   const ctx = cv.getContext("2d");
-  ctx.drawImage(oBmp, 0, 0);
-  ctx.drawImage(mBmp, 0, 0, oBmp.width, oBmp.height);
+  ctx.drawImage(bmp, 0, 0, w, h);
+  const out = await cv.convertToBlob({ type: "image/jpeg", quality });
+  return { bmp, w, h, blob: out };
+}
+function wrapText(ctx, text, maxW) {
+  const words = String(text).split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const wd of words) {
+    const test = line ? line + " " + wd : wd;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = wd; } else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+/*
+ * One-click manga/webtoon OCR translation — NO server to install. Uses the
+ * OCR.space engine (free; a keyless demo key works out of the box, and users
+ * can set their own free key for higher limits). We OCR the panel, translate
+ * each detected line, and paint the translation over a white box on the bubble.
+ */
+async function ocrSpaceImage(imageUrl, target, key, src) {
+  const raw = await fetchBlob(imageUrl);
+  let s = await scaledJpeg(raw, 1600, 0.72); // free tier caps upload ~1MB
+  if (s.blob.size > 1000000) s = await scaledJpeg(raw, 1280, 0.55);
+  if (s.blob.size > 1000000) s = await scaledJpeg(raw, 1024, 0.45);
+  const dataUrl = await blobToDataUrl(s.blob);
+  const fd = new FormData();
+  fd.append("base64Image", dataUrl);
+  fd.append("language", src || "jpn");
+  fd.append("isOverlayRequired", "true");
+  fd.append("OCREngine", "1");
+  fd.append("scale", "true");
+  const res = await fetch("https://api.ocr.space/parse/image", { method: "POST", headers: { apikey: key || "helloworld" }, body: fd });
+  if (!res.ok) throw new Error(`ocr_${res.status}`);
+  const j = await res.json();
+  if (j.IsErroredOnProcessing) throw new Error(Array.isArray(j.ErrorMessage) ? j.ErrorMessage[0] : "ocr_err");
+  const pr = (j.ParsedResults && j.ParsedResults[0]) || null;
+  const lines = (pr && pr.TextOverlay && pr.TextOverlay.Lines) || [];
+  const boxes = lines.map((ln) => {
+    const ws = ln.Words || [];
+    if (!ws.length) return null;
+    const left = Math.min(...ws.map((w) => w.Left));
+    const top = Math.min(...ws.map((w) => w.Top));
+    const right = Math.max(...ws.map((w) => w.Left + w.Width));
+    const bottom = Math.max(...ws.map((w) => w.Top + (w.Height || ln.MaxHeight || 16)));
+    return { text: ln.LineText, left, top, w: right - left, h: bottom - top };
+  }).filter((b) => b && b.text && b.w > 4 && b.h > 4);
+  if (!boxes.length) throw new Error("ocr_notext");
+  const translations = await translateTexts(boxes.map((b) => b.text), target || "en");
+  const cv = new OffscreenCanvas(s.w, s.h);
+  const ctx = cv.getContext("2d");
+  ctx.drawImage(s.bmp, 0, 0, s.w, s.h);
+  ctx.textBaseline = "top";
+  boxes.forEach((b, i) => {
+    const tx = translations[i] || b.text;
+    const pad = Math.max(2, b.h * 0.14);
+    const rx = b.left - pad, ry = b.top - pad, rw = b.w + pad * 2, rh = b.h + pad * 2;
+    ctx.fillStyle = "rgba(255,255,255,0.97)";
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(rx, ry, rw, rh, Math.min(9, rh / 2)); else ctx.rect(rx, ry, rw, rh);
+    ctx.fill();
+    let fs = Math.max(10, Math.min(26, b.h * 0.8));
+    ctx.fillStyle = "#141018";
+    ctx.font = `600 ${fs}px system-ui,-apple-system,sans-serif`;
+    let wrapped = wrapText(ctx, tx, b.w);
+    while (wrapped.length * fs * 1.12 > rh && fs > 9) { fs -= 1; ctx.font = `600 ${fs}px system-ui,sans-serif`; wrapped = wrapText(ctx, tx, b.w); }
+    wrapped.forEach((l, k) => ctx.fillText(l, b.left, b.top + k * fs * 1.12));
+  });
   const out = await cv.convertToBlob({ type: "image/png" });
   return await blobToDataUrl(out);
 }
@@ -775,12 +859,12 @@ async function testImgServer(url) {
     clearTimeout(to);
   }
 }
-async function translateImage(imageUrl, code) {
+async function translateImage(imageUrl, code, target, src) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
+  // Advanced (best quality): a self-hosted manga-image-translator server.
   if (s && s.imgServer) return selfHostImage(s.imgServer, imageUrl, code);
-  // Zero-config fallback: the public cotrans service (best-effort; it is often
-  // offline, in which case the UI tells the user to set a server in Settings).
-  return cotransImage(imageUrl, code);
+  // Default: zero-setup OCR translation — one click, nothing to install.
+  return ocrSpaceImage(imageUrl, target || "en", (s && s.ocrKey) || "helloworld", (s && s.ocrSrc) || src || "jpn");
 }
 
 /** Inject the detector into a tab (idempotent) and return its detection. */
@@ -994,7 +1078,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Translate one manga/webtoon panel by URL (OCR), returns a data URL.
     case "TRANSLATE_IMAGE":
-      translateImage(message.url, message.code || "ENG")
+      translateImage(message.url, message.code || "ENG", message.target || "en", message.src || "")
         .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
         .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
       return true;

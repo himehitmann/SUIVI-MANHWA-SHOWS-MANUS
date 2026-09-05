@@ -31,7 +31,7 @@ const LANGS = {
     plansTitle:"Choose your plan", plansSub:"Free forever for local tracking. Go Pro for sync, alerts and more.", unlocked:"Owner edition — every Pro feature is unlocked.", mostPopular:"Most popular", getStarted:"Get started", goPro:"Go Pro", getLifetime:"Get Lifetime", currentPlan:"Current",
     updatesNone:"Nothing new right now", updatesSome:"{n} with something new", updates:"Updates",
     discover:"Discover", discoverSub:"Fresh picks — not in your library yet.", forYou:"Recommended for you", forYouSub:"Based on your tags", trendingManga:"Trending manga & manhwa", popularAnime:"Popular anime right now", newGames:"New game releases", upcomingGames:"Upcoming games", addToLib:"Add to library", refresh:"Refresh", loadingReco:"Finding fresh picks…",
-    imgTranslateSub:"Translate speech bubbles inside manga/webtoon images (OCR). Text-based pages already translate with one click; image scanlations need a small free translation server — run it once, paste its URL, and it works on every reader.", imgServerLabel:"Server URL", imgTest:"Test", imgTesting:"Testing…", imgOk:"Connected ✓", imgFail:"No response — check the URL and that the server is running.", imgSetup:"How to run the server (free, ~2 min)", imgCopy:"Copy", imgCopied:"Copied ✓",
+    imgTranslateSub:"Translate the speech bubbles inside manga/webtoon images too — just press Translate. It works automatically, nothing to install.", imgOn:"On", imgKeyLabel:"OCR key (optional)", imgKeyHint:"Free key from ocr.space for higher daily limits.", imgKeyPh:"ocr.space API key", imgServerHint:"Power users: your own image-translation server URL for best quality.", imgServerLabel:"Custom server (optional)", imgTest:"Test", imgTesting:"Testing…", imgOk:"Connected ✓", imgFail:"No response — check the URL.", imgSetup:"", imgCopy:"Copy", imgCopied:"Copied ✓",
     searchPlaceholder:"Search or add by name…", work:"work", works:"works", upcoming:"Upcoming", discoverGames:"Discover games",
     topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most anticipated games", hotGames:"Biggest games right now", openInNew:"Open", discoverMore:"Discover more",
     catAll:"All", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Series", catGames:"Games",
@@ -54,7 +54,7 @@ const LANGS = {
     plansTitle:"Choisis ton abonnement", plansSub:"Gratuit à vie pour le suivi local. Passe Pro pour la sync, les alertes et plus.", unlocked:"Édition propriétaire — toutes les fonctions Pro sont débloquées.", mostPopular:"Le plus populaire", getStarted:"Commencer", goPro:"Passer Pro", getLifetime:"À vie", currentPlan:"Actuel",
     updatesNone:"Rien de nouveau pour l'instant", updatesSome:"{n} avec du nouveau", updates:"Notifications",
     discover:"Découvrir", discoverSub:"Nouveautés à découvrir — pas encore dans ta bibliothèque.", forYou:"Recommandé pour toi", forYouSub:"D'après tes tags", trendingManga:"Manga & manhwa tendances", popularAnime:"Anime populaires en ce moment", newGames:"Nouveaux jeux sortis", upcomingGames:"Jeux à venir", addToLib:"Ajouter à la bibliothèque", refresh:"Actualiser", loadingReco:"Recherche de nouveautés…",
-    imgTranslateSub:"Traduire les bulles à l'intérieur des images de manga/webtoon (OCR). Les pages en texte se traduisent déjà en un clic ; les scans en image nécessitent un petit serveur de traduction gratuit — lance-le une fois, colle son URL, et ça marche sur tous les lecteurs.", imgServerLabel:"URL du serveur", imgTest:"Tester", imgTesting:"Test…", imgOk:"Connecté ✓", imgFail:"Aucune réponse — vérifie l'URL et que le serveur tourne.", imgSetup:"Comment lancer le serveur (gratuit, ~2 min)", imgCopy:"Copier", imgCopied:"Copié ✓",
+    imgTranslateSub:"Traduit aussi les bulles à l'intérieur des images de manga/webtoon — appuie simplement sur Traduire. Ça marche automatiquement, rien à installer.", imgOn:"Activé", imgKeyLabel:"Clé OCR (optionnel)", imgKeyHint:"Clé gratuite ocr.space pour des limites quotidiennes plus élevées.", imgKeyPh:"clé API ocr.space", imgServerHint:"Utilisateurs avancés : l'URL de ton propre serveur de traduction d'images pour une qualité optimale.", imgServerLabel:"Serveur personnalisé (optionnel)", imgTest:"Tester", imgTesting:"Test…", imgOk:"Connecté ✓", imgFail:"Aucune réponse — vérifie l'URL.", imgSetup:"", imgCopy:"Copier", imgCopied:"Copié ✓",
     searchPlaceholder:"Rechercher ou ajouter par nom…", work:"œuvre", works:"œuvres", upcoming:"À venir", discoverGames:"Découvrir des jeux",
     topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus attendus", hotGames:"Les plus gros jeux du moment", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
     catAll:"Tout", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Séries", catGames:"Jeux",
@@ -187,18 +187,22 @@ function initials(s) { return (s || "?").trim().split(/\s+/).slice(0, 2).map((w)
 // If it fails (dead host, hotlink block, offline) a global handler hides the
 // image so the placeholder shows — never a broken-image icon. No inline
 // handlers, so it works under the MV3 extension CSP (script-src 'self').
-function covImg(url) { return url ? `<img class="cov" src="${esc(url)}" referrerpolicy="no-referrer" loading="lazy" decoding="async" alt="">` : ""; }
+function covImg(url, fallback) { return url ? `<img class="cov" src="${esc(url)}"${fallback ? ` data-fallback="${esc(fallback)}"` : ""} referrerpolicy="no-referrer" loading="lazy" decoding="async" alt="">` : ""; }
 // Inline on* handlers are blocked by the MV3 extension CSP (script-src 'self'),
-// so we catch image failures with a single capture-phase listener instead: a
-// broken cover is hidden, revealing its placeholder. Attached once at startup.
+// so we catch image failures with a single capture-phase listener instead: try a
+// fallback source once (e.g. Steam header when the portrait capsule is missing),
+// then hide the image so its placeholder shows — never a broken-image icon.
 document.addEventListener("error", (e) => {
   const el = e.target;
-  if (el && el.tagName === "IMG" && el.classList.contains("cov")) el.classList.add("failed");
+  if (!el || el.tagName !== "IMG" || !el.classList.contains("cov")) return;
+  const fb = el.dataset.fallback;
+  if (fb && el.getAttribute("src") !== fb) { el.removeAttribute("data-fallback"); el.src = fb; return; }
+  el.classList.add("failed");
 }, true);
 function coverInner(i, fs) {
   const u = coverUrl(i);
   const ph = `<span class="cover-ph"${fs ? ` style="font-size:${fs}px"` : ""}>${esc((i.title || "?")[0].toUpperCase())}</span>`;
-  return ph + covImg(u);
+  return ph + covImg(u, i.coverFallback);
 }
 // Badge label: "+3" when there are unseen released entries, else NEW / Soon.
 function flagLabel(i) { const u = unseen(i); if (u > 0) return `+${u}`; if (isNew(i)) return "NEW"; if (isSoon(i)) return t("comingSoon"); return ""; }
@@ -258,7 +262,7 @@ function discoBadges(m, opts) {
 }
 function discoCard(m, idx, opts = {}) {
   const { soon, price } = discoBadges(m, opts);
-  const cover = `<span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover)}`;
+  const cover = `<span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}`;
   const sub = m.genres && m.genres.length ? m.genres.slice(0, 2).join(" · ") : (m.season ? String(m.season) : catLabel(m));
   return `<div class="disco">
     <div class="art" data-open-url="${esc(m.url || "")}">${cover}<span class="cat-badge">${esc(catLabel(m))}</span>${soon}${price}
@@ -271,7 +275,7 @@ function discoCard(m, idx, opts = {}) {
 // Webtoon-style ranked card: a big number next to a clickable poster.
 function rankCard(m, idx, rank, opts = {}) {
   const { soon, price } = discoBadges(m, opts);
-  const cover = `<span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover)}`;
+  const cover = `<span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}`;
   const sub = m.genres && m.genres.length ? m.genres.slice(0, 2).join(" · ") : catLabel(m);
   return `<div class="rank-card">
     <div class="rank-art" data-open-url="${esc(m.url || "")}">${cover}<span class="cat-badge">${esc(catLabel(m))}</span>${soon}${price}
@@ -996,24 +1000,21 @@ function renderSettings() {
       <div class="row" style="flex-wrap:wrap"><div class="grow"><b>${t("rateShare")}</b><small>${t("rateShareSub")}</small></div><div class="rate-big" id="rate-store"></div></div>
       <div class="row"><div class="grow"><b>${t("spread")}</b></div><div class="share-row" id="share"></div></div>
     </div>
+    <div class="section-t">${t("imgTranslate")}</div>
+    <div class="panel">
+      <div class="row" style="align-items:flex-start"><div class="grow"><b>${t("imgTranslate")}</b><small>${t("imgTranslateSub")}</small></div><span class="ok-pill">${I.check} ${t("imgOn")}</span></div>
+    </div>
     <details class="advanced"><summary>${t("advanced")}</summary>
       <div class="panel" style="margin-top:12px">
-        <div class="row" style="align-items:flex-start"><div class="grow"><b>${t("imgTranslate")}</b><small>${t("imgTranslateSub")}</small></div></div>
-        <div class="row"><div class="grow"><b style="font-weight:600;font-size:13px">${t("imgServerLabel")}</b></div>
+        <div class="row"><div class="grow"><b style="font-weight:600;font-size:13px">${t("imgKeyLabel")}</b><small>${t("imgKeyHint")}</small></div>
+          <input class="field" id="set-ocrkey" placeholder="${t("imgKeyPh")}" value="${esc(settings.ocrKey || "")}" style="max-width:220px" /></div>
+        <div class="row"><div class="grow"><b style="font-weight:600;font-size:13px">${t("imgServerLabel")}</b><small>${t("imgServerHint")}</small></div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input class="field" id="set-imgserver" placeholder="http://127.0.0.1:8000" value="${esc(settings.imgServer || "")}" style="max-width:220px" />
             <button class="btn" id="img-test">${t("imgTest")}</button>
           </div>
         </div>
         <div id="img-test-res" class="test-res" hidden></div>
-        <details class="setup"><summary>${t("imgSetup")}</summary>
-          <div class="code-block"><code id="img-cmd">git clone https://github.com/zyddnys/manga-image-translator
-cd manga-image-translator
-pip install -r requirements.txt
-python server/main.py            # add --use-gpu if you have an NVIDIA GPU
-# then paste  http://127.0.0.1:8000  above</code><button class="btn ghost" id="img-copy">${t("imgCopy")}</button></div>
-          <small style="color:var(--muted)">${t("imgTranslateHint")} <a href="https://github.com/zyddnys/manga-image-translator" target="_blank" rel="noreferrer" style="color:var(--lav-ink)">manga-image-translator</a></small>
-        </details>
       </div>
     </details>`;
   wireSettings();
@@ -1031,9 +1032,7 @@ function wireSettings() {
   const trlang = document.getElementById("set-trlang");
   trlang.onchange = () => { settings.translateLang = trlang.value; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: settings.translateLang } }, (r) => { if (r?.settings) settings = r.settings; }); };
   const bindKey = (id, key) => { const el = document.getElementById(id); if (el) el.onchange = () => { const v = el.value.trim(); settings[key] = v; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { [key]: v } }, (r) => { if (r?.settings) settings = r.settings; toast("✓"); }); }; };
-  bindKey("set-tmdb", "tmdbKey"); bindKey("set-rawg", "rawgKey"); bindKey("set-imgserver", "imgServer");
-  const imgCopy = document.getElementById("img-copy");
-  if (imgCopy) imgCopy.onclick = () => { const c = document.getElementById("img-cmd"); navigator.clipboard?.writeText(c ? c.textContent : "").then(() => { imgCopy.textContent = t("imgCopied"); setTimeout(() => (imgCopy.textContent = t("imgCopy")), 1500); }).catch(() => {}); };
+  bindKey("set-tmdb", "tmdbKey"); bindKey("set-rawg", "rawgKey"); bindKey("set-imgserver", "imgServer"); bindKey("set-ocrkey", "ocrKey");
   const imgTest = document.getElementById("img-test");
   if (imgTest) imgTest.onclick = () => {
     const url = (document.getElementById("set-imgserver").value || "").trim();
@@ -1189,6 +1188,7 @@ function applyLanguage(code) {
 }
 function switchView(v) {
   view = v; closeMenus();
+  if (v !== "library") { query = ""; const qb = document.getElementById("q"); if (qb) qb.value = ""; clearSearchResults(); }
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${v}`));
   document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.v === v));
   if (v === "home") { renderHome(); } else clearInterval(spotTimer);
@@ -1266,14 +1266,14 @@ function srRow(m, idx) {
   const tags = (m.genres || []).slice(0, 3).map((g) => `<span class="tag">${esc(g)}</span>`).join("");
   const meta = [m.season, m.price].filter(Boolean).join(" · ");
   return `<div class="sr-row">
-    <div class="sc"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover)}</div>
+    <div class="sc"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}</div>
     <div class="si"><b>${esc(m.title)}<span class="cat">${esc(catLabel(m))}</span></b><small>${esc(meta)}${m.synopsis ? (meta ? " — " : "") + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
     <button class="btn primary" data-add-cat="${idx}">${I.plus} ${t("add")}</button>
   </div>`;
 }
 function addFromCatalog(m, btn) {
   const payload = {
-    title: m.title, type: m.type || "reading", cover: m.cover || undefined, synopsis: m.synopsis || undefined,
+    title: m.title, type: m.type || "reading", cover: m.cover || undefined, coverFallback: m.coverFallback || undefined, synopsis: m.synopsis || undefined,
     genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? m.season : undefined,
     format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
