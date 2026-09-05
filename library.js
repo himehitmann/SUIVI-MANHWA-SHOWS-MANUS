@@ -7,6 +7,7 @@ let settings = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" } 
 let filter = "all", query = "", currentListId = null, view = "home";
 let spotIdx = 0, spotItems = [], spotTimer = null;
 let discover = null, discoverTried = false; // fresh recommendations pulled from the background
+let discoCat = "all"; // active Discover category tab (webtoon-style)
 let userPlan = null; // "pro" | "lifetime" | null, from the sync backend
 const isPro = () => UNLOCK_ALL || userPlan === "pro" || userPlan === "lifetime";
 
@@ -33,6 +34,7 @@ const LANGS = {
     imgTranslateSub:"Translate speech bubbles inside manga/webtoon images (OCR). Text-based pages already translate with one click; image scanlations need a small free translation server — run it once, paste its URL, and it works on every reader.", imgServerLabel:"Server URL", imgTest:"Test", imgTesting:"Testing…", imgOk:"Connected ✓", imgFail:"No response — check the URL and that the server is running.", imgSetup:"How to run the server (free, ~2 min)", imgCopy:"Copy", imgCopied:"Copied ✓",
     searchPlaceholder:"Search or add by name…", work:"work", works:"works", upcoming:"Upcoming", discoverGames:"Discover games",
     topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most anticipated games", hotGames:"Biggest games right now", openInNew:"Open", discoverMore:"Discover more",
+    catAll:"All", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Series", catGames:"Games",
     progHintWatch:"The episode you last watched.", progHintRead:"The chapter you last read.", totalReleased:"Latest available", totalHint:"The newest chapter/episode out — so Yomu can tell you when there's something new.",
     planFreePer:"forever · local-first", planProPer:"or $29.99/yr — 2 months free", planLifePer:"one-time · best value",
     planFoot:"Local tracking is free forever and never depends on our servers. Paid tiers fund the optional sync, alerts and translation engine.",
@@ -55,6 +57,7 @@ const LANGS = {
     imgTranslateSub:"Traduire les bulles à l'intérieur des images de manga/webtoon (OCR). Les pages en texte se traduisent déjà en un clic ; les scans en image nécessitent un petit serveur de traduction gratuit — lance-le une fois, colle son URL, et ça marche sur tous les lecteurs.", imgServerLabel:"URL du serveur", imgTest:"Tester", imgTesting:"Test…", imgOk:"Connecté ✓", imgFail:"Aucune réponse — vérifie l'URL et que le serveur tourne.", imgSetup:"Comment lancer le serveur (gratuit, ~2 min)", imgCopy:"Copier", imgCopied:"Copié ✓",
     searchPlaceholder:"Rechercher ou ajouter par nom…", work:"œuvre", works:"œuvres", upcoming:"À venir", discoverGames:"Découvrir des jeux",
     topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus attendus", hotGames:"Les plus gros jeux du moment", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
+    catAll:"Tout", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Séries", catGames:"Jeux",
     progHintWatch:"Le dernier épisode que tu as regardé.", progHintRead:"Le dernier chapitre que tu as lu.", totalReleased:"Dernier disponible", totalHint:"Le dernier chapitre/épisode sorti — pour que Yomu te prévienne quand il y a du nouveau.",
     planFreePer:"pour toujours · local-first", planProPer:"ou 29,99 $/an — 2 mois offerts", planLifePer:"paiement unique · meilleure offre",
     planFoot:"Le suivi local est gratuit à vie et ne dépend jamais de nos serveurs. Les offres payantes financent la sync, les alertes et le moteur de traduction optionnels.",
@@ -285,7 +288,7 @@ function rankRow(titleText, list, opts = {}) {
   const top = list.slice(0, 10);
   discoItems.push(...top);
   const cards = top.map((m, i) => rankCard(m, base + i, i + 1, opts)).join("");
-  const head = `<div class="section-h"><h2>${I.spark} ${esc(titleText)}</h2>${opts.sub ? `<span>${esc(opts.sub)}</span>` : ""}</div>`;
+  const head = opts.noHead ? "" : `<div class="section-h"><h2>${I.spark} ${esc(titleText)}</h2>${opts.sub ? `<span>${esc(opts.sub)}</span>` : ""}</div>`;
   return `${head}<div class="scroll-x rank-row">${cards}</div>`;
 }
 // A premium auto-scrolling carousel. Content is duplicated so the marquee loops
@@ -299,29 +302,54 @@ function discoRow(titleText, list, opts = {}) {
   const head = `<div class="section-h"><h2>${esc(titleText)}${opts.forYou ? ` <span class="reco-tag">${I.spark}</span>` : ""}</h2>${opts.sub ? `<span>${esc(opts.sub)}</span>` : ""}</div>`;
   return `${head}<div class="disco-wrap"><div class="disco-track${opts.rev ? " rev" : ""}" style="--dur:${dur}s">${cards}${cards}</div></div>`;
 }
-function renderDiscover() {
-  if (!discover) return discoverTried ? "" : `<div class="section-h" style="margin-top:34px"><h2>${I.compass} ${t("discover")}</h2><span>${t("loadingReco")}</span></div>`;
-  discoItems = [];
+// Build the ordered list of discovery categories that actually have content.
+// Order matches the user's ask: manga/manhwa/manhua, anime, then dramas &
+// series, and games LAST — no duplicated rows on the same subject.
+function discoPools() {
   const lib = libTitleSet();
   const fresh = (arr) => (arr || []).filter((m) => m && m.title && m.cover && !lib.has(normTitle(m.title)));
-  const manhwa = fresh(discover.manhwa && discover.manhwa.length ? discover.manhwa : discover.manga);
-  const manga = fresh(discover.manga), anime = fresh(discover.anime);
-  const gamesHot = fresh(discover.gamesHot && discover.gamesHot.length ? discover.gamesHot : discover.gamesNew), gamesSoon = fresh(discover.gamesSoon);
-  const w = tasteWeights();
-  const hasTaste = Object.keys(w).length > 0;
+  const pools = [];
+  const add = (key, list) => { const l = fresh(list); if (l.length >= 3) pools.push({ key, label: t("cat" + key[0].toUpperCase() + key.slice(1)), list: l, game: key === "games" }); };
+  add("manhwa", discover.manhwa);
+  add("manga", discover.manga);
+  add("manhua", discover.manhua);
+  add("anime", discover.anime);
+  add("kdrama", discover.kdrama);
+  add("cdrama", discover.cdrama);
+  add("jdrama", discover.jdrama);
+  add("series", discover.series);
+  add("games", discover.gamesHot && discover.gamesHot.length ? discover.gamesHot : discover.gamesNew);
+  return pools;
+}
+function renderDiscover() {
+  if (!discover) return discoverTried ? "" : `<div class="section-h discover-h"><h2>${I.compass} ${t("discover")}</h2><span>${t("loadingReco")}</span></div>`;
+  discoItems = [];
+  const pools = discoPools();
+  if (!pools.length) return "";
+  // "All" = round-robin the top of every non-game pool so it feels curated.
+  const nonGame = pools.filter((p) => !p.game);
+  const allList = [];
+  const maxLen = Math.max(0, ...nonGame.map((p) => p.list.length));
+  for (let i = 0; i < maxLen; i++) for (const p of nonGame) if (p.list[i]) allList.push(p.list[i]);
+  const cats = [{ key: "all", label: t("catAll"), list: allList.length ? allList : pools[0].list }, ...pools];
+  if (!cats.find((c) => c.key === discoCat)) discoCat = "all";
+  const active = cats.find((c) => c.key === discoCat) || cats[0];
+  const gameCat = active.game;
+
   let out = `<div class="section-h discover-h"><h2>${I.compass} ${t("discover")}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div>`;
-  // Personalized row first when we know the user's taste.
-  if (hasTaste) {
-    const pool = [...manhwa, ...manga, ...anime].map((m) => ({ m, s: scoreTaste(m, w) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).map((x) => x.m);
-    const seen = new Set();
-    const forYou = pool.filter((m) => { const k = normTitle(m.title); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 12);
-    if (forYou.length >= 4) out += discoRow(t("forYou"), forYou, { forYou: true, sub: t("forYouSub") });
+  out += `<div class="disco-tabs">${cats.map((c) => `<button class="disco-tab ${c.key === discoCat ? "active" : ""}" data-cat="${esc(c.key)}">${esc(c.label)}</button>`).join("")}</div>`;
+  // One classy numbered Top-10 ranking for the selected category.
+  out += rankRow(active.label, active.list, { noHead: true, soon: false });
+  // Personalized picks stay as a secondary carousel (not for games tab).
+  if (!gameCat) {
+    const w = tasteWeights();
+    if (Object.keys(w).length) {
+      const pool = nonGame.flatMap((p) => p.list).map((m) => ({ m, s: scoreTaste(m, w) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).map((x) => x.m);
+      const seen = new Set();
+      const forYou = pool.filter((m) => { const k = normTitle(m.title); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 12);
+      if (forYou.length >= 4) out += discoRow(t("forYou"), forYou, { forYou: true, sub: t("forYouSub") });
+    }
   }
-  // The classy numbered Top-10 ranking (webtoon style) leads discovery.
-  out += rankRow(t("topThisWeek"), manhwa.length >= 4 ? manhwa : manga, { sub: t("trendingWebtoons") });
-  out += discoRow(t("popularAnime"), anime, { rev: true, sub: "AniList" });
-  out += discoRow(t("mostAnticipated"), gamesSoon, { soon: true, sub: "Steam" });
-  out += discoRow(t("hotGames"), gamesHot, { rev: true, sub: "Steam" });
   return out;
 }
 function loadDiscover(force) {
@@ -350,6 +378,11 @@ function renderGamesDiscover() {
 function bindDisco(root = "#view-home") {
   const rf = document.querySelector(`${root} #disco-refresh`);
   if (rf) rf.onclick = () => { rf.classList.add("spin"); loadDiscover(true); };
+  // Category tabs (webtoon-style): clicking filters the ranking in place.
+  document.querySelectorAll(`${root} [data-cat]`).forEach((b) => (b.onclick = () => {
+    discoCat = b.dataset.cat;
+    if (view === "home") renderHome(); else if (view === "games") renderGames();
+  }));
   document.querySelectorAll(`${root} [data-add-disco]`).forEach((b) => (b.onclick = (e) => {
     e.stopPropagation();
     const m = discoItems[Number(b.dataset.addDisco)];
@@ -405,13 +438,13 @@ function renderHome() {
 
   el.innerHTML = `
     <div id="spot-wrap">${spotHtml(spotItems[spotIdx % Math.max(1, spotItems.length)])}${spotItems.length > 1 ? `<div class="dots" id="dots">${spotItems.map((_, i) => `<i class="${i === spotIdx % spotItems.length ? "on" : ""}" data-dot="${i}"></i>`).join("")}</div>` : ""}</div>
-    ${row(t("newWeek"), rNew)}
     ${row(t("continue"), rContinue)}
+    ${row(t("newWeek"), rNew)}
+    ${renderDiscover()}
     ${rReco.length ? row(t("becauseYouLove", { g: topG }), rReco) : ""}
     ${genres.length ? `<div class="section-h"><h2>${t("yourGenres")}</h2></div><div class="genres">${genres.slice(0, 10).map(([g, n]) => `<span class="genre" data-genre="${esc(g)}">${esc(g)} <b>${n}</b></span>`).join("")}</div>` : ""}
     ${row(t("recentlyAdded"), rRecent)}
     ${items.length < 4 ? valueStrip() : ""}
-    ${renderDiscover()}
   `;
   bindHome();
   bindDisco();

@@ -585,15 +585,49 @@ async function steamDiscover() {
   const fresh = bigGames(j.new_releases && j.new_releases.items, true);
   return { soon, hot: hot.length ? hot : fresh };
 }
+// Live-action drama/series discovery (keyless, via TVMaze). Split by country so
+// the Home can offer K-Drama / C-Drama / J-Drama / Series tabs like Webtoon.
+async function tvmazeTrending() {
+  const pages = await Promise.allSettled([
+    fetch("https://api.tvmaze.com/shows?page=0").then((r) => (r.ok ? r.json() : [])),
+    fetch("https://api.tvmaze.com/shows?page=1").then((r) => (r.ok ? r.json() : [])),
+  ]);
+  const shows = pages.flatMap((p) => (p.status === "fulfilled" && Array.isArray(p.value) ? p.value : []));
+  const cc = (s) => (s.network && s.network.country && s.network.country.code) || (s.webChannel && s.webChannel.country && s.webChannel.country.code) || "";
+  const bucket = (code) => (code === "KR" ? "kdrama" : code === "CN" || code === "TW" || code === "HK" ? "cdrama" : code === "JP" ? "jdrama" : "series");
+  return shows
+    .filter((s) => s && s.name && s.image && s.image.original)
+    .sort((a, b) => (b.weight || 0) - (a.weight || 0) || (((b.rating && b.rating.average) || 0) - ((a.rating && a.rating.average) || 0)))
+    .slice(0, 80)
+    .map((s) => ({
+      title: s.name,
+      type: "watching",
+      cat: bucket(cc(s)),
+      cover: s.image.original,
+      synopsis: (s.summary || "").replace(/<[^>]+>/g, "").slice(0, 400),
+      genres: Array.isArray(s.genres) ? s.genres.slice(0, 4) : [],
+      season: s.premiered ? Number(String(s.premiered).slice(0, 4)) : undefined,
+      format: bucket(cc(s)) === "series" ? "SERIES" : "DRAMA",
+      url: s.officialSite || (s.url || ""),
+    }));
+}
 async function buildDiscover() {
-  const [manga, manhwa, anime, games] = await Promise.allSettled([anilistTrending("MANGA"), anilistTrending("MANGA", "KR"), anilistTrending("ANIME"), steamDiscover()]);
-  const mangaList = manga.status === "fulfilled" ? manga.value : [];
-  const manhwaList = manhwa.status === "fulfilled" ? manhwa.value : [];
+  const [manga, manhwa, manhua, anime, games, drama] = await Promise.allSettled([
+    anilistTrending("MANGA", "JP"), anilistTrending("MANGA", "KR"), anilistTrending("MANGA", "CN"),
+    anilistTrending("ANIME"), steamDiscover(), tvmazeTrending(),
+  ]);
+  const val = (r) => (r.status === "fulfilled" ? r.value : []);
+  const dramas = val(drama);
   return {
     ts: Date.now(),
-    manga: mangaList,
-    manhwa: manhwaList,
-    anime: anime.status === "fulfilled" ? anime.value : [],
+    manga: val(manga),
+    manhwa: val(manhwa),
+    manhua: val(manhua),
+    anime: val(anime),
+    kdrama: dramas.filter((d) => d.cat === "kdrama"),
+    cdrama: dramas.filter((d) => d.cat === "cdrama"),
+    jdrama: dramas.filter((d) => d.cat === "jdrama"),
+    series: dramas.filter((d) => d.cat === "series"),
     gamesSoon: games.status === "fulfilled" ? games.value.soon : [],
     gamesHot: games.status === "fulfilled" ? games.value.hot : [],
     gamesNew: games.status === "fulfilled" ? games.value.hot : [],
