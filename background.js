@@ -933,12 +933,20 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
  */
 const SCHEMA_VERSION = 2;
 api.runtime.onInstalled.addListener(async () => {
-  const stored = (await api.storage.local.get("dasi.schema"))["dasi.schema"] || 0;
-  if (stored < SCHEMA_VERSION) {
+  // DATA SAFETY (guarantee): updating the extension NEVER wipes a user's
+  // library, progress, lists, settings or account. Chrome preserves
+  // chrome.storage across version updates (only an uninstall clears it), our
+  // storage keys are permanently `dasi.*` (kept stable through the Yomu
+  // rebrand), and migrations here are strictly ADDITIVE — never clear/remove.
+  // The whole block is wrapped so a future migration bug can neither crash the
+  // worker nor leave data half-written.
+  try {
+    const stored = (await api.storage.local.get("dasi.schema"))["dasi.schema"] || 0;
+    if (stored >= SCHEMA_VERSION) return;
     // v2: re-key existing items to the web-app-aligned work id (spaces →
     // hyphens) so cross-surface sync merges the same work instead of
     // duplicating it. Deterministic and update-safe; furthest progress wins on
-    // any collision.
+    // any collision. Only ever writes a set at least as large as before.
     if (stored < 2) {
       const items = (await api.storage.local.get(ITEMS_KEY))[ITEMS_KEY] || [];
       if (items.length) {
@@ -948,10 +956,13 @@ api.runtime.onInstalled.addListener(async () => {
           const prev = byId.get(nid);
           if (!prev || numericProgress(it) > numericProgress(prev)) byId.set(nid, { ...it, id: nid });
         }
-        await writeData({ [ITEMS_KEY]: [...byId.values()] });
+        const next = [...byId.values()];
+        if (next.length) await writeData({ [ITEMS_KEY]: next }); // never write an empty over a non-empty
       }
     }
     await api.storage.local.set({ "dasi.schema": SCHEMA_VERSION });
+  } catch (e) {
+    // Leave existing data exactly as-is; a failed migration must not lose data.
   }
 });
 

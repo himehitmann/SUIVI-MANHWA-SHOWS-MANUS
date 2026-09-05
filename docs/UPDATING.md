@@ -57,3 +57,24 @@ can't erase them:
 4. Load unpacked over an existing profile with real data → confirm data intact.
 5. Zip `extension/` (the CI workflow does this) and upload to the store.
 6. Bump `docs`/changelog and tag the release.
+
+## Confirmed after the "Yomu" rebrand (data-safe)
+
+The rename from "Dasi" to "Yomu" changed **only display strings** — every
+storage key stayed `dasi.*` (`dasi.items`, `dasi.sites`, `dasi.lists`,
+`dasi.settings`, `dasi.notifications`, `dasi.sync.config`, `dasi.schema`). So an
+existing user who updates keeps their whole library, lists, settings and signed
+-in account untouched. Verified: `background.js` has no `.clear()`/`.remove()`,
+its `onInstalled` migration is additive and now wrapped in try/catch, and it
+never writes an empty list over a non-empty one.
+
+### Pre-publish checklist (every store update)
+1. Bump `version` in `manifest.json`.
+2. `pnpm check && pnpm test` green.
+3. Confirm no storage key was renamed (`grep -n "dasi\." background.js`).
+4. If you added a breaking data shape, add an **additive** migration under a new
+   `SCHEMA_VERSION` (never delete old fields).
+5. `git checkout main && bash scripts/pack-extension.sh` → upload
+   `yomu-extension.zip`.
+6. Existing users auto-update in the background; their data and Pro plan persist
+   (plan lives on the backend, keyed by account — see docs/DEPLOY-PAYMENTS.md).

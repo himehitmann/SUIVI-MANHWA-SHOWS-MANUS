@@ -75,16 +75,11 @@
   const askImage = (url, code) => new Promise((resolve) => {
     chrome.runtime.sendMessage({ type: "TRANSLATE_IMAGE", url, code }, (r) => { void chrome.runtime.lastError; resolve(r || { ok: false }); });
   });
-  async function translateImages(lang) {
+  async function translateImages(lang, textCount) {
+    textCount = textCount || 0;
     const code = MIT_LANG[lang] || MIT_LANG[String(lang || "").slice(0, 2)] || "ENG";
-    const imgs = [...document.images]
-      .filter((im) => im.naturalWidth > 240 && im.naturalHeight > 300 && !im.dataset.dasiTr)
-      .slice(0, 30);
-    if (!imgs.length) {
-      setPill(`<span>Yomu — no manga panels found on this page.</span> ${link("dasi-tr-x", "close")}`);
-      const x = document.getElementById("dasi-tr-x"); if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
-      return;
-    }
+    const imgs = largePanels().slice(0, 30);
+    if (!imgs.length) { donePill(textCount, 0, lang); return; }
     let done = 0, ok = 0;
     setPill(`<span>Yomu — translating ${imgs.length} panels…</span>`);
     for (const im of imgs) {
@@ -99,48 +94,49 @@
       done++;
       setPill(`<span>Yomu — translating panels ${done}/${imgs.length}…</span>`);
     }
-    if (ok) {
-      setPill(`<span>Yomu · ${ok} panels translated → ${String(lang).toUpperCase()}</span> ${link("dasi-tr-revert", "revert")}`);
-      document.getElementById("dasi-tr-revert").onclick = (e) => { e.preventDefault(); revert(); };
-    } else {
+    if (ok || textCount) { donePill(textCount, ok, lang); }
+    else {
       setPill(`<span>Yomu — image translation couldn't complete (service busy). Try again shortly.</span> ${link("dasi-tr-x", "close")}`);
       const x = document.getElementById("dasi-tr-x"); if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
     }
   }
 
+  const largePanels = () => [...document.images].filter((im) => im.naturalWidth > 240 && im.naturalHeight > 300 && !im.dataset.dasiTr);
+  function closePill() { const x = document.getElementById("dasi-tr-x"); if (x) x.onclick = (e) => { e.preventDefault(); removePill(); }; }
+  function donePill(textCount, panelCount, lang) {
+    const parts = [];
+    if (textCount) parts.push(`${textCount} text`);
+    if (panelCount) parts.push(`${panelCount} panels`);
+    if (!parts.length) { setPill(`<span>Yomu — nothing translatable found (try scrolling so panels load, then retry).</span> ${link("dasi-tr-x", "close")}`); closePill(); return; }
+    setPill(`<span>Yomu · translated ${parts.join(" + ")} → ${String(lang).toUpperCase()}</span> ${link("dasi-tr-revert", "revert")}`);
+    document.getElementById("dasi-tr-revert").onclick = (e) => { e.preventDefault(); revert(); };
+  }
+
   function translate(lang) {
     const nodes = collect();
-    if (!nodes.length) {
-      // No readable text → image-based (manga/webtoon). Translate the panels.
-      translateImages(lang);
-      return;
-    }
-    setPill(`<span>Yomu — translating ${nodes.length} blocks…</span>`);
+    const panels = largePanels();
+    // Manga/webtoon pages are mostly IMAGES; a bit of site-chrome text is not the
+    // content. So we translate BOTH: the DOM text, then the image panels (OCR).
+    const doPanels = (textCount) => {
+      if (!panels.length) { donePill(textCount, 0, lang); return; }
+      translateImages(lang, textCount);
+    };
+    if (!nodes.length) { doPanels(0); return; }
+    setPill(`<span>Yomu — translating text…</span>`);
     const texts = nodes.map((n) => n.nodeValue);
     chrome.runtime.sendMessage({ type: "DASI_MT", texts, target: lang }, (res) => {
       void chrome.runtime.lastError;
-      if (!res || !res.ok) {
-        setPill(`<span>Yomu — translation unavailable.</span> ${link("dasi-tr-x", "close")}`);
-        const x = document.getElementById("dasi-tr-x");
-        if (x) x.onclick = (e) => { e.preventDefault(); removePill(); };
-        return;
-      }
       let changed = 0;
-      res.translations.forEach((tx, i) => {
-        const node = nodes[i];
-        if (tx && node && tx !== node.nodeValue) {
-          if (!originals.has(node)) originals.set(node, node.nodeValue);
-          try { node.nodeValue = tx; changed++; } catch (e) {}
-        }
-      });
-      if (!changed) {
-        // Text came back unchanged → the real content is in images. Translate
-        // the panels (OCR) instead.
-        translateImages(lang);
-        return;
+      if (res && res.ok) {
+        res.translations.forEach((tx, i) => {
+          const node = nodes[i];
+          if (tx && node && tx !== node.nodeValue) {
+            if (!originals.has(node)) originals.set(node, node.nodeValue);
+            try { node.nodeValue = tx; changed++; } catch (e) {}
+          }
+        });
       }
-      setPill(`<span>Yomu · translated ${changed} → ${String(lang).toUpperCase()}</span> ${link("dasi-tr-revert", "revert")}`);
-      document.getElementById("dasi-tr-revert").onclick = (e) => { e.preventDefault(); revert(); };
+      doPanels(changed);
     });
   }
 
