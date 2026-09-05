@@ -163,7 +163,24 @@ function relative(ts) {
 }
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
 function initials(s) { return (s || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?"; }
-function coverInner(i, fs) { const u = coverUrl(i); return u ? `<img src="${esc(u)}" referrerpolicy="no-referrer" onerror="this.remove()">` : `<span${fs ? ` style="font-size:${fs}px"` : ""}>${esc((i.title || "?")[0].toUpperCase())}</span>`; }
+// A cover image with a guaranteed graceful fallback. The placeholder letter is
+// ALWAYS rendered underneath; the image overlays it and fades in when it loads.
+// If it fails (dead host, hotlink block, offline) a global handler hides the
+// image so the placeholder shows — never a broken-image icon. No inline
+// handlers, so it works under the MV3 extension CSP (script-src 'self').
+function covImg(url) { return url ? `<img class="cov" src="${esc(url)}" referrerpolicy="no-referrer" loading="lazy" decoding="async" alt="">` : ""; }
+// Inline on* handlers are blocked by the MV3 extension CSP (script-src 'self'),
+// so we catch image failures with a single capture-phase listener instead: a
+// broken cover is hidden, revealing its placeholder. Attached once at startup.
+document.addEventListener("error", (e) => {
+  const el = e.target;
+  if (el && el.tagName === "IMG" && el.classList.contains("cov")) el.classList.add("failed");
+}, true);
+function coverInner(i, fs) {
+  const u = coverUrl(i);
+  const ph = `<span class="cover-ph"${fs ? ` style="font-size:${fs}px"` : ""}>${esc((i.title || "?")[0].toUpperCase())}</span>`;
+  return ph + covImg(u);
+}
 // Badge label: "+3" when there are unseen released entries, else NEW / Soon.
 function flagLabel(i) { const u = unseen(i); if (u > 0) return `+${u}`; if (isNew(i)) return "NEW"; if (isSoon(i)) return t("comingSoon"); return ""; }
 
@@ -219,7 +236,7 @@ function discoCard(m, idx, opts = {}) {
   const cat = catLabel(m);
   const soon = opts.soon ? `<span class="badge-soon">${esc(m.releaseDate || t("comingSoon"))}</span>` : "";
   const price = m.price ? `<span class="badge-price">${esc(m.price)}</span>` : (m.type === "game" && !opts.soon ? `<span class="badge-price">${t("free")}</span>` : "");
-  const cover = m.cover ? `<img src="${esc(m.cover)}" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">` : esc((m.title || "?")[0]);
+  const cover = `<span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover)}`;
   const sub = m.genres && m.genres.length ? m.genres.slice(0, 2).join(" · ") : (m.season ? String(m.season) : cat);
   return `<div class="disco">
     <div class="art">${cover}<span class="cat-badge">${esc(cat)}</span>${soon}${price}
@@ -435,6 +452,20 @@ function renderGrid() {
 }
 
 /* ================= GAMES ================= */
+// Always give a working link to the game: its stored store/official URL, else a
+// Steam search for the title so the user still lands on the game's page.
+function gameLink(i) { return i.url || `https://store.steampowered.com/search/?term=${encodeURIComponent(i.title || "")}`; }
+function gameLinkLabel(i) {
+  if (!i.url) return "Steam";
+  const host = (i.url.replace(/^https?:\/\//, "").split("/")[0] || "").replace(/^www\./, "");
+  if (/steampowered|steamcommunity/.test(host)) return "Steam";
+  if (/epicgames/.test(host)) return "Epic";
+  if (/gog\.com/.test(host)) return "GOG";
+  if (/playstation/.test(host)) return "PlayStation";
+  if (/xbox|microsoft/.test(host)) return "Xbox";
+  if (/nintendo/.test(host)) return "Nintendo";
+  return t("open");
+}
 function gameCardHtml(i) {
   const released = isReleased(i), soon = isSoon(i);
   return `<div class="game-card">
@@ -448,7 +479,7 @@ function gameCardHtml(i) {
       </div>
       <div class="game-actions">
         ${i.trailer ? `<a class="btn" href="${esc(i.trailer)}" target="_blank" rel="noreferrer">${I.play} ${t("watchTrailer")}</a>` : ""}
-        ${i.url ? `<a class="btn" href="${esc(i.url)}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>` : ""}
+        <a class="btn" href="${esc(gameLink(i))}" target="_blank" rel="noreferrer">${I.open} ${esc(gameLinkLabel(i))}</a>
         <label class="prereg ${i.preregistered ? "on" : ""}" data-prereg="${i.id}"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label>
         <button class="btn danger" data-rmgame="${i.id}">${I.trash}</button>
       </div>
@@ -480,6 +511,7 @@ function showGameForm() {
       <input class="field" id="g-date" placeholder="${t("releaseDate")} (e.g. 2026-11-20)" />
       <input class="field" id="g-price" placeholder="${t("price")}" />
       <input class="field" id="g-trailer" placeholder="${t("trailer")} URL" />
+      <input class="field" id="g-url" placeholder="Steam / ${t("open")} URL" />
       <input class="field" id="g-cover" placeholder="${t("cover")} URL" style="grid-column:1/-1" />
     </div>
     <div style="display:flex;gap:8px;margin-top:12px">
@@ -491,7 +523,7 @@ function showGameForm() {
     const title = document.getElementById("g-title").value.trim();
     if (!title) { document.getElementById("g-title").focus(); return; }
     const payload = {
-      title, type: "game", url: "",
+      title, type: "game", url: document.getElementById("g-url").value.trim() || "",
       platform: document.getElementById("g-platform").value.trim() || undefined,
       releaseDate: document.getElementById("g-date").value.trim() || undefined,
       price: document.getElementById("g-price").value.trim() || undefined,
@@ -666,7 +698,7 @@ function openDrawer(id) {
       ${isGame ? `
         <div class="section-t">${t("games")}</div>
         <div class="game-meta">${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}</span>` : ""}${i.price ? `<span class="meta-pill price">${esc(i.price)}</span>` : ""}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${i.trailer ? `<a class="btn" href="${esc(i.trailer)}" target="_blank" rel="noreferrer">${I.play} ${t("watchTrailer")}</a>` : ""}${i.url ? `<a class="btn" href="${esc(i.url)}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>` : ""}<label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${i.trailer ? `<a class="btn" href="${esc(i.trailer)}" target="_blank" rel="noreferrer">${I.play} ${t("watchTrailer")}</a>` : ""}<a class="btn" href="${esc(gameLink(i))}" target="_blank" rel="noreferrer">${I.open} ${esc(gameLinkLabel(i))}</a><label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
       : `
         <div class="section-t">${t("progress")}</div>
         <div class="stepper"><button id="dr-minus">${I.minus}</button><input id="dr-num" type="number" min="0" value="${cur}" /><button id="dr-plus">${I.plus}</button><span>${unit}${isWatch && i.season ? ` · Season ${i.season}` : ""}</span></div>
@@ -674,7 +706,7 @@ function openDrawer(id) {
         ${episodeGrid(i)}
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
           ${i.total && unseen(i) > 0 ? `<button class="btn primary" id="dr-markall">${I.check} ${t("markAll")}</button>` : ""}
-          <a class="btn" href="${esc(i.url || "#")}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>
+          ${i.url ? `<a class="btn" href="${esc(i.url)}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>` : ""}
         </div>`}
       ${isGame ? "" : `<div class="section-t">${t("status")}</div>
       <div class="chips-wrap" id="dr-status">${STATUSES.map((s) => `<button class="chip-toggle ${itemState(i) === s ? "on" : ""}" data-status="${s}">${itemState(i) === s ? I.check : ""} ${t(s)}</button>`).join("")}</div>`}
@@ -1144,7 +1176,7 @@ function srRow(m, idx) {
   const tags = (m.genres || []).slice(0, 3).map((g) => `<span class="tag">${esc(g)}</span>`).join("");
   const meta = [m.season, m.price].filter(Boolean).join(" · ");
   return `<div class="sr-row">
-    <div class="sc">${m.cover ? `<img src="${esc(m.cover)}" referrerpolicy="no-referrer" onerror="this.remove()">` : esc((m.title || "?")[0])}</div>
+    <div class="sc"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover)}</div>
     <div class="si"><b>${esc(m.title)}<span class="cat">${esc(catLabel(m))}</span></b><small>${esc(meta)}${m.synopsis ? (meta ? " — " : "") + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
     <button class="btn primary" data-add-cat="${idx}">${I.plus} ${t("add")}</button>
   </div>`;

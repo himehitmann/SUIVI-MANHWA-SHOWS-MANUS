@@ -28,6 +28,11 @@
       .scroll-x { display:flex; gap:14px; overflow-x:auto; scroll-snap-type:x proximity; padding:4px 2px 12px; scrollbar-width:thin; }
       .scroll-x::-webkit-scrollbar { height:7px; } .scroll-x::-webkit-scrollbar-thumb { background:#E1DAF0; border-radius:99px; }
       .scroll-x > * { scroll-snap-align:start; }
+      /* Robust cover images: placeholder letter always sits behind; the image
+         overlays it and is hidden if it fails to load (no broken-image icon). */
+      img.cov { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; display:block; background:inherit; }
+      img.cov.failed { display:none; }
+      .cover-ph { position:relative; z-index:0; display:grid; place-items:center; width:100%; height:100%; user-select:none; }
 
       /* ---- top bar ---- */
       header { display:flex; align-items:center; gap:14px; padding:14px clamp(16px,4vw,56px); position:sticky; top:0; z-index:30; background:rgba(251,250,254,.85); backdrop-filter:blur(16px); border-bottom:1px solid var(--line); }
