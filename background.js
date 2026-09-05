@@ -411,6 +411,7 @@ function mediaToResult(m) {
     genres: Array.isArray(m.genres) ? m.genres.slice(0, 6) : [],
     total: type === "reading" ? m.chapters || undefined : m.episodes || undefined,
     season: m.seasonYear || undefined,
+    country: m.countryOfOrigin || undefined,
     format,
     url: m.siteUrl || "",
   };
@@ -451,7 +452,7 @@ async function steamSearch(query) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`steam_${res.status}`);
   const data = await res.json();
-  return (data.items || []).filter((g) => g.name).slice(0, 6).map((g) => ({
+  return (data.items || []).filter((g) => g.name).slice(0, 10).map((g) => ({
     title: g.name,
     type: "game",
     cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/header.jpg`,
@@ -476,9 +477,52 @@ async function tvmazeSearch(query) {
     synopsis: stripHtml(sh.summary).slice(0, 500),
     genres: Array.isArray(sh.genres) ? sh.genres.slice(0, 4) : [],
     season: (sh.premiered || "").slice(0, 4) || undefined,
-    format: "Series",
+    country: (sh.network && sh.network.country && sh.network.country.code) || (sh.webChannel && sh.webChannel.country && sh.webChannel.country.code) || undefined,
+    total: (sh.episodes || undefined),
+    format: (sh.network && sh.network.country && sh.network.country.code === "KR") ? "KDRAMA" : (sh.network && sh.network.country && ["CN", "TW", "HK"].includes(sh.network.country.code)) ? "CDRAMA" : (sh.network && sh.network.country && sh.network.country.code === "JP") ? "JDRAMA" : "SERIES",
     url: sh.url || "",
   }));
+}
+
+// Universal, keyless search via Wikipedia — covers ANYTHING (films, K/C/J
+// dramas, series, obscure or mobile games, novels…) with a cover + a short
+// description we use to classify the type and country.
+function classifyWiki(desc) {
+  const d = (desc || "").toLowerCase();
+  const country = /south korea|korean/.test(d) ? "KR" : /chinese|china|taiwan|hong kong/.test(d) ? "CN" : /japanese|japan/.test(d) ? "JP" : /american|united states|british|french|european/.test(d) ? "US" : "";
+  if (/manhwa|webtoon/.test(d)) return { type: "reading", format: "MANHWA", country: country || "KR" };
+  if (/manhua/.test(d)) return { type: "reading", format: "MANHUA", country: country || "CN" };
+  if (/\bmanga\b|light novel/.test(d)) return { type: "reading", format: "MANGA", country: country || "JP" };
+  if (/\banime\b/.test(d)) return { type: "watching", format: "ANIME", country: country || "JP" };
+  if (/\bfilm\b|\bmovie\b|feature film/.test(d)) return { type: "watching", format: "MOVIE", country };
+  if (/television series|tv series|drama|web series|miniseries|sitcom|television programme|streaming|k-drama|c-drama/.test(d))
+    return { type: "watching", format: country === "KR" ? "KDRAMA" : country === "CN" ? "CDRAMA" : country === "JP" ? "JDRAMA" : "SERIES", country };
+  if (/video game|mobile game|role-playing game|gacha|first-person shooter|platform game|indie game/.test(d)) return { type: "game", format: "Game", country };
+  if (/\bnovel\b|book|comic/.test(d)) return { type: "reading", format: "BOOK", country };
+  return { type: "watching", format: "", country };
+}
+async function wikipediaSearch(query, lang) {
+  const host = `https://${lang || "en"}.wikipedia.org`;
+  const url = `${host}/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=10&prop=pageimages|description|extracts&piprop=thumbnail&pithumbsize=400&exintro=1&explaintext=1&exlimit=10`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`wiki_${res.status}`);
+  const data = await res.json();
+  const pages = (data.query && data.query.pages) ? Object.values(data.query.pages) : [];
+  pages.sort((a, b) => (a.index || 99) - (b.index || 99));
+  return pages.filter((p) => p.title && !/^(List of|Category:)/i.test(p.title)).map((p) => {
+    const c = classifyWiki(p.description);
+    return {
+      title: p.title,
+      type: c.type,
+      cover: (p.thumbnail && p.thumbnail.source) || "",
+      synopsis: (p.extract || "").slice(0, 500),
+      genres: [],
+      country: c.country || undefined,
+      format: c.format || undefined,
+      source: "wikipedia",
+      url: `${host}/wiki/${encodeURIComponent(p.title.replace(/ /g, "_"))}`,
+    };
+  });
 }
 
 /** Films & TV via TMDB (needs the user's free API key from settings). */
@@ -524,19 +568,27 @@ async function rawgSearch(query, key) {
  * RAWG run only when a key is configured. Each source is best-effort. */
 async function catalogSearchAll(query) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-  const tasks = [anilistSearch(query), steamSearch(query), openLibrarySearch(query), tvmazeSearch(query)];
+  const tasks = [anilistSearch(query), steamSearch(query), openLibrarySearch(query), tvmazeSearch(query), wikipediaSearch(query, "en")];
+  // Also query the user's own-language Wikipedia so local titles (e.g. a French
+  // or Korean film) surface even if the English page is thin.
+  const wl = (s && s.lang || "en").slice(0, 2);
+  if (wl && wl !== "en") tasks.push(wikipediaSearch(query, wl));
   if (s && s.tmdbKey) tasks.push(tmdbSearch(query, s.tmdbKey));
   if (s && s.rawgKey) tasks.push(rawgSearch(query, s.rawgKey));
   const settled = await Promise.allSettled(tasks);
   const out = [];
   for (const r of settled) if (r.status === "fulfilled") out.push(...r.value);
-  // De-dup by normalized title+type, keep the richest (with a cover first).
+  // De-dup by normalized title+type. Prefer the entry that has a cover, and
+  // prefer a structured source (AniList/Steam/TVMaze) over a Wikipedia stub.
   const seen = new Map();
   for (const r of out) {
     const k = normalizeTitle(r.title) + "|" + r.type;
-    if (!seen.has(k) || (!seen.get(k).cover && r.cover)) seen.set(k, r);
+    const prev = seen.get(k);
+    if (!prev) { seen.set(k, r); continue; }
+    const better = (!prev.cover && r.cover) || (prev.source === "wikipedia" && r.source !== "wikipedia" && r.cover);
+    if (better) seen.set(k, r);
   }
-  return [...seen.values()].slice(0, 20);
+  return [...seen.values()].slice(0, 40);
 }
 
 /*

@@ -36,6 +36,7 @@ const LANGS = {
     topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most anticipated games", hotGames:"Biggest games right now", openInNew:"Open", discoverMore:"Discover more",
     catAll:"All", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Series", catGames:"Games",
     changeBanner:"Change banner", bioPh:"Write a short bio…",
+    searching:"Searching", searchTitle:"Search", noMatch:"No match — try another spelling or a different language.",
     progHintWatch:"The episode you last watched.", progHintRead:"The chapter you last read.", totalReleased:"Latest available", totalHint:"The newest chapter/episode out — so Yomu can tell you when there's something new.",
     planFreePer:"forever · local-first", planProPer:"or $29.99/yr — 2 months free", planLifePer:"one-time · best value",
     planFoot:"Local tracking is free forever and never depends on our servers. Paid tiers fund the optional sync, alerts and translation engine.",
@@ -60,6 +61,7 @@ const LANGS = {
     topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus attendus", hotGames:"Les plus gros jeux du moment", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
     catAll:"Tout", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Séries", catGames:"Jeux",
     changeBanner:"Changer la bannière", bioPh:"Écris une petite bio…",
+    searching:"Recherche", searchTitle:"Recherche", noMatch:"Aucun résultat — essaie une autre orthographe ou une autre langue.",
     progHintWatch:"Le dernier épisode que tu as regardé.", progHintRead:"Le dernier chapitre que tu as lu.", totalReleased:"Dernier disponible", totalHint:"Le dernier chapitre/épisode sorti — pour que Yomu te prévienne quand il y a du nouveau.",
     planFreePer:"pour toujours · local-first", planProPer:"ou 29,99 $/an — 2 mois offerts", planLifePer:"paiement unique · meilleure offre",
     planFoot:"Le suivi local est gratuit à vie et ne dépend jamais de nos serveurs. Les offres payantes financent la sync, les alertes et le moteur de traduction optionnels.",
@@ -151,6 +153,9 @@ function catLabel(i) {
   if (f === "NOVEL" || f === "ONE_SHOT" || f === "LIGHT_NOVEL") return "Novel";
   if (f === "BOOK") return "Book";
   if (f === "MOVIE") return "Film";
+  if (f === "KDRAMA") return "K-Drama";
+  if (f === "CDRAMA") return "C-Drama";
+  if (f === "JDRAMA") return "J-Drama";
   if (f === "SERIES") return "Series";
   if (f === "ANIME" || f === "TV" || f === "ONA" || f === "OVA" || f === "SPECIAL" || f === "TV_SHORT") return "Anime";
   return i.type === "reading" ? "Comic" : i.type === "watching" ? "Video" : "Game";
@@ -1277,31 +1282,38 @@ document.addEventListener("click", (e) => { if (!e.target.closest(".top-right"))
 document.getElementById("q").addEventListener("input", (e) => { query = e.target.value; if (view !== "library") switchView("library"); renderGrid(); if (!query) clearSearchResults(); });
 document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library") switchView("library"); catalogSearch(query.trim()); } });
 
-function clearSearchResults() { const el = document.getElementById("search-results"); if (el) el.innerHTML = ""; }
+function clearSearchResults() { const el = document.getElementById("search-results"); if (el) el.innerHTML = ""; const m = document.getElementById("lib-main"); if (m) m.classList.remove("searching"); }
+let srCountry = "all";
 function catalogSearch(q) {
   const el = document.getElementById("search-results");
-  el.innerHTML = `<div class="sr-wrap"><p class="sr-head">${esc(q)} — …</p></div>`;
+  const main = document.getElementById("lib-main"); if (main) main.classList.add("searching"); // become a search page
+  el.innerHTML = `<div class="sr-wrap"><div class="sr-head"><span class="spinner"></span> ${t("searching")} “${esc(q)}”…</div></div>`;
   api.runtime.sendMessage({ type: "CATALOG_SEARCH", query: q }, (r) => {
     void api.runtime.lastError;
     if (!r || !r.ok || !r.results || !r.results.length) {
-      el.innerHTML = `<div class="sr-wrap"><p class="sr-head">${t("addByName")}: no online match — you can still add it manually from Games, or keep browsing your library.</p></div>`;
+      el.innerHTML = `<div class="sr-wrap"><div class="sr-head">${t("searchTitle")} · “${esc(q)}”</div><p class="sr-empty">${t("noMatch")}</p></div>`;
       return;
     }
     lastResults = r.results;
-    srFilter = "all";
+    srFilter = "all"; srCountry = "all";
     renderSearchResults(q);
   });
 }
 let lastResults = [];
 let srFilter = "all";
+const COUNTRY_LABEL = { JP: "🇯🇵 Japon", KR: "🇰🇷 Corée", CN: "🇨🇳 Chine", TW: "🇨🇳 Chine", HK: "🇨🇳 Chine", US: "🇺🇸 USA", GB: "🇬🇧 UK", FR: "🇫🇷 France" };
 function renderSearchResults(q) {
   const el = document.getElementById("search-results");
   const cats = ["all", ...[...new Set(lastResults.map((m) => catLabel(m)))]];
-  const shown = lastResults.filter((m) => srFilter === "all" || catLabel(m) === srFilter);
-  el.innerHTML = `<div class="sr-wrap"><p class="sr-head">${t("addByName")} · ${esc(q)} · ${lastResults.length}</p>
+  const countries = ["all", ...[...new Set(lastResults.map((m) => m.country).filter(Boolean))]];
+  const shown = lastResults.filter((m) => (srFilter === "all" || catLabel(m) === srFilter) && (srCountry === "all" || m.country === srCountry));
+  el.innerHTML = `<div class="sr-wrap">
+    <div class="sr-head"><b>${t("searchTitle")}</b> · “${esc(q)}” · ${shown.length}/${lastResults.length}</div>
     <div class="sr-filters">${cats.map((c) => `<button data-srf="${esc(c)}" class="${srFilter === c ? "active" : ""}">${c === "all" ? t("all") : esc(c)}</button>`).join("")}</div>
-    ${shown.map((m) => srRow(m, lastResults.indexOf(m))).join("")}</div>`;
+    ${countries.length > 1 ? `<div class="sr-filters">${countries.map((c) => `<button data-src="${esc(c)}" class="${srCountry === c ? "active" : ""}">${c === "all" ? "🌐 " + t("all") : esc(COUNTRY_LABEL[c] || c)}</button>`).join("")}</div>` : ""}
+    ${shown.length ? shown.map((m) => srRow(m, lastResults.indexOf(m))).join("") : `<p class="sr-empty">${t("noMatch")}</p>`}</div>`;
   el.querySelectorAll("[data-srf]").forEach((b) => (b.onclick = () => { srFilter = b.dataset.srf; renderSearchResults(q); }));
+  el.querySelectorAll("[data-src]").forEach((b) => (b.onclick = () => { srCountry = b.dataset.src; renderSearchResults(q); }));
   shown.forEach((m) => { const idx = lastResults.indexOf(m); const btn = el.querySelector(`[data-add-cat="${idx}"]`); if (btn) btn.onclick = () => addFromCatalog(m, btn); });
 }
 function srRow(m, idx) {

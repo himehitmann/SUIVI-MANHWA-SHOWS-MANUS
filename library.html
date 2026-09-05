@@ -146,6 +146,11 @@
       .sr-filters { display:flex; gap:7px; flex-wrap:wrap; margin:0 0 12px; }
       .sr-filters button { border:0; cursor:pointer; border-radius:999px; padding:6px 12px; background:#F2F0F8; color:#7D7989; font-size:12px; font-weight:600; }
       .sr-filters button.active { background:var(--lav); color:var(--lav-ink); }
+      /* while searching, the Library becomes a dedicated search page */
+      #lib-main.searching > *:not(#search-results) { display:none; }
+      .sr-empty { color:var(--muted); font-size:13px; padding:26px 4px; }
+      .spinner { display:inline-block; width:15px; height:15px; border:2px solid #DCD3F0; border-top-color:var(--lav-ink); border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; }
+      .sr-head { display:flex; align-items:center; gap:8px; font-size:14px; margin:4px 0 12px; }
       .sr-row .cat { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--lav-ink); background:var(--lav); border-radius:5px; padding:1px 6px; margin-left:6px; }
 
       /* catalog search-to-add results */
