@@ -547,9 +547,9 @@ async function catalogSearchAll(query) {
  */
 const DISCOVER_KEY = "dasi.discover.cache";
 const DISCOVER_TTL = 6 * 3600 * 1000;
-async function anilistTrending(type) {
-  const gql = `query($t:MediaType){Page(perPage:14){media(sort:TRENDING_DESC,type:$t,isAdult:false){id title{romaji english native} coverImage{extraLarge large} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
-  const res = await fetch(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { t: type } }) });
+async function anilistTrending(type, country) {
+  const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id title{romaji english native} coverImage{extraLarge large} description genres seasonYear format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
+  const res = await fetch(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { t: type, c: country || undefined } }) });
   if (!res.ok) throw new Error(`anilist_${res.status}`);
   const data = await res.json();
   return ((data && data.data && data.data.Page && data.data.Page.media) || []).map(mediaToResult).filter((r) => r.title && r.cover);
@@ -568,22 +568,35 @@ function steamItems(list, released) {
     url: `https://store.steampowered.com/app/${g.id}`,
   }));
 }
+// Only surface real, notable games — skip demos, soundtracks, packs/bundles and
+// anything without a proper store capsule, so discovery shows the big titles.
+function bigGames(list, released) {
+  const junk = /(soundtrack|ost|artbook|art book|season pass|- pack|bundle|demo|playtest|dedicated server|wallpaper)/i;
+  return steamItems((list || []).filter((g) => g && (g.name || g.title) && !junk.test(g.name || g.title)), released);
+}
 async function steamDiscover() {
   const res = await fetch("https://store.steampowered.com/api/featuredcategories?cc=us&l=en");
   if (!res.ok) throw new Error(`steam_feat_${res.status}`);
   const j = await res.json();
-  const soon = steamItems(j.coming_soon && j.coming_soon.items, false).map((x) => ({ ...x, releaseDate: "Coming soon" }));
-  const fresh = steamItems(j.new_releases && j.new_releases.items, true);
-  return { soon, fresh };
+  // coming_soon = the most-anticipated upcoming games Steam features;
+  // top_sellers = the biggest games right now.
+  const soon = bigGames(j.coming_soon && j.coming_soon.items, false).map((x) => ({ ...x, releaseDate: "Coming soon" }));
+  const hot = bigGames(j.top_sellers && j.top_sellers.items, true);
+  const fresh = bigGames(j.new_releases && j.new_releases.items, true);
+  return { soon, hot: hot.length ? hot : fresh };
 }
 async function buildDiscover() {
-  const [manga, anime, games] = await Promise.allSettled([anilistTrending("MANGA"), anilistTrending("ANIME"), steamDiscover()]);
+  const [manga, manhwa, anime, games] = await Promise.allSettled([anilistTrending("MANGA"), anilistTrending("MANGA", "KR"), anilistTrending("ANIME"), steamDiscover()]);
+  const mangaList = manga.status === "fulfilled" ? manga.value : [];
+  const manhwaList = manhwa.status === "fulfilled" ? manhwa.value : [];
   return {
     ts: Date.now(),
-    manga: manga.status === "fulfilled" ? manga.value : [],
+    manga: mangaList,
+    manhwa: manhwaList,
     anime: anime.status === "fulfilled" ? anime.value : [],
     gamesSoon: games.status === "fulfilled" ? games.value.soon : [],
-    gamesNew: games.status === "fulfilled" ? games.value.fresh : [],
+    gamesHot: games.status === "fulfilled" ? games.value.hot : [],
+    gamesNew: games.status === "fulfilled" ? games.value.hot : [],
   };
 }
 async function getDiscover(force) {

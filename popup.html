@@ -8,8 +8,8 @@
       @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap");
       :root { --ink:#252331; --muted:#8C8999; --lav:#F0EAFF; --mint:#E9F8F0; --green:#6CBE9E; --purple:#A18BE0; }
       * { box-sizing:border-box; }
-      body { width:370px; margin:0; padding:14px; font-family:"DM Sans",sans-serif; color:var(--ink); background:#FCFCFE; }
-      .brand { display:flex; align-items:center; gap:9px; font-weight:800; font-size:20px; letter-spacing:-.05em; margin-bottom:14px; cursor:pointer; background:none; border:0; padding:0; color:var(--ink); }
+      body { width:372px; margin:0; padding:12px; font-family:"DM Sans",sans-serif; color:var(--ink); background:#FCFCFE; }
+      .brand { display:flex; align-items:center; gap:9px; font-weight:800; font-size:19px; letter-spacing:-.05em; margin-bottom:10px; cursor:pointer; background:none; border:0; padding:0; color:var(--ink); }
       .logo { width:26px; height:26px; border-radius:10px 10px 10px 4px; background:linear-gradient(145deg,#BCA8F4,#8FD7C2); display:grid; place-items:center; transform:rotate(-8deg); box-shadow:0 5px 12px rgba(145,121,220,.2); }
       .logo i { width:10px; height:10px; background:#fff; border-radius:4px; opacity:.9; }
       .shine { font-weight:800; letter-spacing:-.05em; color:#6C5AA5; background:linear-gradient(100deg,#6C5AA5 0%,#6C5AA5 42%,#EFE7FF 50%,#6C5AA5 58%,#6C5AA5 100%); background-size:260% 100%; background-position:120% center; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; animation:sheen 4.5s ease-in-out infinite; }
@@ -17,9 +17,9 @@
       .brand .tag { margin-left:auto; font-size:9px; font-weight:800; letter-spacing:.06em; color:#5E9D80; background:var(--mint); border-radius:999px; padding:4px 8px; display:flex; align-items:center; gap:5px; }
       .brand .tag i { width:6px; height:6px; border-radius:50%; background:#6CBE9E; }
       .eyebrow { font-size:10px; letter-spacing:.09em; color:#9B86DA; font-weight:700; margin:0 0 6px; }
-      .card { background:#fff; border-radius:16px; padding:15px; box-shadow:0 8px 24px rgba(92,74,140,.08); }
+      .card { background:#fff; border-radius:16px; padding:13px; box-shadow:0 8px 24px rgba(92,74,140,.08); }
       .detected { display:flex; gap:12px; }
-      .cover { width:52px; height:70px; border-radius:9px; flex:none; overflow:hidden; background:linear-gradient(145deg,#EDE6FF,#E4F5EC); display:grid; place-items:center; }
+      .cover { width:48px; height:64px; border-radius:9px; flex:none; overflow:hidden; background:linear-gradient(145deg,#EDE6FF,#E4F5EC); display:grid; place-items:center; }
       .cover img { width:100%; height:100%; object-fit:cover; display:block; }
       .cover span { font-size:22px; font-weight:800; color:#fff; }
       .info { min-width:0; flex:1; }
@@ -35,26 +35,26 @@
       .prev.show { display:flex; }
       .prev b { display:block; color:#7A5326; font-size:11px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px; }
       button { font:inherit; border:0; cursor:pointer; border-radius:10px; font-weight:700; }
-      .actions { display:flex; gap:8px; margin-top:14px; }
+      .actions { display:flex; gap:8px; margin-top:11px; }
       .primary { flex:1; background:#6CBE9E; color:#fff; padding:11px; font-size:13px; }
       .primary:hover { background:#4CA37E; }
       .primary.warn { background:#E0894A; } .primary.warn:hover { background:#C9773A; }
       .primary:disabled { opacity:.5; cursor:default; }
       .secondary { background:#F0EAFF; color:#62519B; padding:11px 13px; font-size:13px; display:flex; align-items:center; gap:6px; }
       .secondary:hover { background:#E3D6FF; }
-      .row { display:flex; gap:8px; margin-top:10px; }
-      .row button { flex:1; background:#F5F4FA; color:#6D6677; padding:10px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:6px; }
+      .row { display:flex; gap:8px; margin-top:8px; }
+      .row button { flex:1; background:#F5F4FA; color:#6D6677; padding:9px; font-size:11px; display:flex; align-items:center; justify-content:center; gap:6px; }
       .row button:hover { background:#EDE6FF; color:#705BBA; }
-      .tools { margin-top:12px; padding:12px 13px; background:#F7F5FC; border-radius:12px; }
-      .tools-title { font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:9px; }
+      .tools { margin-top:9px; padding:10px 12px; background:#F7F5FC; border-radius:12px; }
+      .tools-title { font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:7px; }
       .speed-line { display:flex; align-items:center; justify-content:space-between; font-size:12px; }
       .speed-actions { display:flex; align-items:center; gap:9px; }
       .step { display:grid; place-items:center; width:28px; height:28px; border-radius:50%; background:#E4D9FA; color:#6F5CBD; }
       .step:hover { background:#A18BE0; color:#fff; }
       .speed-val { min-width:40px; text-align:center; font-weight:700; }
-      .pip { width:100%; margin-top:11px; padding:9px; border-radius:999px; background:#A18BE0; color:#fff; font-size:11px; }
+      .pip { width:100%; margin-top:8px; padding:8px; border-radius:999px; background:#A18BE0; color:#fff; font-size:11px; }
       .pip:disabled { opacity:.5; cursor:default; }
-      .share { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid #F0EEF5; }
+      .share { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid #F0EEF5; }
       .stars { display:inline-flex; cursor:pointer; gap:2px; }
       .stars span { font-size:17px; color:#E4DFEA; transition:transform .12s, color .12s; line-height:1; }
       .stars span.on { color:#FFB23E; }
@@ -69,7 +69,7 @@
       .sh:hover { transform:translateY(-2px) scale(1.05); }
       .sh.x:hover{background:#111} .sh.fb:hover{background:#1877F2} .sh.wa:hover{background:#25D366} .sh.rd:hover{background:#FF4500} .sh.cp:hover{background:#7C5CD6}
       .sh:hover svg { fill:#fff; }
-      .foot { display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:10px; margin-top:14px; }
+      .foot { display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:10px; margin-top:10px; }
       .foot button { background:none; color:#9892A5; font-size:10px; padding:0; }
       .foot button:hover { color:#705BBA; text-decoration:underline; }
       .tr-line { display:flex; gap:8px; align-items:center; }
@@ -132,7 +132,7 @@
         <button class="pip" id="pip">Open Picture-in-Picture</button>
       </div>
 
-      <div class="tools" style="margin-top:10px">
+      <div class="tools" style="margin-top:8px">
         <div class="tools-title">Translate this page</div>
         <div class="tr-line">
           <select id="tr-lang" aria-label="Target language"></select>

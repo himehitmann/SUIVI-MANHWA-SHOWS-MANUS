@@ -32,6 +32,8 @@ const LANGS = {
     discover:"Discover", discoverSub:"Fresh picks — not in your library yet.", forYou:"Recommended for you", forYouSub:"Based on your tags", trendingManga:"Trending manga & manhwa", popularAnime:"Popular anime right now", newGames:"New game releases", upcomingGames:"Upcoming games", addToLib:"Add to library", refresh:"Refresh", loadingReco:"Finding fresh picks…",
     imgTranslateSub:"Translate speech bubbles inside manga/webtoon images (OCR). Text-based pages already translate with one click; image scanlations need a small free translation server — run it once, paste its URL, and it works on every reader.", imgServerLabel:"Server URL", imgTest:"Test", imgTesting:"Testing…", imgOk:"Connected ✓", imgFail:"No response — check the URL and that the server is running.", imgSetup:"How to run the server (free, ~2 min)", imgCopy:"Copy", imgCopied:"Copied ✓",
     searchPlaceholder:"Search or add by name…", work:"work", works:"works", upcoming:"Upcoming", discoverGames:"Discover games",
+    topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most anticipated games", hotGames:"Biggest games right now", openInNew:"Open", discoverMore:"Discover more",
+    progHintWatch:"The episode you last watched.", progHintRead:"The chapter you last read.", totalReleased:"Latest available", totalHint:"The newest chapter/episode out — so Yomu can tell you when there's something new.",
     planFreePer:"forever · local-first", planProPer:"or $29.99/yr — 2 months free", planLifePer:"one-time · best value",
     planFoot:"Local tracking is free forever and never depends on our servers. Paid tiers fund the optional sync, alerts and translation engine.",
     freeFeatures:["Unlimited tracking — manga, manhwa, webtoons, anime, series, films, games", "Auto-detect & one-click save, resume anywhere", "Lists, tags, ratings, synopsis, series grouping", "Episode / chapter seen tracking", "Import from MAL, CSV, JSON + local backup", "Every UI language", "Page translation — up to 5 pages / day"],
@@ -52,6 +54,8 @@ const LANGS = {
     discover:"Découvrir", discoverSub:"Nouveautés à découvrir — pas encore dans ta bibliothèque.", forYou:"Recommandé pour toi", forYouSub:"D'après tes tags", trendingManga:"Manga & manhwa tendances", popularAnime:"Anime populaires en ce moment", newGames:"Nouveaux jeux sortis", upcomingGames:"Jeux à venir", addToLib:"Ajouter à la bibliothèque", refresh:"Actualiser", loadingReco:"Recherche de nouveautés…",
     imgTranslateSub:"Traduire les bulles à l'intérieur des images de manga/webtoon (OCR). Les pages en texte se traduisent déjà en un clic ; les scans en image nécessitent un petit serveur de traduction gratuit — lance-le une fois, colle son URL, et ça marche sur tous les lecteurs.", imgServerLabel:"URL du serveur", imgTest:"Tester", imgTesting:"Test…", imgOk:"Connecté ✓", imgFail:"Aucune réponse — vérifie l'URL et que le serveur tourne.", imgSetup:"Comment lancer le serveur (gratuit, ~2 min)", imgCopy:"Copier", imgCopied:"Copié ✓",
     searchPlaceholder:"Rechercher ou ajouter par nom…", work:"œuvre", works:"œuvres", upcoming:"À venir", discoverGames:"Découvrir des jeux",
+    topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus attendus", hotGames:"Les plus gros jeux du moment", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
+    progHintWatch:"Le dernier épisode que tu as regardé.", progHintRead:"Le dernier chapitre que tu as lu.", totalReleased:"Dernier disponible", totalHint:"Le dernier chapitre/épisode sorti — pour que Yomu te prévienne quand il y a du nouveau.",
     planFreePer:"pour toujours · local-first", planProPer:"ou 29,99 $/an — 2 mois offerts", planLifePer:"paiement unique · meilleure offre",
     planFoot:"Le suivi local est gratuit à vie et ne dépend jamais de nos serveurs. Les offres payantes financent la sync, les alertes et le moteur de traduction optionnels.",
     freeFeatures:["Suivi illimité — manga, manhwa, webtoons, anime, séries, films, jeux", "Détection auto & enregistrement en un clic, reprise partout", "Listes, tags, notes, synopsis, regroupement de séries", "Suivi des épisodes / chapitres vus", "Import depuis MAL, CSV, JSON + sauvegarde locale", "Toutes les langues d'interface", "Traduction de page — jusqu'à 5 pages / jour"],
@@ -232,21 +236,48 @@ function scoreTaste(m, w) {
   return s;
 }
 let discoItems = []; // flat candidate list; cards reference indices into this
-function discoCard(m, idx, opts = {}) {
-  const cat = catLabel(m);
+function discoBadges(m, opts) {
   const soon = opts.soon ? `<span class="badge-soon">${esc(m.releaseDate || t("comingSoon"))}</span>` : "";
   const price = m.price ? `<span class="badge-price">${esc(m.price)}</span>` : (m.type === "game" && !opts.soon ? `<span class="badge-price">${t("free")}</span>` : "");
+  return { soon, price };
+}
+function discoCard(m, idx, opts = {}) {
+  const { soon, price } = discoBadges(m, opts);
   const cover = `<span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover)}`;
-  const sub = m.genres && m.genres.length ? m.genres.slice(0, 2).join(" · ") : (m.season ? String(m.season) : cat);
+  const sub = m.genres && m.genres.length ? m.genres.slice(0, 2).join(" · ") : (m.season ? String(m.season) : catLabel(m));
   return `<div class="disco">
-    <div class="art">${cover}<span class="cat-badge">${esc(cat)}</span>${soon}${price}
+    <div class="art" data-open-url="${esc(m.url || "")}">${cover}<span class="cat-badge">${esc(catLabel(m))}</span>${soon}${price}
       <button class="disco-add" data-add-disco="${idx}" data-tip="${t("addToLib")}" aria-label="${t("addToLib")}">${I.plus}</button>
+      <span class="art-open">${I.open}</span>
     </div>
     <h4>${esc(m.title || "Untitled")}</h4><small>${esc(sub)}</small>
   </div>`;
 }
+// Webtoon-style ranked card: a big number next to a clickable poster.
+function rankCard(m, idx, rank, opts = {}) {
+  const { soon, price } = discoBadges(m, opts);
+  const cover = `<span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover)}`;
+  const sub = m.genres && m.genres.length ? m.genres.slice(0, 2).join(" · ") : catLabel(m);
+  return `<div class="rank-card">
+    <div class="rank-art" data-open-url="${esc(m.url || "")}">${cover}<span class="cat-badge">${esc(catLabel(m))}</span>${soon}${price}
+      <span class="rank-num r${rank}">${rank}</span>
+      <button class="disco-add" data-add-disco="${idx}" data-tip="${t("addToLib")}" aria-label="${t("addToLib")}">${I.plus}</button>
+      <span class="art-open">${I.open}</span>
+    </div>
+    <div class="rank-meta"><h4>${esc(m.title || "Untitled")}</h4><small>${esc(sub)}</small></div>
+  </div>`;
+}
+function rankRow(titleText, list, opts = {}) {
+  if (!list.length) return "";
+  const base = discoItems.length;
+  const top = list.slice(0, 10);
+  discoItems.push(...top);
+  const cards = top.map((m, i) => rankCard(m, base + i, i + 1, opts)).join("");
+  const head = `<div class="section-h"><h2>${I.spark} ${esc(titleText)}</h2>${opts.sub ? `<span>${esc(opts.sub)}</span>` : ""}</div>`;
+  return `${head}<div class="scroll-x rank-row">${cards}</div>`;
+}
 // A premium auto-scrolling carousel. Content is duplicated so the marquee loops
-// seamlessly; hovering pauses it (and lets you click Add).
+// seamlessly; hovering pauses it (and lets you click Add / open).
 function discoRow(titleText, list, opts = {}) {
   if (!list.length) return "";
   const base = discoItems.length;
@@ -257,26 +288,28 @@ function discoRow(titleText, list, opts = {}) {
   return `${head}<div class="disco-wrap"><div class="disco-track${opts.rev ? " rev" : ""}" style="--dur:${dur}s">${cards}${cards}</div></div>`;
 }
 function renderDiscover() {
-  if (!discover) return discoverTried ? "" : `<div class="section-h"><h2>${t("discover")}</h2><span>${t("loadingReco")}</span></div>`;
+  if (!discover) return discoverTried ? "" : `<div class="section-h" style="margin-top:34px"><h2>${I.compass} ${t("discover")}</h2><span>${t("loadingReco")}</span></div>`;
   discoItems = [];
   const lib = libTitleSet();
   const fresh = (arr) => (arr || []).filter((m) => m && m.title && m.cover && !lib.has(normTitle(m.title)));
+  const manhwa = fresh(discover.manhwa && discover.manhwa.length ? discover.manhwa : discover.manga);
   const manga = fresh(discover.manga), anime = fresh(discover.anime);
-  const gamesNew = fresh(discover.gamesNew), gamesSoon = fresh(discover.gamesSoon);
+  const gamesHot = fresh(discover.gamesHot && discover.gamesHot.length ? discover.gamesHot : discover.gamesNew), gamesSoon = fresh(discover.gamesSoon);
   const w = tasteWeights();
   const hasTaste = Object.keys(w).length > 0;
-  let out = `<div class="section-h" style="margin-top:34px"><h2>${I.compass} ${t("discover")}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div>`;
-  // Personalized row first: rank all reading/watching picks by tag overlap.
+  let out = `<div class="section-h discover-h"><h2>${I.compass} ${t("discover")}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div>`;
+  // Personalized row first when we know the user's taste.
   if (hasTaste) {
-    const pool = [...manga, ...anime].map((m) => ({ m, s: scoreTaste(m, w) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).map((x) => x.m);
+    const pool = [...manhwa, ...manga, ...anime].map((m) => ({ m, s: scoreTaste(m, w) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).map((x) => x.m);
     const seen = new Set();
-    const forYou = pool.filter((m) => { const k = normTitle(m.title); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 16);
+    const forYou = pool.filter((m) => { const k = normTitle(m.title); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 12);
     if (forYou.length >= 4) out += discoRow(t("forYou"), forYou, { forYou: true, sub: t("forYouSub") });
   }
-  out += discoRow(t("trendingManga"), manga, { sub: "AniList" });
+  // The classy numbered Top-10 ranking (webtoon style) leads discovery.
+  out += rankRow(t("topThisWeek"), manhwa.length >= 4 ? manhwa : manga, { sub: t("trendingWebtoons") });
   out += discoRow(t("popularAnime"), anime, { rev: true, sub: "AniList" });
-  out += discoRow(t("upcomingGames"), gamesSoon, { soon: true, sub: "Steam" });
-  out += discoRow(t("newGames"), gamesNew, { rev: true, sub: "Steam" });
+  out += discoRow(t("mostAnticipated"), gamesSoon, { soon: true, sub: "Steam" });
+  out += discoRow(t("hotGames"), gamesHot, { rev: true, sub: "Steam" });
   return out;
 }
 function loadDiscover(force) {
@@ -295,11 +328,11 @@ function renderGamesDiscover() {
   discoItems = [];
   const lib = libTitleSet();
   const fresh = (arr) => (arr || []).filter((m) => m && m.title && m.cover && !lib.has(normTitle(m.title)));
-  const soon = fresh(discover.gamesSoon), fresh2 = fresh(discover.gamesNew);
-  if (!soon.length && !fresh2.length) return "";
-  let out = `<div class="section-h" style="margin-top:30px"><h2>${I.compass} ${t("discoverGames")}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div>`;
-  out += discoRow(t("upcomingGames"), soon, { soon: true, sub: "Steam" });
-  out += discoRow(t("newGames"), fresh2, { rev: true, sub: "Steam" });
+  const soon = fresh(discover.gamesSoon), hot = fresh(discover.gamesHot && discover.gamesHot.length ? discover.gamesHot : discover.gamesNew);
+  if (!soon.length && !hot.length) return "";
+  let out = `<div class="section-h discover-h"><h2>${I.compass} ${t("discoverGames")}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div>`;
+  out += rankRow(t("mostAnticipated"), soon, { soon: true, sub: "Steam" });
+  out += discoRow(t("hotGames"), hot, { rev: true, sub: "Steam" });
   return out;
 }
 function bindDisco(root = "#view-home") {
@@ -311,6 +344,12 @@ function bindDisco(root = "#view-home") {
     if (!m || b.classList.contains("done")) return;
     document.querySelectorAll(`${root} [data-add-disco="${b.dataset.addDisco}"]`).forEach((x) => { x.classList.add("done"); x.innerHTML = I.check; });
     addFromCatalog(m, null);
+  }));
+  // Clicking a discovery cover opens the work's page (AniList / Steam / …).
+  document.querySelectorAll(`${root} [data-open-url]`).forEach((el) => (el.onclick = (e) => {
+    if (e.target.closest("[data-add-disco]")) return;
+    const u = el.dataset.openUrl;
+    if (u) api.tabs ? api.tabs.create({ url: u }) : window.open(u, "_blank", "noreferrer");
   }));
 }
 function valueStrip() {
@@ -701,8 +740,11 @@ function openDrawer(id) {
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${i.trailer ? `<a class="btn" href="${esc(i.trailer)}" target="_blank" rel="noreferrer">${I.play} ${t("watchTrailer")}</a>` : ""}<a class="btn" href="${esc(gameLink(i))}" target="_blank" rel="noreferrer">${I.open} ${esc(gameLinkLabel(i))}</a><label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
       : `
         <div class="section-t">${t("progress")}</div>
-        <div class="stepper"><button id="dr-minus">${I.minus}</button><input id="dr-num" type="number" min="0" value="${cur}" /><button id="dr-plus">${I.plus}</button><span>${unit}${isWatch && i.season ? ` · Season ${i.season}` : ""}</span></div>
-        <div class="released-row"><span class="rel-label">${t("released")}</span><input id="dr-total" type="number" min="0" value="${i.total || ""}" placeholder="?" /><span class="rel-hint">${unseen(i) > 0 ? t("unseenN", { n: unseen(i) }) : i.total ? t("upToDate") : ""}</span></div>
+        <p class="field-hint">${isWatch ? t("progHintWatch") : t("progHintRead")}</p>
+        <div class="stepper"><button id="dr-minus" aria-label="−">${I.minus}</button><input id="dr-num" type="number" min="0" value="${cur}" /><button id="dr-plus" aria-label="+">${I.plus}</button><span>${unit}${isWatch && i.season ? ` · Saison ${i.season}` : ""}</span></div>
+        <div class="section-t" style="margin-top:14px">${t("totalReleased")}</div>
+        <p class="field-hint">${t("totalHint")}</p>
+        <div class="released-row"><input id="dr-total" type="number" min="0" value="${i.total || ""}" placeholder="${isWatch ? t("watching") : t("reading")}…" /><span class="rel-hint">${unseen(i) > 0 ? t("unseenN", { n: unseen(i) }) : i.total ? t("upToDate") : ""}</span></div>
         ${episodeGrid(i)}
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
           ${i.total && unseen(i) > 0 ? `<button class="btn primary" id="dr-markall">${I.check} ${t("markAll")}</button>` : ""}
@@ -1042,8 +1084,10 @@ function paintAvatar() {
   av.innerHTML = p.avatar ? `<img src="${esc(p.avatar)}">` : esc(initials(p.name || "Yomu"));
 }
 function renderNav() {
-  const tabs = [["home", t("home")], ["library", t("library")], ["games", t("games")], ["plans", t("plans")]];
+  const tabs = [["home", t("home")], ["library", t("library")], ["games", t("games")]];
   document.getElementById("nav").innerHTML = tabs.map(([k, l]) => `<button data-v="${k}" class="${view === k ? "active" : ""}">${l}</button>`).join("");
+  const goProLabel = document.getElementById("go-pro-label");
+  if (goProLabel) goProLabel.textContent = UNLOCK_ALL || isPro() ? t("plans") : t("goPro");
   document.getElementById("lang-code").textContent = (settings.lang || "en").toUpperCase().slice(0, 2);
   const qEl = document.getElementById("q"); if (qEl) qEl.placeholder = t("searchPlaceholder");
   document.querySelectorAll("[data-t]").forEach((n) => (n.textContent = t(n.dataset.t)));
@@ -1141,6 +1185,7 @@ document.getElementById("bell").onclick = (e) => {
 };
 document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("profile-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
 document.getElementById("lang-btn").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("lang-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
+document.getElementById("go-pro").onclick = () => { clearSearchResults(); switchView("plans"); };
 document.addEventListener("click", (e) => { if (!e.target.closest(".top-right")) closeMenus(); if (!e.target.closest(".qa-menu") && !e.target.closest(".quick-add")) closeQuickAdd(); });
 document.getElementById("q").addEventListener("input", (e) => { query = e.target.value; if (view !== "library") switchView("library"); renderGrid(); if (!query) clearSearchResults(); });
 document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library") switchView("library"); catalogSearch(query.trim()); } });
