@@ -539,6 +539,63 @@ async function catalogSearchAll(query) {
   return [...seen.values()].slice(0, 20);
 }
 
+/*
+ * Discovery — fresh recommendations for the Home page (NOT the user's library):
+ * trending manga/manhwa + anime from AniList, and upcoming/new games from the
+ * Steam storefront. All keyless. Cached ~6h so the Home stays snappy and we
+ * never hammer the services.
+ */
+const DISCOVER_KEY = "dasi.discover.cache";
+const DISCOVER_TTL = 6 * 3600 * 1000;
+async function anilistTrending(type) {
+  const gql = `query($t:MediaType){Page(perPage:14){media(sort:TRENDING_DESC,type:$t,isAdult:false){id title{romaji english native} coverImage{extraLarge large} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
+  const res = await fetch(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { t: type } }) });
+  if (!res.ok) throw new Error(`anilist_${res.status}`);
+  const data = await res.json();
+  return ((data && data.data && data.data.Page && data.data.Page.media) || []).map(mediaToResult).filter((r) => r.title && r.cover);
+}
+function steamItems(list, released) {
+  return (list || []).filter((g) => g && (g.name || g.title) && g.id).slice(0, 14).map((g) => ({
+    title: g.name || g.title,
+    type: "game",
+    cover: g.header_image || g.large_capsule_image || `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/header.jpg`,
+    synopsis: "",
+    genres: [],
+    price: g.final_price ? `$${(g.final_price / 100).toFixed(2)}` : g.discounted === false && g.original_price ? `$${(g.original_price / 100).toFixed(2)}` : undefined,
+    platform: "Steam",
+    format: "Game",
+    released,
+    url: `https://store.steampowered.com/app/${g.id}`,
+  }));
+}
+async function steamDiscover() {
+  const res = await fetch("https://store.steampowered.com/api/featuredcategories?cc=us&l=en");
+  if (!res.ok) throw new Error(`steam_feat_${res.status}`);
+  const j = await res.json();
+  const soon = steamItems(j.coming_soon && j.coming_soon.items, false).map((x) => ({ ...x, releaseDate: "Coming soon" }));
+  const fresh = steamItems(j.new_releases && j.new_releases.items, true);
+  return { soon, fresh };
+}
+async function buildDiscover() {
+  const [manga, anime, games] = await Promise.allSettled([anilistTrending("MANGA"), anilistTrending("ANIME"), steamDiscover()]);
+  return {
+    ts: Date.now(),
+    manga: manga.status === "fulfilled" ? manga.value : [],
+    anime: anime.status === "fulfilled" ? anime.value : [],
+    gamesSoon: games.status === "fulfilled" ? games.value.soon : [],
+    gamesNew: games.status === "fulfilled" ? games.value.fresh : [],
+  };
+}
+async function getDiscover(force) {
+  if (!force) {
+    const c = (await api.storage.local.get(DISCOVER_KEY))[DISCOVER_KEY];
+    if (c && Date.now() - c.ts < DISCOVER_TTL) return c;
+  }
+  const fresh = await buildDiscover();
+  await api.storage.local.set({ [DISCOVER_KEY]: fresh });
+  return fresh;
+}
+
 /** Enrich one stored work in place from AniList (once per work). */
 async function enrichWork(id) {
   const items = await read(ITEMS_KEY, []);
@@ -818,6 +875,13 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           autoSync();
         });
       });
+      return true;
+
+    // Fresh recommendations for the Home page (cached ~6h).
+    case "DISCOVER":
+      getDiscover(message.force)
+        .then((data) => sendResponse({ ok: true, data }))
+        .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
       return true;
 
     // Online search-to-add (AniList): returns catalog results for a title.

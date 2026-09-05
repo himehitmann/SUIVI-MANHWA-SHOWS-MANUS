@@ -6,6 +6,7 @@ let items = [], sites = [], notifications = [], lists = [];
 let settings = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" } };
 let filter = "all", query = "", currentListId = null, view = "home";
 let spotIdx = 0, spotItems = [], spotTimer = null;
+let discover = null, discoverTried = false; // fresh recommendations pulled from the background
 let userPlan = null; // "pro" | "lifetime" | null, from the sync backend
 const isPro = () => UNLOCK_ALL || userPlan === "pro" || userPlan === "lifetime";
 
@@ -27,7 +28,8 @@ const LANGS = {
     gamesSub:"Track awaited games — release dates, prices, trailers and pre-registrations.", addGame:"Add a game", title:"Title", platform:"Platform", releaseDate:"Release date", price:"Price", trailer:"Trailer", watchTrailer:"Watch trailer", preRegistered:"Pre-registered", released:"Released", comingSoon:"Coming soon", add:"Add", cancel:"Cancel", free:"Free",
     editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", language:"Language", uiLanguage:"App language", translateLanguage:"Default translation language", account:"Account", email:"Email", changeEmail:"Change email", changePassword:"Change password", currentPassword:"Current password", newPassword:"New password", save:"Save", signedInAs:"Signed in as", notSignedIn:"Not signed in — sync is optional.", newAlerts:"New-episode alerts", integrations:"Integrations & keys", filmsSeries:"Films & series", keyHint:"Optional free API key —", imgTranslate:"Manga image translation", imgTranslateHint:"Optional — a manga-image-translator server URL. See", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", cloudSync:"Cloud sync", cloudSyncSub:"Optional — sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Yomu.", spread:"Spread the word", enjoying:"Enjoying Yomu?",
     plansTitle:"Choose your plan", plansSub:"Free forever for local tracking. Go Pro for sync, alerts and more.", unlocked:"Owner edition — every Pro feature is unlocked.", mostPopular:"Most popular", getStarted:"Get started", goPro:"Go Pro", getLifetime:"Get Lifetime", currentPlan:"Current",
-    updatesNone:"Nothing new right now", updatesSome:"{n} with something new", updates:"Updates" },
+    updatesNone:"Nothing new right now", updatesSome:"{n} with something new", updates:"Updates",
+    discover:"Discover", discoverSub:"Fresh picks — not in your library yet.", forYou:"Recommended for you", forYouSub:"Based on your tags", trendingManga:"Trending manga & manhwa", popularAnime:"Popular anime right now", newGames:"New game releases", upcomingGames:"Upcoming games", addToLib:"Add to library", refresh:"Refresh", loadingReco:"Finding fresh picks…" },
   fr: { name:"Français", home:"Accueil", library:"Bibliothèque", lists:"Listes", games:"Jeux", plans:"Abonnements", settings:"Paramètres",
     search:"Rechercher", librarySub:"Tout ce que tu as enregistré, gardé sur cet appareil.", listsSub:"Classe tes œuvres à ta façon — glisse pour réordonner, choisis une couverture.",
     continue:"Reprendre", newWeek:"Nouveautés de la semaine", becauseYouLove:"Parce que tu aimes {g}", yourGenres:"Tes genres", recentlyAdded:"Ajoutés récemment", sitesTitle:"Tes sites",
@@ -39,7 +41,8 @@ const LANGS = {
     gamesSub:"Suis les jeux attendus — dates de sortie, prix, trailers et préinscriptions.", addGame:"Ajouter un jeu", title:"Titre", platform:"Plateforme", releaseDate:"Date de sortie", price:"Prix", trailer:"Trailer", watchTrailer:"Voir le trailer", preRegistered:"Préinscrit", released:"Sorti", comingSoon:"Bientôt", add:"Ajouter", cancel:"Annuler", free:"Gratuit",
     editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", language:"Langue", uiLanguage:"Langue de l'appli", translateLanguage:"Langue de traduction par défaut", account:"Compte", email:"E-mail", changeEmail:"Changer l'e-mail", changePassword:"Changer le mot de passe", currentPassword:"Mot de passe actuel", newPassword:"Nouveau mot de passe", save:"Enregistrer", signedInAs:"Connecté en tant que", notSignedIn:"Non connecté — la sync est optionnelle.", newAlerts:"Alertes nouveaux épisodes", integrations:"Intégrations & clés", filmsSeries:"Films & séries", keyHint:"Clé API gratuite optionnelle —", imgTranslate:"Traduction d'images manga", imgTranslateHint:"Optionnel — URL d'un serveur manga-image-translator. Voir", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel — connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Yomu.", spread:"Fais passer le mot", enjoying:"Tu aimes Yomu ?",
     plansTitle:"Choisis ton abonnement", plansSub:"Gratuit à vie pour le suivi local. Passe Pro pour la sync, les alertes et plus.", unlocked:"Édition propriétaire — toutes les fonctions Pro sont débloquées.", mostPopular:"Le plus populaire", getStarted:"Commencer", goPro:"Passer Pro", getLifetime:"À vie", currentPlan:"Actuel",
-    updatesNone:"Rien de nouveau pour l'instant", updatesSome:"{n} avec du nouveau", updates:"Notifications" },
+    updatesNone:"Rien de nouveau pour l'instant", updatesSome:"{n} avec du nouveau", updates:"Notifications",
+    discover:"Découvrir", discoverSub:"Nouveautés à découvrir — pas encore dans ta bibliothèque.", forYou:"Recommandé pour toi", forYouSub:"D'après tes tags", trendingManga:"Manga & manhwa tendances", popularAnime:"Anime populaires en ce moment", newGames:"Nouveaux jeux sortis", upcomingGames:"Jeux à venir", addToLib:"Ajouter à la bibliothèque", refresh:"Actualiser", loadingReco:"Recherche de nouveautés…" },
   es: { name:"Español", home:"Inicio", library:"Biblioteca", lists:"Listas", games:"Juegos", plans:"Planes", settings:"Ajustes", search:"Buscar",
     continue:"Continuar", newWeek:"Novedades de la semana", becauseYouLove:"Porque te gusta {g}", yourGenres:"Tus géneros", recentlyAdded:"Añadidos recientemente",
     resume:"Reanudar", details:"Detalles", welcomeTitle:"Bienvenido a Yomu", tracked:"Seguidos", reading:"Lectura", watching:"Viendo", favorites:"Favoritos", finished:"Terminados", all:"Todo",
@@ -94,6 +97,9 @@ const I = {
   link:'<svg class="ic" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg>',
   game:'<svg class="ic" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="10" rx="5"/><path d="M7 12h3M8.5 10.5v3"/><circle cx="15.5" cy="11" r="1" class="fill"/><circle cx="17.5" cy="13" r="1" class="fill"/></svg>',
   book:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>',
+  compass:'<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z" class="fill"/></svg>',
+  spark:'<svg class="ic" viewBox="0 0 24 24"><path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z" class="fill"/><path d="M18 15l.7 2.3L21 18l-2.3.7L18 21l-.7-2.3L15 18l2.3-.7z" class="fill"/></svg>',
+  refresh:'<svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.3"/><path d="M21 4v5h-5"/></svg>',
 };
 
 const accentFor = (i) => (i.type === "watching" ? "#7E9BE6" : i.type === "game" ? "#E08A4F" : "#5FB79A");
@@ -175,6 +181,89 @@ function row(titleText, list, extra) {
   return `<div class="section-h"><h2>${esc(titleText)}</h2>${extra ? `<span>${esc(extra)}</span>` : ""}</div>
     <div class="scroll-x">${list.map(posterHtml).join("")}</div>`;
 }
+/* ---- Discovery: fresh, personalized recommendations (not your library) ---- */
+function normTitle(s) {
+  return String(s || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^0-9a-z぀-ヿ一-鿿가-힯]+/gi, "");
+}
+function libTitleSet() { return new Set(items.map((i) => normTitle(i.title)).filter(Boolean)); }
+// Weight each genre the user actually collects; recent/among-favorites count more.
+function tasteWeights() {
+  const w = {};
+  for (const g of topGenres()) w[String(g[0]).toLowerCase()] = g[1];
+  return w;
+}
+function scoreTaste(m, w) {
+  let s = 0;
+  for (const g of m.genres || []) s += (w[String(g).toLowerCase()] || 0);
+  return s;
+}
+let discoItems = []; // flat candidate list; cards reference indices into this
+function discoCard(m, idx, opts = {}) {
+  const cat = catLabel(m);
+  const soon = opts.soon ? `<span class="badge-soon">${esc(m.releaseDate || t("comingSoon"))}</span>` : "";
+  const price = m.price ? `<span class="badge-price">${esc(m.price)}</span>` : (m.type === "game" && !opts.soon ? `<span class="badge-price">${t("free")}</span>` : "");
+  const cover = m.cover ? `<img src="${esc(m.cover)}" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">` : esc((m.title || "?")[0]);
+  const sub = m.genres && m.genres.length ? m.genres.slice(0, 2).join(" · ") : (m.season ? String(m.season) : cat);
+  return `<div class="disco">
+    <div class="art">${cover}<span class="cat-badge">${esc(cat)}</span>${soon}${price}
+      <button class="disco-add" data-add-disco="${idx}" data-tip="${t("addToLib")}" aria-label="${t("addToLib")}">${I.plus}</button>
+    </div>
+    <h4>${esc(m.title || "Untitled")}</h4><small>${esc(sub)}</small>
+  </div>`;
+}
+// A premium auto-scrolling carousel. Content is duplicated so the marquee loops
+// seamlessly; hovering pauses it (and lets you click Add).
+function discoRow(titleText, list, opts = {}) {
+  if (!list.length) return "";
+  const base = discoItems.length;
+  discoItems.push(...list);
+  const cards = list.map((m, i) => discoCard(m, base + i, opts)).join("");
+  const dur = Math.max(28, Math.min(90, list.length * 6));
+  const head = `<div class="section-h"><h2>${esc(titleText)}${opts.forYou ? ` <span class="reco-tag">${I.spark}</span>` : ""}</h2>${opts.sub ? `<span>${esc(opts.sub)}</span>` : ""}</div>`;
+  return `${head}<div class="disco-wrap"><div class="disco-track${opts.rev ? " rev" : ""}" style="--dur:${dur}s">${cards}${cards}</div></div>`;
+}
+function renderDiscover() {
+  if (!discover) return discoverTried ? "" : `<div class="section-h"><h2>${t("discover")}</h2><span>${t("loadingReco")}</span></div>`;
+  discoItems = [];
+  const lib = libTitleSet();
+  const fresh = (arr) => (arr || []).filter((m) => m && m.title && m.cover && !lib.has(normTitle(m.title)));
+  const manga = fresh(discover.manga), anime = fresh(discover.anime);
+  const gamesNew = fresh(discover.gamesNew), gamesSoon = fresh(discover.gamesSoon);
+  const w = tasteWeights();
+  const hasTaste = Object.keys(w).length > 0;
+  let out = `<div class="section-h" style="margin-top:34px"><h2>${I.compass} ${t("discover")}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div>`;
+  // Personalized row first: rank all reading/watching picks by tag overlap.
+  if (hasTaste) {
+    const pool = [...manga, ...anime].map((m) => ({ m, s: scoreTaste(m, w) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).map((x) => x.m);
+    const seen = new Set();
+    const forYou = pool.filter((m) => { const k = normTitle(m.title); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 16);
+    if (forYou.length >= 4) out += discoRow(t("forYou"), forYou, { forYou: true, sub: t("forYouSub") });
+  }
+  out += discoRow(t("trendingManga"), manga, { sub: "AniList" });
+  out += discoRow(t("popularAnime"), anime, { rev: true, sub: "AniList" });
+  out += discoRow(t("upcomingGames"), gamesSoon, { soon: true, sub: "Steam" });
+  out += discoRow(t("newGames"), gamesNew, { rev: true, sub: "Steam" });
+  return out;
+}
+function loadDiscover(force) {
+  api.runtime.sendMessage({ type: "DISCOVER", force: !!force }, (r) => {
+    void api.runtime.lastError;
+    discoverTried = true;
+    if (r && r.ok && r.data) discover = r.data;
+    if (view === "home") renderHome();
+  });
+}
+function bindDisco() {
+  const rf = document.getElementById("disco-refresh");
+  if (rf) rf.onclick = () => { rf.classList.add("spin"); loadDiscover(true); };
+  document.querySelectorAll("#view-home [data-add-disco]").forEach((b) => (b.onclick = (e) => {
+    e.stopPropagation();
+    const m = discoItems[Number(b.dataset.addDisco)];
+    if (!m || b.classList.contains("done")) return;
+    document.querySelectorAll(`#view-home [data-add-disco="${b.dataset.addDisco}"]`).forEach((x) => { x.classList.add("done"); x.innerHTML = I.check; });
+    addFromCatalog(m, null);
+  }));
+}
 function valueStrip() {
   const cards = [
     [I.book, t("valSaveT"), t("valSaveB")],
@@ -187,8 +276,9 @@ function renderHome() {
   const el = document.getElementById("view-home");
   if (!items.length) {
     el.innerHTML = `<div class="onboard"><div class="big"><i></i></div><h2>${t("welcomeTitle")}</h2><p>${t("welcomeBody")}</p>
-      <button class="btn primary" id="onb-search" style="margin-top:18px">${I.plus} ${t("addByName")}</button></div>${valueStrip()}`;
+      <button class="btn primary" id="onb-search" style="margin-top:18px">${I.plus} ${t("addByName")}</button></div>${valueStrip()}${renderDiscover()}`;
     bindHome();
+    bindDisco();
     const ob = document.getElementById("onb-search");
     if (ob) ob.onclick = () => { switchView("library"); document.getElementById("q").focus(); };
     return;
@@ -221,8 +311,10 @@ function renderHome() {
     ${genres.length ? `<div class="section-h"><h2>${t("yourGenres")}</h2></div><div class="genres">${genres.slice(0, 10).map(([g, n]) => `<span class="genre" data-genre="${esc(g)}">${esc(g)} <b>${n}</b></span>`).join("")}</div>` : ""}
     ${row(t("recentlyAdded"), rRecent)}
     ${items.length < 4 ? valueStrip() : ""}
+    ${renderDiscover()}
   `;
   bindHome();
+  bindDisco();
   startSpot();
 }
 function spotHtml(i) {
@@ -1042,5 +1134,6 @@ function hydrate(state) {
   lists = state?.lists || []; settings = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" }, ...(state?.settings || {}) };
   document.documentElement.lang = settings.lang;
   renderNav(); renderAll(); renderLangMenu(); renderProfileMenu();
+  if (!discoverTried) loadDiscover(false);
 }
 api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
