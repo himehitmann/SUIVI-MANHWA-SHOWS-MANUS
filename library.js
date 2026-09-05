@@ -30,7 +30,13 @@ const LANGS = {
     plansTitle:"Choose your plan", plansSub:"Free forever for local tracking. Go Pro for sync, alerts and more.", unlocked:"Owner edition — every Pro feature is unlocked.", mostPopular:"Most popular", getStarted:"Get started", goPro:"Go Pro", getLifetime:"Get Lifetime", currentPlan:"Current",
     updatesNone:"Nothing new right now", updatesSome:"{n} with something new", updates:"Updates",
     discover:"Discover", discoverSub:"Fresh picks — not in your library yet.", forYou:"Recommended for you", forYouSub:"Based on your tags", trendingManga:"Trending manga & manhwa", popularAnime:"Popular anime right now", newGames:"New game releases", upcomingGames:"Upcoming games", addToLib:"Add to library", refresh:"Refresh", loadingReco:"Finding fresh picks…",
-    imgTranslateSub:"Translate speech bubbles inside manga/webtoon images (OCR). Text-based pages already translate with one click; image scanlations need a small free translation server — run it once, paste its URL, and it works on every reader.", imgServerLabel:"Server URL", imgTest:"Test", imgTesting:"Testing…", imgOk:"Connected ✓", imgFail:"No response — check the URL and that the server is running.", imgSetup:"How to run the server (free, ~2 min)", imgCopy:"Copy", imgCopied:"Copied ✓" },
+    imgTranslateSub:"Translate speech bubbles inside manga/webtoon images (OCR). Text-based pages already translate with one click; image scanlations need a small free translation server — run it once, paste its URL, and it works on every reader.", imgServerLabel:"Server URL", imgTest:"Test", imgTesting:"Testing…", imgOk:"Connected ✓", imgFail:"No response — check the URL and that the server is running.", imgSetup:"How to run the server (free, ~2 min)", imgCopy:"Copy", imgCopied:"Copied ✓",
+    searchPlaceholder:"Search or add by name…", work:"work", works:"works", upcoming:"Upcoming", discoverGames:"Discover games",
+    planFreePer:"forever · local-first", planProPer:"or $29.99/yr — 2 months free", planLifePer:"one-time · best value",
+    planFoot:"Local tracking is free forever and never depends on our servers. Paid tiers fund the optional sync, alerts and translation engine.",
+    freeFeatures:["Unlimited tracking — manga, manhwa, webtoons, anime, series, films, games", "Auto-detect & one-click save, resume anywhere", "Lists, tags, ratings, synopsis, series grouping", "Episode / chapter seen tracking", "Import from MAL, CSV, JSON + local backup", "Every UI language", "Page translation — up to 5 pages / day"],
+    proFeatures:["Everything in Free", "Encrypted multi-device sync — unlimited devices", "New-episode & game-release alerts (notifications)", "Unlimited page translation, every language, priority engine", "Full stats & insights — streaks, trends, forecasts", "Custom list covers & profile (upload, crop, reposition)", "Priority support & early features"],
+    lifeFeatures:["Everything in Pro, forever", "No subscription, ever", "Founder badge on your profile", "All future updates included", "Support an independent, local-first tool"] },
   fr: { name:"Français", home:"Accueil", library:"Bibliothèque", lists:"Listes", games:"Jeux", plans:"Abonnements", settings:"Paramètres",
     search:"Rechercher", librarySub:"Tout ce que tu as enregistré, gardé sur cet appareil.", listsSub:"Classe tes œuvres à ta façon — glisse pour réordonner, choisis une couverture.",
     continue:"Reprendre", newWeek:"Nouveautés de la semaine", becauseYouLove:"Parce que tu aimes {g}", yourGenres:"Tes genres", recentlyAdded:"Ajoutés récemment", sitesTitle:"Tes sites",
@@ -44,7 +50,13 @@ const LANGS = {
     plansTitle:"Choisis ton abonnement", plansSub:"Gratuit à vie pour le suivi local. Passe Pro pour la sync, les alertes et plus.", unlocked:"Édition propriétaire — toutes les fonctions Pro sont débloquées.", mostPopular:"Le plus populaire", getStarted:"Commencer", goPro:"Passer Pro", getLifetime:"À vie", currentPlan:"Actuel",
     updatesNone:"Rien de nouveau pour l'instant", updatesSome:"{n} avec du nouveau", updates:"Notifications",
     discover:"Découvrir", discoverSub:"Nouveautés à découvrir — pas encore dans ta bibliothèque.", forYou:"Recommandé pour toi", forYouSub:"D'après tes tags", trendingManga:"Manga & manhwa tendances", popularAnime:"Anime populaires en ce moment", newGames:"Nouveaux jeux sortis", upcomingGames:"Jeux à venir", addToLib:"Ajouter à la bibliothèque", refresh:"Actualiser", loadingReco:"Recherche de nouveautés…",
-    imgTranslateSub:"Traduire les bulles à l'intérieur des images de manga/webtoon (OCR). Les pages en texte se traduisent déjà en un clic ; les scans en image nécessitent un petit serveur de traduction gratuit — lance-le une fois, colle son URL, et ça marche sur tous les lecteurs.", imgServerLabel:"URL du serveur", imgTest:"Tester", imgTesting:"Test…", imgOk:"Connecté ✓", imgFail:"Aucune réponse — vérifie l'URL et que le serveur tourne.", imgSetup:"Comment lancer le serveur (gratuit, ~2 min)", imgCopy:"Copier", imgCopied:"Copié ✓" },
+    imgTranslateSub:"Traduire les bulles à l'intérieur des images de manga/webtoon (OCR). Les pages en texte se traduisent déjà en un clic ; les scans en image nécessitent un petit serveur de traduction gratuit — lance-le une fois, colle son URL, et ça marche sur tous les lecteurs.", imgServerLabel:"URL du serveur", imgTest:"Tester", imgTesting:"Test…", imgOk:"Connecté ✓", imgFail:"Aucune réponse — vérifie l'URL et que le serveur tourne.", imgSetup:"Comment lancer le serveur (gratuit, ~2 min)", imgCopy:"Copier", imgCopied:"Copié ✓",
+    searchPlaceholder:"Rechercher ou ajouter par nom…", work:"œuvre", works:"œuvres", upcoming:"À venir", discoverGames:"Découvrir des jeux",
+    planFreePer:"pour toujours · local-first", planProPer:"ou 29,99 $/an — 2 mois offerts", planLifePer:"paiement unique · meilleure offre",
+    planFoot:"Le suivi local est gratuit à vie et ne dépend jamais de nos serveurs. Les offres payantes financent la sync, les alertes et le moteur de traduction optionnels.",
+    freeFeatures:["Suivi illimité — manga, manhwa, webtoons, anime, séries, films, jeux", "Détection auto & enregistrement en un clic, reprise partout", "Listes, tags, notes, synopsis, regroupement de séries", "Suivi des épisodes / chapitres vus", "Import depuis MAL, CSV, JSON + sauvegarde locale", "Toutes les langues d'interface", "Traduction de page — jusqu'à 5 pages / jour"],
+    proFeatures:["Tout ce qu'il y a dans Free", "Sync multi-appareils chiffrée — appareils illimités", "Alertes nouveaux épisodes & sorties de jeux (notifications)", "Traduction de page illimitée, toutes langues, moteur prioritaire", "Stats & analyses complètes — séries, tendances, prévisions", "Couvertures de listes & profil personnalisés (upload, recadrage)", "Support prioritaire & fonctions en avant-première"],
+    lifeFeatures:["Tout ce qu'il y a dans Pro, pour toujours", "Aucun abonnement, jamais", "Badge fondateur sur ton profil", "Toutes les futures mises à jour incluses", "Soutiens un outil indépendant et local-first"] },
   es: { name:"Español", home:"Inicio", library:"Biblioteca", lists:"Listas", games:"Juegos", plans:"Planes", settings:"Ajustes", search:"Buscar",
     continue:"Continuar", newWeek:"Novedades de la semana", becauseYouLove:"Porque te gusta {g}", yourGenres:"Tus géneros", recentlyAdded:"Añadidos recientemente",
     resume:"Reanudar", details:"Detalles", welcomeTitle:"Bienvenido a Yomu", tracked:"Seguidos", reading:"Lectura", watching:"Viendo", favorites:"Favoritos", finished:"Terminados", all:"Todo",
@@ -73,6 +85,8 @@ const LANGS = {
   "zh-CN": { name:"中文（简体）", home:"首页", library:"资料库", lists:"清单", games:"游戏", plans:"订阅", settings:"设置", search:"搜索", librarySub:"你保存的一切，都在此设备上。", listsSub:"按你的方式整理作品 — 拖动排序，选择封面。", continue:"继续观看", newWeek:"本周新增", becauseYouLove:"因为你喜欢 {g}", yourGenres:"你的类型", recentlyAdded:"最近添加", resume:"继续", details:"详情", addByName:"按名称添加", welcomeTitle:"欢迎使用 Yomu", welcomeBody:"Yomu 会记住你在任何阅读或观看内容中停下的位置 — 漫画、条漫、动画、剧集、电影和游戏。打开页面、点击保存，然后从这里一键继续。", valSaveT:"随处保存", valSaveB:"在任意网站一键保存 — 不再丢失书签。", valAllT:"一个资料库容纳一切", valAllB:"漫画、动画、剧集、电影和游戏集于一处。", valResumeT:"一键继续", valResumeB:"在任何设备上精确接着上次的进度。", tracked:"追踪中", reading:"阅读", watching:"观看", favorites:"收藏", finished:"已完成", all:"全部", status:"状态", current:"进行中", planned:"计划中", completed:"已完成", on_hold:"暂停", dropped:"已弃", markFinished:"标记为完成", markUnfinished:"标记为未完成", open:"打开", progress:"进度", released:"已发布", markAll:"全部标记为已看", unseenN:"{n} 个未看", upToDate:"已是最新", rating:"评分", tags:"标签", synopsis:"简介", manage:"管理", removeLib:"从资料库移除", showMore:"展开", showLess:"收起", newList:"新建清单", cover:"封面", rename:"重命名", delete:"删除", inThisList:"在此清单中", addWorks:"添加作品", allLists:"所有清单", dragReorder:"拖动排序", gamesSub:"追踪期待的游戏 — 发售日期、价格、预告片和预注册。", addGame:"添加游戏", title:"标题", platform:"平台", releaseDate:"发售日期", price:"价格", trailer:"预告片", watchTrailer:"观看预告片", preRegistered:"已预注册", comingSoon:"即将推出", add:"添加", cancel:"取消", free:"免费", editProfile:"编辑资料", displayName:"显示名称", changePhoto:"更换头像", language:"语言", uiLanguage:"应用语言", translateLanguage:"默认翻译语言", account:"账户", email:"邮箱", changeEmail:"更改邮箱", changePassword:"更改密码", currentPassword:"当前密码", newPassword:"新密码", save:"保存", signedInAs:"已登录为", notSignedIn:"未登录 — 同步为可选。", newAlerts:"新剧集提醒", newAlertsSub:"标出有你尚未观看的已发布内容的作品。", backup:"备份", yourLibrary:"你的资料库", exportRestore:"导出备份文件，或恢复备份。", export:"导出", import:"导入", cloudSync:"云同步", cloudSyncSub:"可选 — 登录以在设备间同步。", manageSync:"管理", rateShare:"评分与分享", rateShareSub:"帮助更多人发现 Yomu。", spread:"广而告之", enjoying:"喜欢 Yomu 吗？", plansTitle:"选择你的方案", plansSub:"本地追踪永久免费。升级 Pro 获得同步、提醒等。", unlocked:"所有者版本 — 所有 Pro 功能已解锁。", mostPopular:"最受欢迎", getStarted:"开始使用", goPro:"升级 Pro", getLifetime:"购买终身版", currentPlan:"当前", updatesNone:"暂无新内容", updatesSome:"{n} 项有新内容", updates:"通知" },
 };
 const t = (k, p) => { let s = (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || k; if (p) for (const key in p) s = s.replace(`{${key}}`, p[key]); return s; };
+// Array-valued i18n (plan feature lists), falls back to English.
+const tArr = (k) => (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || [];
 // Target languages for page translation (broad list, matches the popup).
 const TR_LANGS = [["en","English"],["fr","Français"],["es","Español"],["de","Deutsch"],["it","Italiano"],["pt","Português"],["nl","Nederlands"],["ru","Русский"],["uk","Українська"],["pl","Polski"],["tr","Türkçe"],["ar","العربية"],["fa","فارسی"],["hi","हिन्दी"],["id","Indonesia"],["vi","Tiếng Việt"],["th","ไทย"],["ja","日本語"],["ko","한국어"],["zh-CN","中文 (简)"],["zh-TW","中文 (繁)"],["fil","Filipino"],["ms","Melayu"],["sv","Svenska"],["no","Norsk"],["da","Dansk"],["fi","Suomi"],["cs","Čeština"],["el","Ελληνικά"],["he","עברית"],["ro","Română"],["hu","Magyar"],["bg","Български"],["sr","Српски"],["hr","Hrvatski"]];
 
@@ -131,6 +145,7 @@ const isNew = (i) => i.type !== "game" && (i.progress || 0) < 100 && (unseen(i) 
 const parseDate = (s) => { if (!s) return null; const d = Date.parse(s); return Number.isFinite(d) ? d : null; };
 const isSoon = (i) => { const d = parseDate(i.releaseDate); return d && d > Date.now() && d - Date.now() < SOON_WINDOW; };
 const isReleased = (i) => { const d = parseDate(i.releaseDate); return i.released || (d && d <= Date.now()); };
+const isUpcoming = (i) => { const d = parseDate(i.releaseDate); return d && d > Date.now() && d - Date.now() >= SOON_WINDOW; };
 
 function marker(i) {
   if (i.type === "game") return i.platform || (i.releaseDate ? i.releaseDate : "Game");
@@ -253,16 +268,31 @@ function loadDiscover(force) {
     discoverTried = true;
     if (r && r.ok && r.data) discover = r.data;
     if (view === "home") renderHome();
+    else if (view === "games") renderGames();
   });
 }
-function bindDisco() {
-  const rf = document.getElementById("disco-refresh");
+// Fresh game recommendations for the Games tab (upcoming + new on Steam),
+// excluding games already tracked.
+function renderGamesDiscover() {
+  if (!discover) return "";
+  discoItems = [];
+  const lib = libTitleSet();
+  const fresh = (arr) => (arr || []).filter((m) => m && m.title && m.cover && !lib.has(normTitle(m.title)));
+  const soon = fresh(discover.gamesSoon), fresh2 = fresh(discover.gamesNew);
+  if (!soon.length && !fresh2.length) return "";
+  let out = `<div class="section-h" style="margin-top:30px"><h2>${I.compass} ${t("discoverGames")}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div>`;
+  out += discoRow(t("upcomingGames"), soon, { soon: true, sub: "Steam" });
+  out += discoRow(t("newGames"), fresh2, { rev: true, sub: "Steam" });
+  return out;
+}
+function bindDisco(root = "#view-home") {
+  const rf = document.querySelector(`${root} #disco-refresh`);
   if (rf) rf.onclick = () => { rf.classList.add("spin"); loadDiscover(true); };
-  document.querySelectorAll("#view-home [data-add-disco]").forEach((b) => (b.onclick = (e) => {
+  document.querySelectorAll(`${root} [data-add-disco]`).forEach((b) => (b.onclick = (e) => {
     e.stopPropagation();
     const m = discoItems[Number(b.dataset.addDisco)];
     if (!m || b.classList.contains("done")) return;
-    document.querySelectorAll(`#view-home [data-add-disco="${b.dataset.addDisco}"]`).forEach((x) => { x.classList.add("done"); x.innerHTML = I.check; });
+    document.querySelectorAll(`${root} [data-add-disco="${b.dataset.addDisco}"]`).forEach((x) => { x.classList.add("done"); x.innerHTML = I.check; });
     addFromCatalog(m, null);
   }));
 }
@@ -413,7 +443,7 @@ function gameCardHtml(i) {
       <h3 data-open="${i.id}" style="cursor:pointer">${esc(i.title)}</h3>
       <div class="game-meta">
         ${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}
-        ${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}${soon ? " · " + t("comingSoon") : released ? " · " + t("released") : ""}</span>` : ""}
+        ${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}${soon ? " · " + t("comingSoon") : released ? " · " + t("released") : isUpcoming(i) ? " · " + t("upcoming") : ""}</span>` : ""}
         ${i.price ? `<span class="meta-pill price">${esc(i.price)}</span>` : ""}
       </div>
       <div class="game-actions">
@@ -432,8 +462,11 @@ function renderGames() {
     <div class="section-h" style="margin-top:0"><h1 style="margin:0">${t("games")}</h1><button class="btn primary" id="add-game">${I.plus} ${t("addGame")}</button></div>
     <p class="sub">${t("gamesSub")}</p>
     <div id="game-form"></div>
-    <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">${games.length ? games.map(gameCardHtml).join("") : `<p class="empty">${t("gamesSub")}</p>`}</div>`;
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">${games.length ? games.map(gameCardHtml).join("") : `<p class="empty">${t("gamesSub")}</p>`}</div>
+    ${renderGamesDiscover()}`;
   document.getElementById("add-game").onclick = showGameForm;
+  bindDisco("#view-games");
+  if (!discoverTried) loadDiscover(false);
   el.querySelectorAll("[data-prereg]").forEach((l) => (l.onclick = () => { const it = items.find((x) => x.id === l.dataset.prereg); if (it) update(it.id, { preregistered: !it.preregistered }); }));
   el.querySelectorAll("[data-open]").forEach((n) => (n.onclick = () => openDrawer(n.dataset.open)));
   el.querySelectorAll("[data-rmgame]").forEach((b) => (b.onclick = () => { if (confirm("Remove this game?")) api.runtime.sendMessage({ type: "REMOVE_ITEM", id: b.dataset.rmgame }, (r) => { items = r?.items || items; renderAll(); }); }));
@@ -481,44 +514,22 @@ function renderPlans() {
     ${UNLOCK_ALL ? `<div class="unlocked-banner">${I.crown} ${t("unlocked")}</div>` : ""}
     <div class="plan-grid">
       <div class="plan">
-        <h3>Free</h3><div class="price">$0</div><div class="per">forever · local-first</div>
-        <ul>${feat([
-          "Unlimited tracking — manga, manhwa, webtoons, anime, series, films, games",
-          "Auto-detect & one-click save, resume anywhere",
-          "Lists, tags, ratings, synopsis, series grouping",
-          "Episode / chapter seen tracking",
-          "Import from MAL, CSV, JSON + local backup",
-          "Every UI language",
-          "Page translation — up to 5 pages / day",
-        ])}</ul>
+        <h3>Free</h3><div class="price">$0</div><div class="per">${t("planFreePer")}</div>
+        <ul>${feat(tArr("freeFeatures"))}</ul>
         <button class="cta" data-plan="free"${cur === "free" || UNLOCK_ALL ? " disabled" : ""}>${label("free", t("getStarted")) || t("currentPlan")}</button>
       </div>
       <div class="plan feat"><span class="ptag">${t("mostPopular")}</span>
-        <h3>Pro</h3><div class="price">$3.99<small>/mo</small></div><div class="per">or $29.99/yr — 2 months free</div>
-        <ul>${feat([
-          "Everything in Free",
-          "Encrypted multi-device sync — unlimited devices",
-          "New-episode & game-release alerts (notifications)",
-          "Unlimited page translation, every language, priority engine",
-          "Full stats & insights — streaks, trends, forecasts",
-          "Custom list covers & profile (upload, crop, reposition)",
-          "Priority support & early features",
-        ])}</ul>
+        <h3>Pro</h3><div class="price">$3.99<small>/mo</small></div><div class="per">${t("planProPer")}</div>
+        <ul>${feat(tArr("proFeatures"))}</ul>
         <button class="cta" data-plan="pro"${cur === "pro" ? " disabled" : ""}>${label("pro", t("goPro"))}</button>
       </div>
       <div class="plan">
-        <h3>Lifetime</h3><div class="price">$59</div><div class="per">one-time · best value</div>
-        <ul>${feat([
-          "Everything in Pro, forever",
-          "No subscription, ever",
-          "Founder badge on your profile",
-          "All future updates included",
-          "Support an independent, local-first tool",
-        ])}</ul>
+        <h3>Lifetime</h3><div class="price">$59</div><div class="per">${t("planLifePer")}</div>
+        <ul>${feat(tArr("lifeFeatures"))}</ul>
         <button class="cta" data-plan="lifetime"${cur === "lifetime" ? " disabled" : ""}>${label("lifetime", t("getLifetime"))}</button>
       </div>
     </div>
-    <p class="sub" style="margin-top:18px">Local tracking is free forever and never depends on our servers. Paid tiers fund the optional sync, alerts and translation engine.</p>`;
+    <p class="sub" style="margin-top:18px">${t("planFoot")}</p>`;
   el.querySelectorAll("[data-plan]").forEach((b) => (b.onclick = () => {
     if (UNLOCK_ALL) { toast(t("unlocked")); return; }
     api.runtime.openOptionsPage();
@@ -533,7 +544,7 @@ function renderLists() {
   if (!strip) return;
   strip.innerHTML = lists.map((l) => { const n = (l.itemIds || []).length; return `<div class="strip-list" data-list="${l.id}">
       <div class="lc" style="${listCover(l)}">${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
-      <b>${esc(l.name)}</b><small>${n} ${n === 1 ? "work" : "works"}</small>
+      <b>${esc(l.name)}</b><small>${n} ${n === 1 ? t("work") : t("works")}</small>
     </div>`; }).join("") + `<button class="strip-new" id="new-list">${I.plus}</button>`;
 }
 /* Quick add-to-list menu anchored to a card's + button. */
@@ -594,7 +605,7 @@ function renderListDetail() {
       <div class="list-cover" style="width:64px;height:64px;border-radius:14px;font-size:24px;${listCover(l)}">${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}</div>
       <div style="flex:1;min-width:180px">
         <input id="list-name" value="${esc(l.name)}" style="font-size:24px;font-weight:800;letter-spacing:-.03em;border:0;border-bottom:2px solid transparent;background:none;width:100%;outline:none;padding:2px 0" />
-        <small style="color:var(--muted)">${members.length} work${members.length === 1 ? "" : "s"} · ${t("dragReorder")}</small>
+        <small style="color:var(--muted)">${members.length} ${members.length === 1 ? t("work") : t("works")} · ${t("dragReorder")}</small>
       </div>
       <button class="btn" id="list-cover-btn">${I.image} ${t("cover")}</button>
       <button class="btn danger" id="list-del">${I.trash} ${t("delete")}</button>
@@ -1002,6 +1013,7 @@ function renderNav() {
   const tabs = [["home", t("home")], ["library", t("library")], ["games", t("games")], ["plans", t("plans")]];
   document.getElementById("nav").innerHTML = tabs.map(([k, l]) => `<button data-v="${k}" class="${view === k ? "active" : ""}">${l}</button>`).join("");
   document.getElementById("lang-code").textContent = (settings.lang || "en").toUpperCase().slice(0, 2);
+  const qEl = document.getElementById("q"); if (qEl) qEl.placeholder = t("searchPlaceholder");
   document.querySelectorAll("[data-t]").forEach((n) => (n.textContent = t(n.dataset.t)));
   const addL = document.getElementById("add-list-inline");
   if (addL) addL.innerHTML = `${I.plus} ${t("newList")}`;
