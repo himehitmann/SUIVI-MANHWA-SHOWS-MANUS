@@ -35,6 +35,7 @@ const LANGS = {
     searchPlaceholder:"Search or add by name…", work:"work", works:"works", upcoming:"Upcoming", discoverGames:"Discover games",
     topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most anticipated games", hotGames:"Biggest games right now", openInNew:"Open", discoverMore:"Discover more",
     catAll:"All", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Series", catGames:"Games",
+    changeBanner:"Change banner", bioPh:"Write a short bio…",
     progHintWatch:"The episode you last watched.", progHintRead:"The chapter you last read.", totalReleased:"Latest available", totalHint:"The newest chapter/episode out — so Yomu can tell you when there's something new.",
     planFreePer:"forever · local-first", planProPer:"or $29.99/yr — 2 months free", planLifePer:"one-time · best value",
     planFoot:"Local tracking is free forever and never depends on our servers. Paid tiers fund the optional sync, alerts and translation engine.",
@@ -58,6 +59,7 @@ const LANGS = {
     searchPlaceholder:"Rechercher ou ajouter par nom…", work:"œuvre", works:"œuvres", upcoming:"À venir", discoverGames:"Découvrir des jeux",
     topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus attendus", hotGames:"Les plus gros jeux du moment", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
     catAll:"Tout", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Séries", catGames:"Jeux",
+    changeBanner:"Changer la bannière", bioPh:"Écris une petite bio…",
     progHintWatch:"Le dernier épisode que tu as regardé.", progHintRead:"Le dernier chapitre que tu as lu.", totalReleased:"Dernier disponible", totalHint:"Le dernier chapitre/épisode sorti — pour que Yomu te prévienne quand il y a du nouveau.",
     planFreePer:"pour toujours · local-first", planProPer:"ou 29,99 $/an — 2 mois offerts", planLifePer:"paiement unique · meilleure offre",
     planFoot:"Le suivi local est gratuit à vie et ne dépend jamais de nos serveurs. Les offres payantes financent la sync, les alertes et le moteur de traduction optionnels.",
@@ -495,6 +497,44 @@ function bindHome() {
 }
 
 /* ================= LIBRARY ================= */
+// Discord-style dashboard header: banner + avatar + editable name & bio.
+function renderLibHeader() {
+  const el = document.getElementById("lib-header");
+  if (!el) return;
+  const p = settings.profile || {};
+  const name = p.name || "Yomu";
+  const banner = p.banner && /^https?:|^data:/.test(p.banner) ? `background-image:url('${esc(p.banner)}')` : (p.banner ? `background:${esc(p.banner)}` : "");
+  el.innerHTML = `<div class="dash">
+    <div class="dash-banner" style="${banner}"><button class="edit-banner" id="dash-edit-banner">${I.image} ${t("changeBanner")}</button></div>
+    <div class="dash-body">
+      <div class="dash-av" id="dash-av">${p.avatar ? `<img src="${esc(p.avatar)}">` : esc(initials(name))}<span class="cam">${I.image}</span></div>
+      <div class="dash-id">
+        <h1><span id="dash-name">${esc(name)}</span> <button class="edit-name" id="dash-edit-name" data-tip="${t("rename")}">${I.gear}</button></h1>
+        <p class="bio ${p.bio ? "" : "empty"}" id="dash-bio" data-ph="${t("bioPh")}">${esc(p.bio || "")}</p>
+      </div>
+    </div>
+  </div>`;
+  const saveP = (patch) => { settings.profile = { ...(settings.profile || {}), ...patch }; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { profile: settings.profile } }, (r) => { if (r?.settings) settings = r.settings; paintAvatar(); renderProfileMenu(); }); };
+  const av = document.getElementById("dash-av");
+  if (av) av.onclick = () => openCropper({ shape: "circle", title: t("changePhoto"), onSave: (data) => { saveP({ avatar: data }); renderLibHeader(); } });
+  const eb = document.getElementById("dash-edit-banner");
+  if (eb) eb.onclick = () => openCropper({ shape: "rect", title: t("changeBanner"), onSave: (data) => { saveP({ banner: data }); renderLibHeader(); } });
+  const en = document.getElementById("dash-edit-name");
+  if (en) en.onclick = () => {
+    const h = document.getElementById("dash-name");
+    const inp = document.createElement("input"); inp.className = "dash-name-input"; inp.value = name; inp.maxLength = 40;
+    h.replaceWith(inp); inp.focus(); inp.select();
+    const commit = () => { const v = inp.value.trim() || "Yomu"; saveP({ name: v }); renderLibHeader(); };
+    inp.onblur = commit; inp.onkeydown = (e) => { if (e.key === "Enter") inp.blur(); };
+  };
+  const bio = document.getElementById("dash-bio");
+  if (bio) bio.onclick = () => {
+    const ta = document.createElement("textarea"); ta.className = "dash-bio-input"; ta.value = p.bio || ""; ta.maxLength = 240; ta.placeholder = t("bioPh");
+    bio.replaceWith(ta); ta.focus();
+    const commit = () => { saveP({ bio: ta.value.trim() }); renderLibHeader(); };
+    ta.onblur = commit; ta.onkeydown = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) ta.blur(); };
+  };
+}
 function renderStats() {
   const s = [
     [items.filter((i) => i.type !== "game").length, t("tracked")],
@@ -840,7 +880,8 @@ function wireDrawer(i, isWatch, isGame) {
   if (!isGame) {
     const num = document.getElementById("dr-num");
     const key = isWatch ? "episode" : "chapter", latestKey = isWatch ? "latestEpisode" : "latestChapter";
-    const setNum = (v) => { const n = Math.max(0, Math.round(Number(v) || 0)); num.value = n; const p = { [key]: n || undefined }; p[latestKey] = Math.max(i[latestKey] || 0, n) || undefined; update(i.id, p); };
+    if (i.total) num.max = i.total; // real limit — can't go past what exists
+    const setNum = (v) => { let n = Math.max(0, Math.round(Number(v) || 0)); if (i.total && n > i.total) n = i.total; num.value = n; const p = { [key]: n || undefined }; p[latestKey] = Math.max(i[latestKey] || 0, n) || undefined; update(i.id, p); };
     document.getElementById("dr-minus").onclick = () => { setNum((Number(num.value) || 0) - 1); setTimeout(() => openDrawer(i.id), 30); };
     document.getElementById("dr-plus").onclick = () => { setNum((Number(num.value) || 0) + 1); setTimeout(() => openDrawer(i.id), 30); };
     num.onchange = () => { setNum(num.value); setTimeout(() => openDrawer(i.id), 30); };
@@ -1202,6 +1243,7 @@ function switchView(v) {
 function renderAll() {
   renderNav();
   paintAvatar();
+  renderLibHeader();
   renderStats();
   renderFilters();
   renderGrid();
@@ -1280,7 +1322,15 @@ function addFromCatalog(m, btn) {
   };
   if (btn) { btn.disabled = true; btn.innerHTML = I.check; }
   api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload }, () => {
-    api.runtime.sendMessage({ type: "GET_STATE" }, (s) => { hydrate(s); toast(m.title + " ✓"); });
+    api.runtime.sendMessage({ type: "GET_STATE" }, (s) => {
+      hydrate(s);
+      toast(m.title + " ✓");
+      // Open the work's card so the user sees it was added and can set progress
+      // and pick a list right away (no "added into the void").
+      const key = normTitle(m.title);
+      const it = items.find((x) => normTitle(x.title) === key);
+      if (it) openDrawer(it.id);
+    });
   });
 }
 document.getElementById("filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.f; renderFilters(); renderGrid(); });
