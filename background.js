@@ -892,6 +892,33 @@ async function ocrSpaceImage(imageUrl, target, key, src) {
   const out = await cv.convertToBlob({ type: "image/png" });
   return await blobToDataUrl(out);
 }
+// OCR a panel and return the translated lines (for the side-panel reader view).
+// Translating the whole panel's lines together reads far better than per-word.
+async function ocrSpaceText(imageUrl, target, key, src) {
+  const raw = await fetchBlob(imageUrl);
+  let s = await scaledJpeg(raw, 1600, 0.72);
+  if (s.blob.size > 1000000) s = await scaledJpeg(raw, 1280, 0.55);
+  if (s.blob.size > 1000000) s = await scaledJpeg(raw, 1024, 0.45);
+  const dataUrl = await blobToDataUrl(s.blob);
+  const fd = new FormData();
+  fd.append("base64Image", dataUrl);
+  fd.append("language", src || "jpn");
+  fd.append("OCREngine", "1");
+  fd.append("scale", "true");
+  const res = await fetch("https://api.ocr.space/parse/image", { method: "POST", headers: { apikey: key || "helloworld" }, body: fd });
+  if (!res.ok) throw new Error(`ocr_${res.status}`);
+  const j = await res.json();
+  if (j.IsErroredOnProcessing) throw new Error(Array.isArray(j.ErrorMessage) ? j.ErrorMessage[0] : "ocr_err");
+  const parsed = ((j.ParsedResults && j.ParsedResults[0] && j.ParsedResults[0].ParsedText) || "").trim();
+  const srcLines = parsed.split(/\r?\n/).map((x) => x.trim()).filter((x) => x.length >= 1);
+  if (!srcLines.length) return { lines: [] };
+  const tr = await translateTexts(srcLines, target || "en");
+  return { lines: srcLines.map((sl, i) => ({ src: sl, tr: tr[i] || sl })) };
+}
+async function translateImageText(imageUrl, target, src) {
+  const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
+  return ocrSpaceText(imageUrl, target || "en", (s && s.ocrKey) || "helloworld", (s && s.ocrSrc) || src || "jpn");
+}
 // Lightweight reachability check: any HTTP response from the base or its docs
 // means the server is up (endpoints differ by version, so we don't require 200).
 async function testImgServer(url) {
@@ -1132,6 +1159,12 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "TRANSLATE_IMAGE":
       translateImage(message.url, message.code || "ENG", message.target || "en", message.src || "")
         .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
+        .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
+      return true;
+
+    case "TRANSLATE_IMAGE_TEXT":
+      translateImageText(message.url, message.target || "en", message.src || "")
+        .then((r) => sendResponse({ ok: true, lines: r.lines }))
         .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
       return true;
 

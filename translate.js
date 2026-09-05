@@ -65,6 +65,9 @@
     imgOriginals.clear();
     // Clear ALL panel markers (incl. ones that failed) so a fresh run re-attempts.
     document.querySelectorAll("img[data-dasi-tr]").forEach((im) => im.removeAttribute("data-dasi-tr"));
+    if (sideObs) { try { sideObs.disconnect(); } catch (e) {} sideObs = null; }
+    if (sideEl) { sideEl.remove(); sideEl = null; }
+    sideCount = 0; sideOk = 0;
     removePill();
   }
 
@@ -127,40 +130,82 @@
     void before;
   }
 
-  // Translate panels with a small concurrency pool so a full chapter finishes in
-  // reasonable time without hammering the service.
+  // Ask the background for the OCR'd + translated LINES of one panel image.
+  const askImageText = (url, target) => new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "TRANSLATE_IMAGE_TEXT", url, target, src: srcGuess() }, (r) => { void chrome.runtime.lastError; resolve(r || { ok: false }); });
+  });
+
+  // Side-panel reader: as you scroll, each manga/webtoon panel is OCR'd and its
+  // translation appears in a panel on the right — one-click, nothing to install.
+  let sideEl = null, sideObs = null, sideCount = 0, sideOk = 0;
+  function openSide(lang) {
+    if (sideEl) return;
+    sideEl = document.createElement("div");
+    sideEl.id = "dasi-tr-side";
+    sideEl.style.cssText =
+      "position:fixed;z-index:2147483646;top:64px;right:14px;width:330px;max-height:80vh;overflow-y:auto;" +
+      "background:#1E1A2B;color:#EFEAF8;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.5);" +
+      "font:13px/1.5 system-ui,-apple-system,sans-serif;padding:0;";
+    sideEl.innerHTML =
+      `<div style="position:sticky;top:0;background:#17131f;padding:12px 14px;display:flex;align-items:center;gap:8px;border-radius:16px 16px 0 0;border-bottom:1px solid #2c2640">
+        <b style="font-size:13px;flex:1">Yomu — ${String(lang || "EN").toUpperCase()}</b>
+        <a href="#" id="dasi-side-close" style="color:#9f8cf0;text-decoration:none;font-weight:700;font-size:12px">close</a>
+       </div><div id="dasi-side-body" style="padding:10px 12px 14px"></div>`;
+    document.documentElement.appendChild(sideEl);
+    const c = sideEl.querySelector("#dasi-side-close");
+    if (c) c.onclick = (e) => { e.preventDefault(); revert(); };
+  }
+  function sideStatus(msg) {
+    const body = sideEl && sideEl.querySelector("#dasi-side-body");
+    if (!body) return;
+    let s = body.querySelector("#dasi-side-status");
+    if (!s) { s = document.createElement("div"); s.id = "dasi-side-status"; s.style.cssText = "color:#9990ad;font-size:11.5px;padding:6px 2px"; body.appendChild(s); }
+    s.textContent = msg;
+  }
+  function addSideEntry(n, lines) {
+    const body = sideEl && sideEl.querySelector("#dasi-side-body");
+    if (!body) return;
+    const status = body.querySelector("#dasi-side-status");
+    const e = document.createElement("div");
+    e.style.cssText = "padding:10px 0;border-top:1px solid #2c2640";
+    e.innerHTML = `<div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:#7d7396;text-transform:uppercase;margin-bottom:4px">#${n}</div>` +
+      lines.map((l) => `<div style="margin-bottom:7px"><div style="font-weight:600">${escHtml(l.tr)}</div><div style="font-size:11px;color:#8f86a6">${escHtml(l.src)}</div></div>`).join("");
+    if (status) body.insertBefore(e, status); else body.appendChild(e);
+  }
+  function escHtml(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
   async function translateImages(lang, textCount) {
     textCount = textCount || 0;
-    const code = MIT_LANG[lang] || MIT_LANG[String(lang || "").slice(0, 2)] || "ENG";
-    setPill(`<span>Yomu — finding panels…</span> ${link("dasi-tr-x", "stop")}`); bindStop();
+    setPill(`<span>Yomu — reading panels…</span> ${link("dasi-tr-x", "stop")}`); bindStop();
     await warmPanels();
     if (cancelled) return;
-    const imgs = largePanels().slice(0, 60);
+    const imgs = largePanels();
     if (!imgs.length) { donePill(textCount, 0, lang); return; }
-    let done = 0, ok = 0, lastErr = "";
-    const total = imgs.length;
-    const tick = () => setPill(`<span>Yomu — translating panels ${done}/${total}… (${ok} done)</span> ${link("dasi-tr-x", "stop")}`);
-    tick(); bindStop();
-    const POOL = 3;
-    let cursor = 0;
-    async function worker() {
-      while (cursor < imgs.length && !cancelled) {
-        const im = imgs[cursor++];
-        im.dataset.dasiTr = "1";
-        const r = await askImage(realSrc(im), code, String(lang || "en").slice(0, 5));
-        if (r && r.ok && r.dataUrl) {
-          if (!imgOriginals.has(im)) imgOriginals.set(im, im.src);
-          try { im.removeAttribute("srcset"); im.src = r.dataUrl; ok++; } catch (e) {}
-        } else if (r && r.error) { lastErr = r.error; }
-        done++; tick(); bindStop();
-      }
+    openSide(lang);
+    sideStatus("Scroll to translate more panels…");
+    setPill(`<span>Yomu — panels appear on the right as you scroll →</span> ${link("dasi-tr-revert", "revert")}`);
+    const rb = document.getElementById("dasi-tr-revert"); if (rb) rb.onclick = (e) => { e.preventDefault(); revert(); };
+    let n = 0, active = 0;
+    const target = String(lang || "en").slice(0, 5);
+    const processed = new WeakSet();
+    async function handle(im) {
+      if (processed.has(im) || cancelled) return;
+      processed.add(im); im.dataset.dasiTr = "1";
+      active++; sideCount++;
+      const my = sideCount;
+      const r = await askImageText(realSrc(im), target);
+      active--;
+      if (r && r.ok && r.lines && r.lines.length) { sideOk++; addSideEntry(my, r.lines); }
+      sideStatus(cancelled ? "" : sideOk ? "Scroll to translate more panels…" : "Reading… scroll through the chapter.");
     }
-    await Promise.all(Array.from({ length: Math.min(POOL, imgs.length) }, worker));
-    if (cancelled) { donePill(textCount, ok, lang); return; }
-    if (ok) { donePill(textCount, ok, lang); return; }
-    // Panels were found but NONE translated. Surface this even if page text was
-    // translated, so the user is never told "done" while bubbles stay untranslated.
-    imageFailPill(lastErr, textCount, lang);
+    // Observe panels; translate each as it scrolls into view (progressive).
+    sideObs = new IntersectionObserver((entries) => {
+      for (const en of entries) if (en.isIntersecting) handle(en.target);
+    }, { rootMargin: "200px 0px" });
+    imgs.forEach((im) => sideObs.observe(im));
+    // Kick off the ones already on screen right away.
+    imgs.filter((im) => { const r = im.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }).slice(0, 4).forEach(handle);
+    void active; void n;
   }
 
   function bindStop() { const x = document.getElementById("dasi-tr-x"); if (x) x.onclick = (e) => { e.preventDefault(); cancelled = true; }; }
