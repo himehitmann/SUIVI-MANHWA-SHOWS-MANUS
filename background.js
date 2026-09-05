@@ -643,16 +643,41 @@ async function blobToDataUrl(blob) {
   for (let i = 0; i < buf.length; i += CH) bin += String.fromCharCode.apply(null, buf.subarray(i, i + CH));
   return `data:${blob.type || "image/png"};base64,${btoa(bin)}`;
 }
+// Self-hosted manga-image-translator. The current server (zyddnys/
+// manga-image-translator, port 8000) returns a finished PNG from the multipart
+// endpoint POST /translate/with-form/image (fields: image=<file>, config=<json>).
+// We fetch the panel bytes here (background has host access → no CORS) and post
+// them. Falls back to the legacy /translate/with-url/image on older servers.
 async function selfHostImage(server, imageUrl, code) {
-  const res = await fetch(server.replace(/\/+$/, "") + "/translate/with-url/image", {
+  const base = server.replace(/\/+$/, "");
+  const config = JSON.stringify({ translator: { translator: "google", target_lang: code } });
+  // Preferred: upload the bytes to the form endpoint.
+  try {
+    const file = await fetchBlob(imageUrl);
+    const fd = new FormData();
+    fd.append("image", file, "panel");
+    fd.append("config", config);
+    const res = await fetch(base + "/translate/with-form/image", { method: "POST", body: fd });
+    if (res.ok) {
+      const blob = await res.blob();
+      if (blob.type.indexOf("image") === 0) return await blobToDataUrl(blob);
+    } else if (res.status !== 404 && res.status !== 405) {
+      throw new Error(`server_${res.status}`);
+    }
+  } catch (e) {
+    if (String(e && e.message).startsWith("server_")) throw e;
+    // fetch/CORS issue on the form path — try the legacy URL path below.
+  }
+  // Legacy servers: JSON with the image URL.
+  const res2 = await fetch(base + "/translate/with-url/image", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url: imageUrl, config: { translator: { translator: "google", target_lang: code } } }),
   });
-  if (!res.ok) throw new Error(`server_${res.status}`);
-  const blob = await res.blob();
-  if (blob.type.indexOf("image") !== 0) throw new Error("server_notimg");
-  return await blobToDataUrl(blob);
+  if (!res2.ok) throw new Error(`server_${res2.status}`);
+  const blob2 = await res2.blob();
+  if (blob2.type.indexOf("image") !== 0) throw new Error("server_notimg");
+  return await blobToDataUrl(blob2);
 }
 async function cotransImage(imageUrl, code) {
   const file = await fetchBlob(imageUrl);
@@ -684,9 +709,31 @@ async function cotransImage(imageUrl, code) {
   const out = await cv.convertToBlob({ type: "image/png" });
   return await blobToDataUrl(out);
 }
+// Lightweight reachability check: any HTTP response from the base or its docs
+// means the server is up (endpoints differ by version, so we don't require 200).
+async function testImgServer(url) {
+  const base = (url || "").replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(base)) throw new Error("bad_url");
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    for (const path of ["/docs", "/"]) {
+      try {
+        const r = await fetch(base + path, { signal: ctrl.signal });
+        if (r && (r.ok || r.status === 404 || r.status === 405)) return true;
+      } catch (e) { /* try next path */ }
+    }
+    return false;
+  } finally {
+    clearTimeout(to);
+  }
+}
 async function translateImage(imageUrl, code) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-  return s && s.imgServer ? selfHostImage(s.imgServer, imageUrl, code) : cotransImage(imageUrl, code);
+  if (s && s.imgServer) return selfHostImage(s.imgServer, imageUrl, code);
+  // Zero-config fallback: the public cotrans service (best-effort; it is often
+  // offline, in which case the UI tells the user to set a server in Settings).
+  return cotransImage(imageUrl, code);
 }
 
 /** Inject the detector into a tab (idempotent) and return its detection. */
@@ -888,6 +935,13 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "CATALOG_SEARCH":
       catalogSearchAll(message.query || "")
         .then((results) => sendResponse({ ok: true, results }))
+        .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
+      return true;
+
+    // Ping a self-hosted manga-image-translator server to validate the URL.
+    case "TEST_IMG_SERVER":
+      testImgServer(message.url)
+        .then((ok) => sendResponse({ ok }))
         .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
       return true;
 

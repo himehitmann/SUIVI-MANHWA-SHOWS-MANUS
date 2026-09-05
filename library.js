@@ -29,7 +29,8 @@ const LANGS = {
     editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", language:"Language", uiLanguage:"App language", translateLanguage:"Default translation language", account:"Account", email:"Email", changeEmail:"Change email", changePassword:"Change password", currentPassword:"Current password", newPassword:"New password", save:"Save", signedInAs:"Signed in as", notSignedIn:"Not signed in — sync is optional.", newAlerts:"New-episode alerts", integrations:"Integrations & keys", filmsSeries:"Films & series", keyHint:"Optional free API key —", imgTranslate:"Manga image translation", imgTranslateHint:"Optional — a manga-image-translator server URL. See", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", cloudSync:"Cloud sync", cloudSyncSub:"Optional — sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Yomu.", spread:"Spread the word", enjoying:"Enjoying Yomu?",
     plansTitle:"Choose your plan", plansSub:"Free forever for local tracking. Go Pro for sync, alerts and more.", unlocked:"Owner edition — every Pro feature is unlocked.", mostPopular:"Most popular", getStarted:"Get started", goPro:"Go Pro", getLifetime:"Get Lifetime", currentPlan:"Current",
     updatesNone:"Nothing new right now", updatesSome:"{n} with something new", updates:"Updates",
-    discover:"Discover", discoverSub:"Fresh picks — not in your library yet.", forYou:"Recommended for you", forYouSub:"Based on your tags", trendingManga:"Trending manga & manhwa", popularAnime:"Popular anime right now", newGames:"New game releases", upcomingGames:"Upcoming games", addToLib:"Add to library", refresh:"Refresh", loadingReco:"Finding fresh picks…" },
+    discover:"Discover", discoverSub:"Fresh picks — not in your library yet.", forYou:"Recommended for you", forYouSub:"Based on your tags", trendingManga:"Trending manga & manhwa", popularAnime:"Popular anime right now", newGames:"New game releases", upcomingGames:"Upcoming games", addToLib:"Add to library", refresh:"Refresh", loadingReco:"Finding fresh picks…",
+    imgTranslateSub:"Translate speech bubbles inside manga/webtoon images (OCR). Text-based pages already translate with one click; image scanlations need a small free translation server — run it once, paste its URL, and it works on every reader.", imgServerLabel:"Server URL", imgTest:"Test", imgTesting:"Testing…", imgOk:"Connected ✓", imgFail:"No response — check the URL and that the server is running.", imgSetup:"How to run the server (free, ~2 min)", imgCopy:"Copy", imgCopied:"Copied ✓" },
   fr: { name:"Français", home:"Accueil", library:"Bibliothèque", lists:"Listes", games:"Jeux", plans:"Abonnements", settings:"Paramètres",
     search:"Rechercher", librarySub:"Tout ce que tu as enregistré, gardé sur cet appareil.", listsSub:"Classe tes œuvres à ta façon — glisse pour réordonner, choisis une couverture.",
     continue:"Reprendre", newWeek:"Nouveautés de la semaine", becauseYouLove:"Parce que tu aimes {g}", yourGenres:"Tes genres", recentlyAdded:"Ajoutés récemment", sitesTitle:"Tes sites",
@@ -42,7 +43,8 @@ const LANGS = {
     editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", language:"Langue", uiLanguage:"Langue de l'appli", translateLanguage:"Langue de traduction par défaut", account:"Compte", email:"E-mail", changeEmail:"Changer l'e-mail", changePassword:"Changer le mot de passe", currentPassword:"Mot de passe actuel", newPassword:"Nouveau mot de passe", save:"Enregistrer", signedInAs:"Connecté en tant que", notSignedIn:"Non connecté — la sync est optionnelle.", newAlerts:"Alertes nouveaux épisodes", integrations:"Intégrations & clés", filmsSeries:"Films & séries", keyHint:"Clé API gratuite optionnelle —", imgTranslate:"Traduction d'images manga", imgTranslateHint:"Optionnel — URL d'un serveur manga-image-translator. Voir", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel — connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Yomu.", spread:"Fais passer le mot", enjoying:"Tu aimes Yomu ?",
     plansTitle:"Choisis ton abonnement", plansSub:"Gratuit à vie pour le suivi local. Passe Pro pour la sync, les alertes et plus.", unlocked:"Édition propriétaire — toutes les fonctions Pro sont débloquées.", mostPopular:"Le plus populaire", getStarted:"Commencer", goPro:"Passer Pro", getLifetime:"À vie", currentPlan:"Actuel",
     updatesNone:"Rien de nouveau pour l'instant", updatesSome:"{n} avec du nouveau", updates:"Notifications",
-    discover:"Découvrir", discoverSub:"Nouveautés à découvrir — pas encore dans ta bibliothèque.", forYou:"Recommandé pour toi", forYouSub:"D'après tes tags", trendingManga:"Manga & manhwa tendances", popularAnime:"Anime populaires en ce moment", newGames:"Nouveaux jeux sortis", upcomingGames:"Jeux à venir", addToLib:"Ajouter à la bibliothèque", refresh:"Actualiser", loadingReco:"Recherche de nouveautés…" },
+    discover:"Découvrir", discoverSub:"Nouveautés à découvrir — pas encore dans ta bibliothèque.", forYou:"Recommandé pour toi", forYouSub:"D'après tes tags", trendingManga:"Manga & manhwa tendances", popularAnime:"Anime populaires en ce moment", newGames:"Nouveaux jeux sortis", upcomingGames:"Jeux à venir", addToLib:"Ajouter à la bibliothèque", refresh:"Actualiser", loadingReco:"Recherche de nouveautés…",
+    imgTranslateSub:"Traduire les bulles à l'intérieur des images de manga/webtoon (OCR). Les pages en texte se traduisent déjà en un clic ; les scans en image nécessitent un petit serveur de traduction gratuit — lance-le une fois, colle son URL, et ça marche sur tous les lecteurs.", imgServerLabel:"URL du serveur", imgTest:"Tester", imgTesting:"Test…", imgOk:"Connecté ✓", imgFail:"Aucune réponse — vérifie l'URL et que le serveur tourne.", imgSetup:"Comment lancer le serveur (gratuit, ~2 min)", imgCopy:"Copier", imgCopied:"Copié ✓" },
   es: { name:"Español", home:"Inicio", library:"Biblioteca", lists:"Listas", games:"Juegos", plans:"Planes", settings:"Ajustes", search:"Buscar",
     continue:"Continuar", newWeek:"Novedades de la semana", becauseYouLove:"Porque te gusta {g}", yourGenres:"Tus géneros", recentlyAdded:"Añadidos recientemente",
     resume:"Reanudar", details:"Detalles", welcomeTitle:"Bienvenido a Yomu", tracked:"Seguidos", reading:"Lectura", watching:"Viendo", favorites:"Favoritos", finished:"Terminados", all:"Todo",
@@ -866,7 +868,22 @@ function renderSettings() {
     </div>
     <details class="advanced"><summary>${t("advanced")}</summary>
       <div class="panel" style="margin-top:12px">
-        <div class="row"><div class="grow"><b>${t("imgTranslate")}</b><small>${t("imgTranslateHint")} <a href="https://github.com/zyddnys/manga-image-translator" target="_blank" rel="noreferrer" style="color:var(--lav-ink)">manga-image-translator</a></small></div><input class="field" id="set-imgserver" placeholder="http://127.0.0.1:5003" value="${esc(settings.imgServer || "")}" style="max-width:220px" /></div>
+        <div class="row" style="align-items:flex-start"><div class="grow"><b>${t("imgTranslate")}</b><small>${t("imgTranslateSub")}</small></div></div>
+        <div class="row"><div class="grow"><b style="font-weight:600;font-size:13px">${t("imgServerLabel")}</b></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input class="field" id="set-imgserver" placeholder="http://127.0.0.1:8000" value="${esc(settings.imgServer || "")}" style="max-width:220px" />
+            <button class="btn" id="img-test">${t("imgTest")}</button>
+          </div>
+        </div>
+        <div id="img-test-res" class="test-res" hidden></div>
+        <details class="setup"><summary>${t("imgSetup")}</summary>
+          <div class="code-block"><code id="img-cmd">git clone https://github.com/zyddnys/manga-image-translator
+cd manga-image-translator
+pip install -r requirements.txt
+python server/main.py            # add --use-gpu if you have an NVIDIA GPU
+# then paste  http://127.0.0.1:8000  above</code><button class="btn ghost" id="img-copy">${t("imgCopy")}</button></div>
+          <small style="color:var(--muted)">${t("imgTranslateHint")} <a href="https://github.com/zyddnys/manga-image-translator" target="_blank" rel="noreferrer" style="color:var(--lav-ink)">manga-image-translator</a></small>
+        </details>
       </div>
     </details>`;
   wireSettings();
@@ -885,6 +902,27 @@ function wireSettings() {
   trlang.onchange = () => { settings.translateLang = trlang.value; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: settings.translateLang } }, (r) => { if (r?.settings) settings = r.settings; }); };
   const bindKey = (id, key) => { const el = document.getElementById(id); if (el) el.onchange = () => { const v = el.value.trim(); settings[key] = v; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { [key]: v } }, (r) => { if (r?.settings) settings = r.settings; toast("✓"); }); }; };
   bindKey("set-tmdb", "tmdbKey"); bindKey("set-rawg", "rawgKey"); bindKey("set-imgserver", "imgServer");
+  const imgCopy = document.getElementById("img-copy");
+  if (imgCopy) imgCopy.onclick = () => { const c = document.getElementById("img-cmd"); navigator.clipboard?.writeText(c ? c.textContent : "").then(() => { imgCopy.textContent = t("imgCopied"); setTimeout(() => (imgCopy.textContent = t("imgCopy")), 1500); }).catch(() => {}); };
+  const imgTest = document.getElementById("img-test");
+  if (imgTest) imgTest.onclick = () => {
+    const url = (document.getElementById("set-imgserver").value || "").trim();
+    const res = document.getElementById("img-test-res");
+    if (!url) { res.hidden = false; res.className = "test-res bad"; res.textContent = t("imgFail"); return; }
+    // Persist first so a successful test also saves the URL.
+    settings.imgServer = url; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { imgServer: url } }, (r) => { if (r?.settings) settings = r.settings; });
+    imgTest.disabled = true; imgTest.textContent = t("imgTesting"); res.hidden = true;
+    const doTest = () => api.runtime.sendMessage({ type: "TEST_IMG_SERVER", url }, (r) => {
+      void api.runtime.lastError;
+      imgTest.disabled = false; imgTest.textContent = t("imgTest");
+      res.hidden = false;
+      if (r && r.ok) { res.className = "test-res good"; res.textContent = t("imgOk"); }
+      else { res.className = "test-res bad"; res.textContent = t("imgFail") + (r && r.error ? " (" + r.error + ")" : ""); }
+    });
+    // The background needs host access to the (arbitrary) server to reach it.
+    if (api.permissions && api.permissions.request) api.permissions.request({ origins: ["<all_urls>"] }, () => { void api.runtime.lastError; doTest(); });
+    else doTest();
+  };
   renderAccountPanel();
   document.getElementById("export").onclick = doExport;
   document.getElementById("import").onclick = () => document.getElementById("file").click();

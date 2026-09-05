@@ -116,6 +116,19 @@
       .advanced summary::-webkit-details-marker { display:none; }
       .advanced summary::before { content:"▸ "; }
       .advanced[open] summary::before { content:"▾ "; }
+      .test-res { font-size:12.5px; font-weight:600; padding:8px 12px; border-radius:10px; margin:2px 0 10px; }
+      .test-res.good { background:#E8F6F0; color:#2E7D63; }
+      .test-res.bad { background:#FDEBEE; color:#C0435A; }
+      details.setup { margin:6px 0 10px; }
+      details.setup summary { cursor:pointer; font-size:12.5px; font-weight:600; color:var(--lav-ink); list-style:none; }
+      details.setup summary::-webkit-details-marker { display:none; }
+      details.setup summary::before { content:"▸ "; }
+      details.setup[open] summary::before { content:"▾ "; }
+      .code-block { position:relative; background:#1E1A2B; color:#E7E0F5; border-radius:12px; padding:14px 16px; margin:10px 0 6px; overflow-x:auto; }
+      .code-block code { white-space:pre; font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; display:block; }
+      .code-block .btn { position:absolute; top:10px; right:10px; padding:5px 10px; font-size:11px; }
+      .btn.ghost { background:rgba(255,255,255,.14); color:#fff; border:0; }
+      .btn.ghost:hover { background:rgba(255,255,255,.24); }
       /* search results filter chips */
       .sr-filters { display:flex; gap:7px; flex-wrap:wrap; margin:0 0 12px; }
       .sr-filters button { border:0; cursor:pointer; border-radius:999px; padding:6px 12px; background:#F2F0F8; color:#7D7989; font-size:12px; font-weight:600; }
