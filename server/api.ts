@@ -4,7 +4,7 @@
  * subscriptions when the owner deploys it. Passwords are scrypt-hashed, sessions
  * are HMAC-signed tokens, and storage is behind a swappable interface.
  */
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import express, { type Request, type Response, type Router } from "express";
 import { hashPassword, signToken, verifyPassword, verifyToken } from "./lib/crypto";
 import { mergeBlobs, type SyncBlob } from "./lib/merge";
@@ -14,7 +14,17 @@ import {
   verifyPaddleSignature, verifyStripeSignature, type PriceMap,
 } from "./lib/billing";
 
-const SECRET = process.env.SYNC_JWT_SECRET || "dev-insecure-secret-change-me";
+// Session-signing secret. Fail closed in production: a known/guessable secret
+// would let anyone forge a valid token for any account. In dev we fall back to
+// a random per-process secret (never a hardcoded one) so local runs work.
+const SECRET = (() => {
+  const s = process.env.SYNC_JWT_SECRET;
+  if (s && s.length >= 16) return s;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SYNC_JWT_SECRET must be set to a strong value (>= 16 chars) in production.");
+  }
+  return randomBytes(32).toString("hex");
+})();
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 const STRIPE_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
@@ -79,6 +89,23 @@ export function createApiRouter(store: Store = createStore(process.env.SYNC_DB_F
     next();
   });
 
+  // Simple in-memory fixed-window rate limiter for the auth endpoints, so a
+  // deployment gets basic brute-force / credential-stuffing protection out of
+  // the box (a real deployment behind a proxy can add more).
+  const hits = new Map<string, { n: number; t: number }>();
+  const rateLimited = (req: Request, res: Response, max = 20, windowMs = 60_000): boolean => {
+    const ip = (String(req.headers["x-forwarded-for"] || "").split(",")[0].trim()) || req.socket.remoteAddress || "?";
+    const key = `${req.path}:${ip}`;
+    const now = Date.now();
+    const rec = hits.get(key);
+    if (!rec || now - rec.t > windowMs) { hits.set(key, { n: 1, t: now }); return false; }
+    rec.n += 1;
+    if (rec.n > max) { res.status(429).json({ error: "too_many_requests" }); return true; }
+    return false;
+  };
+  // Occasional cleanup so the map can't grow unbounded.
+  const sweep = () => { const now = Date.now(); hits.forEach((v, k) => { if (now - v.t > 120_000) hits.delete(k); }); };
+
   const auth = (req: Request): { id: string } | null => {
     const header = req.headers.authorization || "";
     const token = header.startsWith("Bearer ") ? header.slice(7) : "";
@@ -89,6 +116,8 @@ export function createApiRouter(store: Store = createStore(process.env.SYNC_DB_F
   const publicUser = (u: { id: string; email: string; plan: string }) => ({ id: u.id, email: u.email, plan: u.plan });
 
   router.post("/auth/signup", async (req: Request, res: Response) => {
+    if (rateLimited(req, res, 10)) return;
+    sweep();
     const { email, password } = req.body || {};
     if (!EMAIL_RE.test(email || "")) return res.status(400).json({ error: "invalid_email" });
     if (typeof password !== "string" || password.length < 8) return res.status(400).json({ error: "weak_password" });
@@ -99,6 +128,7 @@ export function createApiRouter(store: Store = createStore(process.env.SYNC_DB_F
   });
 
   router.post("/auth/login", async (req: Request, res: Response) => {
+    if (rateLimited(req, res, 10)) return;
     const { email, password } = req.body || {};
     const user = await store.getUserByEmail(email || "");
     if (!user || !verifyPassword(password || "", user.passwordHash)) return res.status(401).json({ error: "invalid_credentials" });
@@ -121,6 +151,7 @@ export function createApiRouter(store: Store = createStore(process.env.SYNC_DB_F
 
   // Change the signed-in user's password (requires the current one).
   router.post("/auth/password", async (req: Request, res: Response) => {
+    if (rateLimited(req, res, 10)) return;
     const session = auth(req);
     if (!session) return res.status(401).json({ error: "unauthorized" });
     const { current, next } = req.body || {};

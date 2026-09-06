@@ -34,6 +34,17 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
+  // Baseline security headers (no external dependency). Don't leak the stack,
+  // block MIME sniffing and clickjacking, and keep referrers tight.
+  app.disable("x-powered-by");
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+    next();
+  });
+
   // Optional sync + auth API. Harmless when unused; the apps default to local.
   app.use("/api", createApiRouter(await resolveStore()));
 
