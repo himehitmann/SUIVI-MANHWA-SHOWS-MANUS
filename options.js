@@ -60,12 +60,16 @@ async function render() {
   }
 }
 
+// Sync endpoint is baked in so users never type a URL. Set this once at
+// deploy time (the hosted Yomu sync API). Empty = sync not configured.
+const DEFAULT_SYNC_API = "";
+
 async function authenticate(type) {
-  const apiUrl = $("apiUrl").value.trim();
+  const apiUrl = ($("apiUrl").value.trim() || DEFAULT_SYNC_API);
   const email = $("email").value.trim();
   const password = $("password").value;
   clearMsg($("msg-out"));
-  if (!apiUrl) return showMsg($("msg-out"), "Enter your backend URL.", "err");
+  if (!apiUrl) return showMsg($("msg-out"), "Cloud sync isn't available yet — everything still works on this device.", "err");
   if (!email || !password) return showMsg($("msg-out"), "Enter your email and password.", "err");
 
   $("signin").disabled = true;

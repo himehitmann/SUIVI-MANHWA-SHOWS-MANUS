@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Cloud, Infinity as InfinityIcon, Sparkles } from "lucide-react";
+import { Check, Cloud, Star } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { ShareBar } from "@/components/ShareBar";
@@ -12,7 +12,7 @@ import type { Plan } from "@/lib/types";
 
 interface Tier {
   plan: Plan;
-  icon: typeof Sparkles;
+  icon: typeof Star;
   price: { monthly: string; yearly: string };
   featured?: boolean;
   features: string[];
@@ -21,15 +21,14 @@ interface Tier {
 const tiers: Tier[] = [
   {
     plan: "free",
-    icon: Sparkles,
+    icon: Star,
     price: { monthly: "$0", yearly: "$0" },
     features: [
-      "Unlimited local library",
-      "Universal detection on any site",
-      "Add works manually + online title search",
-      "Import from MyAnimeList, CSV & JSON",
-      "Language learning — Korean basics & numbers",
-      "Custom lists & drag-and-drop",
+      "Unlimited library — manga, webtoons, anime, series, films & games",
+      "One-click save & resume on any site",
+      "Import from Trakt, TV Time, IMDb, Letterboxd & MyAnimeList",
+      "Custom lists, tags, ratings & drag-and-drop",
+      "Built-in page & image translation",
       "Video speed & Picture-in-Picture",
       "Export / import backups",
     ],
@@ -37,27 +36,16 @@ const tiers: Tier[] = [
   {
     plan: "pro",
     icon: Cloud,
-    price: { monthly: "$2.99", yearly: "$24.99" },
+    price: { monthly: "$3.49", yearly: "$29.99" },
     featured: true,
     features: [
       "Everything in Free",
-      "Full learning — Korean, Japanese & Chinese, all categories + reviews",
-      "Encrypted cloud sync across all devices",
-      "New chapter & episode alerts",
-      "Reading calendar & statistics",
-      "Unlimited devices",
-      "Priority support",
-    ],
-  },
-  {
-    plan: "lifetime",
-    icon: InfinityIcon,
-    price: { monthly: "$49", yearly: "$49" },
-    features: [
-      "Everything in Pro, forever",
-      "One payment, all future updates",
-      "No subscription to manage",
-      "Founder badge",
+      "Encrypted cloud sync across unlimited devices",
+      "New chapter, episode & release alerts",
+      "Full stats — streaks, trends, calendar & forecasts",
+      "Unlimited translation, every language",
+      "Custom list covers & profile",
+      "Priority support & early features",
     ],
   },
 ];
@@ -67,7 +55,7 @@ export default function Pricing() {
   const store = useStore();
   const [yearly, setYearly] = useState(true);
 
-  const ctaLabel = (plan: Plan) => (plan === "free" ? t("pricing.cta.free") : plan === "pro" ? t("pricing.cta.pro") : t("pricing.cta.lifetime"));
+  const ctaLabel = (plan: Plan) => (plan === "free" ? t("pricing.cta.free") : t("pricing.cta.pro"));
 
   const subscribe = (plan: Plan) => {
     if (plan === "free") {
@@ -110,9 +98,8 @@ export default function Pricing() {
           {tiers.map((tier) => {
             const Icon = tier.icon;
             const isCurrent = store.plan === tier.plan;
-            const price = tier.plan === "lifetime" ? tier.price.monthly : yearly ? tier.price.yearly : tier.price.monthly;
-            const suffix =
-              tier.plan === "free" ? "" : tier.plan === "lifetime" ? ` ${t("pricing.once")}` : yearly ? t("pricing.perYear") : t("pricing.perMonth");
+            const price = yearly ? tier.price.yearly : tier.price.monthly;
+            const suffix = tier.plan === "free" ? "" : yearly ? t("pricing.perYear") : t("pricing.perMonth");
             return (
               <div key={tier.plan} className={`pricing-card ${tier.featured ? "featured" : ""} ${isCurrent ? "current" : ""}`}>
                 {tier.featured && <span className="pricing-flag">{t("pricing.pro")}</span>}

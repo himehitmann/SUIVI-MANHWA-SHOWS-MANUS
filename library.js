@@ -8,6 +8,7 @@ let filter = "all", query = "", currentListId = null, view = "home";
 let spotIdx = 0, spotItems = [], spotTimer = null;
 let discover = null, discoverTried = false; // fresh recommendations pulled from the background
 let discoCat = "all"; // active Discover category tab (webtoon-style)
+let planCycle = "year"; // billing cycle shown on the Plans page ("year" | "month")
 let userPlan = null; // "pro" | "lifetime" | null, from the sync backend
 const isPro = () => UNLOCK_ALL || userPlan === "pro" || userPlan === "lifetime";
 // Premium-sounding subtitle for the profile menu (never "local-first").
@@ -42,7 +43,8 @@ const LANGS = {
     changeBanner:"Change banner", bioPh:"Write a short bio…",
     searching:"Searching", searchTitle:"Search", noMatch:"No match — try another spelling or a different language.",
     progHintWatch:"The episode you last watched.", progHintRead:"The chapter you last read.", totalReleased:"Latest available", totalHint:"The newest chapter/episode out — so Yomu can tell you when there's something new.",
-    planFreePer:"forever", planProPer:"or $29.99/yr — 2 months free", planLifePer:"one-time · best value",
+    planFreePer:"free forever", planProPer:"or $29.99/yr — 2 months free", planLifePer:"one-time · best value",
+    monthly:"Monthly", yearly:"Yearly", save2mo:"2 months free", perMonthNote:"billed monthly, cancel anytime", perYearNote:"billed yearly — about $2.50/mo",
     planFoot:"Tracking is free forever. Paid tiers fund the optional sync, update alerts and translation engine.",
     freeFeatures:["Unlimited tracking — manga, manhwa, webtoons, anime, series, films, games", "Auto-detect & one-click save, resume anywhere", "Lists, tags, ratings, synopsis, series grouping", "Episode / chapter seen tracking", "Import from MAL, CSV, JSON + backup", "Every UI language", "Page translation — up to 5 pages / day"],
     proFeatures:["Everything in Free", "Encrypted multi-device sync — unlimited devices", "New-episode & game-release alerts (notifications)", "Unlimited page translation, every language, priority engine", "Full stats & insights — streaks, trends, forecasts", "Custom list covers & profile (upload, crop, reposition)", "Priority support & early features"],
@@ -69,7 +71,8 @@ const LANGS = {
     changeBanner:"Changer la bannière", bioPh:"Écris une petite bio…",
     searching:"Recherche", searchTitle:"Recherche", noMatch:"Aucun résultat — essaie une autre orthographe ou une autre langue.",
     progHintWatch:"Le dernier épisode que tu as regardé.", progHintRead:"Le dernier chapitre que tu as lu.", totalReleased:"Dernier disponible", totalHint:"Le dernier chapitre/épisode sorti — pour que Yomu te prévienne quand il y a du nouveau.",
-    planFreePer:"pour toujours", planProPer:"ou 29,99 $/an — 2 mois offerts", planLifePer:"paiement unique · meilleure offre",
+    planFreePer:"gratuit à vie", planProPer:"ou 29,99 $/an — 2 mois offerts", planLifePer:"paiement unique · meilleure offre",
+    monthly:"Mensuel", yearly:"Annuel", save2mo:"2 mois offerts", perMonthNote:"facturé au mois, résiliable à tout moment", perYearNote:"facturé à l'année — environ 2,50 $/mois",
     planFoot:"Le suivi est gratuit à vie. Les offres payantes financent la sync, les alertes de sortie et le moteur de traduction optionnels.",
     freeFeatures:["Suivi illimité — manga, manhwa, webtoons, anime, séries, films, jeux", "Détection auto & enregistrement en un clic, reprise partout", "Listes, tags, notes, synopsis, regroupement de séries", "Suivi des épisodes / chapitres vus", "Import depuis MAL, CSV, JSON + sauvegarde", "Toutes les langues d'interface", "Traduction de page — jusqu'à 5 pages / jour"],
     proFeatures:["Tout ce qu'il y a dans Free", "Sync multi-appareils chiffrée — appareils illimités", "Alertes nouveaux épisodes & sorties de jeux (notifications)", "Traduction de page illimitée, toutes langues, moteur prioritaire", "Stats & analyses complètes — séries, tendances, prévisions", "Couvertures de listes & profil personnalisés (upload, recadrage)", "Support prioritaire & fonctions en avant-première"],
@@ -743,24 +746,26 @@ function renderPlans() {
   el.innerHTML = `
     <h1>${t("plansTitle")}</h1><p class="sub">${t("plansSub")}</p>
     ${UNLOCK_ALL ? `<div class="unlocked-banner">${I.crown} ${t("unlocked")}</div>` : ""}
-    <div class="plan-grid">
+    <div class="cycle-toggle" role="tablist">
+      <button data-cycle="month" class="${planCycle === "month" ? "on" : ""}">${t("monthly")}</button>
+      <button data-cycle="year" class="${planCycle !== "month" ? "on" : ""}">${t("yearly")}<span class="save">${t("save2mo")}</span></button>
+    </div>
+    <div class="plan-grid two">
       <div class="plan">
         <h3>Free</h3><div class="price">$0</div><div class="per">${t("planFreePer")}</div>
         <ul>${feat(tArr("freeFeatures"))}</ul>
         <button class="cta" data-plan="free"${cur === "free" || UNLOCK_ALL ? " disabled" : ""}>${label("free", t("getStarted")) || t("currentPlan")}</button>
       </div>
       <div class="plan feat"><span class="ptag">${t("mostPopular")}</span>
-        <h3>Pro</h3><div class="price">$3.99<small>/mo</small></div><div class="per">${t("planProPer")}</div>
+        <h3>Pro</h3>
+        <div class="price">${planCycle === "month" ? "$3.49<small>/mo</small>" : "$29.99<small>/yr</small>"}</div>
+        <div class="per">${planCycle === "month" ? t("perMonthNote") : t("perYearNote")}</div>
         <ul>${feat(tArr("proFeatures"))}</ul>
         <button class="cta" data-plan="pro"${cur === "pro" ? " disabled" : ""}>${label("pro", t("goPro"))}</button>
       </div>
-      <div class="plan">
-        <h3>Lifetime</h3><div class="price">$59</div><div class="per">${t("planLifePer")}</div>
-        <ul>${feat(tArr("lifeFeatures"))}</ul>
-        <button class="cta" data-plan="lifetime"${cur === "lifetime" ? " disabled" : ""}>${label("lifetime", t("getLifetime"))}</button>
-      </div>
     </div>
     <p class="sub" style="margin-top:18px">${t("planFoot")}</p>`;
+  el.querySelectorAll("[data-cycle]").forEach((b) => (b.onclick = () => { planCycle = b.dataset.cycle; renderPlans(); }));
   el.querySelectorAll("[data-plan]").forEach((b) => (b.onclick = () => {
     if (UNLOCK_ALL) { toast(t("unlocked")); return; }
     api.runtime.openOptionsPage();
@@ -1153,20 +1158,7 @@ function renderSettings() {
     <div class="section-t">${t("imgTranslate")}</div>
     <div class="panel">
       <div class="row" style="align-items:flex-start"><div class="grow"><b>${t("imgTranslate")}</b><small>${t("imgTranslateSub")}</small></div><span class="ok-pill">${I.check} ${t("imgOn")}</span></div>
-    </div>
-    <details class="advanced"><summary>${t("advanced")}</summary>
-      <div class="panel" style="margin-top:12px">
-        <div class="row"><div class="grow"><b style="font-weight:600;font-size:13px">${t("imgKeyLabel")}</b><small>${t("imgKeyHint")}</small></div>
-          <input class="field" id="set-ocrkey" placeholder="${t("imgKeyPh")}" value="${esc(settings.ocrKey || "")}" style="max-width:220px" /></div>
-        <div class="row"><div class="grow"><b style="font-weight:600;font-size:13px">${t("imgServerLabel")}</b><small>${t("imgServerHint")}</small></div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input class="field" id="set-imgserver" placeholder="http://127.0.0.1:8000" value="${esc(settings.imgServer || "")}" style="max-width:220px" />
-            <button class="btn" id="img-test">${t("imgTest")}</button>
-          </div>
-        </div>
-        <div id="img-test-res" class="test-res" hidden></div>
-      </div>
-    </details>`;
+    </div>`;
   wireSettings();
 }
 function wireSettings() {
@@ -1181,27 +1173,6 @@ function wireSettings() {
   uilang.onchange = () => applyLanguage(uilang.value);
   const trlang = document.getElementById("set-trlang");
   trlang.onchange = () => { settings.translateLang = trlang.value; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: settings.translateLang } }, (r) => { if (r?.settings) settings = r.settings; }); };
-  const bindKey = (id, key) => { const el = document.getElementById(id); if (el) el.onchange = () => { const v = el.value.trim(); settings[key] = v; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { [key]: v } }, (r) => { if (r?.settings) settings = r.settings; toast("✓"); }); }; };
-  bindKey("set-tmdb", "tmdbKey"); bindKey("set-rawg", "rawgKey"); bindKey("set-imgserver", "imgServer"); bindKey("set-ocrkey", "ocrKey");
-  const imgTest = document.getElementById("img-test");
-  if (imgTest) imgTest.onclick = () => {
-    const url = (document.getElementById("set-imgserver").value || "").trim();
-    const res = document.getElementById("img-test-res");
-    if (!url) { res.hidden = false; res.className = "test-res bad"; res.textContent = t("imgFail"); return; }
-    // Persist first so a successful test also saves the URL.
-    settings.imgServer = url; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { imgServer: url } }, (r) => { if (r?.settings) settings = r.settings; });
-    imgTest.disabled = true; imgTest.textContent = t("imgTesting"); res.hidden = true;
-    const doTest = () => api.runtime.sendMessage({ type: "TEST_IMG_SERVER", url }, (r) => {
-      void api.runtime.lastError;
-      imgTest.disabled = false; imgTest.textContent = t("imgTest");
-      res.hidden = false;
-      if (r && r.ok) { res.className = "test-res good"; res.textContent = t("imgOk"); }
-      else { res.className = "test-res bad"; res.textContent = t("imgFail") + (r && r.error ? " (" + r.error + ")" : ""); }
-    });
-    // The background needs host access to the (arbitrary) server to reach it.
-    if (api.permissions && api.permissions.request) api.permissions.request({ origins: ["<all_urls>"] }, () => { void api.runtime.lastError; doTest(); });
-    else doTest();
-  };
   renderAccountPanel();
   document.getElementById("export").onclick = doExport;
   document.getElementById("import").onclick = () => document.getElementById("file").click();
