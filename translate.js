@@ -79,8 +79,11 @@
    * image the server returns. Mirrors how manga-image-translator / cotrans work,
    * but driven from the extension. Requires the server to allow CORS.
    */
-  // Guess the source language of the page so OCR picks the right model.
+  // Source language for OCR. The user can force it from the popup (srcOverride);
+  // otherwise we guess from the host.
+  let srcOverride = "";
   function srcGuess() {
+    if (srcOverride) return srcOverride;
     const h = (location.host + location.pathname).toLowerCase();
     if (/naver|kakao|webtoon|manhwa|lezhin|bomtoon|kr[.\/]/.test(h)) return "kor";
     if (/bilibili|manhua|qq\.com|dongman|kuaikan|ac\.qq|zh[-.]/.test(h)) return "chs";
@@ -273,7 +276,7 @@
   if (!window.__dasiTranslateBound) {
     window.__dasiTranslateBound = true;
     chrome.runtime.onMessage.addListener((m, _s, resp) => {
-      if (m.type === "DASI_TRANSLATE") { imgServer = m.imgServer || ""; translate(m.lang); resp && resp({ ok: true }); return true; }
+      if (m.type === "DASI_TRANSLATE") { imgServer = m.imgServer || ""; srcOverride = m.src || ""; translate(m.lang); resp && resp({ ok: true }); return true; }
       if (m.type === "DASI_TRANSLATE_REVERT") { revert(); resp && resp({ ok: true }); return true; }
       return false;
     });

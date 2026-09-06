@@ -1047,7 +1047,7 @@ async function ocrTextTesseract(imageUrl, target, src) {
 }
 async function translateImageText(imageUrl, target, src) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-  const srcLang = (s && s.ocrSrc) || src || "kor";
+  const srcLang = src || (s && s.ocrSrc) || "kor";
   // 1) Bundled Tesseract (offline, always available). 2) OCR.space fallback.
   try {
     const r = await ocrTextTesseract(imageUrl, target || "en", srcLang);
@@ -1351,7 +1351,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return sendResponse({ ok: false, error: "restricted_page" });
         }
         const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-        api.tabs.sendMessage(tab.id, { type: "DASI_TRANSLATE", lang: message.lang || "en", imgServer: (s && s.imgServer) || "" }, () => {
+        api.tabs.sendMessage(tab.id, { type: "DASI_TRANSLATE", lang: message.lang || "en", src: message.src || "", imgServer: (s && s.imgServer) || "" }, () => {
           void api.runtime.lastError;
           sendResponse({ ok: true });
         });

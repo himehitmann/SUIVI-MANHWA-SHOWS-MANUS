@@ -252,10 +252,17 @@ let popupPlan = null;
 const trSel = $("#tr-lang");
 TR_LANGS.forEach(([code, name]) => { const o = document.createElement("option"); o.value = code; o.textContent = name; trSel.appendChild(o); });
 
+// Source language for image (OCR) translation. "Auto" guesses from the site.
+const trSrc = $("#tr-src");
+const SRC_LANGS = [["", "Auto"], ["kor", "Korean"], ["jpn", "Japanese"], ["chs", "Chinese"]];
+SRC_LANGS.forEach(([code, name]) => { const o = document.createElement("option"); o.value = code; o.textContent = name; trSrc.appendChild(o); });
+trSrc.onchange = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateSrc: trSrc.value } }, () => void api.runtime.lastError);
+
 api.runtime.sendMessage({ type: "GET_STATE" }, (state) => {
   void api.runtime.lastError;
   popupSettings = { translateLang: (state && state.settings && state.settings.translateLang) || (navigator.language || "en").slice(0, 2), ...(state && state.settings) };
   trSel.value = [...trSel.options].some((o) => o.value === popupSettings.translateLang) ? popupSettings.translateLang : "en";
+  trSrc.value = [...trSrc.options].some((o) => o.value === (popupSettings.translateSrc || "")) ? (popupSettings.translateSrc || "") : "";
   lists = (state && Array.isArray(state.lists)) ? state.lists : [];
   renderLists();
 });
@@ -289,7 +296,7 @@ $("#tr-go").onclick = () => {
   // Manga/webtoon panels are images; translating them (OCR) needs to fetch the
   // panel from its site. Ask once for that access — text pages don't need it,
   // so denying still lets text translation work.
-  const go = () => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang }, (r) => {
+  const go = () => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang, src: trSrc.value }, (r) => {
     void api.runtime.lastError;
     $("#tr-go").disabled = false;
     if (r && r.ok) { $("#tr-status").textContent = "Done — see the pill on the page (revert there)."; bumpTrUsage(); }

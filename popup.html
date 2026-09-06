@@ -148,9 +148,13 @@
 
       <div class="tools" style="margin-top:8px">
         <div class="tools-title">Translate this page</div>
-        <div class="tr-line">
+        <div class="tr-line" style="margin-bottom:8px">
+          <select id="tr-src" aria-label="Source language" title="Language of the comic/page"></select>
+          <span style="color:#9C98A6;font-size:12px">→</span>
           <select id="tr-lang" aria-label="Target language"></select>
-          <button id="tr-go" class="tr-go"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7M9 3v2c0 5-3 8-6 9"/><path d="M5 11c2 2 5 3 7 3"/><path d="M13 21l4-9 4 9M14.5 18h5"/></svg> Translate</button>
+        </div>
+        <div class="tr-line">
+          <button id="tr-go" class="tr-go" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7M9 3v2c0 5-3 8-6 9"/><path d="M5 11c2 2 5 3 7 3"/><path d="M13 21l4-9 4 9M14.5 18h5"/></svg> Translate</button>
         </div>
         <div class="tr-status" id="tr-status"></div>
       </div>
