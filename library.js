@@ -36,6 +36,7 @@ const LANGS = {
     searchPlaceholder:"Search or add by name…", work:"work", works:"works", upcoming:"Upcoming", discoverGames:"Discover games",
     topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most anticipated games", hotGames:"Biggest games right now", openInNew:"Open", discoverMore:"Discover more",
     catAll:"All", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Series", catGames:"Games",
+    categories:"Categories", chooseCats:"Choose which categories show on Home",
     changeBanner:"Change banner", bioPh:"Write a short bio…",
     searching:"Searching", searchTitle:"Search", noMatch:"No match — try another spelling or a different language.",
     progHintWatch:"The episode you last watched.", progHintRead:"The chapter you last read.", totalReleased:"Latest available", totalHint:"The newest chapter/episode out — so Yomu can tell you when there's something new.",
@@ -62,6 +63,7 @@ const LANGS = {
     searchPlaceholder:"Rechercher ou ajouter par nom…", work:"œuvre", works:"œuvres", upcoming:"À venir", discoverGames:"Découvrir des jeux",
     topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus attendus", hotGames:"Les plus gros jeux du moment", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
     catAll:"Tout", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Séries", catGames:"Jeux",
+    categories:"Catégories", chooseCats:"Choisis les catégories affichées sur l'accueil",
     changeBanner:"Changer la bannière", bioPh:"Écris une petite bio…",
     searching:"Recherche", searchTitle:"Recherche", noMatch:"Aucun résultat — essaie une autre orthographe ou une autre langue.",
     progHintWatch:"Le dernier épisode que tu as regardé.", progHintRead:"Le dernier chapitre que tu as lu.", totalReleased:"Dernier disponible", totalHint:"Le dernier chapitre/épisode sorti — pour que Yomu te prévienne quand il y a du nouveau.",
@@ -130,6 +132,7 @@ const I = {
   image:'<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m21 16-5-5L5 20"/></svg>',
   grid:'<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
   rows:'<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="4" rx="1.5"/><rect x="3" y="15" width="18" height="4" rx="1.5"/></svg>',
+  sliders:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2" class="fill"/><circle cx="8" cy="12" r="2" class="fill"/><circle cx="14" cy="18" r="2" class="fill"/></svg>',
   user:'<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
   gear:'<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
   crown:'<svg class="ic" viewBox="0 0 24 24"><path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/></svg>',
@@ -334,8 +337,20 @@ function discoPools() {
   add("jdrama", discover.jdrama);
   add("series", discover.series);
   add("games", discover.gamesHot && discover.gamesHot.length ? discover.gamesHot : discover.gamesNew);
+  // User can hide categories from Home (settings.homeCats = allowed keys). An
+  // empty/absent list means "show everything". Never hide all — if the filter
+  // would empty Home, fall back to the full set.
+  const allow = Array.isArray(settings.homeCats) ? settings.homeCats : null;
+  if (allow && allow.length) {
+    const filtered = pools.filter((p) => allow.includes(p.key));
+    if (filtered.length) return filtered;
+  }
   return pools;
 }
+// The full ordered catalogue of Home categories (for the picker), regardless of
+// what currently has content.
+const HOME_CAT_KEYS = ["manhwa", "manga", "manhua", "anime", "kdrama", "cdrama", "jdrama", "series", "games"];
+function homeCatAllowed(key) { const a = settings.homeCats; return !Array.isArray(a) || !a.length || a.includes(key); }
 function renderDiscover() {
   if (!discover) return discoverTried ? "" : `<div class="section-h discover-h"><h2>${I.compass} ${t("discover")}</h2><span>${t("loadingReco")}</span></div>`;
   discoItems = [];
@@ -351,7 +366,7 @@ function renderDiscover() {
   const active = cats.find((c) => c.key === discoCat) || cats[0];
   const gameCat = active.game;
 
-  let out = `<div class="section-h discover-h"><h2>${I.compass} ${t("discover")}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div>`;
+  let out = `<div class="section-h discover-h"><h2>${I.compass} ${t("discover")}</h2><div class="disco-h-actions"><button class="refresh-btn" id="disco-cats" title="${t("chooseCats")}">${I.sliders}${t("categories")}</button><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div></div>`;
   out += `<div class="disco-tabs">${cats.map((c) => `<button class="disco-tab ${c.key === discoCat ? "active" : ""}" data-cat="${esc(c.key)}">${esc(c.label)}</button>`).join("")}</div>`;
   // One classy numbered Top-10 ranking for the selected category.
   out += rankRow(active.label, active.list, { noHead: true, soon: false });
@@ -393,6 +408,8 @@ function renderGamesDiscover() {
 function bindDisco(root = "#view-home") {
   const rf = document.querySelector(`${root} #disco-refresh`);
   if (rf) rf.onclick = () => { rf.classList.add("spin"); loadDiscover(true); };
+  const cb = document.querySelector(`${root} #disco-cats`);
+  if (cb) cb.onclick = (e) => { e.stopPropagation(); openHomeCats(cb); };
   // Category tabs (webtoon-style): clicking filters the ranking in place.
   document.querySelectorAll(`${root} [data-cat]`).forEach((b) => (b.onclick = () => {
     discoCat = b.dataset.cat;
@@ -411,6 +428,41 @@ function bindDisco(root = "#view-home") {
     const u = el.dataset.openUrl;
     if (u) api.tabs ? api.tabs.create({ url: u }) : window.open(u, "_blank", "noreferrer");
   }));
+}
+// Home category picker — check which categories appear on Home. Persisted to
+// settings.homeCats (empty/absent = all). Anchored to its button, closes on
+// outside click.
+let homeCatsMenuEl = null;
+function closeHomeCats() { if (homeCatsMenuEl) { homeCatsMenuEl.remove(); homeCatsMenuEl = null; document.removeEventListener("click", closeHomeCats); } }
+function openHomeCats(anchor) {
+  if (homeCatsMenuEl) { closeHomeCats(); return; }
+  const m = document.createElement("div");
+  m.className = "qa-menu cats-menu";
+  const row = (key) => {
+    const on = homeCatAllowed(key);
+    return `<button data-cat-toggle="${key}" class="${on ? "qa-on" : ""}">${on ? I.check : I.plus} ${esc(t("cat" + key[0].toUpperCase() + key.slice(1)))}</button>`;
+  };
+  m.innerHTML = `<div class="cats-menu-h">${esc(t("chooseCats"))}</div>${HOME_CAT_KEYS.map(row).join("")}<div style="height:1px;background:var(--line);margin:5px 4px"></div><button data-cat-all>${I.check} ${esc(t("catAll"))}</button>`;
+  document.body.appendChild(m);
+  homeCatsMenuEl = m;
+  const r = anchor.getBoundingClientRect();
+  m.style.top = `${Math.min(window.innerHeight - m.offsetHeight - 8, r.bottom + 6)}px`;
+  m.style.left = `${Math.max(8, Math.min(window.innerWidth - m.offsetWidth - 8, r.right - m.offsetWidth))}px`;
+  const save = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { homeCats: settings.homeCats } }, (rr) => { if (rr?.settings) settings = rr.settings; if (view === "home") renderHome(); });
+  m.addEventListener("click", (e) => e.stopPropagation());
+  m.querySelectorAll("[data-cat-toggle]").forEach((b) => (b.onclick = () => {
+    const key = b.dataset.catToggle;
+    // Materialize the current effective set, then toggle this key.
+    let cur = Array.isArray(settings.homeCats) && settings.homeCats.length ? [...settings.homeCats] : [...HOME_CAT_KEYS];
+    cur = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
+    if (!cur.length) cur = [key]; // never allow an empty Home
+    settings.homeCats = cur.length === HOME_CAT_KEYS.length ? [] : cur;
+    b.classList.toggle("qa-on"); b.innerHTML = `${cur.includes(key) ? I.check : I.plus} ${b.textContent.trim()}`;
+    save();
+  }));
+  const allBtn = m.querySelector("[data-cat-all]");
+  if (allBtn) allBtn.onclick = () => { settings.homeCats = []; save(); closeHomeCats(); };
+  setTimeout(() => document.addEventListener("click", closeHomeCats), 0);
 }
 function valueStrip() {
   const cards = [
