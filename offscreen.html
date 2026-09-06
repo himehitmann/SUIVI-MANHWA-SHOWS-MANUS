@@ -1,0 +1,14 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Yomu OCR</title>
+  </head>
+  <body>
+    <!-- Hidden offscreen document: runs the bundled Tesseract.js OCR engine so
+         the service worker (which cannot spawn Workers/WASM directly) can read
+         text from manga/webtoon panels for translation. -->
+    <script src="tesseract/tesseract.min.js"></script>
+    <script src="offscreen.js"></script>
+  </body>
+</html>

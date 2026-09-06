@@ -432,7 +432,9 @@ function mediaToResult(m) {
     title,
     type,
     anilistId: m.id || undefined,
-    cover: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || "",
+    cover: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large || m.coverImage.medium)) || "",
+    // Smaller AniList size the UI can fall back to if the big one 404s/blocks.
+    coverFallback: (m.coverImage && (m.coverImage.medium || m.coverImage.large)) || undefined,
     synopsis: stripHtml(m.description).slice(0, 700),
     genres: Array.isArray(m.genres) ? m.genres.slice(0, 6) : [],
     total: type === "reading" ? m.chapters || undefined : m.episodes || undefined,
@@ -474,7 +476,7 @@ async function anilistDetail(id) {
   };
 }
 async function anilistSearch(query) {
-  const gql = `query($s:String){Page(perPage:10){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id title{romaji english native} coverImage{extraLarge large} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
+  const gql = `query($s:String){Page(perPage:10){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
   const res = await fetch(ANILIST_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -657,7 +659,7 @@ async function catalogSearchAll(query) {
 const DISCOVER_KEY = "dasi.discover.cache";
 const DISCOVER_TTL = 6 * 3600 * 1000;
 async function anilistTrending(type, country) {
-  const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id title{romaji english native} coverImage{extraLarge large} description genres seasonYear format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
+  const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
   const res = await fetch(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { t: type, c: country || undefined } }) });
   if (!res.ok) throw new Error(`anilist_${res.status}`);
   const data = await res.json();
@@ -1004,9 +1006,54 @@ async function ocrSpaceText(imageUrl, target, key, src) {
   const tr = await translateTexts(srcLines, target || "en");
   return { lines: srcLines.map((sl, i) => ({ src: sl, tr: tr[i] || sl })) };
 }
+// ---- Bundled offline OCR (Tesseract.js in an offscreen document) -----------
+// The primary translation path: fully local, no key, no server, no CDN. The
+// service worker can't run WASM/Workers, so OCR happens in offscreen.js.
+const TESS_LANG = { kor: "kor", jpn: "jpn", chs: "chi_sim", chi_sim: "chi_sim", zh: "chi_sim" };
+let offscreenReady = null;
+async function ensureOffscreen() {
+  if (!api.offscreen) throw new Error("no_offscreen");
+  // hasDocument is the reliable check where available.
+  try { if (await api.offscreen.hasDocument()) return; } catch {}
+  if (offscreenReady) return offscreenReady;
+  offscreenReady = api.offscreen.createDocument({
+    url: "offscreen.html",
+    reasons: ["WORKERS"],
+    justification: "Run the bundled OCR engine (Tesseract) for image translation.",
+  }).catch((e) => { offscreenReady = null; if (!/single offscreen|already/i.test(String(e && e.message))) throw e; });
+  return offscreenReady;
+}
+function ocrViaTesseract(dataUrl, lang) {
+  return new Promise((resolve, reject) => {
+    api.runtime.sendMessage({ type: "OCR_OFFSCREEN", dataUrl, lang }, (r) => {
+      void api.runtime.lastError;
+      if (r && r.ok) resolve(r.lines || []);
+      else reject(new Error((r && r.error) || "ocr_offscreen_failed"));
+    });
+  });
+}
+async function ocrTextTesseract(imageUrl, target, src) {
+  await ensureOffscreen();
+  const raw = await fetchBlob(imageUrl);
+  let s = await scaledJpeg(raw, 1800, 0.85);
+  if (s.blob.size > 4000000) s = await scaledJpeg(raw, 1400, 0.7);
+  const dataUrl = await blobToDataUrl(s.blob);
+  const lang = TESS_LANG[src] || TESS_LANG[(src || "").slice(0, 3)] || "kor";
+  const raw2 = await ocrViaTesseract(dataUrl, lang);
+  const cleaned = raw2.map((x) => x.trim()).filter((x) => x.length >= 1);
+  if (!cleaned.length) return { lines: [] };
+  const tr = await translateTexts(cleaned, target || "en");
+  return { lines: cleaned.map((sl, i) => ({ src: sl, tr: tr[i] || sl })) };
+}
 async function translateImageText(imageUrl, target, src) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-  return ocrSpaceText(imageUrl, target || "en", (s && s.ocrKey) || "helloworld", (s && s.ocrSrc) || src || "jpn");
+  const srcLang = (s && s.ocrSrc) || src || "kor";
+  // 1) Bundled Tesseract (offline, always available). 2) OCR.space fallback.
+  try {
+    const r = await ocrTextTesseract(imageUrl, target || "en", srcLang);
+    if (r.lines.length) return r;
+  } catch (e) { void e; }
+  return ocrSpaceText(imageUrl, target || "en", (s && s.ocrKey) || "helloworld", srcLang === "chi_sim" ? "chs" : srcLang);
 }
 // Lightweight reachability check: any HTTP response from the base or its docs
 // means the server is up (endpoints differ by version, so we don't require 200).
