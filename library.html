@@ -25,8 +25,8 @@
       [data-tip]:hover::after { opacity:1; transform:translateX(-50%) translateY(0); }
       [data-tip]:hover::before { opacity:1; }
       .ic.fill { fill:currentColor; stroke:none; }
-      .scroll-x { display:flex; gap:14px; overflow-x:auto; scroll-snap-type:x proximity; padding:4px 2px 12px; scrollbar-width:thin; }
-      .scroll-x::-webkit-scrollbar { height:7px; } .scroll-x::-webkit-scrollbar-thumb { background:#E1DAF0; border-radius:99px; }
+      .scroll-x { display:flex; gap:14px; overflow-x:auto; scroll-snap-type:x proximity; padding:4px 2px 10px; scrollbar-width:none; -ms-overflow-style:none; }
+      .scroll-x::-webkit-scrollbar { height:0; width:0; display:none; }
       .scroll-x > * { scroll-snap-align:start; }
       /* Robust cover images: placeholder letter always sits behind; the image
          overlays it and is hidden if it fails to load (no broken-image icon). */

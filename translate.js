@@ -185,21 +185,29 @@
     const imgs = largePanels();
     if (!imgs.length) { donePill(textCount, 0, lang); return; }
     openSide(lang);
-    sideStatus("Scroll to translate more panels…");
-    setPill(`<span>Yomu — panels appear on the right as you scroll →</span> ${link("dasi-tr-revert", "revert")}`);
+    sideStatus("Translating on your device — the first panel can take a few seconds…");
+    setPill(`<span>Yomu — translations appear on the right as you scroll →</span> ${link("dasi-tr-revert", "revert")}`);
     const rb = document.getElementById("dasi-tr-revert"); if (rb) rb.onclick = (e) => { e.preventDefault(); revert(); };
-    let n = 0, active = 0;
+    let n = 0, active = 0, miss = 0;
     const target = String(lang || "en").slice(0, 5);
     const processed = new WeakSet();
+    function status() {
+      if (cancelled) return;
+      if (active > 0) sideStatus(`Reading panel ${sideCount}…`);
+      else if (sideOk) sideStatus("Scroll down to translate the next panels →");
+      else sideStatus("No readable text found yet — keep scrolling through the chapter.");
+    }
     async function handle(im) {
       if (processed.has(im) || cancelled) return;
       processed.add(im); im.dataset.dasiTr = "1";
       active++; sideCount++;
       const my = sideCount;
+      status();
       const r = await askImageText(realSrc(im), target);
       active--;
       if (r && r.ok && r.lines && r.lines.length) { sideOk++; addSideEntry(my, r.lines); }
-      sideStatus(cancelled ? "" : sideOk ? "Scroll to translate more panels…" : "Reading… scroll through the chapter.");
+      else miss++;
+      status();
     }
     // Observe panels; translate each as it scrolls into view (progressive).
     sideObs = new IntersectionObserver((entries) => {
