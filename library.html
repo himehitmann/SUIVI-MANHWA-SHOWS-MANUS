@@ -403,6 +403,15 @@
       .li-row { display:flex; align-items:center; gap:12px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; box-shadow:0 4px 12px rgba(92,74,140,.05); } .li-row.dragging { opacity:.45; } .li-row.over { border-color:var(--lav-ink); }
       .grip { color:#C7C1D6; cursor:grab; display:grid; place-items:center; } .li-cover { position:relative; width:44px; height:60px; border-radius:8px; overflow:hidden; display:grid; place-items:center; color:#fff; font-weight:800; font-size:15px; flex-shrink:0; } .li-cover img { width:100%; height:100%; object-fit:cover; }
       .li-row b { font-size:13px; } .li-row small { display:block; color:var(--muted); font-size:11px; }
+      .li-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:16px; }
+      .li-card { cursor:grab; } .li-card.dragging { opacity:.45; }
+      .li-card-cov { position:relative; aspect-ratio:2/3; border-radius:12px; overflow:hidden; display:grid; place-items:center; color:#fff; font-weight:800; font-size:22px; box-shadow:0 6px 16px rgba(92,74,140,.12); }
+      .li-card-cov img { width:100%; height:100%; object-fit:cover; }
+      .li-card-rm { position:absolute; top:6px; right:6px; width:26px; height:26px; border:0; border-radius:50%; background:rgba(20,16,32,.62); color:#fff; display:grid; place-items:center; cursor:pointer; opacity:0; transition:opacity .15s; padding:0; }
+      .li-card-rm .ic { width:15px; height:15px; }
+      .li-card:hover .li-card-rm { opacity:1; }
+      .li-card b { display:block; font-size:13px; margin-top:7px; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .li-card small { display:block; color:var(--muted); font-size:11px; }
       .back-btn { display:inline-flex; align-items:center; gap:7px; border:0; background:none; color:var(--lav-ink); font-weight:600; font-size:13px; cursor:pointer; padding:0 0 14px; }
 
       .crop-scrim { position:fixed; inset:0; background:rgba(40,32,60,.45); backdrop-filter:blur(3px); opacity:0; pointer-events:none; transition:.2s; z-index:90; } .crop-scrim.open { opacity:1; pointer-events:auto; }
