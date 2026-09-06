@@ -225,8 +225,10 @@ $("#sh-wa").onclick = () => openUrl(`https://api.whatsapp.com/send?text=${encode
 $("#sh-rd").onclick = () => openUrl(`https://www.reddit.com/submit?url=${encodeURIComponent(DASI_STORE_URL)}&title=${encodeURIComponent(DASI_SHARE_TEXT)}`);
 $("#sh-cp").onclick = () => {
   try { navigator.clipboard?.writeText(DASI_STORE_URL); } catch {}
-  $("#sh-cp").textContent = "✓";
-  setTimeout(() => ($("#sh-cp").textContent = "🔗"), 1200);
+  const btn = $("#sh-cp");
+  const original = btn.innerHTML;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m20 6-11 11-5-5"/></svg>';
+  setTimeout(() => { btn.innerHTML = original; }, 1200);
 };
 
 /*

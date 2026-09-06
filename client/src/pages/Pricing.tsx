@@ -95,7 +95,7 @@ export default function Pricing() {
           <span className="eyebrow pastel-label">{t("pricing.eyebrow")}</span>
           <h1>{t("pricing.title")}</h1>
           <p>{t("pricing.subtitle")}</p>
-          {UNLOCK_ALL && <div className="owner-banner">✨ {t("pricing.ownerUnlocked")}</div>}
+          {UNLOCK_ALL && <div className="owner-banner">{t("pricing.ownerUnlocked")}</div>}
           <div className="billing-toggle" role="tablist">
             <button className={!yearly ? "active" : ""} onClick={() => setYearly(false)} role="tab" aria-selected={!yearly}>
               {t("pricing.billing.monthly")}

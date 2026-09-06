@@ -1404,7 +1404,7 @@ function catalogSearch(q) {
 }
 let lastResults = [];
 let srFilter = "all";
-const COUNTRY_LABEL = { JP: "🇯🇵 Japon", KR: "🇰🇷 Corée", CN: "🇨🇳 Chine", TW: "🇨🇳 Chine", HK: "🇨🇳 Chine", US: "🇺🇸 USA", GB: "🇬🇧 UK", FR: "🇫🇷 France" };
+const COUNTRY_LABEL = { JP: "Japan", KR: "Korea", CN: "China", TW: "Taiwan", HK: "Hong Kong", US: "USA", GB: "UK", FR: "France" };
 function renderSearchResults(q) {
   const el = document.getElementById("search-results");
   const cats = ["all", ...[...new Set(lastResults.map((m) => catLabel(m)))]];
@@ -1413,7 +1413,7 @@ function renderSearchResults(q) {
   el.innerHTML = `<div class="sr-wrap">
     <div class="sr-head"><b>${t("searchTitle")}</b> · “${esc(q)}” · ${shown.length}/${lastResults.length}</div>
     <div class="sr-filters">${cats.map((c) => `<button data-srf="${esc(c)}" class="${srFilter === c ? "active" : ""}">${c === "all" ? t("all") : esc(c)}</button>`).join("")}</div>
-    ${countries.length > 1 ? `<div class="sr-filters">${countries.map((c) => `<button data-src="${esc(c)}" class="${srCountry === c ? "active" : ""}">${c === "all" ? "🌐 " + t("all") : esc(COUNTRY_LABEL[c] || c)}</button>`).join("")}</div>` : ""}
+    ${countries.length > 1 ? `<div class="sr-filters">${countries.map((c) => `<button data-src="${esc(c)}" class="${srCountry === c ? "active" : ""}">${c === "all" ? t("all") : esc(COUNTRY_LABEL[c] || c)}</button>`).join("")}</div>` : ""}
     ${shown.length ? shown.map((m) => srRow(m, lastResults.indexOf(m))).join("") : `<p class="sr-empty">${t("noMatch")}</p>`}</div>`;
   el.querySelectorAll("[data-srf]").forEach((b) => (b.onclick = () => { srFilter = b.dataset.srf; renderSearchResults(q); }));
   el.querySelectorAll("[data-src]").forEach((b) => (b.onclick = () => { srCountry = b.dataset.src; renderSearchResults(q); }));

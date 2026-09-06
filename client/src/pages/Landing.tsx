@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { BookOpen, Cloud, Gauge, GraduationCap, Lock, MousePointerClick, Sparkles } from "lucide-react";
+import { BookOpen, Chrome, Cloud, Gauge, Globe, GraduationCap, Lock, MousePointerClick } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { ShareBar } from "@/components/ShareBar";
 import { useI18n } from "@/i18n/I18nContext";
@@ -7,7 +7,7 @@ import type { StringKey } from "@/i18n/strings";
 
 const STORE_URL = "https://chromewebstore.google.com/detail/yomu";
 
-const FEATURES: { icon: typeof Sparkles; key: string }[] = [
+const FEATURES: { icon: typeof BookOpen; key: string }[] = [
   { icon: MousePointerClick, key: "f1" },
   { icon: BookOpen, key: "f2" },
   { icon: Gauge, key: "f3" },
@@ -30,14 +30,14 @@ export default function Landing() {
           <p className="land-sub">{t("land.subtitle")}</p>
           <div className="land-cta">
             <a className="primary-cta" href={STORE_URL} target="_blank" rel="noreferrer">
-              <Sparkles size={16} /> {t("land.ctaGet")}
+              <Chrome size={16} /> {t("land.ctaGet")}
             </a>
             <Link href="/pricing" className="heart-button">{t("land.ctaPlans")}</Link>
           </div>
           <div className="land-badges">
-            <span>✨ {t("land.badgeLocal")}</span>
-            <span>⚡ {t("land.badgeOneClick")}</span>
-            <span>🌍 {t("land.badgeUniversal")}</span>
+            <span><Lock size={14} /> {t("land.badgeLocal")}</span>
+            <span><MousePointerClick size={14} /> {t("land.badgeOneClick")}</span>
+            <span><Globe size={14} /> {t("land.badgeUniversal")}</span>
           </div>
         </section>
 
@@ -112,7 +112,7 @@ export default function Landing() {
           <p>{t("land.plansBody")}</p>
           <div className="land-cta">
             <a className="primary-cta" href={STORE_URL} target="_blank" rel="noreferrer">
-              <Sparkles size={16} /> {t("land.ctaGet")}
+              <Chrome size={16} /> {t("land.ctaGet")}
             </a>
             <Link href="/pricing" className="heart-button">{t("land.ctaPlans")}</Link>
           </div>

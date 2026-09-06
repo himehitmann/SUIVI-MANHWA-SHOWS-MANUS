@@ -6,9 +6,11 @@
  */
 export type Language = "en" | "fr";
 
+// `flag` is a short, cross-platform language tag (uppercase code) rather than a
+// flag emoji — flag emoji don't render on Windows and read as broken boxes.
 export const LANGUAGES: { code: Language; label: string; flag: string }[] = [
-  { code: "en", label: "English", flag: "🇬🇧" },
-  { code: "fr", label: "Français", flag: "🇫🇷" },
+  { code: "en", label: "English", flag: "EN" },
+  { code: "fr", label: "Français", flag: "FR" },
 ];
 
 const en = {
@@ -300,7 +302,7 @@ const en = {
   "learn.achDesc.category_master": "Fully master a category.",
   "learn.ach.quiz_ace": "Quiz ace",
   "learn.achDesc.quiz_ace": "Finish a quiz with a perfect score.",
-  "toast.levelUp": "Level up! You reached level {n} 🎉",
+  "toast.levelUp": "Level up! You reached level {n}",
   "toast.xp": "+{n} XP",
   "toast.achievement": "{emoji} Achievement unlocked — {name}",
   "learn.stats": "Stats",
@@ -657,7 +659,7 @@ const fr: Record<StringKey, string> = {
   "learn.achDesc.category_master": "Maîtrise entièrement une catégorie.",
   "learn.ach.quiz_ace": "As du quiz",
   "learn.achDesc.quiz_ace": "Termine un quiz avec un score parfait.",
-  "toast.levelUp": "Niveau supérieur ! Tu as atteint le niveau {n} 🎉",
+  "toast.levelUp": "Niveau supérieur ! Tu as atteint le niveau {n}",
   "toast.xp": "+{n} XP",
   "toast.achievement": "{emoji} Accomplissement débloqué — {name}",
   "learn.stats": "Stats",

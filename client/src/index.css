@@ -451,6 +451,8 @@ a.profile{display:grid;place-items:center;text-decoration:none}
 .land-cta .primary-cta{padding:14px 22px;font-size:14px}
 .land-cta .heart-button{padding:14px 20px}
 .land-badges{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;color:#8C8999;font-size:12px;font-weight:600}
+.land-badges span{display:inline-flex;align-items:center;gap:6px}
+.land-badges span svg{color:#8B79C4}
 .land-problem{background:linear-gradient(135deg,#FFF0F5,#F0EAFF);border-radius:24px;padding:34px 40px;margin:34px 0}
 .land-problem h2{font-size:28px;letter-spacing:-.04em;margin:8px 0 10px}
 .land-problem p{color:#6D6677;font-size:15px;line-height:1.7;max-width:760px}
