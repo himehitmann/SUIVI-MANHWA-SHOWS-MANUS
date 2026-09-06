@@ -37,13 +37,24 @@ async function startServer() {
   // Baseline security headers (no external dependency). Don't leak the stack,
   // block MIME sniffing and clickjacking, and keep referrers tight.
   app.disable("x-powered-by");
-  app.use((_req, res, next) => {
+  app.set("trust proxy", true);
+  const isProd = process.env.NODE_ENV === "production";
+  app.use((req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+    // Force HTTPS in production when terminated by a proxy (opt-out via FORCE_HTTPS=false).
+    if (isProd && process.env.FORCE_HTTPS !== "false" && req.headers["x-forwarded-proto"] === "http") {
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+      return res.redirect(308, `https://${req.headers.host}${req.originalUrl}`);
+    }
+    if (isProd) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     next();
   });
+
+  // Health check for load balancers / uptime monitors.
+  app.get("/healthz", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
   // Optional sync + auth API. Harmless when unused; the apps default to local.
   app.use("/api", createApiRouter(await resolveStore()));
