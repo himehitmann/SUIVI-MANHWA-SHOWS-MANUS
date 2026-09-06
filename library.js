@@ -36,7 +36,7 @@ const LANGS = {
     searchPlaceholder:"Search or add by name…", work:"work", works:"works", upcoming:"Upcoming", discoverGames:"Discover games",
     topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most anticipated games", hotGames:"Biggest games right now", openInNew:"Open", discoverMore:"Discover more",
     catAll:"All", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Series", catGames:"Games",
-    categories:"Categories", chooseCats:"Choose which categories show on Home",
+    categories:"Categories", chooseCats:"Choose which categories show on Home", cast:"Cast",
     changeBanner:"Change banner", bioPh:"Write a short bio…",
     searching:"Searching", searchTitle:"Search", noMatch:"No match — try another spelling or a different language.",
     progHintWatch:"The episode you last watched.", progHintRead:"The chapter you last read.", totalReleased:"Latest available", totalHint:"The newest chapter/episode out — so Yomu can tell you when there's something new.",
@@ -63,7 +63,7 @@ const LANGS = {
     searchPlaceholder:"Rechercher ou ajouter par nom…", work:"œuvre", works:"œuvres", upcoming:"À venir", discoverGames:"Découvrir des jeux",
     topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus attendus", hotGames:"Les plus gros jeux du moment", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
     catAll:"Tout", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Séries", catGames:"Jeux",
-    categories:"Catégories", chooseCats:"Choisis les catégories affichées sur l'accueil",
+    categories:"Catégories", chooseCats:"Choisis les catégories affichées sur l'accueil", cast:"Distribution",
     changeBanner:"Changer la bannière", bioPh:"Écris une petite bio…",
     searching:"Recherche", searchTitle:"Recherche", noMatch:"Aucun résultat — essaie une autre orthographe ou une autre langue.",
     progHintWatch:"Le dernier épisode que tu as regardé.", progHintRead:"Le dernier chapitre que tu as lu.", totalReleased:"Dernier disponible", totalHint:"Le dernier chapitre/épisode sorti — pour que Yomu te prévienne quand il y a du nouveau.",
@@ -208,7 +208,9 @@ function covImg(url, fallback) { return url ? `<img class="cov" src="${esc(url)}
 // then hide the image so its placeholder shows — never a broken-image icon.
 document.addEventListener("error", (e) => {
   const el = e.target;
-  if (!el || el.tagName !== "IMG" || !el.classList.contains("cov")) return;
+  if (!el || el.tagName !== "IMG") return;
+  // Cast/avatar thumbnails just hide (the initial shows behind them).
+  if (!el.classList.contains("cov")) { if (el.closest(".cast-av")) el.classList.add("failed"); return; }
   const fb = el.dataset.fallback;
   if (fb && el.getAttribute("src") !== fb) { el.removeAttribute("data-fallback"); el.src = fb; return; }
   el.classList.add("failed");
@@ -905,6 +907,7 @@ function openDrawer(id) {
     </div>
     <div class="drawer-body">
       ${i.synopsis ? `<div class="section-t">${t("synopsis")}</div><p class="synopsis clamp" id="dr-syn">${esc(i.synopsis)}</p><button class="link-btn" id="dr-syn-toggle">${t("showMore")}</button>` : ""}
+      ${!isGame && Array.isArray(i.cast) && i.cast.length ? `<div class="section-t">${t("cast")}</div><div class="cast-strip scroll-x">${i.cast.map((c) => `<div class="cast-card"><div class="cast-av"><span class="cast-ph">${esc((c.name || "?")[0].toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : ""}</div><b>${esc(c.name)}</b>${c.role && c.role !== "MAIN" ? `<small>${esc(c.role.toLowerCase())}</small>` : ""}</div>`).join("")}</div>` : ""}
       ${isGame ? `
         <div class="section-t">${t("games")}</div>
         <div class="game-meta">${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}</span>` : ""}${i.price ? `<span class="meta-pill price">${esc(i.price)}</span>` : ""}</div>
@@ -919,6 +922,7 @@ function openDrawer(id) {
         ${episodeGrid(i)}
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
           ${i.total && unseen(i) > 0 ? `<button class="btn primary" id="dr-markall">${I.check} ${t("markAll")}</button>` : ""}
+          ${i.trailerUrl ? `<a class="btn" href="${esc(i.trailerUrl)}" target="_blank" rel="noreferrer">${I.play} ${t("watchTrailer")}</a>` : ""}
           ${i.url ? `<a class="btn" href="${esc(i.url)}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>` : ""}
         </div>`}
       ${isGame ? "" : `<div class="section-t">${t("status")}</div>

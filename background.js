@@ -431,6 +431,7 @@ function mediaToResult(m) {
   return {
     title,
     type,
+    anilistId: m.id || undefined,
     cover: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || "",
     synopsis: stripHtml(m.description).slice(0, 700),
     genres: Array.isArray(m.genres) ? m.genres.slice(0, 6) : [],
@@ -439,6 +440,37 @@ function mediaToResult(m) {
     country: m.countryOfOrigin || undefined,
     format,
     url: m.siteUrl || "",
+  };
+}
+// Build a playable trailer URL from AniList's { id, site } trailer object.
+function trailerUrl(tr) {
+  if (!tr || !tr.id) return "";
+  if (tr.site === "youtube") return `https://www.youtube.com/watch?v=${tr.id}`;
+  if (tr.site === "dailymotion") return `https://www.dailymotion.com/video/${tr.id}`;
+  return "";
+}
+// Rich detail for one AniList title (trailer + cast + exact counts). Separate
+// from search so the list query stays light. Best-effort; throws are swallowed
+// by the caller.
+async function anilistDetail(id) {
+  const gql = `query($id:Int){Media(id:$id){episodes chapters volumes seasonYear status trailer{id site} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{name{full} image{large}}}}}}`;
+  const res = await fetch(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { id } }) });
+  if (!res.ok) throw new Error(`anilist_detail_${res.status}`);
+  const data = await res.json();
+  const m = data && data.data && data.data.Media;
+  if (!m) return null;
+  const cast = (m.characters && m.characters.edges ? m.characters.edges : [])
+    .map((e) => ({ name: e.node && e.node.name && e.node.name.full, image: (e.node && e.node.image && e.node.image.large) || "", role: e.role || "" }))
+    .filter((c) => c.name)
+    .slice(0, 12);
+  return {
+    episodes: m.episodes || undefined,
+    chapters: m.chapters || undefined,
+    volumes: m.volumes || undefined,
+    seasonYear: m.seasonYear || undefined,
+    status: m.status || undefined,
+    trailerUrl: trailerUrl(m.trailer),
+    cast,
   };
 }
 async function anilistSearch(query) {
@@ -774,6 +806,21 @@ async function enrichWork(id) {
     if (match.total && match.total > (it.total || 0)) patch.total = match.total;
     if (!it.season && it.type === "watching" && match.season) patch.season = match.season;
     if (!it.format && match.format) patch.format = match.format;
+    // Second pass: trailer, cast and exact released counts (real limits, so the
+    // drawer can't run past the true episode/chapter count).
+    if (match.anilistId) {
+      try {
+        const d = await anilistDetail(match.anilistId);
+        if (d) {
+          if (d.trailerUrl && !it.trailerUrl) patch.trailerUrl = d.trailerUrl;
+          if (d.cast && d.cast.length && !(it.cast && it.cast.length)) patch.cast = d.cast;
+          const realTotal = it.type === "reading" ? d.chapters : d.episodes;
+          if (realTotal && realTotal > (patch.total || it.total || 0)) patch.total = realTotal;
+          if (d.volumes && it.type === "reading" && !it.volumesTotal) patch.volumesTotal = d.volumes;
+          if (d.status && !it.releaseStatus) patch.releaseStatus = d.status; // RELEASING / FINISHED …
+        }
+      } catch {}
+    }
   }
   const next = items.map((x) => (x.id === id ? { ...x, ...patch } : x));
   await writeData({ [ITEMS_KEY]: next });
