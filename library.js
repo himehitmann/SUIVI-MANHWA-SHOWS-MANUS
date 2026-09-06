@@ -947,6 +947,18 @@ function openDrawer(id) {
   document.getElementById("scrim").classList.add("open");
   d.classList.add("open");
   wireDrawer(i, isWatch, isGame);
+  // Games arrive from Steam search/discovery without genres; pull them (and a
+  // description) the first time the fiche opens, then re-render in place.
+  if (isGame && !i.gameEnrichedAt && !(i.tags && i.tags.length) && /store\.steampowered\.com\/app\//.test(i.url || "")) {
+    api.runtime.sendMessage({ type: "GAME_ENRICH", id: i.id }, (r) => {
+      void api.runtime.lastError;
+      if (r && r.ok && r.item) {
+        const idx = items.findIndex((x) => x.id === i.id);
+        if (idx >= 0) items[idx] = r.item;
+        if (d.classList.contains("open")) openDrawer(i.id);
+      }
+    });
+  }
 }
 // A grid of episode/chapter cells: filled = seen (<= current), empty = unseen.
 // Clicking cell N sets your current position to N. Hidden when total is unknown

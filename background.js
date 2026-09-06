@@ -722,6 +722,23 @@ function steamGames(list, soon) {
       url: `https://store.steampowered.com/app/${g.id}`,
     }));
 }
+// Genres/tags + a proper description for one Steam app (lazy: only when a game
+// fiche is opened without tags). Keyless appdetails endpoint.
+function steamAppId(url) { const m = String(url || "").match(/\/app\/(\d+)/); return m ? m[1] : ""; }
+async function steamAppDetails(appid) {
+  const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&filters=basic,genres,release_date`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`steam_details_${res.status}`);
+  const data = await res.json();
+  const d = data && data[appid] && data[appid].success && data[appid].data;
+  if (!d) return null;
+  return {
+    genres: Array.isArray(d.genres) ? d.genres.map((g) => g.description).filter(Boolean).slice(0, 6) : [],
+    synopsis: (d.short_description || "").trim(),
+    releaseDate: d.release_date && d.release_date.date ? d.release_date.date : undefined,
+    comingSoon: !!(d.release_date && d.release_date.coming_soon),
+  };
+}
 async function steamDiscover() {
   const [soonR, hotR] = await Promise.allSettled([steamSearchList("popularcomingsoon"), steamSearchList("topsellers")]);
   const soon = soonR.status === "fulfilled" ? steamGames(soonR.value, true) : [];
@@ -1210,6 +1227,28 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ items: next });
           autoSync();
         });
+      });
+      return true;
+
+    // Lazy game enrichment: pull genres/tags + description from Steam when a
+    // game fiche is opened without them. Best-effort; patches the item in place.
+    case "GAME_ENRICH":
+      read(ITEMS_KEY, []).then(async (items) => {
+        const it = items.find((x) => x.id === message.id);
+        const appid = it ? steamAppId(it.url) : "";
+        if (!it || !appid) { sendResponse({ ok: false }); return; }
+        try {
+          const d = await steamAppDetails(appid);
+          if (!d) { sendResponse({ ok: false }); return; }
+          const patch = { gameEnrichedAt: Date.now() };
+          if (d.genres.length && !(it.tags && it.tags.length)) patch.tags = d.genres;
+          if (d.synopsis && !it.synopsis) patch.synopsis = d.synopsis;
+          if (d.releaseDate && !it.releaseDate) patch.releaseDate = d.releaseDate;
+          const next = items.map((x) => (x.id === message.id ? { ...x, ...patch } : x));
+          await writeData({ [ITEMS_KEY]: next });
+          sendResponse({ ok: true, item: next.find((x) => x.id === message.id) });
+          autoSync();
+        } catch { sendResponse({ ok: false }); }
       });
       return true;
 
