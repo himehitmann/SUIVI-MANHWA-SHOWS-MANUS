@@ -383,7 +383,7 @@ export default function Home() {
               <Upload size={15} />
               {t("now.import")}
             </button>
-            <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={onImport} />
+            <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={onImport} aria-label={t("import.button")} />
             <div className="local-note">
               <Heart size={14} />
               {t("now.local")}

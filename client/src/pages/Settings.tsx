@@ -161,7 +161,7 @@ export default function Settings() {
               <button className="ghost danger" onClick={reset}>
                 <RotateCcw size={15} /> {t("settings.reset")}
               </button>
-              <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={onImport} />
+              <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={onImport} aria-label={t("import.button")} />
             </div>
           </section>
 
