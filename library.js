@@ -30,7 +30,7 @@ const LANGS = {
     newList:"New list", cover:"Cover", rename:"Rename", delete:"Delete", inThisList:"In this list", addWorks:"Add works", allLists:"All lists", dragReorder:"drag to reorder",
     viewToggle:"Toggle layout", viewRows:"List", viewGrid:"Grid",
     gamesSub:"Track awaited games — release dates, prices, trailers and pre-registrations.", addGame:"Add a game", title:"Title", platform:"Platform", releaseDate:"Release date", price:"Price", trailer:"Trailer", watchTrailer:"Watch trailer", preRegistered:"Pre-registered", released:"Released", comingSoon:"Coming soon", add:"Add", cancel:"Cancel", free:"Free",
-    editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", language:"Language", uiLanguage:"App language", translateLanguage:"Default translation language", account:"Account", email:"Email", changeEmail:"Change email", changePassword:"Change password", currentPassword:"Current password", newPassword:"New password", save:"Save", signedInAs:"Signed in as", notSignedIn:"Not signed in — sync is optional.", newAlerts:"New-episode alerts", integrations:"Integrations & keys", filmsSeries:"Films & series", keyHint:"Optional free API key —", imgTranslate:"Manga image translation", imgTranslateHint:"Optional — a manga-image-translator server URL. See", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", cloudSync:"Cloud sync", cloudSyncSub:"Optional — sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Yomu.", spread:"Spread the word", enjoying:"Enjoying Yomu?",
+    editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", language:"Language", uiLanguage:"App language", translateLanguage:"Default translation language", account:"Account", email:"Email", changeEmail:"Change email", changePassword:"Change password", currentPassword:"Current password", newPassword:"New password", save:"Save", signedInAs:"Signed in as", notSignedIn:"Not signed in — sync is optional.", newAlerts:"New-episode alerts", integrations:"Integrations & keys", filmsSeries:"Films & series", keyHint:"Optional free API key —", imgTranslate:"Manga image translation", imgTranslateHint:"Optional — a manga-image-translator server URL. See", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", importFormats:"From Yomu, Trakt, TV Time, IMDb, Letterboxd, MyAnimeList — JSON, CSV, XML or ZIP. Pick one or several files.", importing:"Importing…", importedN:"Imported {n} titles", importNothing:"No titles found in that file.", importFailed:"Couldn't read that file.", cloudSync:"Cloud sync", cloudSyncSub:"Optional — sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Yomu.", spread:"Spread the word", enjoying:"Enjoying Yomu?",
     plansTitle:"Choose your plan", plansSub:"Free forever for tracking. Go Pro for sync, alerts and more.", unlocked:"Owner edition — every Pro feature is unlocked.", mostPopular:"Most popular", getStarted:"Get started", goPro:"Go Pro", getLifetime:"Get Lifetime", currentPlan:"Current",
     updatesNone:"Nothing new right now", updatesSome:"{n} with something new", updates:"Updates",
     discover:"Discover", discoverSub:"Fresh picks — not in your library yet.", forYou:"Recommended for you", forYouSub:"Based on your tags", trendingManga:"Trending manga & manhwa", popularAnime:"Popular anime right now", newGames:"New game releases", upcomingGames:"Upcoming games", addToLib:"Add to library", refresh:"Refresh", loadingReco:"Finding fresh picks…",
@@ -57,7 +57,7 @@ const LANGS = {
     newList:"Nouvelle liste", cover:"Couverture", rename:"Renommer", delete:"Supprimer", inThisList:"Dans cette liste", addWorks:"Ajouter des œuvres", allLists:"Toutes les listes", dragReorder:"glisser pour réordonner",
     viewToggle:"Changer l'affichage", viewRows:"Liste", viewGrid:"Grille",
     gamesSub:"Suis les jeux attendus — dates de sortie, prix, trailers et préinscriptions.", addGame:"Ajouter un jeu", title:"Titre", platform:"Plateforme", releaseDate:"Date de sortie", price:"Prix", trailer:"Trailer", watchTrailer:"Voir le trailer", preRegistered:"Préinscrit", released:"Sorti", comingSoon:"Bientôt", add:"Ajouter", cancel:"Annuler", free:"Gratuit",
-    editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", language:"Langue", uiLanguage:"Langue de l'appli", translateLanguage:"Langue de traduction par défaut", account:"Compte", email:"E-mail", changeEmail:"Changer l'e-mail", changePassword:"Changer le mot de passe", currentPassword:"Mot de passe actuel", newPassword:"Nouveau mot de passe", save:"Enregistrer", signedInAs:"Connecté en tant que", notSignedIn:"Non connecté — la sync est optionnelle.", newAlerts:"Alertes nouveaux épisodes", integrations:"Intégrations & clés", filmsSeries:"Films & séries", keyHint:"Clé API gratuite optionnelle —", imgTranslate:"Traduction d'images manga", imgTranslateHint:"Optionnel — URL d'un serveur manga-image-translator. Voir", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel — connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Yomu.", spread:"Fais passer le mot", enjoying:"Tu aimes Yomu ?",
+    editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", language:"Langue", uiLanguage:"Langue de l'appli", translateLanguage:"Langue de traduction par défaut", account:"Compte", email:"E-mail", changeEmail:"Changer l'e-mail", changePassword:"Changer le mot de passe", currentPassword:"Mot de passe actuel", newPassword:"Nouveau mot de passe", save:"Enregistrer", signedInAs:"Connecté en tant que", notSignedIn:"Non connecté — la sync est optionnelle.", newAlerts:"Alertes nouveaux épisodes", integrations:"Intégrations & clés", filmsSeries:"Films & séries", keyHint:"Clé API gratuite optionnelle —", imgTranslate:"Traduction d'images manga", imgTranslateHint:"Optionnel — URL d'un serveur manga-image-translator. Voir", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", importFormats:"Depuis Yomu, Trakt, TV Time, IMDb, Letterboxd, MyAnimeList — JSON, CSV, XML ou ZIP. Choisis un ou plusieurs fichiers.", importing:"Import en cours…", importedN:"{n} titres importés", importNothing:"Aucun titre trouvé dans ce fichier.", importFailed:"Impossible de lire ce fichier.", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel — connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Yomu.", spread:"Fais passer le mot", enjoying:"Tu aimes Yomu ?",
     plansTitle:"Choisis ton abonnement", plansSub:"Gratuit à vie pour le suivi. Passe Pro pour la sync, les alertes et plus.", unlocked:"Édition propriétaire — toutes les fonctions Pro sont débloquées.", mostPopular:"Le plus populaire", getStarted:"Commencer", goPro:"Passer Pro", getLifetime:"À vie", currentPlan:"Actuel",
     updatesNone:"Rien de nouveau pour l'instant", updatesSome:"{n} avec du nouveau", updates:"Notifications",
     discover:"Découvrir", discoverSub:"Nouveautés à découvrir — pas encore dans ta bibliothèque.", forYou:"Recommandé pour toi", forYouSub:"D'après tes tags", trendingManga:"Manga & manhwa tendances", popularAnime:"Anime populaires en ce moment", newGames:"Nouveaux jeux sortis", upcomingGames:"Jeux à venir", addToLib:"Ajouter à la bibliothèque", refresh:"Actualiser", loadingReco:"Recherche de nouveautés…",
@@ -1141,7 +1141,8 @@ function renderSettings() {
     <div class="panel"><div class="row"><div class="grow"><b>${t("newAlerts")}</b><small>${t("newAlertsSub")}</small></div><button class="switch ${settings.notifyNew ? "on" : ""}" id="sw-notify"></button></div></div>
     <div class="section-t">${t("backup")}</div>
     <div class="panel">
-      <div class="row"><div class="grow"><b>${t("yourLibrary")}</b><small>${t("exportRestore")}</small></div><button class="btn" id="export">${I.image} ${t("export")}</button><button class="btn" id="import">${t("import")}</button><input id="file" type="file" accept="application/json,.json" /></div>
+      <div class="row"><div class="grow"><b>${t("yourLibrary")}</b><small>${t("exportRestore")}</small></div><button class="btn" id="export">${I.image} ${t("export")}</button><button class="btn" id="import">${t("import")}</button><input id="file" type="file" accept=".json,.csv,.xml,.zip,.tsv,application/json,application/zip" multiple hidden aria-label="${t("import")}" /></div>
+      <p class="field-hint" style="margin:-2px 2px 0">${t("importFormats")}</p>
       <div class="row"><div class="grow"><b>${t("cloudSync")}</b><small id="sync-state">${t("cloudSyncSub")}</small></div><button class="btn" id="sync-link">${t("manageSync")}</button></div>
     </div>
     <div class="section-t">${t("enjoying")}</div>
@@ -1242,10 +1243,39 @@ function doExport() {
   const blob = new Blob([JSON.stringify({ version: 2, items, sites, notifications, lists, settings }, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `dasi-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);
 }
-function doImport(e) {
-  const file = e.target.files && e.target.files[0]; if (!file) return;
-  file.text().then((text) => { try { const parsed = JSON.parse(text); if (!Array.isArray(parsed.items)) throw 0; api.runtime.sendMessage({ type: "IMPORT_STATE", payload: parsed }, () => { items = parsed.items; sites = parsed.sites || sites; lists = parsed.lists || lists; renderAll(); toast("✓"); }); } catch { alert("Invalid backup file"); } });
-  e.target.value = "";
+// Universal import: accepts one or many files (JSON, CSV, XML, ZIP) from Yomu
+// or other trackers (Trakt, TV Time, IMDb, Letterboxd, MyAnimeList). Parses
+// them locally, then merges the works into the library without wiping it.
+async function doImport(e) {
+  const files = e.target.files; if (!files || !files.length) return;
+  const input = e.target;
+  try {
+    if (!window.YomuImport) { toast(t("importFailed")); return; }
+    toast(t("importing"));
+    const res = await window.YomuImport.parseFiles(files);
+    // A full Yomu backup (has sites/lists/settings) restores everything;
+    // anything else is an additive merge of works.
+    const isFullBackup = res.formats.includes("Yomu") && (res.sites || res.lists);
+    if (isFullBackup) {
+      api.runtime.sendMessage({ type: "IMPORT_STATE", payload: { items: res.items, sites: res.sites, lists: res.lists, settings: res.settings } }, () => {
+        api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
+        toast(t("importedN", { n: res.items.length }));
+      });
+      return;
+    }
+    if (!res.count) { toast(t("importNothing")); return; }
+    api.runtime.sendMessage({ type: "IMPORT_MERGE", items: res.items }, (r) => {
+      void api.runtime.lastError;
+      api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
+      const n = (r && (r.added + r.updated)) || res.count;
+      const src = res.formats.length ? " (" + res.formats.join(", ") + ")" : "";
+      toast(t("importedN", { n }) + src);
+    });
+  } catch (err) {
+    toast(t("importFailed"));
+  } finally {
+    input.value = "";
+  }
 }
 
 /* ---- share widgets (reused on the web interface) ---- */

@@ -1255,6 +1255,69 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       return true;
 
+    // Additive import: merge parsed works into the library (never wipes it).
+    // Dedups against existing items by work key / fuzzy title, keeps the
+    // furthest progress and any rating. Used by the universal importer.
+    case "IMPORT_MERGE":
+      read(ITEMS_KEY, []).then(async (items) => {
+        const incoming = Array.isArray(message.items) ? message.items : [];
+        const byId = new Map(items.map((i) => [i.id, i]));
+        let added = 0, updated = 0;
+        for (const p of incoming) {
+          if (!p || !p.title) continue;
+          const type = p.type || "watching";
+          const key = workKey({ title: p.title }) || (p.title.toLowerCase().replace(/\s+/g, "-"));
+          let ex = byId.get(key);
+          if (!ex) ex = items.find((i) => i.type === type && sameWork(i.title, p.title));
+          if (ex) {
+            const merged = {
+              ...ex,
+              episode: Math.max(ex.episode || 0, p.episode || 0) || ex.episode,
+              chapter: Math.max(ex.chapter || 0, p.chapter || 0) || ex.chapter,
+              latestEpisode: Math.max(ex.latestEpisode || 0, p.episode || 0) || ex.latestEpisode,
+              latestChapter: Math.max(ex.latestChapter || 0, p.chapter || 0) || ex.latestChapter,
+              season: ex.season || p.season,
+              rating: ex.rating || p.rating || 0,
+              status: ex.status || p.status || ex.status,
+              url: ex.url || p.url || "",
+              cover: ex.cover || p.cover || "",
+              updatedAt: ex.updatedAt || Date.now(),
+            };
+            byId.set(ex.id, merged); updated++;
+          } else {
+            byId.set(key, {
+              id: key,
+              title: p.title,
+              type,
+              episode: type === "watching" ? p.episode || 0 : undefined,
+              chapter: type === "reading" ? p.chapter || 0 : undefined,
+              season: p.season || undefined,
+              latestEpisode: p.episode || undefined,
+              latestChapter: p.chapter || undefined,
+              total: undefined,
+              rating: p.rating || 0,
+              tags: [],
+              status: p.status || "in_progress",
+              url: p.url || "",
+              cover: p.cover || "",
+              year: p.year || undefined,
+              favorite: false,
+              progress: 0,
+              sources: [],
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              imported: true,
+            });
+            added++;
+          }
+        }
+        const next = [...byId.values()].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 2000);
+        await writeData({ [ITEMS_KEY]: next });
+        sendResponse({ ok: true, added, updated, total: next.length });
+        autoSync();
+      });
+      return true;
+
     case "REMOVE_ITEM":
       read(ITEMS_KEY, []).then((items) => {
         const next = items.filter((i) => i.id !== message.id);

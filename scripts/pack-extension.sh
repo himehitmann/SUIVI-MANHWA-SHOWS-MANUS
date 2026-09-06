@@ -15,7 +15,7 @@ OUT="$ROOT/yomu-extension.zip"
 FILES=(
   manifest.json background.js content.js edition.js translate.js
   popup.html popup.js options.html options.js library.html library.js
-  offscreen.html offscreen.js icon.png
+  offscreen.html offscreen.js import-parse.js icon.png
 )
 
 cd "$ROOT"
@@ -23,6 +23,8 @@ rm -f "$OUT"
 zip "$OUT" "${FILES[@]}" >/dev/null
 # Bundled offline OCR engine (Tesseract.js: wasm core + worker + CJK models).
 zip -r "$OUT" tesseract >/dev/null
+# Vendored libs (fflate for ZIP import).
+zip -r "$OUT" vendor >/dev/null
 echo "Built: $OUT"
 unzip -l "$OUT" | tail -n +2 | head -20
 echo
