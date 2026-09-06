@@ -35,6 +35,12 @@
       .prev.show { display:flex; }
       .prev b { display:block; color:#7A5326; font-size:11px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px; }
       button { font:inherit; border:0; cursor:pointer; border-radius:10px; font-weight:700; }
+      .list-pick { margin-top:11px; }
+      .list-lbl { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:6px; }
+      .list-line { display:flex; gap:8px; align-items:center; }
+      .list-line select { flex:1; font:inherit; font-size:13px; font-weight:600; border:0; background:#fff; border-radius:10px; padding:10px 11px; color:var(--ink); box-shadow:inset 0 0 0 1px #E4D9FA; outline:0; cursor:pointer; }
+      .list-new { width:100%; margin-top:8px; font:inherit; font-size:13px; border:0; background:#fff; border-radius:10px; padding:10px 11px; color:var(--ink); box-shadow:inset 0 0 0 1px #E4D9FA; outline:0; }
+      .list-new:focus { box-shadow:inset 0 0 0 2px var(--purple); }
       .actions { display:flex; gap:8px; margin-top:11px; }
       .primary { flex:1; background:#6CBE9E; color:#fff; padding:11px; font-size:13px; }
       .primary:hover { background:#4CA37E; }
@@ -107,6 +113,14 @@
           <b>Already saved</b>
           <span id="prevText"></span>
         </div>
+      </div>
+
+      <div class="list-pick" id="list-pick">
+        <label class="list-lbl" id="list-lbl" for="list-sel">Add to list</label>
+        <div class="list-line">
+          <select id="list-sel" aria-label="Add to list"></select>
+        </div>
+        <input class="list-new" id="list-new" type="text" maxlength="60" placeholder="New list name" style="display:none" />
       </div>
 
       <div class="actions">

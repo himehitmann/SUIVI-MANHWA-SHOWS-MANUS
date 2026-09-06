@@ -10,6 +10,7 @@ let speed = 1;
 let detection = null;
 let activeTab = null;
 let existing = null;
+let lists = [];
 
 const timecode = (s) => {
   s = Math.floor(s || 0);
@@ -111,9 +112,45 @@ api.runtime.sendMessage({ type: "DETECT_ACTIVE_TAB" }, (resp) => {
   }
 });
 
+// List picker — every save is filed under a list. Populated from GET_STATE;
+// "＋ New list…" reveals a name field, so you can create one on the spot.
+const listSel = $("#list-sel");
+const listNew = $("#list-new");
+const NEW_LIST = "__new__";
+function renderLists() {
+  if (!listSel) return;
+  listSel.innerHTML = "";
+  lists.forEach((l) => {
+    const o = document.createElement("option");
+    o.value = l.id;
+    o.textContent = l.name || "List";
+    listSel.appendChild(o);
+  });
+  const nu = document.createElement("option");
+  nu.value = NEW_LIST;
+  nu.textContent = "＋ New list…";
+  listSel.appendChild(nu);
+  // Default: first existing list, else straight to creating one.
+  if (lists.length) { listSel.value = lists[0].id; listNew.style.display = "none"; }
+  else { listSel.value = NEW_LIST; listNew.style.display = ""; }
+}
+listSel?.addEventListener("change", () => {
+  listNew.style.display = listSel.value === NEW_LIST ? "" : "none";
+  if (listSel.value === NEW_LIST) listNew.focus();
+});
+renderLists();
+
 $("#save").onclick = () => {
   if (!detection) return;
-  api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload: detection }, (r) => {
+  const msg = { type: "SAVE_PROGRESS", payload: detection };
+  if (listSel && listSel.value === NEW_LIST) {
+    const name = (listNew.value || "").trim();
+    if (!name) { listNew.style.display = ""; listNew.focus(); return; }
+    msg.listName = name;
+  } else if (listSel && listSel.value) {
+    msg.listId = listSel.value;
+  }
+  api.runtime.sendMessage(msg, (r) => {
     $("#save").textContent = r?.conflict && r.kept === "existing" ? "Kept furthest ✓" : "Saved ✓";
     $("#save").disabled = true;
     $("#prev").classList.remove("show");
@@ -219,6 +256,8 @@ api.runtime.sendMessage({ type: "GET_STATE" }, (state) => {
   void api.runtime.lastError;
   popupSettings = { translateLang: (state && state.settings && state.settings.translateLang) || (navigator.language || "en").slice(0, 2), ...(state && state.settings) };
   trSel.value = [...trSel.options].some((o) => o.value === popupSettings.translateLang) ? popupSettings.translateLang : "en";
+  lists = (state && Array.isArray(state.lists)) ? state.lists : [];
+  renderLists();
 });
 
 trSel.onchange = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: trSel.value } }, () => void api.runtime.lastError);

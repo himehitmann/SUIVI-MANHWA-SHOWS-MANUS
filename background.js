@@ -329,6 +329,31 @@ async function writeItem(payload) {
   return { item: merged, conflict: Boolean(existing), kept: "incoming" };
 }
 
+// Add an item to a list, creating the list when only a name is given. Membership
+// is a set (no duplicates); a freshly-created list is returned so callers can
+// reflect it. Shared by the popup/in-page save flow and the library.
+async function addItemToList(itemId, listId, listName) {
+  if (!itemId) return null;
+  const lists = await read(LISTS_KEY, []);
+  let target = listId ? lists.find((l) => l.id === listId) : null;
+  let next;
+  if (!target) {
+    const name = (listName || "New list").toString().slice(0, 60);
+    // Reuse a same-named list if one exists (avoids dupes from the bubble).
+    target = lists.find((l) => (l.name || "").toLowerCase() === name.toLowerCase());
+    if (target) {
+      next = lists.map((l) => (l.id === target.id ? { ...l, itemIds: [...new Set([...(l.itemIds || []), itemId])] } : l));
+    } else {
+      target = { id: "l_" + Math.random().toString(36).slice(2, 10), name, cover: "#EDE6FF", itemIds: [itemId], createdAt: Date.now() };
+      next = [...lists, target];
+    }
+  } else {
+    next = lists.map((l) => (l.id === target.id ? { ...l, itemIds: [...new Set([...(l.itemIds || []), itemId])] } : l));
+  }
+  await writeData({ [LISTS_KEY]: next });
+  return { lists: next, list: target };
+}
+
 /*
  * Optional translation relay. The in-page translator (translate.js) hands us an
  * array of strings and a target language; we translate them (keyless Google
@@ -970,7 +995,14 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case "VIDEO_PROGRESS":
     case "SAVE_PROGRESS":
-      writeItem(message.payload).then((result) => {
+      writeItem(message.payload).then(async (result) => {
+        // Optional: assign the saved work to a list (in-page bubble / popup ask
+        // "which list?"). Accepts an existing listId, or a new list by name.
+        if (result && result.item && (message.listId || message.listName)) {
+          try {
+            await addItemToList(result.item.id, message.listId, message.listName);
+          } catch {}
+        }
         sendResponse(result);
         autoSync();
       });
