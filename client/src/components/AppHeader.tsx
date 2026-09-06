@@ -26,7 +26,7 @@ export function AppHeader({ query, onQuery }: Props) {
     <header className="dasi-header">
       <Link href="/" className="dasi-brand">
         <DasiLogo />
-        <span className="shine">Dasi</span>
+        <span className="shine">Yomu</span>
       </Link>
       <nav>
         {nav.map((n) => (

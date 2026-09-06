@@ -1,0 +1,10 @@
+# Yomu — robots.txt
+# Set your real domain in the Sitemap line below before publishing.
+User-agent: *
+Allow: /
+
+# Keep private app surfaces out of the index (they need a signed-in state).
+Disallow: /settings
+Disallow: /api/
+
+Sitemap: https://yomu.app/sitemap.xml

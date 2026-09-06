@@ -1,8 +1,8 @@
 import { useI18n } from "@/i18n/I18nContext";
 
 /** Chrome Web Store listing — swap once the extension is published. */
-const STORE_URL = "https://chromewebstore.google.com/detail/dasi";
-const TEXT = "Dasi — never lose your spot in any manga, webtoon, anime or series. Save & resume in one click.";
+const STORE_URL = "https://chromewebstore.google.com/detail/yomu";
+const TEXT = "Yomu — never lose your spot in any manga, webtoon, anime or series. Save & resume in one click.";
 
 const open = (u: string) => window.open(u, "_blank", "noopener,noreferrer");
 

@@ -5,7 +5,7 @@ import { ShareBar } from "@/components/ShareBar";
 import { useI18n } from "@/i18n/I18nContext";
 import type { StringKey } from "@/i18n/strings";
 
-const STORE_URL = "https://chromewebstore.google.com/detail/dasi";
+const STORE_URL = "https://chromewebstore.google.com/detail/yomu";
 
 const FEATURES: { icon: typeof Sparkles; key: string }[] = [
   { icon: MousePointerClick, key: "f1" },
@@ -92,15 +92,43 @@ export default function Landing() {
           </ul>
         </section>
 
+        {/* FAQ */}
+        <section className="land-faq">
+          <span className="eyebrow">{t("land.faqEyebrow")}</span>
+          <h2>{t("land.faqTitle")}</h2>
+          <div className="land-faqlist">
+            {["1", "2", "3", "4"].map((n) => (
+              <details key={n} className="land-faqitem">
+                <summary>{t(`land.q${n}` as StringKey)}</summary>
+                <p>{t(`land.a${n}` as StringKey)}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
         {/* Plans teaser */}
         <section className="land-plans">
           <h2>{t("land.plansTitle")}</h2>
           <p>{t("land.plansBody")}</p>
-          <Link href="/pricing" className="primary-cta">{t("land.ctaPlans")}</Link>
+          <div className="land-cta">
+            <a className="primary-cta" href={STORE_URL} target="_blank" rel="noreferrer">
+              <Sparkles size={16} /> {t("land.ctaGet")}
+            </a>
+            <Link href="/pricing" className="heart-button">{t("land.ctaPlans")}</Link>
+          </div>
         </section>
 
         <ShareBar />
         <p className="land-foot">{t("land.foot")}</p>
+        <footer className="site-footer">
+          <span className="site-footer-brand">Yomu</span>
+          <nav className="site-footer-links">
+            <a href="/privacy.html">{t("footer.privacy")}</a>
+            <a href="/terms.html">{t("footer.terms")}</a>
+            <a href="mailto:support@yomu.app">{t("footer.contact")}</a>
+          </nav>
+          <span className="site-footer-copy">© {new Date().getFullYear()} Yomu · {t("footer.rights")}</span>
+        </footer>
       </main>
     </div>
   );

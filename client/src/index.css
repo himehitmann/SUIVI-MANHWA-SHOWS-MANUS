@@ -474,3 +474,20 @@ a.profile{display:grid;place-items:center;text-decoration:none}
 .land-plans h2{font-size:30px;letter-spacing:-.04em;margin:0 0 10px}
 .land-plans p{color:#6D6677;max-width:560px;margin:0 auto 20px;font-size:15px;line-height:1.6}
 .land-foot{text-align:center;color:#928C9E;font-size:12px;margin:28px 0 0}
+.land-faq{margin:44px 0}
+.land-faq>.eyebrow{display:block;margin-bottom:4px}
+.land-faq>h2{font-size:30px;letter-spacing:-.04em;margin:0 0 18px}
+.land-faqlist{display:flex;flex-direction:column;gap:12px;max-width:720px}
+.land-faqitem{background:#fff;border:1px solid #ECE8F3;border-radius:14px;padding:2px 18px;box-shadow:0 6px 18px rgba(92,74,140,.05)}
+.land-faqitem summary{cursor:pointer;font-weight:700;font-size:16px;padding:16px 0;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.land-faqitem summary::-webkit-details-marker{display:none}
+.land-faqitem summary::after{content:"+";color:#8B79C4;font-size:22px;font-weight:700;line-height:1}
+.land-faqitem[open] summary::after{content:"–"}
+.land-faqitem p{margin:0 0 16px;color:#5E5870;font-size:14.5px;line-height:1.6}
+.site-footer{display:flex;flex-wrap:wrap;align-items:center;gap:14px;justify-content:center;margin:24px 0 8px;padding-top:22px;border-top:1px solid #ECE8F3;color:#928C9E;font-size:13px}
+.site-footer-brand{font-weight:800;letter-spacing:-.03em;color:#6C5AA5}
+.site-footer-links{display:flex;gap:16px}
+.site-footer-links a{color:#6D6677;text-decoration:none}
+.site-footer-links a:hover{color:#6C5AA5;text-decoration:underline}
+.site-footer-copy{color:#A8A2B5}
+@media (max-width:560px){.site-footer{flex-direction:column;gap:8px}}

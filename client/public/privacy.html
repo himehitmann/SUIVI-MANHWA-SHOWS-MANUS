@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy — Yomu</title>
+    <meta name="description" content="How Yomu handles your data: local-first by default, optional encrypted sync, no ad tracking." />
+    <link rel="canonical" href="https://yomu.app/privacy.html" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="robots" content="index,follow" />
+    <style>
+      :root { --ink:#241F33; --muted:#6B6579; --lav:#6C5AA5; --line:#ECE8F3; --bg:#FBFAFF; }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:"DM Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--ink); background:var(--bg); line-height:1.6; }
+      .wrap { max-width:760px; margin:0 auto; padding:40px 22px 80px; }
+      header { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+      .logo { width:40px; height:40px; border-radius:13px 13px 13px 5px; background:linear-gradient(145deg,#BCA8F4,#8FD7C2); display:grid; place-items:center; transform:rotate(-8deg); }
+      .logo i { width:14px; height:14px; background:#fff; border-radius:5px; opacity:.95; }
+      .brand { font-size:22px; font-weight:800; letter-spacing:-.03em; color:var(--lav); }
+      h1 { font-size:33px; letter-spacing:-.02em; margin:22px 0 4px; }
+      .updated { color:var(--muted); font-size:14px; margin-bottom:28px; }
+      h2 { font-size:20px; margin:34px 0 8px; letter-spacing:-.01em; }
+      p, li { color:#33303E; font-size:15.5px; }
+      a { color:var(--lav); }
+      ul { padding-left:20px; }
+      .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px 20px; margin:18px 0; box-shadow:0 8px 24px rgba(92,74,140,.05); }
+      .note { font-size:13.5px; color:var(--muted); }
+      footer { margin-top:44px; padding-top:18px; border-top:1px solid var(--line); font-size:14px; color:var(--muted); }
+      footer a { margin-right:16px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <span class="logo"><i></i></span><span class="brand">Yomu</span>
+      </header>
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: 6 September 2026</p>
+
+      <div class="card">
+        <p><strong>The short version.</strong> Yomu is built to keep your data on your own device. Your library, lists, progress and settings live in your browser. You can use Yomu fully without an account, without payment, and without sending your library anywhere. Optional features (cross-device sync, subscriptions, translation) are clearly separate and described below. We do not sell your data and we do not use advertising trackers.</p>
+      </div>
+
+      <h2>1. Who we are</h2>
+      <p>Yomu (“we”, “us”) provides a browser extension and companion web app that helps you track and resume manga, webtoons, anime, series, films and games. For any privacy question, contact us at <a href="mailto:support@yomu.app">support@yomu.app</a>.</p>
+      <p class="note">Operator / data controller and contact details to be completed by the publisher before release.</p>
+
+      <h2>2. Data stored on your device</h2>
+      <p>By default, everything Yomu records is stored locally in your browser (via <code>localStorage</code> and the extension’s local storage): the works you track, your reading/watching progress, lists, tags, ratings, favorite sites, notifications and preferences. This data never leaves your device unless you turn on optional sync (see §4). You can export or delete it at any time from Settings.</p>
+
+      <h2>3. Data we do <em>not</em> collect</h2>
+      <ul>
+        <li>No advertising or third-party tracking cookies.</li>
+        <li>No sale or sharing of personal data with advertisers or data brokers.</li>
+        <li>No collection of your browsing history. Yomu only reads the page you are on when you explicitly click “Save” or “Translate”.</li>
+      </ul>
+
+      <h2>4. Optional account &amp; cross-device sync</h2>
+      <p>If you choose to create an account to sync across devices, we store:</p>
+      <ul>
+        <li>Your email address (to identify your account).</li>
+        <li>A one-way, salted <strong>scrypt</strong> hash of your password — never the password itself.</li>
+        <li>Your synced library “blob” (the same tracking data described in §2), so it can be restored on your other devices.</li>
+        <li>Your subscription plan (free / pro / lifetime).</li>
+      </ul>
+      <p>Sync is off until you sign in. You can stop syncing and delete your account data at any time by contacting us.</p>
+
+      <h2>5. Payments</h2>
+      <p>Yomu’s paid tiers are processed by third-party payment providers (Stripe and/or Paddle). Your card details are entered on the provider’s secure checkout and are handled by them — Yomu never sees or stores your full card number. The provider tells us only which plan you purchased, so we can unlock Pro features on your account. See the provider’s own privacy policy for how they process payment data.</p>
+
+      <h2>6. Translation &amp; discovery</h2>
+      <ul>
+        <li><strong>Image (OCR) translation</strong> runs locally inside the extension using a bundled engine — panel images are read on your device and are not uploaded. If the local engine fails, a fallback OCR service may be used only if you have enabled it.</li>
+        <li><strong>Text translation</strong> sends the selected page text to a translation service (e.g. Google Translate’s public endpoint, with a MyMemory fallback) to return the translation. Only the text to translate is sent.</li>
+        <li><strong>Discover / search</strong> sends the title you look up to public catalog services (AniList, Steam, TVMaze, OpenLibrary, Wikipedia) to fetch covers, descriptions, cast and release info. Only your query is sent — not your library.</li>
+      </ul>
+
+      <h2>7. Browser permissions</h2>
+      <p>The extension requests only what it needs: access to the current tab when you act on it, local storage, notifications for new-chapter/episode alerts, and (optionally) broader page access for on-page translation. Permissions are used solely to deliver the feature you triggered.</p>
+
+      <h2>8. Data retention &amp; your rights</h2>
+      <p>Local data stays until you clear it. Account data (if you use sync) is kept while your account exists and deleted on request. Depending on where you live, you may have rights to access, correct, export or delete your personal data; email <a href="mailto:support@yomu.app">support@yomu.app</a> and we will help.</p>
+
+      <h2>9. Children</h2>
+      <p>Yomu is not directed to children under 13 (or the age of digital consent in your country) and we do not knowingly collect their data.</p>
+
+      <h2>10. Changes</h2>
+      <p>We may update this policy; the “Last updated” date will change and material changes will be highlighted in the app.</p>
+
+      <footer>
+        <a href="/">Home</a><a href="/terms.html">Terms of Service</a><a href="mailto:support@yomu.app">Contact</a>
+      </footer>
+    </div>
+  </body>
+</html>
