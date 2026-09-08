@@ -1,46 +1,174 @@
-/*
- * Yomu offscreen OCR host. The MV3 service worker can't create Web Workers or
- * run WASM, so the bundled Tesseract.js engine lives here in an offscreen
- * document. The background sends a panel image (data URL) + source language;
- * we OCR it fully offline (no key, no server, no CDN — the wasm core and the
- * CJK language models are bundled with the extension) and return the text
- * lines. One Tesseract worker is kept warm per language.
- */
+/* Yomu's bundled OCR host. Images remain on the device; only recognized text
+ * is sent to the translation provider. Jobs are serialized to bound memory. */
 /* global Tesseract */
-const workers = {}; // lang -> Promise<Worker>
-const url = (p) => chrome.runtime.getURL(p);
-
-function getWorker(lang) {
-  if (workers[lang]) return workers[lang];
-  workers[lang] = Tesseract.createWorker(lang, 1, {
-    workerPath: url("tesseract/worker.min.js"),
-    corePath: url("tesseract/"), // folder holding tesseract-core-simd.wasm(.js)
-    langPath: url("tesseract/tessdata"), // bundled <lang>.traineddata.gz
-    workerBlobURL: false, // load the worker from its extension URL (CSP-safe)
-    gzip: true,
-  }).catch((e) => { delete workers[lang]; throw e; });
-  return workers[lang];
+let workerPromise = null,
+  activeLanguage = "",
+  jobQueue = Promise.resolve();
+const url = p => chrome.runtime.getURL(p);
+function deadline(promise, ms, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(label)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
-
-// Split OCR output into bubble-sized lines. Tesseract's paragraph/line split is
-// noisy for vertical CJK, so we fall back to the raw text split on newlines.
-function toLines(data) {
-  const fromLines = (data.lines || []).map((l) => (l.text || "").replace(/\s+/g, " ").trim()).filter(Boolean);
-  if (fromLines.length) return fromLines;
-  return String(data.text || "").split(/\r?\n/).map((s) => s.trim()).filter((s) => s.length >= 1);
+const LANGS = new Set(["kor", "jpn", "chi_sim", "eng"]);
+async function getWorker(lang) {
+  lang = LANGS.has(lang) ? lang : "jpn";
+  if (workerPromise && activeLanguage !== lang) {
+    await (await workerPromise).terminate();
+    workerPromise = null;
+  }
+  if (!workerPromise) {
+    activeLanguage = lang;
+    let failed = false,
+      rejectInitialization;
+    const error = new Promise((_, reject) => {
+      rejectInitialization = reject;
+    });
+    const creation = Tesseract.createWorker(lang, 1, {
+      workerPath: url("tesseract/worker.min.js"),
+      corePath: url("tesseract/"),
+      langPath: url("tesseract/tessdata"),
+      workerBlobURL: false,
+      gzip: true,
+      errorHandler: rejectInitialization,
+    });
+    creation.then(
+      worker => {
+        if (failed) worker.terminate();
+      },
+      () => {}
+    );
+    workerPromise = deadline(
+      Promise.race([creation, error]),
+      45000,
+      "ocr_initialization_timeout"
+    ).catch(e => {
+      failed = true;
+      workerPromise = null;
+      throw e;
+    });
+  }
+  return workerPromise;
 }
-
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (!msg || msg.type !== "OCR_OFFSCREEN") return;
-  (async () => {
-    try {
-      const lang = msg.lang || "kor";
-      const worker = await getWorker(lang);
-      const { data } = await worker.recognize(msg.dataUrl);
-      sendResponse({ ok: true, lines: toLines(data) });
-    } catch (e) {
-      sendResponse({ ok: false, error: String((e && e.message) || e) });
+function textRegions(data) {
+  const paragraphs = (data.blocks || []).flatMap(b => b.paragraphs || []);
+  const regions = paragraphs.length ? paragraphs : data.lines || [];
+  return regions
+    .map(p => ({
+      text: (p.text || (p.lines || []).map(l => l.text).join(" "))
+        .replace(/\s+/g, " ")
+        .trim(),
+      bbox: p.bbox,
+      confidence: p.confidence,
+    }))
+    .filter(
+      p => p.text && p.bbox && p.bbox.x1 > p.bbox.x0 && p.bbox.y1 > p.bbox.y0
+    );
+}
+async function recognizePanel(dataUrl, lang) {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  if (blob.size > 25 * 1024 * 1024) throw new Error("image_too_large");
+  const bitmap = await createImageBitmap(blob);
+  try {
+    if (bitmap.width * bitmap.height > 60_000_000)
+      throw new Error("image_too_large");
+    const worker = await getWorker(lang);
+    await worker.setParameters({ tessedit_pageseg_mode: "11" });
+    // Tile tall webtoons rather than shrinking an entire chapter to unreadable text.
+    const scale = Math.min(1.5, 1400 / bitmap.width),
+      width = Math.round(bitmap.width * scale),
+      tileHeight = 1600,
+      overlap = 160;
+    const height = Math.round(bitmap.height * scale),
+      regions = [];
+    for (let top = 0; top < height; top += tileHeight - overlap) {
+      const h = Math.min(tileHeight, height - top),
+        canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = h;
+      canvas
+        .getContext("2d")
+        .drawImage(
+          bitmap,
+          0,
+          top / scale,
+          bitmap.width,
+          h / scale,
+          0,
+          0,
+          width,
+          h
+        );
+      let result;
+      try {
+        result = await deadline(
+          worker.recognize(canvas, {}, { text: true, blocks: true }),
+          45000,
+          "ocr_timeout"
+        );
+      } catch (error) {
+        await worker.terminate();
+        workerPromise = null;
+        throw error;
+      }
+      const { data } = result;
+      for (const r of textRegions(data)) {
+        // Tesseract separates CJK glyphs as words; Japanese/Chinese prose does not.
+        if(lang==='jpn'||lang==='chi_sim')r.text=r.text.replace(/(?<=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])\s+(?=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/gu,'');
+        const bbox = {
+          x0: r.bbox.x0 / scale,
+          y0: (r.bbox.y0 + top) / scale,
+          x1: r.bbox.x1 / scale,
+          y1: (r.bbox.y1 + top) / scale,
+        };
+        if (
+          regions.some(
+            p =>
+              p.text === r.text &&
+              Math.abs(p.bbox.y0 - bbox.y0) < overlap / scale
+          )
+        )
+          continue;
+        const context = canvas.getContext("2d");
+        const sample = context.getImageData(
+          Math.max(0, Math.min(width - 1, Math.round(r.bbox.x0) - 3)),
+          Math.max(0, Math.min(h - 1, Math.round(r.bbox.y0) - 3)),
+          1,
+          1
+        ).data;
+        const light = sample[0] * 0.299 + sample[1] * 0.587 + sample[2] * 0.114;
+        regions.push({
+          ...r,
+          bbox,
+          background: light < 110 ? "#202026" : "#ffffff",
+          foreground: light < 110 ? "#ffffff" : "#171923",
+        });
+      }
+      canvas.width = canvas.height = 1;
+      if (top + h >= height) break;
     }
-  })();
-  return true; // async response
+    return {
+      blocks: regions,
+      width: bitmap.width,
+      height: bitmap.height,
+      lines: regions.map(r => r.text),
+    };
+  } finally {
+    bitmap.close();
+  }
+}
+chrome.runtime.onMessage.addListener((msg, sender, respond) => {
+  if (msg?.type !== "OCR_OFFSCREEN" || sender.id !== chrome.runtime.id) return;
+  const job = jobQueue.then(() => recognizePanel(msg.dataUrl, msg.lang));
+  jobQueue = job.catch(() => {});
+  job.then(
+    data => respond({ ok: true, ...data }),
+    e => respond({ ok: false, error: String(e.message || e) })
+  );
+  return true;
 });

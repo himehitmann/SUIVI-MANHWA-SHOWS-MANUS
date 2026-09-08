@@ -84,6 +84,8 @@
 
   /* ---- Isolated, site-specific adapters. Each returns a partial detection. ---- */
   const ADAPTERS = [
+    {id:'official-games',match:/(^|\.)aniimo\.com$|^chronoodyssey\.kakaogames\.com$/,
+      parse(){return {title:location.hostname.endsWith('aniimo.com')?'Aniimo':clean(metaFirst(["meta[property='og:title']"])).split('|')[0].trim(),type:'game',releaseDate:document.querySelector('time[datetime]')?.getAttribute('datetime')||undefined};}},
     {
       id: "netflix",
       match: /(^|\.)netflix\.com$/,
@@ -423,7 +425,10 @@
         return [];
       }
     });
-    return values.find((v) => v && (v.name || v.headline || v.partOfSeries || v.episodeNumber));
+    const flatten=v=>[v,...(Array.isArray(v?.['@graph'])?v['@graph'].flatMap(flatten):[])];
+    const records=values.flatMap(flatten);
+    const mediaType=v=>[].concat(v?.['@type']||[]).some(t=>/^(VideoGame|TVSeries|TVEpisode|Movie|Book|ComicSeries|ComicIssue|SoftwareApplication)$/.test(t));
+    return records.find(mediaType)||records.find(v=>v&&(v.name||v.headline||v.partOfSeries||v.episodeNumber));
   };
 
   const largestVideo = () =>
@@ -489,7 +494,10 @@
     );
     let type = adapter?.type;
     if (!type) {
-      if (chapter || readingHint) type = "reading";
+      const schemaTypes=[].concat(structured?.['@type']||[]);
+      if(schemaTypes.includes('VideoGame') || (schemaTypes.includes('SoftwareApplication') && /game/i.test(structured.applicationCategory||''))) type='game';
+      else if(schemaTypes.some(t=>/^(TVSeries|TVEpisode|Movie)$/.test(t)))type='watching';
+      else if (chapter || readingHint) type = "reading";
       else if (media) type = "watching";
       else if (episode || season) type = "watching";
       else type = "reading";
@@ -586,9 +594,9 @@
       synopsis,
       genres,
       price: adapter?.price,
-      releaseDate: adapter?.releaseDate,
+      releaseDate: adapter?.releaseDate || (type === "game" ? structured?.datePublished : undefined),
       trailer: adapter?.trailer,
-      platform: adapter?.platform,
+      platform: adapter?.platform || (type === "game" ? [].concat(structured?.gamePlatform || []).join(", ") : undefined),
       available: type === "game" ? undefined : scanAvailable(),
       url: location.href,
       domain: location.hostname.replace(/^www\./, ""),

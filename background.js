@@ -1,3 +1,9 @@
+async function fetchRemote(input, init = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try { return await fetch(input, {...init, signal: init.signal ? AbortSignal.any([init.signal,controller.signal]) : controller.signal}); }
+  finally {clearTimeout(timeout);}
+}
 /*
  * Dasi service worker — local-first storage and merge policy.
  *
@@ -49,10 +55,12 @@ const sameWork = (a, b) => {
   const na = normalizeTitle(a), nb = normalizeTitle(b);
   if (!na || !nb) return false;
   if (na === nb) return true;
+  // Numbered sequels and remakes must never be auto-merged as a spelling variant.
+  if ((na.match(/\d+|\b[ivx]+\b/g) || []).join(',') !== (nb.match(/\d+|\b[ivx]+\b/g) || []).join(',')) return false;
   const ta = new Set(na.split(" ").filter(Boolean)), tb = new Set(nb.split(" ").filter(Boolean));
   if (ta.size === tb.size && [...ta].every((x) => tb.has(x))) return true;
   const [small, big] = ta.size <= tb.size ? [ta, tb] : [tb, ta];
-  if (small.size >= 2) { let inter = 0; small.forEach((x) => big.has(x) && inter++); if (inter === small.size && small.size / big.size >= 0.6) return true; }
+  if (small.size >= 2) { let inter = 0; small.forEach((x) => big.has(x) && inter++); if (inter === small.size && small.size / big.size >= 0.6) return false; }
   return editRatio(na, nb) >= 0.9;
 };
 
@@ -146,7 +154,7 @@ const setSyncMeta = async (meta) => {
 };
 
 async function apiCall(cfg, path, init = {}) {
-  return fetch(apiBase(cfg.apiUrl) + path, {
+  return fetchRemote(apiBase(cfg.apiUrl) + path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -158,7 +166,7 @@ async function apiCall(cfg, path, init = {}) {
 
 /** Sign in / sign up against the backend and persist the resulting config. */
 async function syncAuth(path, apiUrl, email, password) {
-  const res = await fetch(apiBase(apiUrl) + path, {
+  const res = await fetchRemote(apiBase(apiUrl) + path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -203,9 +211,11 @@ async function syncNow() {
     await setSyncMeta({ lastError: "unauthorized" });
     throw new Error("unauthorized");
   }
-  const remote = getRes.ok ? await getRes.json().catch(() => ({ blob: null })) : { blob: null };
+  if(!getRes.ok)throw new Error(`pull_${getRes.status}`);
+  const remote = await getRes.json();
   const rb = remote.blob || null;
 
+  const {mergedItems,mergedSites,mergedNotifs,mergedLists}=await serializeLibrary(async()=>{
   const [items, sites, notifs, lists] = await Promise.all([
     read(ITEMS_KEY, []),
     read(SITES_KEY, []),
@@ -217,6 +227,8 @@ async function syncNow() {
   const mergedNotifs = mergeById(rb && rb.notifications, notifs);
   const mergedLists = mergeById(rb && rb.lists, lists);
   await writeData({ [ITEMS_KEY]: mergedItems, [SITES_KEY]: mergedSites, [NOTIF_KEY]: mergedNotifs, [LISTS_KEY]: mergedLists });
+  return {mergedItems,mergedSites,mergedNotifs,mergedLists};
+  });
 
   // Push the merged library, preserving web-only slices (learn/plan) that the
   // extension doesn't own so a push never wipes them.
@@ -253,16 +265,42 @@ function autoSync() {
   });
 }
 
-async function writeItem(payload) {
+let libraryWriteQueue = Promise.resolve();
+function serializeLibrary(task) {
+  const result = libraryWriteQueue.then(task);
+  libraryWriteQueue = result.catch(() => {});
+  return result;
+}
+function boundedProgress(item) {
+  const out = { ...item };
+  const n = value => Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
+  const total = n(out.total);
+  if (out.total !== undefined) out.total = total || undefined;
+  for (const key of ['chapter','episode','page','season','volume','latestChapter','latestEpisode']) {
+    if(out[key] !== undefined) out[key] = n(out[key]);
+  }
+  const key = out.type === 'watching' ? 'episode' : 'chapter';
+  if (total && out[key] !== undefined) out[key] = Math.min(total,out[key]);
+  if (out.progress !== undefined) out.progress = Math.max(0,Math.min(100,Number(out.progress) || 0));
+  return out;
+}
+function writeItem(payload) { return serializeLibrary(() => writeItemUnlocked(payload)); }
+async function writeItemUnlocked(payload) {
+  if (!payload || typeof payload.title !== 'string' || !payload.title.trim()) throw new Error('missing_title');
+  payload = Object.fromEntries(Object.entries(payload).filter(([k,v]) => v !== undefined && !['__proto__','constructor','prototype','id','createdAt'].includes(k)));
   const items = await read(ITEMS_KEY, []);
   let key = workKey(payload);
-  let existing = items.find((i) => i.id === key);
+  const compatible=i=>i.type===payload.type && (!i.year || !payload.year || Number(i.year)===Number(payload.year));
+  let existing = items.find(i=>i.id===key && compatible(i));
+  if(!existing && items.some(i=>i.id===key)){const base=key+'-'+(payload.type||'reading')+(payload.year?'-'+payload.year:'');key=base;let n=2;while(items.some(i=>i.id===key))key=base+'-'+n++;}
   // Cross-site merge: no exact id match → look for the same work saved under a
   // slightly different title on another site, and keep its id so they converge.
   if (!existing && payload.type !== "game") {
-    const fuzzy = items.find((i) => i.type === payload.type && i.id !== key && sameWork(i.title, payload.title));
+    const fuzzy = items.find((i) => compatible(i) && i.id !== key && sameWork(i.title, payload.title));
     if (fuzzy) { existing = fuzzy; key = fuzzy.id; }
   }
+  const sameSeason = !existing || (Number(payload.season) || 1) === (Number(existing.season) || 1);
+  payload = boundedProgress({ ...payload, total: payload.total || (sameSeason ? existing?.total : undefined) });
   const incomingScore = numericProgress(payload);
   const existingScore = existing ? numericProgress(existing) : -1;
 
@@ -275,7 +313,7 @@ async function writeItem(payload) {
   };
 
   // Regression guard: keep the furthest position, flag the conflict.
-  if (existing && existingScore > incomingScore && incomingScore > 0) {
+  if (existing && sameSeason && existingScore > incomingScore && incomingScore > 0) {
     await api.storage.local.set({ "dasi.lastConflict": { existing, incoming, reason: "lower_progress" } });
     return { item: existing, conflict: true, kept: "existing" };
   }
@@ -298,16 +336,16 @@ async function writeItem(payload) {
     tags: existing?.tags ?? (Array.isArray(payload.genres) ? payload.genres : []),
     // Furthest point ever reached (for "mark all up to here", progress display).
     latestChapter: Math.max(existing?.latestChapter || 0, payload.chapter || 0) || undefined,
-    latestEpisode: Math.max(existing?.latestEpisode || 0, payload.episode || 0) || undefined,
+    latestEpisode: Math.max(sameSeason ? existing?.latestEpisode || 0 : 0, payload.episode || 0) || undefined,
     // How many entries are released (auto-detected from the page, never lowered).
-    total: Math.max(existing?.total || 0, payload.available || 0, payload.chapter || 0, payload.episode || 0) || existing?.total || undefined,
+    total: payload.total || payload.available || (sameSeason ? existing?.total : undefined),
     createdAt: existing?.createdAt || Date.now(),
     favorite: existing?.favorite || false,
     rating: existing?.rating || 0,
     sources: [...new Set([...(existing?.sources || []), payload.domain].filter(Boolean))],
   };
 
-  const next = [merged, ...items.filter((i) => i.id !== key)].slice(0, 800);
+  const next = [boundedProgress(merged), ...items.filter((i) => i.id !== key)];
   await writeData({ [ITEMS_KEY]: next });
   await api.storage.local.set({ "dasi.lastConflict": null });
 
@@ -326,7 +364,7 @@ async function writeItem(payload) {
   // First time we see this work → enrich it from AniList in the background so
   // it gets a real series cover, synopsis, tags and released count.
   if (merged.type !== "game" && !merged.enrichedAt) enrichWork(key).then(() => autoSync()).catch(() => {});
-  return { item: merged, conflict: Boolean(existing), kept: "incoming" };
+  return { item: boundedProgress(merged), conflict: false, kept: "incoming" };
 }
 
 // Add an item to a list, creating the list when only a name is given. Membership
@@ -363,28 +401,19 @@ async function addItemToList(itemId, listId, listName) {
  */
 async function gtxTranslate(text, target) {
   const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(text)}`;
-  const r = await fetch(url);
+  const r = await fetchRemote(url);
   if (!r.ok) throw new Error(`gtx_${r.status}`);
   const j = await r.json();
-  return Array.isArray(j && j[0]) ? j[0].map((s) => (s && s[0]) || "").join("") : text;
+  if(!Array.isArray(j && j[0])) throw new Error("translation_response_invalid");
+  return j[0].map(s => (s && s[0]) || "").join("");
 }
 async function mymemoryTranslate(text, target) {
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0, 480))}&langpair=${encodeURIComponent("en|" + target)}`;
-  const r = await fetch(url);
+  const r = await fetchRemote(url);
   const j = await r.json();
   return (j && j.responseData && j.responseData.translatedText) || text;
 }
-async function translateOne(text, target) {
-  try {
-    return await gtxTranslate(text, target);
-  } catch {
-    try {
-      return await mymemoryTranslate(text, target);
-    } catch {
-      return text;
-    }
-  }
-}
+async function translateOne(text,target) { return gtxTranslate(text,target); }
 /** Translate an array of strings, batching with a newline join to cut calls. */
 async function translateTexts(texts, target) {
   const out = new Array(texts.length);
@@ -456,7 +485,7 @@ function trailerUrl(tr) {
 // by the caller.
 async function anilistDetail(id) {
   const gql = `query($id:Int){Media(id:$id){episodes chapters volumes seasonYear status trailer{id site} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{name{full} image{large}}}}}}`;
-  const res = await fetch(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { id } }) });
+  const res = await fetchRemote(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { id } }) });
   if (!res.ok) throw new Error(`anilist_detail_${res.status}`);
   const data = await res.json();
   const m = data && data.data && data.data.Media;
@@ -477,7 +506,7 @@ async function anilistDetail(id) {
 }
 async function anilistSearch(query) {
   const gql = `query($s:String){Page(perPage:10){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
-  const res = await fetch(ANILIST_URL, {
+  const res = await fetchRemote(ANILIST_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ query: gql, variables: { s: query } }),
@@ -490,7 +519,7 @@ async function anilistSearch(query) {
 /** Books via OpenLibrary (keyless). */
 async function openLibrarySearch(query) {
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=5&fields=title,author_name,cover_i,first_publish_year,subject`;
-  const res = await fetch(url);
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`openlibrary_${res.status}`);
   const data = await res.json();
   return (data.docs || []).filter((d) => d.title).map((d) => ({
@@ -507,26 +536,15 @@ async function openLibrarySearch(query) {
 }
 /** Games via the Steam storefront search (keyless). */
 async function steamSearch(query) {
-  const url = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&cc=us&l=en`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`steam_${res.status}`);
-  const data = await res.json();
-  return (data.items || []).filter((g) => g.name).slice(0, 10).map((g) => ({
-    title: g.name,
-    type: "game",
-    cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/header.jpg`,
-    synopsis: "",
-    genres: [],
-    price: g.price ? `$${(g.price.final / 100).toFixed(2)}` : undefined,
-    platform: "Steam",
-    format: "Game",
-    url: `https://store.steampowered.com/app/${g.id}`,
-  }));
+  const url = 'https://store.steampowered.com/search/results/?term='+encodeURIComponent(query)+'&start=0&count=20&category1=998&infinite=1&json=1&cc=us&l=en';
+  const res=await fetchRemote(url); if(!res.ok) throw new Error('steam_'+res.status);
+  const data=await res.json();
+  return steamGames(parseSteamSearch(data.results_html || ''),false).map(g=>({...g,released:undefined,externalIds:{steam:steamAppId(g.url)}}));
 }
 /** Live-action TV series via TVMaze (keyless) — covers Western/American shows. */
 async function tvmazeSearch(query) {
   const url = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`;
-  const res = await fetch(url);
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`tvmaze_${res.status}`);
   const data = await res.json();
   return (data || []).slice(0, 6).map((row) => row.show).filter((sh) => sh && sh.name).map((sh) => ({
@@ -563,7 +581,7 @@ function classifyWiki(desc) {
 async function wikipediaSearch(query, lang) {
   const host = `https://${lang || "en"}.wikipedia.org`;
   const url = `${host}/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=10&prop=pageimages|description|extracts&piprop=thumbnail&pithumbsize=400&exintro=1&explaintext=1&exlimit=10`;
-  const res = await fetch(url);
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`wiki_${res.status}`);
   const data = await res.json();
   const pages = (data.query && data.query.pages) ? Object.values(data.query.pages) : [];
@@ -587,7 +605,7 @@ async function wikipediaSearch(query, lang) {
 /** Films & TV via TMDB (needs the user's free API key from settings). */
 async function tmdbSearch(query, key) {
   const url = `https://api.themoviedb.org/3/search/multi?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(query)}&include_adult=false`;
-  const res = await fetch(url);
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`tmdb_${res.status}`);
   const data = await res.json();
   return (data.results || [])
@@ -607,7 +625,7 @@ async function tmdbSearch(query, key) {
 /** Games via RAWG (needs the user's free API key from settings). */
 async function rawgSearch(query, key) {
   const url = `https://api.rawg.io/api/games?key=${encodeURIComponent(key)}&search=${encodeURIComponent(query)}&page_size=6`;
-  const res = await fetch(url);
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`rawg_${res.status}`);
   const data = await res.json();
   return (data.results || []).filter((g) => g.name).map((g) => ({
@@ -635,6 +653,7 @@ async function catalogSearchAll(query) {
   if (s && s.tmdbKey) tasks.push(tmdbSearch(query, s.tmdbKey));
   if (s && s.rawgKey) tasks.push(rawgSearch(query, s.rawgKey));
   const settled = await Promise.allSettled(tasks);
+  if (settled.every(r => r.status === "rejected")) throw new Error("catalog_unavailable");
   const out = [];
   for (const r of settled) if (r.status === "fulfilled") out.push(...r.value);
   // De-dup by normalized title+type. Prefer the entry that has a cover, and
@@ -656,11 +675,11 @@ async function catalogSearchAll(query) {
  * Steam storefront. All keyless. Cached ~6h so the Home stays snappy and we
  * never hammer the services.
  */
-const DISCOVER_KEY = "dasi.discover.cache";
+const DISCOVER_KEY = "dasi.discover.cache.v2";
 const DISCOVER_TTL = 6 * 3600 * 1000;
 async function anilistTrending(type, country) {
   const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
-  const res = await fetch(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { t: type, c: country || undefined } }) });
+  const res = await fetchRemote(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { t: type, c: country || undefined } }) });
   if (!res.ok) throw new Error(`anilist_${res.status}`);
   const data = await res.json();
   return ((data && data.data && data.data.Page && data.data.Page.media) || []).map(mediaToResult).filter((r) => r.title && r.cover);
@@ -681,7 +700,7 @@ function steamItems(list, released) {
 }
 // Non-games / hardware / filler to keep out of discovery.
 const STEAM_SKIP = new Set(["1675200", "1531210", "353370", "353380"]); // Steam Deck, Index, controllers
-const STEAM_JUNK = /(soundtrack|ost|artbook|art ?book|season pass|- pack|bundle|demo|playtest|dedicated server|wallpaper|steam deck|valve index|controller|hardware)/i;
+const STEAM_JUNK = /\b(soundtrack|ost|artbook|art book|season pass|bundle|demo|playtest|dedicated server|wallpaper|steam deck|valve index|controller|hardware)\b/i;
 // Parse the Steam store search "results_html" into {id, name, price}.
 function parseSteamSearch(html) {
   const out = [];
@@ -701,14 +720,16 @@ function parseSteamSearch(html) {
 // by wishlists / top-sellers — these are the AAA titles users expect. Portrait
 // capsules (library_600x900) fit the cards cleanly (no cropped landscape banners).
 async function steamSearchList(filter) {
-  const url = `https://store.steampowered.com/search/results/?query&start=0&count=40&dynamic_data=&sort_by=_ASC&filter=${filter}&infinite=1&json=1&cc=us&l=en`;
-  const res = await fetch(url);
+  const url = `https://store.steampowered.com/search/results/?query&start=0&count=40&dynamic_data=&category1=998&filter=${filter}&infinite=1&json=1&cc=us&l=en`;
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`steam_search_${res.status}`);
   const j = await res.json();
   return parseSteamSearch(j.results_html || "");
 }
 function steamGames(list, soon) {
+  const seen = new Set();
   return (list || [])
+    .filter(g => g && !seen.has(g.id) && seen.add(g.id))
     .filter((g) => g && g.id && g.name && !STEAM_SKIP.has(g.id) && !STEAM_JUNK.test(g.name))
     .slice(0, 14)
     .map((g) => ({
@@ -719,7 +740,7 @@ function steamGames(list, soon) {
       price: g.price || undefined,
       platform: "Steam",
       format: "Game",
-      released: !soon,
+      released: soon === true ? false : undefined,
       releaseDate: soon ? "Coming soon" : undefined,
       url: `https://store.steampowered.com/app/${g.id}`,
     }));
@@ -729,7 +750,7 @@ function steamGames(list, soon) {
 function steamAppId(url) { const m = String(url || "").match(/\/app\/(\d+)/); return m ? m[1] : ""; }
 async function steamAppDetails(appid) {
   const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&filters=basic,genres,release_date`;
-  const res = await fetch(url);
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`steam_details_${res.status}`);
   const data = await res.json();
   const d = data && data[appid] && data[appid].success && data[appid].data;
@@ -738,11 +759,11 @@ async function steamAppDetails(appid) {
     genres: Array.isArray(d.genres) ? d.genres.map((g) => g.description).filter(Boolean).slice(0, 6) : [],
     synopsis: (d.short_description || "").trim(),
     releaseDate: d.release_date && d.release_date.date ? d.release_date.date : undefined,
-    comingSoon: !!(d.release_date && d.release_date.coming_soon),
+    comingSoon: typeof d.release_date?.coming_soon === "boolean" ? d.release_date.coming_soon : undefined,
   };
 }
 async function steamDiscover() {
-  const [soonR, hotR] = await Promise.allSettled([steamSearchList("popularcomingsoon"), steamSearchList("topsellers")]);
+  const [soonR, hotR] = await Promise.allSettled([steamSearchList("popularwishlist"), steamSearchList("topsellers")]);
   const soon = soonR.status === "fulfilled" ? steamGames(soonR.value, true) : [];
   const hot = hotR.status === "fulfilled" ? steamGames(hotR.value, false) : [];
   return { soon, hot };
@@ -751,8 +772,8 @@ async function steamDiscover() {
 // the Home can offer K-Drama / C-Drama / J-Drama / Series tabs like Webtoon.
 async function tvmazeTrending() {
   const pages = await Promise.allSettled([
-    fetch("https://api.tvmaze.com/shows?page=0").then((r) => (r.ok ? r.json() : [])),
-    fetch("https://api.tvmaze.com/shows?page=1").then((r) => (r.ok ? r.json() : [])),
+    fetchRemote("https://api.tvmaze.com/shows?page=0").then((r) => (r.ok ? r.json() : [])),
+    fetchRemote("https://api.tvmaze.com/shows?page=1").then((r) => (r.ok ? r.json() : [])),
   ]);
   const shows = pages.flatMap((p) => (p.status === "fulfilled" && Array.isArray(p.value) ? p.value : []));
   const cc = (s) => (s.network && s.network.country && s.network.country.code) || (s.webChannel && s.webChannel.country && s.webChannel.country.code) || "";
@@ -841,8 +862,11 @@ async function enrichWork(id) {
       } catch {}
     }
   }
-  const next = items.map((x) => (x.id === id ? { ...x, ...patch } : x));
-  await writeData({ [ITEMS_KEY]: next });
+  await serializeLibrary(async () => {
+    const current = await read(ITEMS_KEY, []);
+    const next = current.map(x => x.id === id ? boundedProgress({...x,...patch}) : x);
+    await writeData({[ITEMS_KEY]:next});
+  });
 }
 
 /*
@@ -856,7 +880,7 @@ async function enrichWork(id) {
  * Best-effort: any failure returns {ok:false} and the page is left untouched.
  */
 async function fetchBlob(url) {
-  const r = await fetch(url);
+  const r = await fetchRemote(url);
   if (!r.ok) throw new Error(`img_${r.status}`);
   return await r.blob();
 }
@@ -881,7 +905,7 @@ async function selfHostImage(server, imageUrl, code) {
     const fd = new FormData();
     fd.append("image", file, "panel");
     fd.append("config", config);
-    const res = await fetch(base + "/translate/with-form/image", { method: "POST", body: fd });
+    const res = await fetchRemote(base + "/translate/with-form/image", { method: "POST", body: fd });
     if (res.ok) {
       const blob = await res.blob();
       if (blob.type.indexOf("image") === 0) return await blobToDataUrl(blob);
@@ -893,7 +917,7 @@ async function selfHostImage(server, imageUrl, code) {
     // fetch/CORS issue on the form path — try the legacy URL path below.
   }
   // Legacy servers: JSON with the image URL.
-  const res2 = await fetch(base + "/translate/with-url/image", {
+  const res2 = await fetchRemote(base + "/translate/with-url/image", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url: imageUrl, config: { translator: { translator: "google", target_lang: code } } }),
@@ -944,7 +968,7 @@ async function ocrSpaceImage(imageUrl, target, key, src) {
   fd.append("isOverlayRequired", "true");
   fd.append("OCREngine", "1");
   fd.append("scale", "true");
-  const res = await fetch("https://api.ocr.space/parse/image", { method: "POST", headers: { apikey: key || "helloworld" }, body: fd });
+  const res = await fetchRemote("https://api.ocr.space/parse/image", { method: "POST", headers: { apikey: key || "helloworld" }, body: fd });
   if (!res.ok) throw new Error(`ocr_${res.status}`);
   const j = await res.json();
   if (j.IsErroredOnProcessing) throw new Error(Array.isArray(j.ErrorMessage) ? j.ErrorMessage[0] : "ocr_err");
@@ -996,7 +1020,7 @@ async function ocrSpaceText(imageUrl, target, key, src) {
   fd.append("language", src || "jpn");
   fd.append("OCREngine", "1");
   fd.append("scale", "true");
-  const res = await fetch("https://api.ocr.space/parse/image", { method: "POST", headers: { apikey: key || "helloworld" }, body: fd });
+  const res = await fetchRemote("https://api.ocr.space/parse/image", { method: "POST", headers: { apikey: key || "helloworld" }, body: fd });
   if (!res.ok) throw new Error(`ocr_${res.status}`);
   const j = await res.json();
   if (j.IsErroredOnProcessing) throw new Error(Array.isArray(j.ErrorMessage) ? j.ErrorMessage[0] : "ocr_err");
@@ -1009,7 +1033,7 @@ async function ocrSpaceText(imageUrl, target, key, src) {
 // ---- Bundled offline OCR (Tesseract.js in an offscreen document) -----------
 // The primary translation path: fully local, no key, no server, no CDN. The
 // service worker can't run WASM/Workers, so OCR happens in offscreen.js.
-const TESS_LANG = { kor: "kor", jpn: "jpn", chs: "chi_sim", chi_sim: "chi_sim", zh: "chi_sim" };
+const TESS_LANG = { eng: "eng", en: "eng", ja: "jpn", ko: "kor", kor: "kor", jpn: "jpn", chs: "chi_sim", chi_sim: "chi_sim", zh: "chi_sim" };
 let offscreenReady = null;
 async function ensureOffscreen() {
   if (!api.offscreen) throw new Error("no_offscreen");
@@ -1027,34 +1051,28 @@ function ocrViaTesseract(dataUrl, lang) {
   return new Promise((resolve, reject) => {
     api.runtime.sendMessage({ type: "OCR_OFFSCREEN", dataUrl, lang }, (r) => {
       void api.runtime.lastError;
-      if (r && r.ok) resolve(r.lines || []);
+      if (r && r.ok) resolve(r);
       else reject(new Error((r && r.error) || "ocr_offscreen_failed"));
     });
   });
 }
-async function ocrTextTesseract(imageUrl, target, src) {
+const translatedPanels = new Map();
+async function ocrTextTesseract(imageUrl,target,src) {
+  const key=JSON.stringify([imageUrl,target,src]);
+  const cached=translatedPanels.get(key); if(cached && Date.now()-cached.at<10*60*1000)return cached.value;
   await ensureOffscreen();
-  const raw = await fetchBlob(imageUrl);
-  let s = await scaledJpeg(raw, 1800, 0.85);
-  if (s.blob.size > 4000000) s = await scaledJpeg(raw, 1400, 0.7);
-  const dataUrl = await blobToDataUrl(s.blob);
-  const lang = TESS_LANG[src] || TESS_LANG[(src || "").slice(0, 3)] || "kor";
-  const raw2 = await ocrViaTesseract(dataUrl, lang);
-  const cleaned = raw2.map((x) => x.trim()).filter((x) => x.length >= 1);
-  if (!cleaned.length) return { lines: [] };
-  const tr = await translateTexts(cleaned, target || "en");
-  return { lines: cleaned.map((sl, i) => ({ src: sl, tr: tr[i] || sl })) };
+  const blob=await fetchBlob(imageUrl); if(blob.size>25*1024*1024)throw new Error('image_too_large');
+  const dataUrl=await blobToDataUrl(blob);
+  const lang=TESS_LANG[src] || 'jpn';
+  const ocr=await ocrViaTesseract(dataUrl,lang);
+  const blocks=ocr.blocks || [];
+  if(!blocks.length)return {lines:[],blocks:[],width:ocr.width,height:ocr.height};
+  const translated=await translateTexts(blocks.map(b=>b.text),target || 'en');
+  const value={width:ocr.width,height:ocr.height,blocks:blocks.map((b,i)=>({...b,translation:translated[i]})),lines:blocks.map((b,i)=>({src:b.text,tr:translated[i]}))};
+  if(translatedPanels.size>=24)translatedPanels.delete(translatedPanels.keys().next().value);
+  translatedPanels.set(key,{at:Date.now(),value});return value;
 }
-async function translateImageText(imageUrl, target, src) {
-  const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-  const srcLang = src || (s && s.ocrSrc) || "kor";
-  // 1) Bundled Tesseract (offline, always available). 2) OCR.space fallback.
-  try {
-    const r = await ocrTextTesseract(imageUrl, target || "en", srcLang);
-    if (r.lines.length) return r;
-  } catch (e) { void e; }
-  return ocrSpaceText(imageUrl, target || "en", (s && s.ocrKey) || "helloworld", srcLang === "chi_sim" ? "chs" : srcLang);
-}
+async function translateImageText(imageUrl,target,src) { return ocrTextTesseract(imageUrl,target,src); }
 // Lightweight reachability check: any HTTP response from the base or its docs
 // means the server is up (endpoints differ by version, so we don't require 200).
 async function testImgServer(url) {
@@ -1065,7 +1083,7 @@ async function testImgServer(url) {
   try {
     for (const path of ["/docs", "/"]) {
       try {
-        const r = await fetch(base + path, { signal: ctrl.signal });
+        const r = await fetchRemote(base + path, { signal: ctrl.signal });
         if (r && (r.ok || r.status === 404 || r.status === 405)) return true;
       } catch (e) { /* try next path */ }
     }
@@ -1098,6 +1116,52 @@ async function detectTab(tabId) {
   });
 }
 
+
+// Every read-modify-write of user data shares one queue, including imports.
+function mutateAndReply(task, respond) {
+  serializeLibrary(task).then(result=>{respond(result);autoSync();},error=>respond({ok:false,error:String(error.message || error)}));
+}
+async function mergeImport(payload) {
+  const items=await read(ITEMS_KEY,[]), byId=new Map(items.map(i=>[i.id,i])), ids=new Map();
+  let added=0,updated=0;
+  for(const raw of (Array.isArray(payload.items)?payload.items:[])) {
+    if(!raw || typeof raw.title!=='string' || !raw.title.trim())continue;
+    const p=Object.fromEntries(Object.entries(raw).filter(([k,v])=>v!==undefined&&!['__proto__','constructor','prototype'].includes(k)));
+    const type=['reading','watching','game'].includes(p.type)?p.type:'watching';
+    const compatible=i=>i.type===type && (!i.year || !p.year || Number(i.year)===Number(p.year));
+    let key=p.id || workKey(p), ex=byId.get(key);
+    if(ex && (!compatible(ex) || !sameWork(ex.title,p.title)))ex=null;
+    if(!ex)ex=[...byId.values()].find(i=>compatible(i)&&sameWork(i.title,p.title));
+    if(ex)key=ex.id;
+    else {const base=key||'imported-work';let n=1;while(byId.has(key))key=base+'-'+type+'-'+n++;}
+    if(p.id)ids.set(p.id,key);
+    const season=Math.max(Number(ex?.season)||1,Number(p.season)||1);
+    const episode=(Number(ex?.season)||1)>(Number(p.season)||1)?ex.episode:(Number(p.season)||1)>(Number(ex?.season)||1)?p.episode:Math.max(ex?.episode||0,p.episode||0);
+    const sameSeason=!ex||(Number(ex.season)||1)===(Number(p.season)||1);
+    const item=boundedProgress({...p,...ex,id:key,title:ex?.title||p.title,type,season:type==='watching'?season:undefined,
+      episode:type==='watching'?episode:undefined,chapter:type==='reading'?Math.max(ex?.chapter||0,p.chapter||0):undefined,
+      total:sameSeason?(ex?.total||p.total):season===(Number(p.season)||1)?p.total:ex?.total,
+      rating:ex?.rating||p.rating||0,cover:ex?.cover||p.cover||'',url:ex?.url||p.url||'',favorite:ex?.favorite||p.favorite||false,
+      tags:[...new Set([...(ex?.tags||[]),...(p.tags||[])])],sources:[...new Set([...(ex?.sources||[]),...(p.sources||[])])],
+      createdAt:ex?.createdAt||p.createdAt||Date.now(),updatedAt:Date.now(),imported:true});
+    byId.set(key,item);if(ex)updated++;else added++;
+  }
+  const patch={[ITEMS_KEY]:[...byId.values()]};
+  if(Array.isArray(payload.lists)) {
+    const lists=new Map((await read(LISTS_KEY,[])).map(l=>[l.id,l]));
+    for(const l of payload.lists) {
+      if(!l || !l.id)continue;
+      const previous=lists.get(l.id), members=(l.itemIds||[]).map(id=>ids.get(id)||id).filter(id=>byId.has(id));
+      lists.set(l.id,{...l,...previous,itemIds:[...new Set([...(previous?.itemIds||[]),...members])],updatedAt:Date.now()});
+    }
+    patch[LISTS_KEY]=[...lists.values()];
+  }
+  if(Array.isArray(payload.sites))patch[SITES_KEY]=mergeById(payload.sites,await read(SITES_KEY,[]));
+  if(Array.isArray(payload.notifications))patch[NOTIF_KEY]=mergeById(payload.notifications.map(n=>({...n,itemId:ids.get(n.itemId)||n.itemId})),await read(NOTIF_KEY,[]));
+  if(payload.settings)patch[SETTINGS_KEY]={...DEFAULT_SETTINGS,...payload.settings,...await read(SETTINGS_KEY,{})};
+  await writeData(patch);return {ok:true,added,updated,total:byId.size};
+}
+
 api.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case "DETECTION_UPDATED":
@@ -1111,12 +1175,12 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // "which list?"). Accepts an existing listId, or a new list by name.
         if (result && result.item && (message.listId || message.listName)) {
           try {
-            await addItemToList(result.item.id, message.listId, message.listName);
-          } catch {}
+            await serializeLibrary(()=>addItemToList(result.item.id, message.listId, message.listName));
+          } catch (e) {sendResponse({ok:false,error:"list_save_failed",item:result.item});return;}
         }
         sendResponse(result);
         autoSync();
-      });
+      }).catch(e=>sendResponse({ok:false,error:String(e.message)}));
       return true;
 
     // Look up (without saving) whether this work already has a saved position, so
@@ -1159,185 +1223,40 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case "NOTIF_READ_ALL":
-      read(NOTIF_KEY, []).then((list) => {
-        const next = list.map((n) => ({ ...n, read: true }));
-        writeData({ [NOTIF_KEY]: next }).then(() => sendResponse({ notifications: next }));
-      });
-      return true;
-
     case "NOTIF_CLEAR":
-      writeData({ [NOTIF_KEY]: [] }).then(() => sendResponse({ notifications: [] }));
-      return true;
-
+      mutateAndReply(async()=>{const notifications=message.type==='NOTIF_CLEAR'?[]:(await read(NOTIF_KEY,[])).map(n=>({...n,read:true}));await writeData({[NOTIF_KEY]:notifications});return {notifications};},sendResponse);return true;
     case "SET_SETTINGS":
-      read(SETTINGS_KEY, DEFAULT_SETTINGS).then((s) => {
-        const next = { ...DEFAULT_SETTINGS, ...(s || {}), ...(message.patch || {}) };
-        writeData({ [SETTINGS_KEY]: next }).then(() => {
-          sendResponse({ settings: next });
-          autoSync();
-        });
-      });
-      return true;
-
-    // ---- Custom lists (collections) ------------------------------------------
+      mutateAndReply(async()=>{const settings={...DEFAULT_SETTINGS,...await read(SETTINGS_KEY,{}),...message.patch};await writeData({[SETTINGS_KEY]:settings});return {settings};},sendResponse);return true;
     case "LIST_CREATE":
-      read(LISTS_KEY, []).then((lists) => {
-        const list = {
-          id: "l_" + Math.random().toString(36).slice(2, 10),
-          name: (message.name || "New list").slice(0, 60),
-          cover: message.cover || "#EDE6FF",
-          itemIds: [],
-          createdAt: Date.now(),
-        };
-        const next = [...lists, list];
-        writeData({ [LISTS_KEY]: next }).then(() => {
-          sendResponse({ lists: next, list });
-          autoSync();
-        });
-      });
-      return true;
-
-    case "LIST_UPDATE": // rename / change cover
-      read(LISTS_KEY, []).then((lists) => {
-        const next = lists.map((l) => (l.id === message.id ? { ...l, ...(message.patch || {}) } : l));
-        writeData({ [LISTS_KEY]: next }).then(() => {
-          sendResponse({ lists: next });
-          autoSync();
-        });
-      });
-      return true;
-
+    case "LIST_UPDATE":
     case "LIST_DELETE":
-      read(LISTS_KEY, []).then((lists) => {
-        const next = lists.filter((l) => l.id !== message.id);
-        writeData({ [LISTS_KEY]: next }).then(() => {
-          sendResponse({ lists: next });
-          autoSync();
-        });
-      });
-      return true;
-
-    case "LIST_SET_ITEMS": // assign membership + order in one shot
-      read(LISTS_KEY, []).then((lists) => {
-        const next = lists.map((l) => (l.id === message.id ? { ...l, itemIds: message.itemIds || [] } : l));
-        writeData({ [LISTS_KEY]: next }).then(() => {
-          sendResponse({ lists: next });
-          autoSync();
-        });
-      });
-      return true;
-
+    case "LIST_SET_ITEMS":
+      mutateAndReply(async()=>{
+        let lists=await read(LISTS_KEY,[]),list;
+        if(message.type==='LIST_CREATE') {list={id:'l_'+Math.random().toString(36).slice(2,10),name:String(message.name||'New list').slice(0,60),cover:message.cover||'#EDE6FF',itemIds:[],createdAt:Date.now(),updatedAt:Date.now()};lists=[...lists,list];}
+        if(message.type==='LIST_DELETE')lists=lists.filter(l=>l.id!==message.id);
+        if(message.type==='LIST_UPDATE'){const patch=Object.fromEntries(Object.entries(message.patch||{}).filter(([k])=>!['id','createdAt','itemIds','__proto__','constructor','prototype'].includes(k)));lists=lists.map(l=>l.id===message.id?{...l,...patch,updatedAt:Date.now()}:l);}
+        if(message.type==='LIST_SET_ITEMS'){const valid=new Set((await read(ITEMS_KEY,[])).map(i=>i.id));lists=lists.map(l=>l.id===message.id?{...l,itemIds:[...new Set((message.itemIds||[]).filter(id=>valid.has(id)))],updatedAt:Date.now()}:l);}
+        await writeData({[LISTS_KEY]:lists});return {ok:true,lists,list};
+      },sendResponse);return true;
     case "ADD_SITE":
-      read(SITES_KEY, []).then((sites) => {
-        const site = message.payload;
-        const next = sites.some((s) => s.url === site.url) ? sites : [...sites, site];
-        writeData({ [SITES_KEY]: next }).then(() => sendResponse({ sites: next }));
-      });
-      return true;
-
     case "REMOVE_SITE":
-      read(SITES_KEY, []).then((sites) => {
-        const next = sites.filter((s) => (s.id || s.url) !== message.id);
-        writeData({ [SITES_KEY]: next }).then(() => { sendResponse({ sites: next }); autoSync(); });
-      });
-      return true;
-
+      mutateAndReply(async()=>{const previous=await read(SITES_KEY,[]);const sites=message.type==='REMOVE_SITE'?previous.filter(s=>(s.id||s.url)!==message.id):previous.some(s=>s.url===message.payload.url)?previous:[...previous,message.payload];await writeData({[SITES_KEY]:sites});return {sites};},sendResponse);return true;
     case "IMPORT_STATE":
-      {
-        const payload = message.payload || {};
-        const patch = {};
-        if (Array.isArray(payload.items)) patch[ITEMS_KEY] = payload.items;
-        if (Array.isArray(payload.sites)) patch[SITES_KEY] = payload.sites;
-        if (Array.isArray(payload.notifications)) patch[NOTIF_KEY] = payload.notifications;
-        if (Array.isArray(payload.lists)) patch[LISTS_KEY] = payload.lists;
-        if (payload.settings) patch[SETTINGS_KEY] = { ...DEFAULT_SETTINGS, ...payload.settings };
-        writeData(patch).then(() => sendResponse({ ok: true }));
-      }
-      return true;
-
-    // Additive import: merge parsed works into the library (never wipes it).
-    // Dedups against existing items by work key / fuzzy title, keeps the
-    // furthest progress and any rating. Used by the universal importer.
     case "IMPORT_MERGE":
-      read(ITEMS_KEY, []).then(async (items) => {
-        const incoming = Array.isArray(message.items) ? message.items : [];
-        const byId = new Map(items.map((i) => [i.id, i]));
-        let added = 0, updated = 0;
-        for (const p of incoming) {
-          if (!p || !p.title) continue;
-          const type = p.type || "watching";
-          const key = workKey({ title: p.title }) || (p.title.toLowerCase().replace(/\s+/g, "-"));
-          let ex = byId.get(key);
-          if (!ex) ex = items.find((i) => i.type === type && sameWork(i.title, p.title));
-          if (ex) {
-            const merged = {
-              ...ex,
-              episode: Math.max(ex.episode || 0, p.episode || 0) || ex.episode,
-              chapter: Math.max(ex.chapter || 0, p.chapter || 0) || ex.chapter,
-              latestEpisode: Math.max(ex.latestEpisode || 0, p.episode || 0) || ex.latestEpisode,
-              latestChapter: Math.max(ex.latestChapter || 0, p.chapter || 0) || ex.latestChapter,
-              season: ex.season || p.season,
-              rating: ex.rating || p.rating || 0,
-              status: ex.status || p.status || ex.status,
-              url: ex.url || p.url || "",
-              cover: ex.cover || p.cover || "",
-              updatedAt: ex.updatedAt || Date.now(),
-            };
-            byId.set(ex.id, merged); updated++;
-          } else {
-            byId.set(key, {
-              id: key,
-              title: p.title,
-              type,
-              episode: type === "watching" ? p.episode || 0 : undefined,
-              chapter: type === "reading" ? p.chapter || 0 : undefined,
-              season: p.season || undefined,
-              latestEpisode: p.episode || undefined,
-              latestChapter: p.chapter || undefined,
-              total: undefined,
-              rating: p.rating || 0,
-              tags: [],
-              status: p.status || "in_progress",
-              url: p.url || "",
-              cover: p.cover || "",
-              year: p.year || undefined,
-              favorite: false,
-              progress: 0,
-              sources: [],
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-              imported: true,
-            });
-            added++;
-          }
-        }
-        const next = [...byId.values()].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 2000);
-        await writeData({ [ITEMS_KEY]: next });
-        sendResponse({ ok: true, added, updated, total: next.length });
-        autoSync();
-      });
-      return true;
-
+      mutateAndReply(()=>mergeImport(message.payload||{items:message.items}),sendResponse);return true;
     case "REMOVE_ITEM":
-      read(ITEMS_KEY, []).then((items) => {
-        const next = items.filter((i) => i.id !== message.id);
-        writeData({ [ITEMS_KEY]: next }).then(() => {
-          sendResponse({ items: next });
-          autoSync();
-        });
-      });
-      return true;
+      mutateAndReply(async()=>{const items=(await read(ITEMS_KEY,[])).filter(i=>i.id!==message.id);const lists=(await read(LISTS_KEY,[])).map(l=>({...l,itemIds:(l.itemIds||[]).filter(id=>id!==message.id)}));await writeData({[ITEMS_KEY]:items,[LISTS_KEY]:lists});return {items,lists};},sendResponse);return true;
 
     // Patch a saved item (favorite, rating, tags, status…) from the library page.
     case "UPDATE_ITEM":
-      read(ITEMS_KEY, []).then((items) => {
-        const patch = message.patch || {};
-        const next = items.map((i) => (i.id === message.id ? { ...i, ...patch, updatedAt: Date.now() } : i));
-        writeData({ [ITEMS_KEY]: next }).then(() => {
-          sendResponse({ items: next });
-          autoSync();
-        });
-      });
+      serializeLibrary(async () => {
+        const items = await read(ITEMS_KEY, []);
+        const patch = Object.fromEntries(Object.entries(message.patch || {}).filter(([k]) => !['id','createdAt','__proto__','constructor','prototype'].includes(k)));
+        const next = items.map(i => i.id === message.id ? boundedProgress({...i,...patch,updatedAt:Date.now()}) : i);
+        await writeData({[ITEMS_KEY]:next});
+        sendResponse({items:next}); autoSync();
+      }).catch(e => sendResponse({ok:false,error:String(e.message)}));
       return true;
 
     // Lazy game enrichment: pull genres/tags + description from Steam when a
@@ -1354,8 +1273,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           if (d.genres.length && !(it.tags && it.tags.length)) patch.tags = d.genres;
           if (d.synopsis && !it.synopsis) patch.synopsis = d.synopsis;
           if (d.releaseDate && !it.releaseDate) patch.releaseDate = d.releaseDate;
-          const next = items.map((x) => (x.id === message.id ? { ...x, ...patch } : x));
-          await writeData({ [ITEMS_KEY]: next });
+          const next = await serializeLibrary(async()=>{const current=await read(ITEMS_KEY,[]);const next=current.map(x=>x.id===message.id?{...x,...patch}:x);await writeData({[ITEMS_KEY]:next});return next;});
           sendResponse({ ok: true, item: next.find((x) => x.id === message.id) });
           autoSync();
         } catch { sendResponse({ ok: false }); }
@@ -1392,7 +1310,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case "TRANSLATE_IMAGE_TEXT":
       translateImageText(message.url, message.target || "en", message.src || "")
-        .then((r) => sendResponse({ ok: true, lines: r.lines }))
+        .then((r) => sendResponse({ ok: true, ...r }))
         .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
       return true;
 
@@ -1416,9 +1334,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
         api.tabs.sendMessage(tab.id, { type: "DASI_TRANSLATE", lang: message.lang || "en", src: message.src || "", imgServer: (s && s.imgServer) || "" }, () => {
           void api.runtime.lastError;
-          sendResponse({ ok: true });
+          const error = api.runtime.lastError; sendResponse(error ? {ok:false,error:"translation_start_failed"} : {ok:true,started:true});
         });
-      });
+      }).catch(e => sendResponse({ok:false,error:String(e.message)}));
       return true;
 
     case "SYNC_STATUS":
@@ -1493,40 +1411,23 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
  * backward-compatible migrations for future breaking changes, so publishing a
  * new version never wipes existing users' libraries.
  */
-const SCHEMA_VERSION = 2;
-api.runtime.onInstalled.addListener(async () => {
-  // DATA SAFETY (guarantee): updating the extension NEVER wipes a user's
-  // library, progress, lists, settings or account. Chrome preserves
-  // chrome.storage across version updates (only an uninstall clears it), our
-  // storage keys are permanently `dasi.*` (kept stable through the Yomu
-  // rebrand), and migrations here are strictly ADDITIVE — never clear/remove.
-  // The whole block is wrapped so a future migration bug can neither crash the
-  // worker nor leave data half-written.
-  try {
-    const stored = (await api.storage.local.get("dasi.schema"))["dasi.schema"] || 0;
-    if (stored >= SCHEMA_VERSION) return;
-    // v2: re-key existing items to the web-app-aligned work id (spaces →
-    // hyphens) so cross-surface sync merges the same work instead of
-    // duplicating it. Deterministic and update-safe; furthest progress wins on
-    // any collision. Only ever writes a set at least as large as before.
-    if (stored < 2) {
-      const items = (await api.storage.local.get(ITEMS_KEY))[ITEMS_KEY] || [];
-      if (items.length) {
-        const byId = new Map();
-        for (const it of items) {
-          const nid = (it.id || "").replace(/\s+/g, "-");
-          const prev = byId.get(nid);
-          if (!prev || numericProgress(it) > numericProgress(prev)) byId.set(nid, { ...it, id: nid });
-        }
-        const next = [...byId.values()];
-        if (next.length) await writeData({ [ITEMS_KEY]: next }); // never write an empty over a non-empty
-      }
-    }
-    await api.storage.local.set({ "dasi.schema": SCHEMA_VERSION });
-  } catch (e) {
-    // Leave existing data exactly as-is; a failed migration must not lose data.
-  }
-});
+const SCHEMA_VERSION = 3;
+async function migrateStorage() {
+  const stored=(await api.storage.local.get('dasi.schema'))['dasi.schema'] || 0;
+  if(stored>=SCHEMA_VERSION)return;
+  if(stored<2){
+    const items=await read(ITEMS_KEY,[]), lists=await read(LISTS_KEY,[]), notifications=await read(NOTIF_KEY,[]);
+    const ids=new Map(), used=new Set();
+    const next=items.map((item,index)=>{
+      const base=String(item.id || 'legacy-'+index).replace(/\s+/g,'-');let id=base;
+      while(used.has(id))id=base+'-'+index+'-'+used.size;
+      used.add(id);ids.set(item.id,id);return {...item,id};
+    });
+    // Backup is local only. All records and references change in one storage operation.
+    await api.storage.local.set({'dasi.migrationBackup.v1':{items,lists,notifications,at:Date.now()},[ITEMS_KEY]:next,[LISTS_KEY]:lists.map(l=>({...l,itemIds:(l.itemIds || []).map(id=>ids.get(id) || id)})),[NOTIF_KEY]:notifications.map(n=>({...n,itemId:ids.get(n.itemId) || n.itemId})),'dasi.schema':SCHEMA_VERSION});
+  }else await api.storage.local.set({'dasi.schema':SCHEMA_VERSION});
+}
+api.runtime.onInstalled.addListener(()=>serializeLibrary(migrateStorage).catch(error=>api.storage.local.set({'dasi.migrationError':String(error.message)})));
 
 /*
  * Awaited games: once a day (and on startup) flip any game whose release date
@@ -1534,22 +1435,21 @@ api.runtime.onInstalled.addListener(async () => {
  * dates you already saved.
  */
 async function checkGameReleases() {
-  const items = await read(ITEMS_KEY, []);
-  let changed = false;
-  for (const i of items) {
-    if (i.type === "game" && !i.released && i.releaseDate) {
-      const d = Date.parse(i.releaseDate);
-      if (Number.isFinite(d) && d <= Date.now()) {
-        i.released = true;
-        i.updatedAt = Date.now();
-        changed = true;
-        await pushNotification({ itemId: i.id, title: i.title, message: "is out now", url: i.url });
-        systemNotify(i.title, "is out now", "dasi_game_" + i.id);
-      }
-    }
+  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==='game' && !i.released && steamAppId(i.url)).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,8);
+  for(const candidate of candidates){
+    try{
+      const details=await steamAppDetails(steamAppId(candidate.url));if(!details)continue;
+      await serializeLibrary(async()=>{
+        const items=await read(ITEMS_KEY,[]), current=items.find(i=>i.id===candidate.id);if(!current)return;
+        const released=details.comingSoon===false?true:details.comingSoon===true?false:current.released;
+        const next=items.map(i=>i.id===current.id?{...i,released,releaseDate:details.releaseDate||i.releaseDate,releaseCheckedAt:Date.now(),updatedAt:Date.now()}:i);
+        await writeData({[ITEMS_KEY]:next});
+        if(released && !current.released){await pushNotification({itemId:current.id,title:current.title,message:'is out now',url:current.url});systemNotify(current.title,'is out now','dasi_game_'+current.id);}
+      });
+    }catch{/* A failed source never turns an expected date into a confirmed release. */}
   }
-  if (changed) await writeData({ [ITEMS_KEY]: items });
 }
+
 try {
   api.alarms?.create("dasi-daily", { periodInMinutes: 720 });
   api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") checkGameReleases(); });

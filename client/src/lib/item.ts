@@ -57,6 +57,8 @@ export function sameWork(a: string, b: string): boolean {
   const na = normalizeTitle(a), nb = normalizeTitle(b);
   if (!na || !nb) return false;
   if (na === nb) return true;
+  // Numbered sequels and remakes must never be auto-merged as a spelling variant.
+  if ((na.match(/\d+|\b[ivx]+\b/g) || []).join(',') !== (nb.match(/\d+|\b[ivx]+\b/g) || []).join(',')) return false;
   const ta = new Set(na.split(" ").filter(Boolean));
   const tb = new Set(nb.split(" ").filter(Boolean));
   if (ta.size === tb.size && Array.from(ta).every((x) => tb.has(x))) return true; // same tokens, any order
@@ -64,7 +66,7 @@ export function sameWork(a: string, b: string): boolean {
   if (small.size >= 2) {
     let inter = 0;
     small.forEach((x) => big.has(x) && inter++);
-    if (inter === small.size && small.size / big.size >= 0.6) return true; // subtitle superset
+    if (inter === small.size && small.size / big.size >= 0.6) return false; // subtitle superset
   }
   return editRatio(na, nb) >= 0.9; // spelling / romanization variants
 }
