@@ -56,7 +56,7 @@ function render() {
   const d = detection;
   const watching = d.type === "watching";
   $("#kind").className = `kind ${watching ? "watching" : ""}`;
-  $("#kindLabel").textContent = watching ? "Watching" : "Reading";
+  $("#kindLabel").textContent = watching ? "Watching" : d.type === "game" ? "Game" : "Reading";
   $("#title").textContent = d.title || "Untitled page";
   setCover(d.cover, d.title);
 
@@ -65,7 +65,7 @@ function render() {
 
   if (watching && d.duration) {
     $("#time").style.display = "";
-    $("#time").textContent = `⏱ ${timecode(d.position)} / ${timecode(d.duration)}`;
+    $("#time").textContent = `${timecode(d.position)} / ${timecode(d.duration)}`;
   } else if (watching && d.position) {
     $("#time").style.display = "";
     $("#time").textContent = `⏱ ${timecode(d.position)}`;
@@ -85,7 +85,7 @@ function render() {
   const differs = existing && (prevMarker !== marker || (existing.domain && existing.domain !== d.domain));
   if (existing && differs) {
     const bits = [prevMarker || "saved", existing.domain].filter(Boolean).join(" · ");
-    $("#prevText").textContent = `${bits}. Saving replaces it with your current spot.`;
+    $("#prevText").textContent = `${bits}. Your furthest position is kept if this page is earlier.`;
     $("#prev").classList.add("show");
     $("#save").textContent = "Overwrite save";
     $("#save").classList.add("warn");
@@ -96,6 +96,7 @@ function render() {
   }
   $("#save").disabled = false;
   $("#pip").disabled = !d.hasVideo;
+  $("#video-tools").style.display=d.hasVideo?"grid":"none";
 }
 
 // Kick off detection, then check for an existing save (cross-site, by title).
@@ -150,7 +151,10 @@ $("#save").onclick = () => {
   } else if (listSel && listSel.value) {
     msg.listId = listSel.value;
   }
+  $("#save").disabled=true;
+  $("#save").textContent="Saving…";
   api.runtime.sendMessage(msg, (r) => {
+    if(api.runtime.lastError || !r?.item || r.ok===false){$("#save").disabled=false;$("#save").textContent="Retry save";$("#conf").textContent=r?.error==="list_save_failed"?"Work saved, but the list could not be updated. Retry.":"Save failed. Your previous library is intact. Retry.";$("#conf").classList.add("show");return;}
     $("#save").textContent = r?.conflict && r.kept === "existing" ? "Kept furthest ✓" : "Saved ✓";
     $("#save").disabled = true;
     $("#prev").classList.remove("show");
@@ -247,7 +251,6 @@ const TR_LANGS = [
   ["ro", "Română"], ["hu", "Magyar"], ["bg", "Български"], ["sr", "Српски"], ["hr", "Hrvatski"],
 ];
 const UNLOCK = typeof DASI_UNLOCK_ALL !== "undefined" ? DASI_UNLOCK_ALL : true;
-const FREE_TR_LIMIT = 5;
 let popupSettings = { translateLang: "en" };
 let popupPlan = null;
 
@@ -256,7 +259,7 @@ TR_LANGS.forEach(([code, name]) => { const o = document.createElement("option");
 
 // Source language for image (OCR) translation. "Auto" guesses from the site.
 const trSrc = $("#tr-src");
-const SRC_LANGS = [["", "Auto"], ["kor", "Korean"], ["jpn", "Japanese"], ["chs", "Chinese"]];
+const SRC_LANGS = [["", "Auto"], ["kor", "Korean"], ["jpn", "Japanese"], ["chs", "Chinese"], ["eng", "English"]];
 SRC_LANGS.forEach(([code, name]) => { const o = document.createElement("option"); o.value = code; o.textContent = name; trSrc.appendChild(o); });
 trSrc.onchange = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateSrc: trSrc.value } }, () => void api.runtime.lastError);
 
@@ -271,26 +274,7 @@ api.runtime.sendMessage({ type: "GET_STATE" }, (state) => {
 
 trSel.onchange = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: trSel.value } }, () => void api.runtime.lastError);
 
-const isProPopup = () => UNLOCK || popupPlan === "pro" || popupPlan === "lifetime";
-function trUsageToday() {
-  const today = new Date().toISOString().slice(0, 10);
-  const u = popupSettings.trUsage || {};
-  return u.date === today ? u.count || 0 : 0;
-}
-function bumpTrUsage() {
-  const today = new Date().toISOString().slice(0, 10);
-  const count = trUsageToday() + 1;
-  popupSettings.trUsage = { date: today, count };
-  api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { trUsage: popupSettings.trUsage } }, () => void api.runtime.lastError);
-}
-
 $("#tr-go").onclick = () => {
-  if (!isProPopup() && trUsageToday() >= FREE_TR_LIMIT) {
-    const s = $("#tr-status");
-    s.textContent = `Free limit reached (${FREE_TR_LIMIT}/day). Go Pro for unlimited translation.`;
-    s.classList.add("up");
-    return;
-  }
   const lang = trSel.value;
   $("#tr-status").classList.remove("up");
   $("#tr-status").textContent = "Translating the page…";
@@ -301,7 +285,7 @@ $("#tr-go").onclick = () => {
   const go = () => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang, src: trSrc.value }, (r) => {
     void api.runtime.lastError;
     $("#tr-go").disabled = false;
-    if (r && r.ok) { $("#tr-status").textContent = "Done — see the pill on the page (revert there)."; bumpTrUsage(); }
+    if (r && r.ok) { $("#tr-status").textContent = "Translation started — follow progress on the page."; }
     else $("#tr-status").textContent = r && r.error === "restricted_page" ? "Can't translate this page." : "Translation unavailable here.";
   });
   try {

@@ -27,7 +27,7 @@ const LANGS = {
     resume:"Resume", details:"Details", addByName:"Add by name", welcomeTitle:"Welcome to Yomu", welcomeBody:"Yomu remembers where you stopped in anything you read or watch — manga, webtoons, anime, series, films and games. Open a page, hit save, and resume in one click from here.",
     valSaveT:"Save anywhere", valSaveB:"One click on any site — no more lost bookmarks.", valAllT:"One library for everything", valAllB:"Manga, anime, series, films and games together.", valResumeT:"Resume in a click", valResumeB:"Pick up exactly where you left off, on any device.",
     tracked:"Tracked", reading:"Reading", watching:"Watching", favorites:"Favorites", finished:"Finished",
-    all:"All", status:"Status", current:"In progress", planned:"Planned", completed:"Completed", on_hold:"On hold", dropped:"Dropped", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress", released:"Released", markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", editDetails:"Edit details", advanced:"Advanced", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
+    all:"All", status:"Status", current:"In progress", planned:"Planned", completed:"Completed", on_hold:"On hold", dropped:"Dropped", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress",  markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", editDetails:"Edit details", advanced:"Advanced", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
     newList:"New list", cover:"Cover", rename:"Rename", delete:"Delete", inThisList:"In this list", addWorks:"Add works", allLists:"All lists", dragReorder:"drag to reorder",
     viewToggle:"Toggle layout", viewRows:"List", viewGrid:"Grid",
     gamesSub:"Track awaited games — release dates, prices, trailers and pre-registrations.", addGame:"Add a game", title:"Title", platform:"Platform", releaseDate:"Release date", price:"Price", trailer:"Trailer", watchTrailer:"Watch trailer", preRegistered:"Pre-registered", released:"Released", comingSoon:"Coming soon", add:"Add", cancel:"Cancel", free:"Free",
@@ -37,7 +37,7 @@ const LANGS = {
     discover:"Discover", discoverSub:"Fresh picks — not in your library yet.", forYou:"Recommended for you", forYouSub:"Based on your tags", trendingManga:"Trending manga & manhwa", popularAnime:"Popular anime right now", newGames:"New game releases", upcomingGames:"Upcoming games", addToLib:"Add to library", refresh:"Refresh", loadingReco:"Finding fresh picks…",
     imgTranslateSub:"Translate the speech bubbles inside manga/webtoon images too — just press Translate. It works automatically, nothing to install.", imgOn:"On", imgKeyLabel:"OCR key (optional)", imgKeyHint:"Free key from ocr.space for higher daily limits.", imgKeyPh:"ocr.space API key", imgServerHint:"Power users: your own image-translation server URL for best quality.", imgServerLabel:"Custom server (optional)", imgTest:"Test", imgTesting:"Testing…", imgOk:"Connected ✓", imgFail:"No response — check the URL.", imgSetup:"", imgCopy:"Copy", imgCopied:"Copied ✓",
     searchPlaceholder:"Search or add by name…", work:"work", works:"works", upcoming:"Upcoming", discoverGames:"Discover games",
-    topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most anticipated games", hotGames:"Biggest games right now", openInNew:"Open", discoverMore:"Discover more",
+    topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most wishlisted games on Steam", hotGames:"Steam top sellers", openInNew:"Open", discoverMore:"Discover more",
     catAll:"All", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Series", catGames:"Games",
     categories:"Categories", chooseCats:"Choose which categories show on Home", cast:"Cast",
     changeBanner:"Change banner", bioPh:"Write a short bio…",
@@ -55,7 +55,7 @@ const LANGS = {
     resume:"Reprendre", details:"Détails", addByName:"Ajouter par nom", welcomeTitle:"Bienvenue sur Yomu", welcomeBody:"Yomu retient où tu t'es arrêté dans tout ce que tu lis ou regardes — manga, webtoons, anime, séries, films et jeux. Ouvre une page, clique sur enregistrer, et reprends d'un clic depuis ici.",
     valSaveT:"Enregistre partout", valSaveB:"Un clic sur n'importe quel site — fini les favoris perdus.", valAllT:"Une seule bibliothèque", valAllB:"Manga, anime, séries, films et jeux réunis.", valResumeT:"Reprends d'un clic", valResumeB:"Reprends exactement où tu étais, sur tous tes appareils.",
     tracked:"Suivis", reading:"Lecture", watching:"Visionnage", favorites:"Favoris", finished:"Terminés",
-    all:"Tout", status:"Statut", current:"En cours", planned:"Prévu", completed:"Terminé", on_hold:"En pause", dropped:"Abandonné", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression", released:"Sortis", markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", editDetails:"Modifier la fiche", advanced:"Avancé", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
+    all:"Tout", status:"Statut", current:"En cours", planned:"Prévu", completed:"Terminé", on_hold:"En pause", dropped:"Abandonné", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression",  markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", editDetails:"Modifier la fiche", advanced:"Avancé", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
     newList:"Nouvelle liste", cover:"Couverture", rename:"Renommer", delete:"Supprimer", inThisList:"Dans cette liste", addWorks:"Ajouter des œuvres", allLists:"Toutes les listes", dragReorder:"glisser pour réordonner",
     viewToggle:"Changer l'affichage", viewRows:"Liste", viewGrid:"Grille",
     gamesSub:"Suis les jeux attendus — dates de sortie, prix, trailers et préinscriptions.", addGame:"Ajouter un jeu", title:"Titre", platform:"Plateforme", releaseDate:"Date de sortie", price:"Prix", trailer:"Trailer", watchTrailer:"Voir le trailer", preRegistered:"Préinscrit", released:"Sorti", comingSoon:"Bientôt", add:"Ajouter", cancel:"Annuler", free:"Gratuit",
@@ -65,7 +65,7 @@ const LANGS = {
     discover:"Découvrir", discoverSub:"Nouveautés à découvrir — pas encore dans ta bibliothèque.", forYou:"Recommandé pour toi", forYouSub:"D'après tes tags", trendingManga:"Manga & manhwa tendances", popularAnime:"Anime populaires en ce moment", newGames:"Nouveaux jeux sortis", upcomingGames:"Jeux à venir", addToLib:"Ajouter à la bibliothèque", refresh:"Actualiser", loadingReco:"Recherche de nouveautés…",
     imgTranslateSub:"Traduit aussi les bulles à l'intérieur des images de manga/webtoon — appuie simplement sur Traduire. Ça marche automatiquement, rien à installer.", imgOn:"Activé", imgKeyLabel:"Clé OCR (optionnel)", imgKeyHint:"Clé gratuite ocr.space pour des limites quotidiennes plus élevées.", imgKeyPh:"clé API ocr.space", imgServerHint:"Utilisateurs avancés : l'URL de ton propre serveur de traduction d'images pour une qualité optimale.", imgServerLabel:"Serveur personnalisé (optionnel)", imgTest:"Tester", imgTesting:"Test…", imgOk:"Connecté ✓", imgFail:"Aucune réponse — vérifie l'URL.", imgSetup:"", imgCopy:"Copier", imgCopied:"Copié ✓",
     searchPlaceholder:"Rechercher ou ajouter par nom…", work:"œuvre", works:"œuvres", upcoming:"À venir", discoverGames:"Découvrir des jeux",
-    topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus attendus", hotGames:"Les plus gros jeux du moment", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
+    topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus souhaités sur Steam", hotGames:"Meilleures ventes Steam", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
     catAll:"Tout", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Séries", catGames:"Jeux",
     categories:"Catégories", chooseCats:"Choisis les catégories affichées sur l'accueil", cast:"Distribution",
     changeBanner:"Changer la bannière", bioPh:"Écris une petite bio…",
@@ -433,7 +433,7 @@ function bindDisco(root = "#view-home") {
   document.querySelectorAll(`${root} [data-open-url]`).forEach((el) => (el.onclick = (e) => {
     if (e.target.closest("[data-add-disco]")) return;
     const u = el.dataset.openUrl;
-    if (u) api.tabs ? api.tabs.create({ url: u }) : window.open(u, "_blank", "noreferrer");
+    const match = discoItems.find((m) => m.url === u); if (match) openCatalogPreview(match);
   }));
 }
 // Home category picker — check which categories appear on Home. Persisted to
@@ -1212,7 +1212,7 @@ function renderAccountPanel() {
 }
 function doExport() {
   const blob = new Blob([JSON.stringify({ version: 2, items, sites, notifications, lists, settings }, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `dasi-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);
+  const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `yomu-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);
 }
 // Universal import: accepts one or many files (JSON, CSV, XML, ZIP) from Yomu
 // or other trackers (Trakt, TV Time, IMDb, Letterboxd, MyAnimeList). Parses
@@ -1224,23 +1224,12 @@ async function doImport(e) {
     if (!window.YomuImport) { toast(t("importFailed")); return; }
     toast(t("importing"));
     const res = await window.YomuImport.parseFiles(files);
-    // A full Yomu backup (has sites/lists/settings) restores everything;
-    // anything else is an additive merge of works.
-    const isFullBackup = res.formats.includes("Yomu") && (res.sites || res.lists);
-    if (isFullBackup) {
-      api.runtime.sendMessage({ type: "IMPORT_STATE", payload: { items: res.items, sites: res.sites, lists: res.lists, settings: res.settings } }, () => {
-        api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
-        toast(t("importedN", { n: res.items.length }));
-      });
-      return;
-    }
-    if (!res.count) { toast(t("importNothing")); return; }
-    api.runtime.sendMessage({ type: "IMPORT_MERGE", items: res.items }, (r) => {
-      void api.runtime.lastError;
-      api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
-      const n = (r && (r.added + r.updated)) || res.count;
-      const src = res.formats.length ? " (" + res.formats.join(", ") + ")" : "";
-      toast(t("importedN", { n }) + src);
+    if(res.warnings.length)toast(res.warnings.join(' · '));
+    if (!res.count && !res.lists?.length && !res.sites?.length) { toast(t("importNothing")); return; }
+    api.runtime.sendMessage({type:"IMPORT_MERGE",payload:res}, r=>{
+      if(api.runtime.lastError || !r?.ok){toast(t("importFailed"));return;}
+      api.runtime.sendMessage({type:"GET_STATE"},hydrate);
+      toast(t("importedN",{n:r.added+r.updated})+(res.warnings.length?' · '+res.warnings.join(' · '):''));
     });
   } catch (err) {
     toast(t("importFailed"));
@@ -1342,7 +1331,7 @@ function switchView(v) {
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${v}`));
   document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.v === v));
   if (v === "home") { renderHome(); } else clearInterval(spotTimer);
-  if (v === "library") { if (!currentListId) { document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true; } renderLists(); renderSites(); }
+  if (v === "library") { currentListId = null; if (!currentListId) { document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true; } renderLists(); renderSites(); renderGrid(); }
   if (v === "games") renderGames();
   if (v === "plans") renderPlans();
   if (v === "settings") renderSettings();
@@ -1379,21 +1368,39 @@ document.getElementById("bell").onclick = (e) => {
     if ((notifications || []).some((n) => !n.read)) api.runtime.sendMessage({ type: "NOTIF_READ_ALL" }, (r) => { notifications = r?.notifications || notifications.map((n) => ({ ...n, read: true })); renderBell(); });
   }
 };
-document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("profile-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
+document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); closeMenus(); switchView("settings"); };
 document.getElementById("lang-btn").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("lang-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
 document.getElementById("go-pro").onclick = () => { clearSearchResults(); switchView("plans"); };
 document.addEventListener("click", (e) => { if (!e.target.closest(".top-right")) closeMenus(); if (!e.target.closest(".qa-menu") && !e.target.closest(".quick-add")) closeQuickAdd(); });
-document.getElementById("q").addEventListener("input", (e) => { query = e.target.value; if (view !== "library") switchView("library"); renderGrid(); if (!query) clearSearchResults(); });
+document.getElementById("q").addEventListener("input", (e) => {
+  clearSearchResults(); query = e.target.value; currentListId = null;
+  if (view !== "library") switchView("library");
+  document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true;
+  renderGrid(); const q = query.trim();
+  if (q.length >= 2) {
+    document.getElementById("lib-main").classList.add("searching");
+    document.getElementById("search-results").innerHTML = '<div class="sr-wrap" role="status"><span class="spinner"></span> '+t("searching")+'…</div>';
+    searchTimer = setTimeout(() => catalogSearch(q), 300);
+  }
+});
 document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library") switchView("library"); catalogSearch(query.trim()); } });
 
-function clearSearchResults() { const el = document.getElementById("search-results"); if (el) el.innerHTML = ""; const m = document.getElementById("lib-main"); if (m) m.classList.remove("searching"); }
+let searchVersion = 0, searchTimer = null;
+function clearSearchResults() { searchVersion++; clearTimeout(searchTimer); lastResults = []; const el = document.getElementById("search-results"); if (el) el.innerHTML = ""; const m = document.getElementById("lib-main"); if (m) m.classList.remove("searching"); }
 let srCountry = "all";
 function catalogSearch(q) {
+  clearTimeout(searchTimer);
+  const version = ++searchVersion;
   const el = document.getElementById("search-results");
   const main = document.getElementById("lib-main"); if (main) main.classList.add("searching"); // become a search page
   el.innerHTML = `<div class="sr-wrap"><div class="sr-head"><span class="spinner"></span> ${t("searching")} “${esc(q)}”…</div></div>`;
   api.runtime.sendMessage({ type: "CATALOG_SEARCH", query: q }, (r) => {
-    void api.runtime.lastError;
+    const networkError = api.runtime.lastError;
+    if (version !== searchVersion || view !== "library" || query.trim() !== q) return;
+    if (networkError || !r || !r.ok) {
+      el.innerHTML = `<div class="sr-wrap" role="status"><div class="sr-head">${t("searchTitle")} · “${esc(q)}”</div><p>${settings.lang === "fr" ? "Les catalogues ne répondent pas. Réessaie dans un instant." : "The catalogs could not be reached. Please try again."}</p><button class="btn" id="search-retry">${t("refresh")}</button></div>`;
+      document.getElementById("search-retry").onclick = () => catalogSearch(q); return;
+    }
     if (!r || !r.ok || !r.results || !r.results.length) {
       el.innerHTML = `<div class="sr-wrap"><div class="sr-head">${t("searchTitle")} · “${esc(q)}”</div><p class="sr-empty">${t("noMatch")}</p></div>`;
       return;
@@ -1418,26 +1425,39 @@ function renderSearchResults(q) {
     ${shown.length ? shown.map((m) => srRow(m, lastResults.indexOf(m))).join("") : `<p class="sr-empty">${t("noMatch")}</p>`}</div>`;
   el.querySelectorAll("[data-srf]").forEach((b) => (b.onclick = () => { srFilter = b.dataset.srf; renderSearchResults(q); }));
   el.querySelectorAll("[data-src]").forEach((b) => (b.onclick = () => { srCountry = b.dataset.src; renderSearchResults(q); }));
+  el.querySelectorAll("[data-preview]").forEach((b) => b.onclick = () => openCatalogPreview(lastResults[Number(b.dataset.preview)]));
   shown.forEach((m) => { const idx = lastResults.indexOf(m); const btn = el.querySelector(`[data-add-cat="${idx}"]`); if (btn) btn.onclick = () => addFromCatalog(m, btn); });
 }
 function srRow(m, idx) {
   const tags = (m.genres || []).slice(0, 3).map((g) => `<span class="tag">${esc(g)}</span>`).join("");
   const meta = [m.season, m.price].filter(Boolean).join(" · ");
   return `<div class="sr-row">
-    <div class="sc"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}</div>
+    <button class="sc" data-preview="${idx}" aria-label="${esc(t("details") + ": " + m.title)}"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}</button>
     <div class="si"><b>${esc(m.title)}<span class="cat">${esc(catLabel(m))}</span></b><small>${esc(meta)}${m.synopsis ? (meta ? " — " : "") + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
     <button class="btn primary" data-add-cat="${idx}">${I.plus} ${t("add")}</button>
   </div>`;
 }
+function openCatalogPreview(m) {
+  if (!m) return;
+  const drawer = document.getElementById("drawer");
+  const labels = settings.lang === "fr" ? {add:"Ajouter à ma bibliothèque", destination:"Ajouter à une liste", lib:"Bibliothèque", source:"Voir la fiche source"} : {add:"Add to my library",destination:"Add to a list",lib:"Library",source:"Open source page"};
+  drawer.innerHTML = '<div class="drawer-hero"><button id="preview-close" class="icon-btn drawer-close" aria-label="Close">'+I.close+'</button><div class="drawer-cover"><span class="cover-ph">'+esc(m.title[0])+'</span>'+covImg(m.cover,m.coverFallback)+'</div><h2 class="drawer-title">'+esc(m.title)+'</h2><p class="preview-meta">'+esc([catLabel(m),m.country,m.releaseDate || m.year,m.platform].filter(Boolean).join(' · '))+'</p></div><div class="drawer-body"><p class="synopsis">'+esc(m.synopsis || '')+'</p><div class="tags">'+(m.genres || []).map(g=>'<span class="tag">'+esc(g)+'</span>').join('')+'</div><div class="preview-actions"><label for="preview-list">'+labels.destination+'</label><select class="field" id="preview-list"><option value="">'+labels.lib+'</option>'+lists.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join('')+'</select><button class="btn primary" id="preview-add">'+I.plus+' '+labels.add+'</button>'+( /^https?:\/\//.test(m.url || '') ? '<a class="btn" target="_blank" rel="noopener noreferrer" href="'+esc(m.url)+'">'+I.open+' '+labels.source+'</a>' : '')+'</div></div>';
+  drawer.setAttribute("role","dialog"); drawer.setAttribute("aria-modal","true"); drawer.setAttribute("aria-label",m.title);
+  drawer.classList.add("open"); document.getElementById("scrim").classList.add("open");
+  document.getElementById("preview-close").onclick = closeDrawer;
+  document.getElementById("preview-add").onclick = e => addFromCatalog({...m,listId:document.getElementById("preview-list").value},e.currentTarget);
+  document.getElementById("preview-close").focus();
+}
 function addFromCatalog(m, btn) {
   const payload = {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, coverFallback: m.coverFallback || undefined, synopsis: m.synopsis || undefined,
-    genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? m.season : undefined,
+    genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds,
     format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
   };
   if (btn) { btn.disabled = true; btn.innerHTML = I.check; }
-  api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload }, () => {
+  api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload, listId: m.listId || undefined }, (saved) => {
+    if (api.runtime.lastError || !saved || saved.ok === false) { if(btn){btn.disabled=false;btn.innerHTML=I.plus+" "+t("add");} toast(settings.lang === "fr" ? "Sauvegarde impossible. Réessaie." : "Could not save. Try again."); return; }
     api.runtime.sendMessage({ type: "GET_STATE" }, (s) => {
       hydrate(s);
       toast(m.title + " ✓");
@@ -1475,3 +1495,5 @@ function hydrate(state) {
   if (!discoverTried) loadDiscover(false);
 }
 api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
+
+document.addEventListener("load", (event) => { const im=event.target; if(im instanceof HTMLImageElement && im.matches("img.cov")) im.classList.toggle("landscape", im.naturalWidth > im.naturalHeight * 1.2); }, true);

@@ -440,6 +440,23 @@
       .crop-actions { display:flex; align-items:center; gap:8px; margin-top:8px; }
       .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#241F33; color:#fff; padding:11px 18px; border-radius:12px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:.25s; z-index:80; box-shadow:0 12px 30px rgba(0,0,0,.25); } .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
       input[type=file] { display:none; }
+
+      /* Media always stays inside its own frame, including search/list previews. */
+      :where(.sc,.cover,.li-cover,.li-card-cov,.rank-art,.art,.game-cover,.drawer-cover,.list-cover,.lc) { position:relative; overflow:hidden; isolation:isolate; }
+      img.cov { max-width:100%; max-height:100%; }
+      img.cov.landscape { object-fit:contain; background:var(--card); }
+      [hidden] { display:none !important; }
+      :focus-visible { outline:3px solid var(--lav-ink); outline-offset:3px; }
+      main { max-width:1480px; padding-inline:clamp(20px,4vw,60px); }
+      .sr-row { padding:14px; gap:18px; } .sr-row .sc { width:84px; height:112px; border:0; cursor:pointer; }
+      .sr-row .si b { font-size:18px; } .sr-row .si small { font-size:14px; line-height:1.5; }
+      .rank-card,.rank-art { width:180px; } .rank-art { height:260px; }
+      .rank-card h4 { font-size:15px; white-space:normal; min-height:38px; } .rank-card small { font-size:12px; }
+      .plan-grid.two { max-width:1100px; margin-inline:auto; } .plan li { font-size:15px; line-height:1.6; }
+      .disco-track { animation:none; transform:none; width:max-content; will-change:auto; }
+      .disco-wrap { overflow-x:auto; } .preview-meta { color:var(--muted); line-height:1.7; }
+      .preview-actions { display:grid; gap:12px; margin-top:24px; }
+      @media(max-width:680px) { header { flex-wrap:wrap; gap:12px; padding:12px 16px; } .search { order:3; width:100%; flex-basis:100%; } .top-right { margin-left:auto; } nav.tabs { order:4; width:100%; } nav.tabs button { flex:1; } .brand .shine { display:inline; } .pro-btn { height:42px; padding-inline:12px; } .sr-row { gap:10px; } .sr-row .sc { width:60px; height:82px; } .sr-row .si b { font-size:15px; } .sr-row .si small { font-size:12px; } .sr-row > .btn { padding:10px; } .plan-grid.two { grid-template-columns:1fr; } }
     </style>
   </head>
   <body>

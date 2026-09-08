@@ -24,7 +24,6 @@ export default function Home() {
   const [checking, setChecking] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [tools, setTools] = useState(false);
-  const [conflict, setConflict] = useState(false);
   const [siteForm, setSiteForm] = useState(false);
   const [siteName, setSiteName] = useState("");
   const [siteUrl, setSiteUrl] = useState("");
@@ -73,14 +72,6 @@ export default function Home() {
       if (found > 0) toast.success(t("toast.newFound", { n: found }));
       else toast.success(t("toast.upToDate"), { description: t("toast.upToDateDesc") });
     }, 800);
-  };
-
-  const save = () => {
-    if (current && current.progress < 72) {
-      setConflict(true);
-      return;
-    }
-    toast.success(t("toast.saved"));
   };
 
   const addSite = () => {
@@ -145,9 +136,9 @@ export default function Home() {
                   <Play size={16} fill="currentColor" />
                   {t("action.resume")}
                 </a>
-                <button className="heart-button" onClick={save}>
-                  <Heart size={17} />
-                  {t("action.save")}
+                <button className="heart-button" aria-pressed={current.favorite} onClick={() => store.toggleFavorite(current.id)}>
+                  <Heart size={17} fill={current.favorite ? "currentColor" : "none"} />
+                  {t("categories.favorites")}
                 </button>
               </div>
             </div>
@@ -394,32 +385,7 @@ export default function Home() {
 
       {addOpen && <AddWork onClose={() => setAddOpen(false)} />}
 
-      {conflict && current && (
-        <div className="modal-backdrop" onClick={() => setConflict(false)}>
-          <div className="conflict-modal" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setConflict(false)}>
-              <X size={17} />
-            </button>
-            <span className="eyebrow">{t("conflict.eyebrow")}</span>
-            <h2>{t("conflict.title")}</h2>
-            <p dangerouslySetInnerHTML={{ __html: t("conflict.body", { title: `<strong>${current.title}</strong>` }) }} />
-            <div className="conflict-actions">
-              <button className="heart-button" onClick={() => setConflict(false)}>
-                {t("conflict.keep")}
-              </button>
-              <button
-                className="primary-cta"
-                onClick={() => {
-                  setConflict(false);
-                  toast.success(t("toast.replaced"));
-                }}
-              >
-                {t("conflict.replace")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
