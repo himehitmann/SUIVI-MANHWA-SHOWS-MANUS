@@ -69,6 +69,16 @@ const syncInput = z.object({
   lists: z.array(syncItem).max(2000).optional(),
   sites: z.array(syncItem).max(2000).optional(),
   notifications: z.array(syncItem).max(2000).optional(),
+  tombstones: z
+    .array(
+      z.object({
+        kind: z.enum(["items", "lists", "sites", "notifications"]),
+        id: z.string().min(1).max(256),
+        deletedAt: z.number().finite().nonnegative(),
+      })
+    )
+    .max(50000)
+    .optional(),
   learn: z.unknown().optional(),
   updatedAt: z.number().finite().nonnegative().optional(),
 });
@@ -199,13 +209,30 @@ export function createApiRouter(
     });
   };
 
-  const auth = (req: Request): { id: string } | null => {
+  const auth = async (
+    req: Request
+  ): Promise<{ id: string; sessionId: string } | null> => {
     const header = req.headers.authorization || "";
     const token = header.startsWith("Bearer ") ? header.slice(7) : "";
     const payload = verifyToken(token, SECRET);
-    return payload ? { id: payload.sub } : null;
+    if (!payload || typeof payload.jti !== "string") return null;
+    const session = await store.getSession(payload.jti);
+    return session?.userId === payload.sub
+      ? { id: payload.sub, sessionId: session.id }
+      : null;
   };
 
+  const issueToken = async (userId: string) => {
+    const id = randomUUID(),
+      now = Date.now();
+    await store.createSession({
+      id,
+      userId,
+      createdAt: now,
+      expiresAt: now + 30 * 86400000,
+    });
+    return signToken({ sub: userId, jti: id }, SECRET);
+  };
   const publicUser = (u: { id: string; email: string; plan: string }) => ({
     id: u.id,
     email: u.email,
@@ -241,7 +268,7 @@ export function createApiRouter(
       };
       await store.createUser(user);
       return res.json({
-        token: signToken({ sub: user.id }, SECRET),
+        token: await issueToken(user.id),
         user: publicUser(user),
       });
     })
@@ -262,7 +289,7 @@ export function createApiRouter(
       if (!user || !verifyPassword(password || "", user.passwordHash))
         return res.status(401).json({ error: "invalid_credentials" });
       return res.json({
-        token: signToken({ sub: user.id }, SECRET),
+        token: await issueToken(user.id),
         user: publicUser(user),
       });
     })
@@ -272,9 +299,9 @@ export function createApiRouter(
   router.post(
     "/auth/email",
     asyncRoute(async (req: Request, res: Response) => {
-      const session = auth(req);
+      const session = await auth(req);
       if (!session) return res.status(401).json({ error: "unauthorized" });
-      const { email } = req.body || {};
+      const { email, current } = req.body || {};
       if (
         typeof email !== "string" ||
         email.length > 254 ||
@@ -283,6 +310,13 @@ export function createApiRouter(
         return res.status(400).json({ error: "invalid_email" });
       const user = await store.getUserById(session.id);
       if (!user) return res.status(401).json({ error: "unauthorized" });
+      if (rateLimited(req, res, 10)) return;
+      if (
+        typeof current !== "string" ||
+        current.length > 1024 ||
+        !verifyPassword(current, user.passwordHash)
+      )
+        return res.status(401).json({ error: "invalid_credentials" });
       const clash = await store.getUserByEmail(email);
       if (clash && clash.id !== user.id)
         return res.status(409).json({ error: "email_taken" });
@@ -296,7 +330,7 @@ export function createApiRouter(
     "/auth/password",
     asyncRoute(async (req: Request, res: Response) => {
       if (rateLimited(req, res, 10)) return;
-      const session = auth(req);
+      const session = await auth(req);
       if (!session) return res.status(401).json({ error: "unauthorized" });
       const { current, next } = req.body || {};
       if (
@@ -312,6 +346,44 @@ export function createApiRouter(
       if (!verifyPassword(current || "", user.passwordHash))
         return res.status(401).json({ error: "invalid_credentials" });
       await store.updateUser({ ...user, passwordHash: hashPassword(next) });
+      await store.revokeUserSessions(user.id);
+      return res.json({ ok: true, token: await issueToken(user.id) });
+    })
+  );
+
+  router.post(
+    "/auth/logout",
+    asyncRoute(async (req, res) => {
+      const session = await auth(req);
+      if (session) await store.revokeSession(session.sessionId);
+      return res.json({ ok: true });
+    })
+  );
+  router.post(
+    "/auth/logout-all",
+    asyncRoute(async (req, res) => {
+      const session = await auth(req);
+      if (!session) return res.status(401).json({ error: "unauthorized" });
+      await store.revokeUserSessions(session.id);
+      return res.json({ ok: true });
+    })
+  );
+  router.post(
+    "/auth/delete",
+    asyncRoute(async (req, res) => {
+      if (rateLimited(req, res, 5)) return;
+      const session = await auth(req);
+      if (!session) return res.status(401).json({ error: "unauthorized" });
+      const user = await store.getUserById(session.id),
+        current = req.body?.current;
+      if (
+        !user ||
+        typeof current !== "string" ||
+        current.length > 1024 ||
+        !verifyPassword(current, user.passwordHash)
+      )
+        return res.status(401).json({ error: "invalid_credentials" });
+      await store.deleteUser(session.id);
       return res.json({ ok: true });
     })
   );
@@ -319,7 +391,7 @@ export function createApiRouter(
   router.get(
     "/me",
     asyncRoute(async (req: Request, res: Response) => {
-      const session = auth(req);
+      const session = await auth(req);
       if (!session) return res.status(401).json({ error: "unauthorized" });
       const user = await store.getUserById(session.id);
       if (!user) return res.status(401).json({ error: "unauthorized" });
@@ -332,7 +404,7 @@ export function createApiRouter(
   router.get(
     "/license",
     asyncRoute(async (req: Request, res: Response) => {
-      const session = auth(req);
+      const session = await auth(req);
       if (!session) return res.status(401).json({ error: "unauthorized" });
       const user = await store.getUserById(session.id);
       return res.json({ plan: user?.plan ?? "free" });
@@ -342,7 +414,7 @@ export function createApiRouter(
   router.get(
     "/sync",
     asyncRoute(async (req: Request, res: Response) => {
-      const session = auth(req);
+      const session = await auth(req);
       if (!session) return res.status(401).json({ error: "unauthorized" });
       const record = await store.getSync(session.id);
       return res.json({
@@ -355,16 +427,14 @@ export function createApiRouter(
   router.put(
     "/sync",
     asyncRoute(async (req: Request, res: Response) => {
-      const session = auth(req);
+      const session = await auth(req);
       if (!session) return res.status(401).json({ error: "unauthorized" });
       const parsed = syncInput.safeParse(req.body?.blob);
       if (!parsed.success)
-        return res
-          .status(400)
-          .json({
-            error: "invalid_blob",
-            message: "Library records must contain a valid id and timestamp.",
-          });
+        return res.status(400).json({
+          error: "invalid_blob",
+          message: "Library records must contain a valid id and timestamp.",
+        });
       const user = await store.getUserById(session.id);
       if (!user) return res.status(401).json({ error: "unauthorized" });
       const incoming = {
@@ -372,15 +442,8 @@ export function createApiRouter(
         plan: user.plan,
         updatedAt: parsed.data.updatedAt || Date.now(),
       } as SyncBlob;
-      const existing = await store.getSync(session.id);
-      const merged = mergeBlobs(existing?.blob ?? null, {
-        ...incoming,
-        updatedAt: incoming.updatedAt || Date.now(),
-      });
-      await store.setSync(session.id, {
-        blob: merged,
-        updatedAt: merged.updatedAt,
-      });
+      const record = await store.mergeSync(session.id, incoming);
+      const merged = record.blob;
       return res.json({ blob: merged, updatedAt: merged.updatedAt });
     })
   );
@@ -393,11 +456,9 @@ export function createApiRouter(
       _next: express.NextFunction
     ) => {
       const status = (error as { status?: number }).status;
-      res
-        .status(status && status >= 400 && status < 500 ? status : 500)
-        .json({
-          error: status === 413 ? "payload_too_large" : "request_failed",
-        });
+      res.status(status && status >= 400 && status < 500 ? status : 500).json({
+        error: status === 413 ? "payload_too_large" : "request_failed",
+      });
     }
   );
   return router;

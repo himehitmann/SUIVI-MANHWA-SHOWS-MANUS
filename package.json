@@ -9,11 +9,13 @@
     "start": "NODE_ENV=production node dist/index.js",
     "preview": "vite preview --host",
     "check": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "node scripts/build-sync.mjs && vitest run",
     "format": "prettier --write .",
     "test:e2e": "node tests/e2e/extension.mjs",
     "lint": "eslint .",
-    "build:extension": "node scripts/pack-extension.mjs"
+    "build:extension": "node scripts/build-sync.mjs && node scripts/pack-extension.mjs",
+    "build:sync": "node scripts/build-sync.mjs",
+    "test:package": "node scripts/test-package.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -53,6 +55,7 @@
     "lucide-react": "^0.453.0",
     "nanoid": "^5.1.16",
     "next-themes": "^0.4.6",
+    "pg": "^8.23.0",
     "react": "^19.2.8",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.8",
@@ -67,7 +70,6 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@builder.io/vite-plugin-jsx-loc": "^0.1.1",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.3",
     "@types/express": "4.17.21",
@@ -87,7 +89,6 @@
     "tw-animate-css": "^1.4.0",
     "typescript": "5.6.3",
     "vite": "^7.3.6",
-    "vite-plugin-manus-runtime": "^0.0.58",
     "vitest": "^3.2.6"
   },
   "packageManager": "pnpm@11.19.0"

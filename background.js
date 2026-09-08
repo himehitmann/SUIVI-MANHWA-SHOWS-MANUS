@@ -1,3 +1,4 @@
+importScripts("sync-core.js");
 async function fetchRemote(input, init = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -19,6 +20,7 @@ const SITES_KEY = "dasi.sites";
 const NOTIF_KEY = "dasi.notifications";
 const LISTS_KEY = "dasi.lists";
 const SETTINGS_KEY = "dasi.settings";
+const TOMBSTONES_KEY="yomu.tombstones.v1";
 const DEFAULT_SETTINGS = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" }, tmdbKey: "", rawgKey: "", imgServer: "", ocrKey: "", ocrSrc: "" };
 
 // Canonical work id + fuzzy matching — MUST mirror the web app's item.ts
@@ -97,8 +99,18 @@ const read = async (key, fallback) => {
 };
 
 /** Write data keys to local (authoritative) and mirror to sync when it fits. */
-const writeData = async (obj) => {
+const DATA_KEYS={items:ITEMS_KEY,lists:LISTS_KEY,sites:SITES_KEY,notifications:NOTIF_KEY};
+const writeData = async (obj, downloaded=false) => {
+  if(!downloaded){
+    const before={},after={};
+    for(const [kind,key] of Object.entries(DATA_KEYS))if(obj[key]){before[kind]=await read(key,[]);after[kind]=obj[key];}
+    before.tombstones=await read(TOMBSTONES_KEY,[]);
+    const stamped=YomuSync.stampChanges(before,after);
+    for(const [kind,key] of Object.entries(DATA_KEYS))if(stamped[kind])obj[key]=stamped[kind];
+    if(stamped.tombstones)obj[TOMBSTONES_KEY]=stamped.tombstones;
+  }
   await api.storage.local.set(obj);
+  if((await getSyncConfig())?.token)return;
   try {
     await api.storage.sync.set(obj);
   } catch {
@@ -143,7 +155,7 @@ async function systemNotify(title, message, id) {
 const SYNC_CFG_KEY = "dasi.sync.config";
 const SYNC_META_KEY = "dasi.sync.meta";
 const AUTO_SYNC_COOLDOWN_MS = 8000;
-let lastAutoSync = 0;
+let lastAutoSync = 0, autoSyncTimer = null, accountEpoch = 0;
 
 const apiBase = (url) => (url || "").replace(/\/+$/, "");
 const getSyncConfig = async () => (await api.storage.local.get(SYNC_CFG_KEY))[SYNC_CFG_KEY] || null;
@@ -164,6 +176,19 @@ async function apiCall(cfg, path, init = {}) {
   });
 }
 
+const ACCOUNT_CACHE_KEY='yomu.accountCaches.v1';
+const scopeOf=cfg=>cfg?.token?apiBase(cfg.apiUrl)+'|'+(cfg.userId || 'legacy:'+String(cfg.email||'').toLowerCase()):'guest';
+async function switchSyncAccount(nextConfig){
+  const previous=await getSyncConfig(), caches=await read(ACCOUNT_CACHE_KEY,{});
+  const keys=[ITEMS_KEY,LISTS_KEY,SITES_KEY,NOTIF_KEY,SETTINGS_KEY,TOMBSTONES_KEY];
+  const previousData={};for(const key of keys)previousData[key]=await read(key,key===SETTINGS_KEY?DEFAULT_SETTINGS:[]);
+  caches[scopeOf(previous)]=previousData;
+  const sameLegacy=previous?.token && !previous.userId && nextConfig?.token && previous.apiUrl===nextConfig.apiUrl && previous.email?.toLowerCase()===nextConfig.email?.toLowerCase();
+  const nextData=(sameLegacy?previousData:caches[scopeOf(nextConfig)]) || {[ITEMS_KEY]:[],[LISTS_KEY]:[],[SITES_KEY]:[],[NOTIF_KEY]:[],[TOMBSTONES_KEY]:[],[SETTINGS_KEY]:{...DEFAULT_SETTINGS,lang:previousData[SETTINGS_KEY]?.lang||'en'}};
+  await api.storage.local.set({...nextData,[ACCOUNT_CACHE_KEY]:caches,[SYNC_CFG_KEY]:nextConfig,[SYNC_META_KEY]:{},'dasi.lastConflict':null,'dasi.currentDetection':null});
+  ++accountEpoch;clearTimeout(autoSyncTimer);autoSyncTimer=null;lastAutoSync=0;
+}
+
 /** Sign in / sign up against the backend and persist the resulting config. */
 async function syncAuth(path, apiUrl, email, password) {
   const res = await fetchRemote(apiBase(apiUrl) + path, {
@@ -176,8 +201,8 @@ async function syncAuth(path, apiUrl, email, password) {
     throw new Error(err.error || `http_${res.status}`);
   }
   const data = await res.json();
-  const cfg = { apiUrl: apiBase(apiUrl), token: data.token, email: data.user.email, plan: data.user.plan };
-  await api.storage.local.set({ [SYNC_CFG_KEY]: cfg });
+  const cfg = { apiUrl: apiBase(apiUrl), token: data.token, userId:data.user.id, email: data.user.email, plan: data.user.plan };
+  await serializeLibrary(()=>switchSyncAccount(cfg));
   await setSyncMeta({ lastError: null });
   return cfg;
 }
@@ -208,61 +233,39 @@ async function syncNow() {
 
   const getRes = await apiCall(cfg, "/sync");
   if (getRes.status === 401) {
-    await setSyncMeta({ lastError: "unauthorized" });
+    if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({ lastError: "unauthorized" });
     throw new Error("unauthorized");
   }
   if(!getRes.ok)throw new Error(`pull_${getRes.status}`);
   const remote = await getRes.json();
   const rb = remote.blob || null;
 
-  const {mergedItems,mergedSites,mergedNotifs,mergedLists}=await serializeLibrary(async()=>{
-  const [items, sites, notifs, lists] = await Promise.all([
-    read(ITEMS_KEY, []),
-    read(SITES_KEY, []),
-    read(NOTIF_KEY, []),
-    read(LISTS_KEY, []),
-  ]);
-  const mergedItems = mergeItems(rb && rb.items, items);
-  const mergedSites = mergeById(rb && rb.sites, sites);
-  const mergedNotifs = mergeById(rb && rb.notifications, notifs);
-  const mergedLists = mergeById(rb && rb.lists, lists);
-  await writeData({ [ITEMS_KEY]: mergedItems, [SITES_KEY]: mergedSites, [NOTIF_KEY]: mergedNotifs, [LISTS_KEY]: mergedLists });
-  return {mergedItems,mergedSites,mergedNotifs,mergedLists};
+  const blob=await serializeLibrary(async()=>{
+    if((await getSyncConfig())?.token!==cfg.token)throw new Error('account_changed');
+    const local={updatedAt:0,tombstones:await read(TOMBSTONES_KEY,[])};
+    for(const [kind,key] of Object.entries(DATA_KEYS))local[kind]=await read(key,[]);
+    const merged=YomuSync.mergeBlobs(rb,local),values={[TOMBSTONES_KEY]:merged.tombstones||[]};
+    for(const [kind,key] of Object.entries(DATA_KEYS))values[key]=merged[kind]||[];
+    await writeData(values,true);return merged;
   });
-
-  // Push the merged library, preserving web-only slices (learn/plan) that the
-  // extension doesn't own so a push never wipes them.
-  const blob = {
-    items: mergedItems,
-    sites: mergedSites,
-    notifications: mergedNotifs,
-    lists: mergedLists,
-    updatedAt: Date.now(),
-  };
-  if (rb) {
-    if (rb.learn) blob.learn = rb.learn;
-    if (rb.plan) blob.plan = rb.plan;
-  }
   const putRes = await apiCall(cfg, "/sync", { method: "PUT", body: JSON.stringify({ blob }) });
   if (!putRes.ok) {
-    await setSyncMeta({ lastError: `push_${putRes.status}` });
+    if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({ lastError: `push_${putRes.status}` });
     throw new Error(`push_${putRes.status}`);
   }
-  await setSyncMeta({ lastSyncAt: Date.now(), lastError: null });
-  return { items: mergedItems.length, sites: mergedSites.length, notifications: mergedNotifs.length };
+  if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({ lastSyncAt: Date.now(), lastError: null });
+  return { items: blob.items.length, sites: blob.sites.length, notifications: blob.notifications.length };
 }
 
 /** Fire-and-forget sync after a local change, rate-limited so saves stay cheap. */
 function autoSync() {
-  getSyncConfig().then((cfg) => {
-    if (!cfg || !cfg.token) return;
-    const now = Date.now();
-    if (now - lastAutoSync < AUTO_SYNC_COOLDOWN_MS) return;
-    lastAutoSync = now;
-    syncNow().catch(() => {
-      /* best-effort; error is recorded in sync meta */
-    });
-  });
+  if(autoSyncTimer)return;
+  autoSyncTimer=setTimeout(async()=>{
+    autoSyncTimer=null;
+    const cfg=await getSyncConfig();if(!cfg?.token)return;
+    lastAutoSync=Date.now();
+    try{await syncNow();}catch(error){if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({lastError:String(error.message)});}
+  },Math.max(0,AUTO_SYNC_COOLDOWN_MS-(Date.now()-lastAutoSync)));
 }
 
 let libraryWriteQueue = Promise.resolve();
@@ -828,6 +831,7 @@ async function getDiscover(force) {
 
 /** Enrich one stored work in place from AniList (once per work). */
 async function enrichWork(id) {
+  const epoch=accountEpoch;
   const items = await read(ITEMS_KEY, []);
   const it = items.find((x) => x.id === id);
   if (!it || it.type === "game" || it.enrichedAt) return;
@@ -863,6 +867,7 @@ async function enrichWork(id) {
     }
   }
   await serializeLibrary(async () => {
+    if(epoch!==accountEpoch)return;
     const current = await read(ITEMS_KEY, []);
     const next = current.map(x => x.id === id ? boundedProgress({...x,...patch}) : x);
     await writeData({[ITEMS_KEY]:next});
@@ -1262,6 +1267,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Lazy game enrichment: pull genres/tags + description from Steam when a
     // game fiche is opened without them. Best-effort; patches the item in place.
     case "GAME_ENRICH":
+      {const epoch=accountEpoch;
       read(ITEMS_KEY, []).then(async (items) => {
         const it = items.find((x) => x.id === message.id);
         const appid = it ? steamAppId(it.url) : "";
@@ -1273,13 +1279,14 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           if (d.genres.length && !(it.tags && it.tags.length)) patch.tags = d.genres;
           if (d.synopsis && !it.synopsis) patch.synopsis = d.synopsis;
           if (d.releaseDate && !it.releaseDate) patch.releaseDate = d.releaseDate;
-          const next = await serializeLibrary(async()=>{const current=await read(ITEMS_KEY,[]);const next=current.map(x=>x.id===message.id?{...x,...patch}:x);await writeData({[ITEMS_KEY]:next});return next;});
+          const next = await serializeLibrary(async()=>{if(epoch!==accountEpoch)throw Error("account_changed");const current=await read(ITEMS_KEY,[]);const next=current.map(x=>x.id===message.id?{...x,...patch}:x);await writeData({[ITEMS_KEY]:next});return next;});
           sendResponse({ ok: true, item: next.find((x) => x.id === message.id) });
           autoSync();
         } catch { sendResponse({ ok: false }); }
       });
       return true;
 
+      }
     // Fresh recommendations for the Home page (cached ~6h).
     case "DISCOVER":
       getDiscover(message.force)
@@ -1370,9 +1377,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       getSyncConfig().then(async (cfg) => {
         if (!cfg || !cfg.token) return sendResponse({ ok: false, error: "not_signed_in" });
         try {
-          const res = await apiCall(cfg, "/auth/email", { method: "POST", body: JSON.stringify({ email: message.email }) });
+          const res = await apiCall(cfg, "/auth/email", { method: "POST", body: JSON.stringify({ email: message.email,current:message.current }) });
           if (!res.ok) { const e = await res.json().catch(() => ({})); return sendResponse({ ok: false, error: e.error || `http_${res.status}` }); }
-          await api.storage.local.set({ [SYNC_CFG_KEY]: { ...cfg, email: message.email } });
+          await serializeLibrary(async()=>{if((await getSyncConfig())?.token!==cfg.token)throw Error("account_changed");await api.storage.local.set({ [SYNC_CFG_KEY]: { ...cfg, email: message.email } });});
           sendResponse({ ok: true });
         } catch (e) { sendResponse({ ok: false, error: String(e && e.message) }); }
       });
@@ -1384,13 +1391,28 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         try {
           const res = await apiCall(cfg, "/auth/password", { method: "POST", body: JSON.stringify({ current: message.current, next: message.next }) });
           if (!res.ok) { const e = await res.json().catch(() => ({})); return sendResponse({ ok: false, error: e.error || `http_${res.status}` }); }
+          const data=await res.json();
+          await serializeLibrary(async()=>{if((await getSyncConfig())?.token!==cfg.token)throw Error('account_changed');await api.storage.local.set({[SYNC_CFG_KEY]:{...cfg,token:data.token}});});
           sendResponse({ ok: true });
         } catch (e) { sendResponse({ ok: false, error: String(e && e.message) }); }
       });
       return true;
 
+    case 'SYNC_LOGOUT_ALL':
+    case 'SYNC_DELETE_ACCOUNT':
+      (async()=>{
+        const cfg=await getSyncConfig();if(!cfg?.token)throw Error('not_signed_in');
+        const res=await apiCall(cfg,message.type==='SYNC_DELETE_ACCOUNT'?'/auth/delete':'/auth/logout-all',{method:'POST',body:JSON.stringify({current:message.current})});
+        if(!res.ok)throw Error((await res.json()).error||'account_change_failed');
+        await serializeLibrary(async()=>{if((await getSyncConfig())?.token!==cfg.token)throw Error('account_changed');await switchSyncAccount(null);});
+        sendResponse({ok:true});
+      })().catch(error=>sendResponse({ok:false,error:String(error.message)}));return true;
     case "SYNC_SIGN_OUT":
-      api.storage.local.set({ [SYNC_CFG_KEY]: null, [SYNC_META_KEY]: {} }).then(() => sendResponse({ ok: true }));
+      mutateAndReply(async()=>{
+        const cfg=await getSyncConfig();
+        if(cfg?.token){const res=await apiCall(cfg,'/auth/logout',{method:'POST'});if(!res.ok)throw Error('sign_out_failed');}
+        await switchSyncAccount(null);return {ok:true};
+      },sendResponse);
       return true;
 
     case "SYNC_NOW":

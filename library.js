@@ -16,7 +16,7 @@ const planLabel = () => (UNLOCK_ALL || userPlan === "lifetime" ? "Lifetime" : us
 
 const NEW_WINDOW = 14 * 24 * 3600 * 1000;
 const SOON_WINDOW = 30 * 24 * 3600 * 1000;
-const DASI_STORE_URL = "https://chromewebstore.google.com/detail/dasi";
+const DASI_STORE_URL = "https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS";
 const SHARE_TEXT = "Yomu — never lose your spot in any manga, webtoon, anime, series or game. Save & resume in one click.";
 
 /* ---- i18n (en/fr full; others cover the visible shell, fall back to en) --- */
@@ -1195,13 +1195,21 @@ function renderAccountPanel() {
     }
     el.innerHTML = `
       <div class="row"><div class="grow"><b>${esc(s.email || "")}</b><small>${t("signedInAs")} · ${esc(s.plan || "free")}</small></div><button class="btn" id="acc-manage">${t("manageSync")}</button></div>
-      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changeEmail")}</b></div><input class="field" id="acc-email" type="email" placeholder="new@email.com" style="max-width:200px" /><button class="btn" id="acc-email-btn">${t("save")}</button></div>
-      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changePassword")}</b></div><input class="field" id="acc-pw-cur" type="password" placeholder="${t("currentPassword")}" style="max-width:150px" /><input class="field" id="acc-pw-new" type="password" placeholder="${t("newPassword")}" style="max-width:150px" /><button class="btn" id="acc-pw-btn">${t("save")}</button></div>`;
+      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changeEmail")}</b></div><input class="field" id="acc-email" type="email" placeholder="new@email.com" style="max-width:200px" /><input class="field" id="acc-email-current" type="password" autocomplete="current-password" placeholder="${t("currentPassword")}" style="max-width:150px" /><button class="btn" id="acc-email-btn">${t("save")}</button></div>
+      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changePassword")}</b></div><input class="field" id="acc-pw-cur" type="password" placeholder="${t("currentPassword")}" style="max-width:150px" /><input class="field" id="acc-pw-new" type="password" placeholder="${t("newPassword")}" style="max-width:150px" /><button class="btn" id="acc-pw-btn">${t("save")}</button></div>
+      <div class="row"><button class="btn" id="acc-logout-all">${settings.lang==='fr'?'Déconnecter tous les appareils':'Sign out all devices'}</button><button class="btn" id="acc-delete">${settings.lang==='fr'?'Supprimer mon compte':'Delete my account'}</button></div>`;
+    document.getElementById('acc-logout-all').onclick=()=>api.runtime.sendMessage({type:'SYNC_LOGOUT_ALL'},r=>{if(r?.ok){api.runtime.sendMessage({type:'GET_STATE'},hydrate);renderAccountPanel();}else toast(r?.error||'Try again');});
+    document.getElementById('acc-delete').onclick=()=>{
+      const current=document.getElementById('acc-pw-cur').value;
+      if(!current){toast(t('currentPassword'));return;}
+      if(!confirm(settings.lang==='fr'?'Supprimer définitivement ce compte et ses données synchronisées ? Une copie locale sera conservée.':'Permanently delete this account and its synced data? A local copy will be retained.'))return;
+      api.runtime.sendMessage({type:'SYNC_DELETE_ACCOUNT',current},r=>{if(r?.ok){api.runtime.sendMessage({type:'GET_STATE'},hydrate);renderAccountPanel();}else toast(r?.error||'Try again');});
+    };
     document.getElementById("acc-manage").onclick = () => api.runtime.openOptionsPage();
     document.getElementById("acc-email-btn").onclick = () => {
       const v = document.getElementById("acc-email").value.trim();
       if (!v) return;
-      api.runtime.sendMessage({ type: "SYNC_CHANGE_EMAIL", email: v }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changeEmail") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) renderAccountPanel(); });
+      api.runtime.sendMessage({ type: "SYNC_CHANGE_EMAIL", email: v,current:document.getElementById("acc-email-current").value }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changeEmail") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) renderAccountPanel(); });
     };
     document.getElementById("acc-pw-btn").onclick = () => {
       const cur = document.getElementById("acc-pw-cur").value, nw = document.getElementById("acc-pw-new").value;
@@ -1248,16 +1256,11 @@ function buildShare(el) {
   sf.onclick = () => openUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(DASI_STORE_URL)}`);
   sw.onclick = () => openUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(SHARE_TEXT + " " + DASI_STORE_URL)}`);
   sr.onclick = () => openUrl(`https://www.reddit.com/submit?url=${encodeURIComponent(DASI_STORE_URL)}&title=${encodeURIComponent(SHARE_TEXT)}`);
-  sc.onclick = () => { try { navigator.clipboard?.writeText(DASI_STORE_URL); } catch {} toast("Link copied"); };
+  sc.onclick = async () => { try { await navigator.clipboard.writeText(DASI_STORE_URL);toast(settings.lang==='fr'?'Lien copié':'Link copied'); } catch {toast(settings.lang==='fr'?'Copie impossible. Réessaie.':'Could not copy. Try again.');} };
 }
 function buildRateStore(el) {
-  if (!el) return;
-  el.innerHTML = [1,2,3,4,5].map((n) => `<span data-v="${n}">${I.star}</span>`).join("");
-  const stars = [...el.querySelectorAll("span")];
-  const paint = (n) => stars.forEach((s, idx) => s.querySelector(".ic").classList.toggle("on", idx < n));
-  stars.forEach((s) => (s.onmouseenter = () => paint(Number(s.dataset.v))));
-  el.onmouseleave = () => paint(0);
-  el.onclick = () => { paint(5); setTimeout(() => openUrl(DASI_STORE_URL), 350); };
+  if(!el)return;
+  el.innerHTML=`<a class="btn" href="${DASI_STORE_URL}" target="_blank" rel="noopener noreferrer">${settings.lang==='fr'?'Voir le projet Yomu':'Open the Yomu project'}</a>`;
 }
 
 /* ================= chrome (header, nav, menus) ================= */

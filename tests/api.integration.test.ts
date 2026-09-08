@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import express from "express";
 import type { Server } from "node:http";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { createApiRouter } from "../server/api";
 import { createStore } from "../server/lib/store";
 let server: Server, base: string;
-beforeAll(async () => {
+beforeEach(async () => {
   const app = express();
   app.use("/api", createApiRouter(createStore()));
   await new Promise<void>(resolve => {
@@ -15,7 +15,7 @@ beforeAll(async () => {
   });
   base = "http://127.0.0.1:" + String((server.address() as any).port) + "/api";
 });
-afterAll(async () => {
+afterEach(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close(e => (e ? reject(e) : resolve()))
   );
@@ -122,4 +122,84 @@ describe("persistent account file", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+});
+
+it("keeps independently uploaded records under concurrent requests", async () => {
+  const account = await (
+    await call("/auth/signup", {
+      email: "concurrent@example.com",
+      password: "safe-test-password",
+    })
+  ).json();
+  const responses = await Promise.all(
+    Array.from({ length: 12 }, (_, i) =>
+      fetch(base + "/sync", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + account.token,
+        },
+        body: JSON.stringify({
+          blob: {
+            items: [{ id: "work-" + i, updatedAt: i + 1 }],
+            updatedAt: i + 1,
+          },
+        }),
+      })
+    )
+  );
+  expect(responses.every(r => r.ok)).toBe(true);
+  const state = await (await call("/sync", undefined, account.token)).json();
+  expect(state.blob.items).toHaveLength(12);
+});
+
+it("revokes this session on logout without disconnecting another device", async () => {
+  const credentials = {
+    email: "sessions@example.com",
+    password: "safe-session-password",
+  };
+  const first = await (await call("/auth/signup", credentials)).json(),
+    second = await (await call("/auth/login", credentials)).json();
+  expect((await call("/auth/logout", {}, first.token)).ok).toBe(true);
+  expect((await call("/me", undefined, first.token)).status).toBe(401);
+  expect((await call("/me", undefined, second.token)).status).toBe(200);
+});
+it("invalidates old sessions after a password change and keeps the replacement valid", async () => {
+  const credentials = {
+    email: "password@example.com",
+    password: "old-safe-password",
+  };
+  const first = await (await call("/auth/signup", credentials)).json(),
+    second = await (await call("/auth/login", credentials)).json();
+  const changed = await (
+    await call(
+      "/auth/password",
+      { current: credentials.password, next: "new-safe-password" },
+      first.token
+    )
+  ).json();
+  expect(changed.token).toBeTruthy();
+  for (const token of [first.token, second.token])
+    expect((await call("/sync", undefined, token)).status).toBe(401);
+  expect((await call("/me", undefined, changed.token)).status).toBe(200);
+});
+it("requires the password for email changes and account deletion", async () => {
+  const a = await (
+    await call("/auth/signup", {
+      email: "delete@example.com",
+      password: "delete-safe-password",
+    })
+  ).json();
+  expect(
+    (await call("/auth/email", { email: "changed@example.com" }, a.token))
+      .status
+  ).toBe(401);
+  expect(
+    (await call("/auth/delete", { current: "wrong" }, a.token)).status
+  ).toBe(401);
+  expect(
+    (await call("/auth/delete", { current: "delete-safe-password" }, a.token))
+      .status
+  ).toBe(200);
+  expect((await call("/me", undefined, a.token)).status).toBe(401);
 });

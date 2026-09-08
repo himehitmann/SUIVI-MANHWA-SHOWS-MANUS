@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-const root = process.cwd(),
+const root = process.env.YOMU_EXTENSION_DIR || process.cwd(),
   profile = await fs.mkdtemp(path.join(os.tmpdir(), "yomu-e2e-"));
 const artifactDir = path.resolve("test-results");
 await fs.mkdir(artifactDir, { recursive: true });

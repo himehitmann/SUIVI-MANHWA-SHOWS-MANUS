@@ -99,4 +99,6 @@ export interface DasiState {
   plan: Plan;
   learn: LearnState;
   version: 1;
+  updatedAt?:number;
+  tombstones?:import("../../../shared/sync-core").Tombstone[];
 }

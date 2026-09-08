@@ -59,6 +59,7 @@ async function startServer() {
   );
   const isProd = process.env.NODE_ENV === "production";
   app.use((req, res, next) => {
+    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https: data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://graphql.anilist.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");

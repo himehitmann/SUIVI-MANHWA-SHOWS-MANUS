@@ -16,7 +16,8 @@ export interface SyncSession {
   plan?: string;
 }
 
-export type SyncStatus = "offline" | "unavailable" | "signed_in" | "syncing" | "error";
+export type SyncStatus =
+  "offline" | "unavailable" | "signed_in" | "syncing" | "error";
 
 export interface SyncProvider {
   readonly id: string;
@@ -27,15 +28,21 @@ export interface SyncProvider {
   signOut(): Promise<void>;
   push(state: DasiState): Promise<void>;
   pull(): Promise<DasiState | null>;
+  accountAction(
+    action: "password" | "email" | "logout-all" | "delete",
+    data?: Record<string, string>
+  ): Promise<void>;
 }
 
 /** No backend: honest "offline" state, everything stays local. */
 export function createLocalProvider(): SyncProvider {
-  const notAvailable = () => Promise.reject(new Error("Cloud sync is not available in this build"));
+  const notAvailable = () =>
+    Promise.reject(new Error("Cloud sync is not available in this build"));
   return {
     id: "local",
     isConfigured: () => false,
     getSession: () => null,
+    accountAction: notAvailable,
     signUp: notAvailable,
     signIn: notAvailable,
     async signOut() {},
@@ -52,11 +59,13 @@ const SESSION_KEY = "dasi.sync.session";
 /** Real provider backed by the Express API in server/. */
 export function createHttpProvider(baseUrl: string): SyncProvider {
   const base = baseUrl.replace(/\/+$/, "");
+  const tokenKey = TOKEN_KEY + ":" + encodeURIComponent(base),
+    sessionKey = SESSION_KEY + ":" + encodeURIComponent(base);
   let token: string | null = null;
   let session: SyncSession | null = null;
   try {
-    token = localStorage.getItem(TOKEN_KEY);
-    const raw = localStorage.getItem(SESSION_KEY);
+    token = localStorage.getItem(tokenKey);
+    const raw = localStorage.getItem(sessionKey);
     session = raw ? (JSON.parse(raw) as SyncSession) : null;
   } catch {
     /* storage unavailable */
@@ -64,10 +73,10 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
 
   const persist = () => {
     try {
-      if (token) localStorage.setItem(TOKEN_KEY, token);
-      else localStorage.removeItem(TOKEN_KEY);
-      if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      else localStorage.removeItem(SESSION_KEY);
+      if (token) localStorage.setItem(tokenKey, token);
+      else localStorage.removeItem(tokenKey);
+      if (session) localStorage.setItem(sessionKey, JSON.stringify(session));
+      else localStorage.removeItem(sessionKey);
     } catch {
       /* ignore */
     }
@@ -75,6 +84,7 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
 
   const authFetch = (path: string, init: RequestInit = {}) =>
     fetch(base + path, {
+      signal: AbortSignal.timeout(15000),
       ...init,
       headers: {
         "Content-Type": "application/json",
@@ -83,15 +93,31 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
       },
     });
 
-  const authenticate = async (path: string, email: string, password: string): Promise<SyncSession> => {
-    const res = await authFetch(path, { method: "POST", body: JSON.stringify({ email, password }) });
+  const authenticate = async (
+    path: string,
+    email: string,
+    password: string
+  ): Promise<SyncSession> => {
+    const res = await authFetch(path, {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error((err as { error?: string }).error || `HTTP ${res.status}`);
+      throw new Error(
+        (err as { error?: string }).error || `HTTP ${res.status}`
+      );
     }
-    const data = (await res.json()) as { token: string; user: { id: string; email: string; plan: string } };
+    const data = (await res.json()) as {
+      token: string;
+      user: { id: string; email: string; plan: string };
+    };
     token = data.token;
-    session = { userId: data.user.id, email: data.user.email, plan: data.user.plan };
+    session = {
+      userId: data.user.id,
+      email: data.user.email,
+      plan: data.user.plan,
+    };
     persist();
     return session;
   };
@@ -102,7 +128,26 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
     getSession: () => session,
     signUp: (email, password) => authenticate("/auth/signup", email, password),
     signIn: (email, password) => authenticate("/auth/login", email, password),
+    async accountAction(action, data = {}) {
+      const res = await authFetch("/auth/" + action, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw Error(out.error || "account_change_failed");
+      if (out.token) token = out.token;
+      if (out.user && session) session = { ...session, email: out.user.email };
+      if (action === "delete" || action === "logout-all") {
+        token = null;
+        session = null;
+      }
+      persist();
+    },
     async signOut() {
+      if (token) {
+        const res = await authFetch("/auth/logout", { method: "POST" });
+        if (!res.ok) throw new Error("sign_out_failed");
+      }
       token = null;
       session = null;
       persist();
@@ -116,18 +161,29 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
         notifications: state.notifications,
         plan: state.plan,
         learn: state.learn,
-        updatedAt: Date.now(),
+        tombstones: state.tombstones,
+        updatedAt: state.updatedAt || 0,
       };
-      await authFetch("/sync", { method: "PUT", body: JSON.stringify({ blob }) });
+      const res = await authFetch("/sync", {
+        method: "PUT",
+        body: JSON.stringify({ blob }),
+      });
+      if (!res.ok) throw new Error(`sync_push_${res.status}`);
     },
     async pull() {
       if (!token) return null;
+      const requestToken = token;
       const res = await authFetch("/sync");
-      if (!res.ok) return null;
-      const data = (await res.json()) as { blob: (DasiState & { updatedAt: number }) | null };
+      if (!res.ok) throw new Error(`sync_pull_${res.status}`);
+      const data = (await res.json()) as {
+        blob: (DasiState & { updatedAt: number }) | null;
+      };
+      if (requestToken !== token) throw new Error("account_changed");
       if (!data.blob) return null;
       const out: Partial<DasiState> = {
         items: data.blob.items ?? [],
+        tombstones: data.blob.tombstones,
+        updatedAt: data.blob.updatedAt,
         lists: data.blob.lists ?? [],
         sites: data.blob.sites ?? [],
         notifications: data.blob.notifications ?? [],
@@ -142,9 +198,16 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
 const apiUrl = import.meta.env.VITE_SYNC_API_URL as string | undefined;
 
 /** The active provider: HTTP when a backend URL is configured, else local. */
-export const syncProvider: SyncProvider = apiUrl ? createHttpProvider(apiUrl) : createLocalProvider();
+export const syncProvider: SyncProvider = apiUrl
+  ? createHttpProvider(apiUrl)
+  : createLocalProvider();
 
 export function currentSyncStatus(): SyncStatus {
   if (!syncProvider.isConfigured()) return "offline";
   return syncProvider.getSession() ? "signed_in" : "unavailable";
 }
+
+export const currentAccountScope = () => {
+  const session = syncProvider.getSession();
+  return session ? (apiUrl || "") + "|" + session.userId : null;
+};

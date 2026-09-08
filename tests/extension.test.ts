@@ -17,6 +17,7 @@ function worker(seed: Record<string, any> = {}) {
   };
   const ctx = vm.createContext({
     console,
+    importScripts:()=>vm.runInContext(readFileSync(new URL("../sync-core.js",import.meta.url),"utf8"),ctx),
     URL,
     AbortController,
     AbortSignal,
@@ -262,5 +263,39 @@ describe("extension storage regressions", () => {
     });
     await w.call({ type: "REMOVE_ITEM", id: "gone" });
     expect(w.data["dasi.lists"][0].itemIds).toEqual([]);
+  });
+});
+
+
+describe("extension account isolation",()=>{
+  const cfg=(id:string)=>({apiUrl:'https://sync.example/api',userId:id,email:id+'@example.com',token:id});
+  it('retains guest, A and B libraries separately through account switches',async()=>{
+    const w=worker({'dasi.items':[{id:'guest-book'}]});
+    for(const id of ['a','b']){
+      w.ctx.next=cfg(id);await w.run('serializeLibrary(()=>switchSyncAccount(next))');
+      expect(w.data['dasi.items']).toEqual([]);
+      await w.save(book('Book '+id));
+    }
+    w.ctx.next=cfg('a');await w.run('serializeLibrary(()=>switchSyncAccount(next))');
+    expect(w.data['dasi.items'].map((i:any)=>i.title)).toEqual(['Book a']);
+    w.ctx.fetch=async()=>({ok:true,status:200});
+    await w.call({type:'SYNC_SIGN_OUT'});
+    expect(w.data['dasi.items']).toEqual([{id:'guest-book'}]);
+    expect(w.data['dasi.sync.config']).toBeNull();
+  });
+  it('migrates an existing signed-in library when the server supplies its user id',async()=>{
+    const w=worker({'dasi.items':[{id:'existing'}],'dasi.sync.config':{apiUrl:'https://sync.example/api',email:'a@example.com',token:'old'}});
+    w.ctx.next=cfg('a');await w.run('serializeLibrary(()=>switchSyncAccount(next))');
+    expect(w.data['dasi.items']).toEqual([{id:'existing'}]);
+  });
+  it('discards an old account response arriving after sign-out',async()=>{
+    const w=worker({'dasi.items':[{id:'a-book'}],'dasi.sync.config':cfg('a')});
+    let respond:any;w.ctx.fetch=()=>new Promise(resolve=>respond=resolve);
+    const pending=w.run('syncNow()');
+    while(!respond)await new Promise(resolve=>setTimeout(resolve,1));
+    await w.run('serializeLibrary(()=>switchSyncAccount(null))');
+    respond({ok:true,status:200,json:async()=>({blob:{items:[{id:'private-a'}]}})});
+    await expect(pending).rejects.toThrow('account_changed');
+    expect(w.data['dasi.items']).toEqual([]);
   });
 });
