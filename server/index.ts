@@ -4,7 +4,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createApiRouter } from "./api";
 import { createStore, type Store } from "./lib/store";
-import { createPostgresStore, ensureSchema, type SqlClient } from "./lib/store-postgres";
+import {
+  createPostgresStore,
+  ensureSchema,
+  type SqlClient,
+} from "./lib/store-postgres";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,12 +21,24 @@ const __dirname = path.dirname(__filename);
  */
 async function resolveStore(): Promise<Store> {
   const url = process.env.DATABASE_URL;
-  if (!url) return createStore(process.env.SYNC_DB_FILE);
+  if (!url) {
+    if (process.env.NODE_ENV === "production" && !process.env.SYNC_DB_FILE)
+      throw new Error(
+        "Configure DATABASE_URL or persistent SYNC_DB_FILE before serving accounts."
+      );
+    return createStore(process.env.SYNC_DB_FILE);
+  }
   const pgModule = "pg";
-  const pg = (await import(pgModule)) as { Pool: new (cfg: Record<string, unknown>) => SqlClient & { end?: () => Promise<void> } };
+  const pg = (await import(pgModule)) as {
+    Pool: new (
+      cfg: Record<string, unknown>
+    ) => SqlClient & { end?: () => Promise<void> };
+  };
   const pool = new pg.Pool({
     connectionString: url,
-    ...(process.env.DATABASE_SSL === "false" ? {} : { ssl: { rejectUnauthorized: false } }),
+    ...(process.env.DATABASE_SSL === "false"
+      ? {}
+      : { ssl: { rejectUnauthorized: true } }),
   });
   const store = createPostgresStore(pool);
   await ensureSchema(pool);
@@ -37,19 +53,36 @@ async function startServer() {
   // Baseline security headers (no external dependency). Don't leak the stack,
   // block MIME sniffing and clickjacking, and keep referrers tight.
   app.disable("x-powered-by");
-  app.set("trust proxy", true);
+  app.set(
+    "trust proxy",
+    process.env.TRUST_PROXY_HOPS ? Number(process.env.TRUST_PROXY_HOPS) : false
+  );
   const isProd = process.env.NODE_ENV === "production";
   app.use((req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+    res.setHeader(
+      "Permissions-Policy",
+      "geolocation=(), microphone=(), camera=()"
+    );
     // Force HTTPS in production when terminated by a proxy (opt-out via FORCE_HTTPS=false).
-    if (isProd && process.env.FORCE_HTTPS !== "false" && req.headers["x-forwarded-proto"] === "http") {
-      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    if (
+      isProd &&
+      process.env.FORCE_HTTPS !== "false" &&
+      req.headers["x-forwarded-proto"] === "http"
+    ) {
+      res.setHeader(
+        "Strict-Transport-Security",
+        "max-age=31536000; includeSubDomains"
+      );
       return res.redirect(308, `https://${req.headers.host}${req.originalUrl}`);
     }
-    if (isProd) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    if (isProd)
+      res.setHeader(
+        "Strict-Transport-Security",
+        "max-age=31536000; includeSubDomains"
+      );
     next();
   });
 

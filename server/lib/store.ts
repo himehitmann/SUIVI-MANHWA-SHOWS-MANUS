@@ -5,7 +5,13 @@
  * interface over Postgres / D1 and swap it in `createStore()` — nothing else in
  * the API changes.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  renameSync,
+} from "node:fs";
 import { dirname } from "node:path";
 import type { SyncBlob } from "./merge";
 
@@ -37,47 +43,61 @@ interface Snapshot {
 }
 
 export function createStore(filePath?: string): Store {
-  const snap: Snapshot = { users: [], sync: {} };
+  let snap: Snapshot = { users: [], sync: {} };
   if (filePath && existsSync(filePath)) {
     try {
       Object.assign(snap, JSON.parse(readFileSync(filePath, "utf8")));
     } catch {
-      /* start fresh on corrupt file */
+      throw new Error(
+        "The sync data file is unreadable. Restore a backup before restarting; existing data was not overwritten."
+      );
     }
   }
-  const persist = () => {
-    if (!filePath) return;
+  const persist = (next: Snapshot) => {
+    if (!filePath) {
+      snap = next;
+      return;
+    }
     try {
       mkdirSync(dirname(filePath), { recursive: true });
-      writeFileSync(filePath, JSON.stringify(snap));
+      const temporary = filePath + ".tmp";
+      writeFileSync(temporary, JSON.stringify(next), { mode: 0o600 });
+      renameSync(temporary, filePath);
+      snap = next;
     } catch {
-      /* best-effort */
+      throw new Error("Could not persist account data.");
     }
   };
   const norm = (e: string) => e.trim().toLowerCase();
 
   return {
     async getUserByEmail(email) {
-      return snap.users.find((u) => u.email === norm(email)) ?? null;
+      return snap.users.find(u => u.email === norm(email)) ?? null;
     },
     async getUserById(id) {
-      return snap.users.find((u) => u.id === id) ?? null;
+      return snap.users.find(u => u.id === id) ?? null;
     },
     async createUser(user) {
-      snap.users.push({ ...user, email: norm(user.email) });
-      persist();
+      if (snap.users.some(u => u.email === norm(user.email)))
+        throw new Error("email_exists");
+      persist({
+        ...snap,
+        users: [...snap.users, { ...user, email: norm(user.email) }],
+      });
     },
     async updateUser(user) {
-      const i = snap.users.findIndex((u) => u.id === user.id);
-      if (i >= 0) snap.users[i] = { ...user, email: norm(user.email) };
-      persist();
+      persist({
+        ...snap,
+        users: snap.users.map(u =>
+          u.id === user.id ? { ...user, email: norm(user.email) } : u
+        ),
+      });
     },
     async getSync(userId) {
       return snap.sync[userId] ?? null;
     },
     async setSync(userId, record) {
-      snap.sync[userId] = record;
-      persist();
+      persist({ ...snap, sync: { ...snap.sync, [userId]: record } });
     },
   };
 }
