@@ -136,6 +136,7 @@
       box.style.cssText = `position:absolute;left:${Math.max(0, b.x0 - padding)}px;top:${Math.max(0, b.y0 - padding)}px;width:${w}px;height:${h}px;box-sizing:border-box;background:${region.background || "#fff"};color:${region.foreground || "#171923"};padding:2px;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;white-space:normal;overflow-wrap:anywhere;font-family:system-ui,sans-serif;font-weight:600;line-height:1.08;`;
       const tx = document.createElement("span");
       tx.textContent = region.translation;
+      tx.style.cssText="display:block;min-width:0;max-width:100%;width:100%;margin:0;padding:0;font:inherit;color:inherit;white-space:normal;overflow-wrap:anywhere;";
       box.append(tx);
       el.append(box);
       let font = Math.min(

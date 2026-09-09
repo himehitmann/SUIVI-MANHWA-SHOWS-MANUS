@@ -224,6 +224,8 @@ try {
   assert(
     ocr.blocks.every(b => b.bbox.x1 <= ocr.width && b.bbox.y1 <= ocr.height)
   );
+  const colored=await context.newPage();await colored.setViewportSize({width:720,height:500});await colored.setContent('<body style="margin:0;background:#f6e6c3"><p style="position:absolute;top:140px;left:120px;font:44px Arial;color:#171923">HELLO WORLD</p></body>');
+  const coloredData='data:image/png;base64,'+(await colored.screenshot()).toString('base64');const coloredOcr=await worker.evaluate(async d=>ocrViaTesseract(d,'eng'),coloredData);const coloredBlock=coloredOcr.blocks.find(b=>b.text.includes('HELLO WORLD'));assert(coloredBlock,'Colored panel OCR failed');assert.equal(coloredBlock.background,'#f6e6c3');await colored.close();
   const tall = await context.newPage();
   await tall.setViewportSize({ width: 720, height: 2800 });
   await tall.setContent(

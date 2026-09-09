@@ -1,6 +1,6 @@
 /* Yomu's bundled OCR host. Images remain on the device; only recognized text
  * is sent to the translation provider. Jobs are serialized to bound memory. */
-/* global Tesseract */
+/* global Tesseract, YomuRegions */
 let workerPromise = null,
   activeLanguage = "",
   jobQueue = Promise.resolve();
@@ -133,6 +133,7 @@ async function recognizePanel(dataUrl, lang) {
           regions.some(
             p =>
               p.text === r.text &&
+              Math.abs(p.bbox.x0-bbox.x0)<12/scale &&
               Math.abs(p.bbox.y0 - bbox.y0) < overlap / scale
           )
         )
@@ -143,18 +144,11 @@ async function recognizePanel(dataUrl, lang) {
           for(const old of overlap)regions.splice(regions.indexOf(old),1);
         }
         const context = canvas.getContext("2d");
-        const sample = context.getImageData(
-          Math.max(0, Math.min(width - 1, Math.round(r.bbox.x0) - 3)),
-          Math.max(0, Math.min(h - 1, Math.round(r.bbox.y0) - 3)),
-          1,
-          1
-        ).data;
-        const light = sample[0] * 0.299 + sample[1] * 0.587 + sample[2] * 0.114;
+        const backdrop=YomuRegions.sampleBackdrop(context,r.bbox,width,h);
         regions.push({
           ...r,
           bbox,
-          background: light < 110 ? "#202026" : "#ffffff",
-          foreground: light < 110 ? "#ffffff" : "#171923",
+          ...backdrop,
         });
       }
       canvas.width = canvas.height = 1;
