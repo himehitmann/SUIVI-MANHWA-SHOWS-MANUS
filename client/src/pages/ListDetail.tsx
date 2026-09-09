@@ -93,9 +93,9 @@ export default function ListDetail() {
                 <span className="drag-handle" aria-hidden>
                   <GripVertical size={16} />
                 </span>
-                <span className="reorder-cover" style={{ background: item.accent }}>
+                <Link href={`/work/${encodeURIComponent(item.id)}`} className="reorder-cover" style={{ background: item.accent }} aria-label={item.title}>
                   {item.cover ? <img src={item.cover} alt="" /> : item.title[0]}
-                </span>
+                </Link>
                 <div className="reorder-main">
                   <div>
                     <h4>{item.title}</h4>

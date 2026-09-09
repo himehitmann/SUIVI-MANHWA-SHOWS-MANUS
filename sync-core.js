@@ -116,7 +116,7 @@ var YomuSync = (() => {
         const updatedAt = Math.max(now, time(prev) + 1, time(r));
         const result = { ...r, updatedAt };
         if (kind === "lists") {
-          const members = prev ? memberships(prev) : {}, was = new Set(prev?.itemIds || []), present = new Set(r.itemIds || []);
+          const members = prev ? memberships(prev) : /* @__PURE__ */ Object.create(null), was = new Set(prev?.itemIds || []), present = new Set(r.itemIds || []);
           for (const id of /* @__PURE__ */ new Set([...was, ...present]))
             if (was.has(id) !== present.has(id))
               members[id] = { present: present.has(id), updatedAt };

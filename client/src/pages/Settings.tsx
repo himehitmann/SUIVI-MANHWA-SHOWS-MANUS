@@ -17,12 +17,11 @@ import { LANGUAGES } from "@/i18n/strings";
 import { useStore } from "@/store/StoreContext";
 import { UNLOCK_ALL } from "@/lib/edition";
 import { syncProvider, currentAccountScope } from "@/lib/sync";
-import { parseImport } from "@/lib/importers";
+import {LibraryImport} from "@/components/LibraryImport";
 
 export default function Settings() {
   const { t, lang, setLang } = useI18n();
   const store = useStore();
-  const fileInput = useRef<HTMLInputElement>(null);
   const syncConfigured = syncProvider.isConfigured();
   const [session, setSession] = useState(syncProvider.getSession());
   const [email, setEmail] = useState("");
@@ -126,24 +125,6 @@ export default function Settings() {
     }
   };
 
-  const onImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    file.text().then(text => {
-      const res = parseImport(text);
-      if (res.format === "dasi" && store.importData(text)) {
-        toast.success(t("toast.imported"));
-      } else if (res.items.length > 0) {
-        const n = store.importItems(res.items);
-        toast.success(
-          t("toast.imported.n", { n, format: res.format.toUpperCase() })
-        );
-      } else {
-        toast.error(t("toast.importEmpty"));
-      }
-    });
-    e.target.value = "";
-  };
 
   const reset = () => {
     if (window.confirm(t("settings.resetConfirm"))) {
@@ -355,23 +336,10 @@ export default function Settings() {
               >
                 <Download size={15} /> {t("now.export")}
               </button>
-              <button
-                className="heart-button"
-                onClick={() => fileInput.current?.click()}
-              >
-                <Upload size={15} /> {t("now.import")}
-              </button>
+              <LibraryImport />
               <button className="ghost danger" onClick={reset}>
                 <RotateCcw size={15} /> {t("settings.reset")}
               </button>
-              <input
-                ref={fileInput}
-                type="file"
-                accept="application/json,.json"
-                hidden
-                onChange={onImport}
-                aria-label={t("import.button")}
-              />
             </div>
           </section>
 

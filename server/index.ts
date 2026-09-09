@@ -1,4 +1,5 @@
 import express from "express";
+import {readFileSync} from "node:fs";
 import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -99,12 +100,13 @@ async function startServer() {
       ? path.resolve(__dirname, "public")
       : path.resolve(__dirname, "..", "dist", "public");
 
-  app.use(express.static(staticPath));
+  const html=readFileSync(path.join(staticPath,'index.html'),'utf8').replace('name="yomu-api" content=""','name="yomu-api" content="/api"');
+  const serveApp=(_req:express.Request,res:express.Response)=>res.type('html').send(html);
+  app.get('/',serveApp);
+  app.use(express.static(staticPath,{index:false}));
 
   // Handle client-side routing - serve index.html for all routes
-  app.get("*", (_req, res) => {
-    res.sendFile(path.join(staticPath, "index.html"));
-  });
+  app.get("*", serveApp);
 
   const port = process.env.PORT || 3000;
 

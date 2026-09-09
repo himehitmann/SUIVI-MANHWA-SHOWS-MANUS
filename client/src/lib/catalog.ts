@@ -4,12 +4,14 @@
  * cover. It is best-effort — if the network or API is unavailable, it returns
  * an empty list and the user still adds works manually. Never a hard dependency.
  */
+import {serviceApiUrl} from "./sync";
 import type { ContentType } from "./types";
 
 export interface CatalogResult {
   title: string;
   type: ContentType;
   cover?: string;
+  id?:string;url?:string;format?:string;year?:number;total?:number;synopsis?:string;country?:string;genres?:string[];externalIds?:Record<string,string|number>;source?:string;
 }
 
 const QUERY = `query ($s: String) {
@@ -22,9 +24,11 @@ interface Media {
   coverImage: { medium: string | null };
 }
 
-export async function searchCatalog(query: string, signal?: AbortSignal): Promise<CatalogResult[]> {
+export async function searchCatalog(query: string, signal?: AbortSignal, onSources?: (sources:{name:string;ok:boolean}[])=>void): Promise<CatalogResult[]> {
   const q = query.trim();
   if (q.length < 2) return [];
+  const api=serviceApiUrl();
+  if(api){const response=await fetch(`${api}/catalog?q=${encodeURIComponent(q)}`,{signal});if(!response.ok)throw new Error("Catalog unavailable");const body=await response.json();onSources?.(body.sources||[]);return body.results;}
   try {
     const res = await fetch("https://graphql.anilist.co", {
       method: "POST",
@@ -32,7 +36,7 @@ export async function searchCatalog(query: string, signal?: AbortSignal): Promis
       body: JSON.stringify({ query: QUERY, variables: { s: q } }),
       signal,
     });
-    if (!res.ok) return [];
+    if (!res.ok) throw new Error("Catalog unavailable");
     const data = (await res.json()) as { data?: { anime?: { media: Media[] }; manga?: { media: Media[] } } };
     const map = (m: Media, type: ContentType): CatalogResult | null => {
       const title = m.title.english || m.title.romaji;
@@ -47,7 +51,7 @@ export async function searchCatalog(query: string, signal?: AbortSignal): Promis
       if (manga[i]) out.push(manga[i]!);
     }
     return out.slice(0, 8);
-  } catch {
-    return [];
+  } catch (error) {
+    throw error;
   }
 }

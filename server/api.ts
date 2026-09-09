@@ -5,6 +5,7 @@
  * are HMAC-signed tokens, and storage is behind a swappable interface.
  */
 import { z } from "zod";
+import {createCatalog} from "./lib/catalog";
 import { randomBytes, randomUUID } from "node:crypto";
 import express, { type Request, type Response, type Router } from "express";
 import {
@@ -233,6 +234,12 @@ export function createApiRouter(
     });
     return signToken({ sub: userId, jti: id }, SECRET);
   };
+  const catalog=createCatalog();
+  router.get('/catalog',asyncRoute(async(req,res)=>{
+    if(rateLimited(req,res,60))return;
+    if(typeof req.query.q!=='string'||req.query.q.length<2||req.query.q.length>160)return res.status(400).json({error:'invalid_query'});
+    const result=await catalog(req.query.q);return res.status(result.sources.some(s=>s.ok)?200:503).json(result);
+  }));
   const publicUser = (u: { id: string; email: string; plan: string }) => ({
     id: u.id,
     email: u.email,

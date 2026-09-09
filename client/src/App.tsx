@@ -1,10 +1,12 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
+import SearchPage from "@/pages/Search";
 import Home from "@/pages/Home";
 import Collections from "@/pages/Collections";
 import ListDetail from "@/pages/ListDetail";
 import Pricing from "@/pages/Pricing";
+import WorkDetail from "@/pages/WorkDetail";
 import Settings from "@/pages/Settings";
 import Learn from "@/pages/Learn";
 import LearnStats from "@/pages/LearnStats";
@@ -19,6 +21,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/search" component={SearchPage} />
+      <Route path="/work/:id" component={WorkDetail} />
       <Route path="/collections" component={Collections} />
       <Route path="/list/:id" component={ListDetail} />
       <Route path="/pricing" component={Pricing} />

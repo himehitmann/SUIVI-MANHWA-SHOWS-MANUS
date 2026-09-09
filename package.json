@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "build:extension": "node scripts/build-sync.mjs && node scripts/pack-extension.mjs",
     "build:sync": "node scripts/build-sync.mjs",
-    "test:package": "node scripts/test-package.mjs"
+    "test:package": "node scripts/test-package.mjs",
+    "test:web": "node tests/e2e/web.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

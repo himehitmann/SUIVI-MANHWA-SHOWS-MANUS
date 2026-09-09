@@ -20,6 +20,7 @@ import type {
   Plan,
 } from "@/lib/types";
 import { seedState } from "@/lib/seed";
+import {mergeLibraryImport,normalizeLibraryItem} from "@/lib/library-merge";
 import { createItem, type ItemInput } from "@/lib/item";
 import {
   XP_KNOWN,
@@ -122,6 +123,8 @@ function domainOf(url: string): string {
 
 interface StoreValue extends DasiState {
   activateAccount: (owner: string | null) => DasiState;
+  importBackup:(backup:unknown)=>{added:number;updated:number;ignored:number};
+  updateItem:(id:string,patch:Partial<LibraryItem>)=>void;
   /** Effective Pro access: true when the plan is paid OR this is the unlocked (private) edition. */
   pro: boolean;
   addItem: (input: ItemInput) => LibraryItem;
@@ -212,38 +215,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const addItem = useCallback(
-    (input: ItemInput) => {
-      const item = createItem(input);
-      patch(s => {
-        const rest = s.items.filter(i => i.id !== item.id);
-        return { ...s, items: [item, ...rest] };
-      });
-      return item;
-    },
-    [patch]
-  );
+  const addItem=useCallback((input:ItemInput)=>{
+    const incoming=createItem(input),preview=mergeLibraryImport(stateRef.current,{items:[incoming]});
+    patch(s=>mergeLibraryImport(s,{items:[incoming]}).state);
+    return preview.state.items.find(i=>i.id===preview.ids.get(incoming.id))!;
+  },[patch]);
+  const importItems=useCallback((incoming:LibraryItem[])=>{
+    const result=mergeLibraryImport(stateRef.current,{items:incoming});
+    patch(s=>mergeLibraryImport(s,{items:incoming}).state);return result.added+result.updated;
+  },[patch]);
 
-  const importItems = useCallback(
-    (incoming: LibraryItem[]) => {
-      let count = 0;
-      patch(s => {
-        const byId = new Map(s.items.map(i => [i.id, i]));
-        for (const it of incoming) {
-          if (!it || !it.id) continue;
-          const prev = byId.get(it.id);
-          byId.set(
-            it.id,
-            prev ? { ...prev, ...it, createdAt: prev.createdAt } : it
-          );
-          count += 1;
-        }
-        return { ...s, items: Array.from(byId.values()) };
-      });
-      return count;
-    },
-    [patch]
-  );
+  const importBackup=useCallback((backup:unknown)=>{
+    const result=mergeLibraryImport(stateRef.current,backup);patch(s=>mergeLibraryImport(s,backup).state);
+    return {added:result.added,updated:result.updated,ignored:result.ignored};
+  },[patch]);
+  const updateItem=useCallback((id:string,changes:Partial<LibraryItem>)=>patch(s=>({...s,items:s.items.map(i=>i.id===id?normalizeLibraryItem({...i,...changes,id:i.id,createdAt:i.createdAt})!:i)})),[patch]);
 
   const removeItem = useCallback(
     (id: string) =>
@@ -395,6 +381,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const state = {
           ...previous.state,
           ...merged,
+          items:merged.items.map(normalizeLibraryItem).filter((i):i is LibraryItem=>Boolean(i)),
           plan: next.plan || previous.state.plan,
           version: 1,
         } as DasiState;
@@ -508,7 +495,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `dasi-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `yomu-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, [state]);
@@ -517,17 +504,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const parsed = JSON.parse(json) as DasiState;
       if (!parsed || !Array.isArray(parsed.items)) return false;
-      setState(s => ({
-        version: 1,
-        items: parsed.items,
-        lists: Array.isArray(parsed.lists) ? parsed.lists : [],
-        sites: Array.isArray(parsed.sites) ? parsed.sites : [],
-        notifications: Array.isArray(parsed.notifications)
-          ? parsed.notifications
-          : [],
-        plan: parsed.plan ?? "free",
-        learn: migrateLearn(parsed.learn ?? s.learn),
-      }));
+      setState(s => mergeLibraryImport(s,parsed).state);
       return true;
     } catch {
       return false;
@@ -571,6 +548,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       activateAccount,
+      importBackup,updateItem,
       pro: UNLOCK_ALL || state.plan !== "free",
       addItem,
       importItems,

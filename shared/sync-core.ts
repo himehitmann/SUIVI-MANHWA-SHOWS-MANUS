@@ -149,7 +149,7 @@ export function stampChanges<T extends object>(
       const updatedAt = Math.max(now, time(prev) + 1, time(r));
       const result: SyncItem = { ...r, updatedAt };
       if (kind === "lists") {
-        const members = prev ? memberships(prev) : {},
+        const members = prev ? memberships(prev) : Object.create(null),
           was = new Set<string>(prev?.itemIds || []),
           present = new Set<string>(r.itemIds || []);
         for (const id of new Set([...was, ...present]))

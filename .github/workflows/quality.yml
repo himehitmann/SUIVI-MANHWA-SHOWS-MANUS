@@ -30,6 +30,7 @@ jobs:
       - run: pnpm build
       - run: pnpm audit --audit-level=moderate
       - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:web
       - run: pnpm build:extension
       - run: pnpm test:package
       - uses: actions/upload-artifact@v4

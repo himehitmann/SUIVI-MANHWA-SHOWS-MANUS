@@ -1,12 +1,25 @@
 /** Shared data model for the Dasi library, used by the web app and mirrored by the extension. */
-export type ContentType = "reading" | "watching";
-export type ItemStatus = "in_progress" | "completed" | "on_hold" | "planned";
+export type ContentType = "reading" | "watching" | "game";
+export type ItemStatus = "in_progress" | "completed" | "on_hold" | "planned" | "dropped";
 export type Plan = "free" | "pro" | "lifetime";
 
 export interface LibraryItem {
   id: string;
   title: string;
   type: ContentType;
+  format?:string;
+  year?:number;
+  total?:number;
+  synopsis?:string;
+  country?:string;
+  genres?:string[];
+  tags?:string[];
+  notes?:string;
+  externalIds?:Record<string,string|number>;
+  releaseDate?:string;
+  platform?:string;
+  released?:boolean;
+  preRegistered?:boolean;
   chapter?: number;
   volume?: number;
   season?: number;

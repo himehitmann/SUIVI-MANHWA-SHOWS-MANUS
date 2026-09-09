@@ -195,7 +195,7 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
   };
 }
 
-const apiUrl = import.meta.env.VITE_SYNC_API_URL as string | undefined;
+const apiUrl = (import.meta.env.VITE_SYNC_API_URL || (typeof document!=="undefined" ? document.querySelector<HTMLMetaElement>('meta[name="yomu-api"]')?.content : undefined) || undefined) as string|undefined;
 
 /** The active provider: HTTP when a backend URL is configured, else local. */
 export const syncProvider: SyncProvider = apiUrl
@@ -211,3 +211,5 @@ export const currentAccountScope = () => {
   const session = syncProvider.getSession();
   return session ? (apiUrl || "") + "|" + session.userId : null;
 };
+
+export const serviceApiUrl=()=>apiUrl;

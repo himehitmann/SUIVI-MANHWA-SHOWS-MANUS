@@ -12,11 +12,12 @@ interface Props {
 
 /** Global top bar: brand, primary nav, search, language, notifications, profile. */
 export function AppHeader({ query, onQuery }: Props) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [location] = useLocation();
   const isLibrary = location === "/" || location.startsWith("/list");
   const nav: { href: string; label: string; active: boolean }[] = [
     { href: "/", label: t("nav.library"), active: isLibrary },
+    { href: "/search", label:lang==="fr"?"Rechercher":"Search",active:location==="/search" },
     { href: "/learn", label: t("nav.learn"), active: location === "/learn" },
     { href: "/collections", label: t("nav.collections"), active: location === "/collections" },
     { href: "/pricing", label: t("nav.pricing"), active: location === "/pricing" },

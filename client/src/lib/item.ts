@@ -86,7 +86,12 @@ function domainOf(url?: string): string {
   }
 }
 
-export interface ItemInput {
+export interface ItemInput extends Partial<LibraryItem> {
+  year?:number;
+  format?:string;
+  total?:number;
+  synopsis?:string;
+  externalIds?:Record<string,string|number>;
   title: string;
   type?: ContentType;
   chapter?: number;
@@ -110,13 +115,15 @@ export function createItem(input: ItemInput): LibraryItem {
   const progress =
     input.progress ?? (input.status === "completed" ? 100 : 0);
   return {
+    ...input,
     id: workId(title),
+    year:input.year,format:input.format,total:input.total,synopsis:input.synopsis,externalIds:input.externalIds,
     title,
     type: input.type ?? "reading",
-    chapter: input.chapter,
+    chapter: input.chapter===undefined?undefined:Math.min(input.total||Infinity,Math.max(0,Math.floor(Number(input.chapter)||0))),
     volume: input.volume,
     season: input.season,
-    episode: input.episode,
+    episode: input.episode===undefined?undefined:Math.min(input.total||Infinity,Math.max(0,Math.floor(Number(input.episode)||0))),
     page: input.page,
     totalPages: input.totalPages,
     progress: Math.min(100, Math.max(0, progress)),
