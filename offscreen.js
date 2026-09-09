@@ -14,7 +14,7 @@ function deadline(promise, ms, label) {
     }),
   ]).finally(() => clearTimeout(timer));
 }
-const LANGS = new Set(["kor", "jpn", "jpn_vert", "chi_sim", "eng"]);
+const LANGS = new Set(["kor", "jpn", "jpn_vert", "chi_sim", "eng", "fra"]);
 async function getWorker(lang) {
   lang = LANGS.has(lang) ? lang : "jpn";
   if (workerPromise && activeLanguage !== lang) {

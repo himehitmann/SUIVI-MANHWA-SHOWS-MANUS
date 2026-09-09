@@ -1054,7 +1054,7 @@ async function ocrSpaceText(imageUrl, target, key, src) {
 // ---- Bundled offline OCR (Tesseract.js in an offscreen document) -----------
 // The primary translation path: fully local, no key, no server, no CDN. The
 // service worker can't run WASM/Workers, so OCR happens in offscreen.js.
-const TESS_LANG = { eng: "eng", en: "eng", ja: "jpn", ko: "kor", kor: "kor", jpn: "jpn", chs: "chi_sim", chi_sim: "chi_sim", zh: "chi_sim" };
+const TESS_LANG = { fr:"fra",fra:"fra", eng: "eng", en: "eng", ja: "jpn", ko: "kor", kor: "kor", jpn: "jpn", chs: "chi_sim", chi_sim: "chi_sim", zh: "chi_sim" };
 let offscreenReady = null;
 async function ensureOffscreen() {
   if (!api.offscreen) throw new Error("no_offscreen");
@@ -1084,7 +1084,7 @@ async function ocrTextTesseract(imageUrl,target,src) {
   await ensureOffscreen();
   const blob=await fetchBlob(imageUrl); if(blob.size>25*1024*1024)throw new Error('image_too_large');
   const dataUrl=await blobToDataUrl(blob);
-  const lang=TESS_LANG[src] || 'jpn';
+  const lang=TESS_LANG[src] || 'eng';
   const ocr=await ocrViaTesseract(dataUrl,lang);
   const blocks=ocr.blocks || [];
   if(!blocks.length)return {lines:[],blocks:[],width:ocr.width,height:ocr.height};

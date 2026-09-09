@@ -1038,18 +1038,19 @@ let CV_W = 280, CV_H = 280, CT_W = 512, CT_H = 512;
 let cropState = null; // { img, zoom, ox, oy, onSave, shape }
 function openCropper({ shape = "square", onSave, initial, title }) {
   cropState = { img: null, zoom: 1, ox: 0, oy: 0, onSave, shape };
-  if (shape === "banner") { CV_W = 460; CV_H = 154; CT_W = 1200; CT_H = 400; }
-  else { CV_W = 280; CV_H = 280; CT_W = 512; CT_H = 512; }
+  if (shape === "banner") { CV_W = Math.min(460, Math.floor(innerWidth * .94 - 44)); CV_H = Math.round(CV_W / 3); CT_W = 1200; CT_H = 400; }
+  else { CV_W = Math.min(280, Math.floor(innerWidth * .94 - 44)); CV_H = CV_W; CT_W = 512; CT_H = 512; }
   const view = document.getElementById("crop-view");
   view.classList.toggle("circle", shape === "circle");
   view.style.width = CV_W + "px"; view.style.height = CV_H + "px";
   const canvas = document.getElementById("crop-canvas");
   canvas.width = CV_W; canvas.height = CV_H; canvas.style.width = CV_W + "px"; canvas.style.height = CV_H + "px";
   document.getElementById("crop-title").textContent = title || "Adjust image";
-  document.getElementById("crop-hint").textContent = shape === "banner" ? "Drag & zoom — this is exactly what will show" : "Drag to reposition · slide to zoom";
+  document.getElementById("crop-hint").textContent = "Drag to reposition · scroll or use the slider to zoom";
   document.getElementById("crop-zoom").value = 1;
   document.getElementById("crop-scrim").classList.add("open");
   document.getElementById("cropper").classList.add("open");
+  document.getElementById("crop-save").disabled = true;
   clearCanvas();
   if (initial) loadCropImage(initial); else document.getElementById("crop-input").click();
 }
@@ -1063,8 +1064,12 @@ function clearCanvas() {
   x.clearRect(0, 0, CV_W, CV_H); x.fillStyle = "#F0EEF6"; x.fillRect(0, 0, CV_W, CV_H);
 }
 function loadCropImage(src) {
+  const state = cropState;
+  if (!state) return;
   const img = new Image();
   img.onload = () => {
+    if (cropState !== state) return;
+    document.getElementById("crop-save").disabled = false;
     const cover = Math.max(CT_W / img.naturalWidth, CT_H / img.naturalHeight);
     cropState.img = img; cropState.cover = cover; cropState.zoom = 1;
     const dw = img.naturalWidth * cover, dh = img.naturalHeight * cover;
@@ -1072,6 +1077,7 @@ function loadCropImage(src) {
     document.getElementById("crop-zoom").value = 1;
     drawCrop();
   };
+  img.onerror = () => { if(cropState === state) document.getElementById("crop-hint").textContent = "This image could not be loaded. Choose another file."; };
   img.src = src;
 }
 function cropDims() { const s = cropState.cover * cropState.zoom; return { dw: cropState.img.naturalWidth * s, dh: cropState.img.naturalHeight * s }; }
@@ -1097,19 +1103,30 @@ function exportCrop() {
   const down = (e) => { if (!cropState || !cropState.img) return; const pt = e.touches ? e.touches[0] : e; drag = { x: pt.clientX, y: pt.clientY }; };
   const move = (e) => {
     if (!drag || !cropState || !cropState.img) return;
-    const pt = e.touches ? e.touches[0] : e; const rx = CT_W / CV_W, ry = CT_H / CV_H;
+    const pt = e.touches ? e.touches[0] : e; const bounds = view.getBoundingClientRect(); const rx = CT_W / bounds.width, ry = CT_H / bounds.height;
     cropState.ox += (pt.clientX - drag.x) * rx; cropState.oy += (pt.clientY - drag.y) * ry;
     drag = { x: pt.clientX, y: pt.clientY }; drawCrop(); if (e.cancelable) e.preventDefault();
   };
   const up = () => (drag = null);
   view.addEventListener("mousedown", down); window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
   view.addEventListener("touchstart", down, { passive: true }); view.addEventListener("touchmove", move, { passive: false }); view.addEventListener("touchend", up);
-  document.getElementById("crop-zoom").addEventListener("input", (e) => {
-    if (!cropState || !cropState.img) return;
-    const before = cropDims(); const fx = (CT_W / 2 - cropState.ox) / before.dw, fy = (CT_H / 2 - cropState.oy) / before.dh;
-    cropState.zoom = Number(e.target.value); const after = cropDims();
-    cropState.ox = CT_W / 2 - fx * after.dw; cropState.oy = CT_H / 2 - fy * after.dh; drawCrop();
-  });
+  const zoomAt = (value, x = CT_W / 2, y = CT_H / 2) => {
+    if (!cropState?.img) return;
+    const before = cropDims(), fx = (x - cropState.ox) / before.dw, fy = (y - cropState.oy) / before.dh;
+    cropState.zoom = Math.min(3, Math.max(1, value));
+    const after = cropDims();
+    cropState.ox = x - fx * after.dw; cropState.oy = y - fy * after.dh;
+    document.getElementById("crop-zoom").value = cropState.zoom;
+    drawCrop();
+  };
+  document.getElementById("crop-zoom").addEventListener("input", e => zoomAt(Number(e.target.value)));
+  view.addEventListener("wheel", e => {
+    if (!cropState?.img) return;
+    e.preventDefault();
+    const r = view.getBoundingClientRect();
+    const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? r.height : 1);
+    zoomAt(cropState.zoom * Math.exp(-Math.max(-200,Math.min(200,delta)) * .002), (e.clientX-r.left)/r.width*CT_W, (e.clientY-r.top)/r.height*CT_H);
+  }, {passive:false});
   document.getElementById("crop-file").onclick = () => document.getElementById("crop-input").click();
   document.getElementById("crop-input").addEventListener("change", (e) => {
     const f = e.target.files && e.target.files[0]; e.target.value = "";

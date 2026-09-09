@@ -457,7 +457,12 @@
       .disco-wrap { overflow-x:auto; } .preview-meta { color:var(--muted); line-height:1.7; }
       .preview-actions { display:grid; gap:12px; margin-top:24px; }
       @media(max-width:680px) { header { flex-wrap:wrap; gap:12px; padding:12px 16px; } .search { order:3; width:100%; flex-basis:100%; } .top-right { margin-left:auto; } nav.tabs { order:4; width:100%; } nav.tabs button { flex:1; } .brand .shine { display:inline; } .pro-btn { height:42px; padding-inline:12px; } .sr-row { gap:10px; } .sr-row .sc { width:60px; height:82px; } .sr-row .si b { font-size:15px; } .sr-row .si small { font-size:12px; } .sr-row > .btn { padding:10px; } .plan-grid.two { grid-template-columns:1fr; } }
-    </style>
+    .avatar { padding:0; flex-shrink:0; }
+.avatar img,.avatar-lg img,.dash-av img {display:block; min-width:0; min-height:0; object-position:center; border-radius:inherit;}
+.cropper {width: min(520px,94vw); box-sizing:border-box; max-height:94vh; overflow:auto;}
+.crop-view {max-width:100%;}
+.crop-view canvas {width:100%!important;height:100%!important;}
+</style>
   </head>
   <body>
     <header>
@@ -503,7 +508,7 @@
       <h3 id="crop-title">Adjust image</h3>
       <p class="crop-hint" id="crop-hint">Drag to reposition · slide to zoom</p>
       <div class="crop-view" id="crop-view"><canvas id="crop-canvas" width="280" height="280"></canvas></div>
-      <input type="range" id="crop-zoom" min="1" max="3" step="0.01" value="1" />
+      <input type="range" id="crop-zoom" aria-label="Image zoom" min="1" max="3" step="0.01" value="1" />
       <div class="crop-actions">
         <button class="btn" id="crop-file">Choose image</button>
         <span style="flex:1"></span>

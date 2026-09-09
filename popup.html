@@ -98,7 +98,7 @@
       .card { padding:10px; } .tools { padding:7px 9px; }
       .list-line select { min-width:0; } .list-new { padding-block:7px; }
       button:focus-visible,select:focus-visible,input:focus-visible { outline:2px solid #6B57B8; outline-offset:2px; }
-    #video-tools {display:none;grid-template-columns:1fr auto;gap:10px;align-items:center;}
+    #video-tools {display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;}
       #video-tools .tools-title {display:none;}
       #video-tools .pip {width:auto;margin:0;padding:8px;}
       #video-tools .speed-line {gap:7px;}
@@ -109,6 +109,14 @@
       .tools:has(#tr-go) .tools-title,.tools:has(#tr-go) .tr-status {grid-column:1/-1;}
       .tools:has(#tr-go) .tr-line {margin-bottom:0!important;min-width:0;}
       .tr-line select {min-width:0;width:90px;}
+      [hidden]{display:none!important;}
+      body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f8f7fc;color:#282337;padding:12px;}
+      .card{border:1px solid #e8e3f0;border-radius:16px;box-shadow:0 3px 14px #30204b08;}
+      button{border-radius:10px!important;font-weight:600;transition:background .15s;}
+      select,input{border-radius:9px!important;min-height:32px;}
+      .tools{border:1px solid #e9e4f2;border-radius:12px;background:#f5f2fa;}
+      #tr-lang{width:100%;}#tr-go{min-height:34px;background:#7860b8;}
+      .tools-title{letter-spacing:.05em;color:#706880;}
     </style>
   </head>
   <body>
@@ -167,13 +175,14 @@
           </div>
         </div>
         <button class="pip" id="pip">Picture-in-Picture</button>
+          <div id="video-status" role="status" style="grid-column:1/-1;font-size:11px;color:var(--muted)"></div>
       </div>
 
       <div class="tools" style="margin-top:7px">
         <div class="tools-title">Translate this page</div>
         <div class="tr-line" style="margin-bottom:6px">
-          <select id="tr-src" aria-label="Source language" title="Language of the comic/page"></select>
-          <span style="color:#9C98A6;font-size:12px">→</span>
+          <select id="tr-src" hidden aria-hidden="true" tabindex="-1"></select>
+
           <select id="tr-lang" aria-label="Target language"></select>
         </div>
         <div class="tr-line">

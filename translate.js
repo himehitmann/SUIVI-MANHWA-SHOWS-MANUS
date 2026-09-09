@@ -70,12 +70,14 @@
   function sourceLanguage(override) {
     if (override) return override;
     const lang = (document.documentElement.lang || "").toLowerCase();
+    if(lang.startsWith("fr")||/webtoons\.com$/.test(location.hostname)&&location.pathname.startsWith("/fr/"))return "fra";
     if (lang.startsWith("ko")) return "kor";
     if (lang.startsWith("ja")) return "jpn";
     if (lang.startsWith("zh")) return "chi_sim";
     if (/naver|kakao|lezhin|bomtoon/.test(location.hostname)) return "kor";
     if (/bilibili|kuaikan|qq\.com/.test(location.hostname)) return "chi_sim";
-    return "jpn";
+    if(/shonenjump|comic-walker|mangaplus/.test(location.hostname))return "jpn";
+    return "eng";
   }
   function imageSource(im) {
     const lazy = im.dataset.src || im.dataset.original || im.dataset.lazySrc;
@@ -176,6 +178,7 @@
     let done = 0,
       failed = 0,
       empty = 0,
+      lastError = "",
       active = 0;
     const queue = [];
     status(wording("Yomu — traduction en cours…", "Yomu — translating…"));
@@ -234,8 +237,8 @@
             )
           : failed
             ? wording(
-                `${done} image(s) traduite(s). ${failed} échec(s) : restaure puis réessaie.`,
-                `${done} image(s) translated. ${failed} failed: restore and try again.`
+                `${done} image(s) traduite(s). ${failed} échec(s) (${lastError}) : restaure puis réessaie.`,
+                `${done} image(s) translated. ${failed} failed (${lastError}): restore and try again.`
               )
             : done
               ? wording(
@@ -269,7 +272,7 @@
             done++;
           } else empty++;
         } catch (e) {
-          if (run === token) failed++;
+          if (run === token) {failed++;lastError=String(e.message||e).slice(0,120);}
         }
       }
       active = 0;

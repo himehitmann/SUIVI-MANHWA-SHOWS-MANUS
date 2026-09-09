@@ -95,8 +95,8 @@ function render() {
     $("#save").classList.remove("warn");
   }
   $("#save").disabled = false;
-  $("#pip").disabled = !d.hasVideo;
-  $("#video-tools").style.display=d.hasVideo?"grid":"none";
+  $("#pip").disabled = false;
+  $("#video-tools").style.display="grid";
 }
 
 // Kick off detection, then check for an existing save (cross-site, by title).
@@ -187,30 +187,38 @@ $("#save-site").onclick = () => {
   });
 };
 
-// Playback speed: 0.25×–3×, adjustable with −/+ or by typing the number.
-const applySpeed = (v) => {
-  speed = Math.min(3, Math.max(0.25, Math.round(Number(v) * 100) / 100 || 1));
-  const inp = $("#speed-input");
-  if (inp) inp.value = String(speed);
-  api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs[0]?.id) api.tabs.sendMessage(tabs[0].id, { type: "SET_PLAYBACK_SPEED", speed });
-  });
+// Inspect every permitted frame, including players inside open shadow roots.
+async function videoCommand(action, value) {
+  const status = $("#video-status");
+  try {
+    const [tab] = await api.tabs.query({active:true,currentWindow:true});
+    if (!tab?.id) throw new Error("No active page");
+    const results = await api.scripting.executeScript({target:{tabId:tab.id,allFrames:true},args:[action,value],func:async (action,value) => {
+      const videos=[];
+      const visit=root=>{videos.push(...root.querySelectorAll("video"));for(const element of root.querySelectorAll("*"))if(element.shadowRoot)visit(element.shadowRoot);};
+      visit(document);
+      if(action==="speed") {for(const video of videos)video.playbackRate=value;return {ok:videos.length>0};}
+      const video=videos.filter(v=>v.readyState>0).sort((a,b)=>Number(!b.paused)-Number(!a.paused)||b.clientWidth*b.clientHeight-a.clientWidth*a.clientHeight)[0];
+      if(!video)return {ok:false};
+      if(!document.pictureInPictureEnabled)return {ok:false,error:"Picture-in-Picture is unavailable on this player."};
+      try {if(document.pictureInPictureElement)await document.exitPictureInPicture();else await video.requestPictureInPicture();return {ok:true};}
+      catch {return {ok:false,error:"The player refused Picture-in-Picture. Start the video and retry."};}
+    }});
+    status.textContent=results.some(r=>r.result?.ok)?(action==="speed"?"Playback speed updated":"Picture-in-Picture updated"):(results.find(r=>r.result?.error)?.result.error||"No accessible video. Start the video, then retry.");
+  } catch {status.textContent="This page does not allow video controls. Open the player page and retry.";}
+}
+const applySpeed = v => {
+  speed=Math.min(3,Math.max(.25,Math.round(Number(v)*100)/100||1));
+  $("#speed-input").value=String(speed);
+  videoCommand("speed",speed);
 };
-$("#slower").onclick = () => applySpeed(speed - 0.25);
-$("#faster").onclick = () => applySpeed(speed + 0.25);
-$("#speed-input").addEventListener("change", (e) => applySpeed(e.target.value));
-
-$("#pip").onclick = () =>
-  api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (!tabs[0]?.id) return;
-    api.tabs.sendMessage(tabs[0].id, { type: "REQUEST_PIP" }, (r) => {
-      void api.runtime.lastError;
-      $("#pip").textContent = r?.ok ? "Picture-in-Picture on" : r?.reason === "unsupported" ? "Not available here" : "Player refused PiP";
-    });
-  });
+$("#slower").onclick=()=>applySpeed(speed-.25);
+$("#faster").onclick=()=>applySpeed(speed+.25);
+$("#speed-input").addEventListener("change",e=>applySpeed(e.target.value));
+$("#pip").onclick=()=>videoCommand("pip",null);
 
 // Rate + share. Store URL is a single constant to swap once the listing is live.
-const DASI_STORE_URL = "https://chromewebstore.google.com/detail/dasi";
+const DASI_STORE_URL = "https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS";
 const DASI_SHARE_TEXT = "Yomu — never lose your spot in any manga, webtoon, anime or series. Save & resume in one click.";
 const openUrl = (u) => api.tabs.create({ url: u });
 // Animated 5-star rating → opens the Chrome Web Store review page.
@@ -282,7 +290,7 @@ $("#tr-go").onclick = () => {
   // Manga/webtoon panels are images; translating them (OCR) needs to fetch the
   // panel from its site. Ask once for that access — text pages don't need it,
   // so denying still lets text translation work.
-  const go = () => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang, src: trSrc.value }, (r) => {
+  const go = () => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang, src: "" }, (r) => {
     void api.runtime.lastError;
     $("#tr-go").disabled = false;
     if (r && r.ok) { $("#tr-status").textContent = "Translation started — follow progress on the page."; }

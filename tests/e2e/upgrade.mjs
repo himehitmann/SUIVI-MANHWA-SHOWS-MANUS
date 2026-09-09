@@ -69,14 +69,14 @@ try {
     version: chrome.runtime.getManifest().version,
     data: await chrome.storage.local.get(null),
   }));
-  assert.equal(result.version, "0.4.0");
+  assert.equal(result.version, "0.4.1");
   assert.equal(result.data["dasi.items"][0].episode, 3);
   assert.deepEqual(result.data["dasi.lists"][0].itemIds, ["miraculous"]);
   assert.equal(result.data["dasi.settings"].profile.name, "Upgrade Reader");
   assert.equal(result.data["dasi.sync.config"].token, "upgrade-fixture");
   assert.equal(result.data["dasi.migrationError"], undefined);
   console.log(
-    "Persistent Chrome profile upgrade verified: 0.3.1 -> 0.4.0; account, progress, lists and profile retained."
+    "Persistent Chrome profile upgrade verified: 0.3.1 -> 0.4.1; account, progress, lists and profile retained."
   );
 } finally {
   if (browser) await browser.close();
