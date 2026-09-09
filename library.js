@@ -1266,6 +1266,7 @@ function renderSettings() {
     </div>
     <div class="section-t">${t("newAlerts")}</div>
     <div class="panel"><div class="row"><div class="grow"><b>${t("newAlerts")}</b><small>${t("newAlertsSub")}</small></div><button class="switch ${settings.notifyNew ? "on" : ""}" id="sw-notify"></button></div></div>
+    <div class="panel"><div class="row"><div class="grow"><b>${settings.lang==='fr'?'Suivi automatique des vidéos enregistrées':'Automatically track saved videos'}</b><small>${settings.lang==='fr'?'Après ouverture de Yomu sur le lecteur, conserve la progression pendant la lecture.':'After opening Yomu on the player, keep progress updated while watching.'}</small></div><input id="set-autotrack" type="checkbox" aria-label="${settings.lang==='fr'?'Suivi automatique':'Automatic tracking'}" ${settings.autoTrack!==false?'checked':''}></div></div>
     <div class="section-t">${t("backup")}</div>
     <div class="panel">
       <div class="row"><div class="grow"><b>${t("yourLibrary")}</b><small>${t("exportRestore")}</small></div><button class="btn" id="export">${I.image} ${t("export")}</button><button class="btn" id="import">${t("import")}</button><input id="file" type="file" accept=".json,.csv,.xml,.zip,.tsv,application/json,application/zip" multiple hidden aria-label="${t("import")}" /></div>
@@ -1291,6 +1292,14 @@ function wireSettings() {
   document.getElementById("set-photo").onclick = pickPhoto;
   document.getElementById("set-avatar").onclick = pickPhoto;
   document.getElementById("sw-notify").onclick = () => { settings.notifyNew = !settings.notifyNew; document.getElementById("sw-notify").classList.toggle("on", settings.notifyNew); api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { notifyNew: settings.notifyNew } }, (r) => { if (r?.settings) settings = r.settings; }); };
+  document.getElementById("set-autotrack").onchange=e=>{
+    const input=e.currentTarget;input.disabled=true;
+    api.runtime.sendMessage({type:"SET_SETTINGS",patch:{autoTrack:input.checked}},r=>{
+      if(api.runtime.lastError||!r?.settings||r.ok===false){input.checked=settings.autoTrack!==false;toast(settings.lang==="fr"?"Réglage non enregistré":"Setting could not be saved");}
+      else settings=r.settings;
+      input.disabled=false;
+    });
+  };
   const uilang = document.getElementById("set-uilang");
   uilang.onchange = () => applyLanguage(uilang.value);
   const trlang = document.getElementById("set-trlang");

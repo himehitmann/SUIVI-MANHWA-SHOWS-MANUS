@@ -332,7 +332,9 @@ async function writeItemUnlocked(payload) {
   };
 
   // Regression guard: keep the furthest position, flag the conflict.
-  if (existing && sameSeason && existingScore > incomingScore && incomingScore > 0) {
+  const earlierSeason=existing && payload.type==="watching" && (Number(payload.season)||1)<(Number(existing.season)||1);
+  const earlierPosition=existing && sameSeason && incomingScore===existingScore && Number.isFinite(payload.position) && (Number(existing.position)||0)>payload.position;
+  if (existing && (earlierSeason || earlierPosition || (sameSeason && existingScore > incomingScore && incomingScore > 0))) {
     await api.storage.local.set({ "dasi.lastConflict": { existing, incoming, reason: "lower_progress" } });
     return { item: existing, conflict: true, kept: "existing" };
   }
@@ -1190,6 +1192,17 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return;
 
     case "VIDEO_PROGRESS":
+      serializeLibrary(async()=>{
+        const p=message.payload;
+        if(!p || p.type!=="watching" || !Number.isFinite(p.position) || p.position<3 || !(Number(p.confidence)>=.75))return {ok:true,skipped:"uncertain_video"};
+        const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
+        if(settings.autoTrack===false)return {ok:true,skipped:"disabled"};
+        const saved=await read(ITEMS_KEY,[]);
+        const matches=saved.filter(i=>i.type==="watching" && (!i.year||!p.year||Number(i.year)===Number(p.year)) && (i.id===workKey(p)||normalizeTitle(i.title)===normalizeTitle(p.title)));
+        if(matches.length!==1)return {ok:true,skipped:"not_tracked_or_ambiguous"};
+        return writeItemUnlocked({...p,workId:matches[0].id});
+      }).then(r=>{sendResponse(r);if(r.item)autoSync();},e=>sendResponse({ok:false,error:String(e.message)}));
+      return true;
     case "SAVE_PROGRESS":
       writeItem(message.payload).then(async (result) => {
         // Optional: assign the saved work to a list (in-page bubble / popup ask

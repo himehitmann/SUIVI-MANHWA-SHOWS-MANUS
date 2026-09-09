@@ -631,16 +631,23 @@
   setInterval(onNav, 1500);
 
   // Video lifecycle: report on play, autosave on pause / navigation away.
+  let lastVideoReport=0;
   const reportVideo = (video) => {
     if (!video || video.currentTime < 3) return;
     try {
-      chrome.runtime.sendMessage({ type: "VIDEO_PROGRESS", payload: { ...detect(), position: video.currentTime, duration: video.duration } });
+      chrome.runtime.sendMessage({ type: "VIDEO_PROGRESS", payload: { ...detect(), position: video.currentTime, duration: Number.isFinite(video.duration)?video.duration:0 } }, () => void chrome.runtime.lastError);
     } catch {
       /* noop */
     }
   };
   document.addEventListener("play", (e) => e.target instanceof HTMLVideoElement && send(), true);
   document.addEventListener("pause", (e) => e.target instanceof HTMLVideoElement && reportVideo(e.target), true);
+  document.addEventListener("timeupdate", e=>{
+    if(!(e.target instanceof HTMLVideoElement)||e.target.paused||Date.now()-lastVideoReport<15000)return;
+    lastVideoReport=Date.now();reportVideo(e.target);
+  },true);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")reportVideo(largestVideo());});
+  window.addEventListener("pagehide",()=>reportVideo(largestVideo()));
   window.addEventListener("beforeunload", () => reportVideo(largestVideo()));
 
   // Popup / background requests.

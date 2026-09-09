@@ -323,3 +323,36 @@ it('coalesces simultaneous automatic sync triggers',async()=>{
  w.ctx.fetch=async()=>{requests++;await new Promise(resolve=>setTimeout(resolve,10));return {ok:true,status:200,json:async()=>({blob:{items:[],updatedAt:0}})};};
  await Promise.all([w.run('runAutoSync()'),w.run('runAutoSync()'),w.run('runAutoSync()')]);expect(requests).toBe(2);
 });
+
+
+describe("automatic video checkpoints",()=>{
+  const video={title:"Test Show",type:"watching",episode:2,season:1,position:180,duration:1200,confidence:.95,enrichedAt:1};
+  it("does not add an untracked video",async()=>{
+    const w=worker();const r=await w.call({type:"VIDEO_PROGRESS",payload:video});expect(r.skipped).toBe("not_tracked_or_ambiguous");expect(w.data["dasi.items"]||[]).toHaveLength(0);
+  });
+  it("saves checkpoints only for an existing unambiguous work",async()=>{
+    const w=worker();await w.save({...video,position:30});await w.call({type:"VIDEO_PROGRESS",payload:video});expect(w.data["dasi.items"]).toHaveLength(1);expect(w.data["dasi.items"][0].position).toBe(180);
+  });
+  it("respects opt out and keeps manual saving available",async()=>{
+    const w=worker({"dasi.settings":{autoTrack:false}});await w.save({...video,position:30});expect((await w.call({type:"VIDEO_PROGRESS",payload:video})).skipped).toBe("disabled");expect(w.data["dasi.items"][0].position).toBe(30);await w.call({type:"SAVE_PROGRESS",payload:video});expect(w.data["dasi.items"][0].position).toBe(180);
+  });
+  it("ignores low-confidence detections",async()=>{
+    const w=worker();await w.save({...video,position:30});expect((await w.call({type:"VIDEO_PROGRESS",payload:{...video,confidence:.4}})).skipped).toBe("uncertain_video");expect(w.data["dasi.items"][0].position).toBe(30);
+  });
+});
+
+
+describe("video resume regression guards",()=>{
+  it("keeps the later season when an old season is revisited",async()=>{
+    const w=worker();await w.save(book("Show",{type:"watching",season:2,episode:3,position:180,duration:1200}));
+    const r=await w.save(book("Show",{type:"watching",season:1,episode:20,position:900,duration:1200}));expect(r.kept).toBe("existing");expect(r.item.season).toBe(2);
+  });
+  it("keeps the furthest position within the same episode",async()=>{
+    const w=worker();await w.save(book("Show",{type:"watching",season:2,episode:3,position:180,duration:1200}));
+    const r=await w.save(book("Show",{type:"watching",season:2,episode:3,position:20,duration:1200}));expect(r.kept).toBe("existing");expect(r.item.position).toBe(180);
+  });
+  it("accepts a new episode starting at an earlier timestamp",async()=>{
+    const w=worker();await w.save(book("Show",{type:"watching",season:2,episode:3,position:1100,duration:1200}));
+    const r=await w.save(book("Show",{type:"watching",season:2,episode:4,position:20,duration:1200}));expect(r.item.episode).toBe(4);expect(r.item.position).toBe(20);
+  });
+});
