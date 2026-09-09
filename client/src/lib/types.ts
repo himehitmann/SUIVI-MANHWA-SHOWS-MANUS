@@ -46,6 +46,9 @@ export interface LibraryItem {
 }
 
 export interface CustomList {
+  archived?:boolean;
+  cover?:string;
+  description?:string;
   id: string;
   name: string;
   color: string;

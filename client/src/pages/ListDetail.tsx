@@ -13,8 +13,11 @@ import type { LibraryItem } from "@/lib/types";
 import NotFound from "./NotFound";
 
 export default function ListDetail() {
-  const { t } = useI18n();
+  const { t,lang } = useI18n();
   const store = useStore();
+  const fr=lang==="fr";
+  const [selected,setSelected]=useState<string[]>([]);
+  const [destination,setDestination]=useState("");
   const params = useParams();
   const list = store.lists.find((l) => l.id === params.id);
   const [adding, setAdding] = useState(false);
@@ -48,6 +51,8 @@ export default function ListDetail() {
           <div className="list-detail-cap" style={{ background: list.color }} />
           <div className="list-detail-title">
             <h1>{list.name}</h1>
+            <label>{fr?"Nom de la liste":"List name"}<input defaultValue={list.name} key={list.id} maxLength={100} onBlur={e=>store.updateList(list.id,{name:e.target.value})}/></label>
+            <label>{fr?"Description":"Description"}<textarea defaultValue={list.description||""} maxLength={2000} onBlur={e=>store.updateList(list.id,{description:e.target.value})}/></label>
             <p>
               {t("lists.count", { n: list.itemIds.length })} · {t("lists.dragHint")}
             </p>
@@ -84,12 +89,19 @@ export default function ListDetail() {
           </div>
         )}
 
+        {orderedItems.length>0&&<div className="catalog-filters">
+          <button onClick={()=>setSelected(selected.length===orderedItems.length?[]:orderedItems.map(i=>i.id))}>{fr?'Tout sélectionner':'Select all'}</button><span>{selected.length} {fr?'sélectionnées':'selected'}</span>
+          <select aria-label={fr?'Liste de destination':'Destination list'} value={destination} onChange={e=>setDestination(e.target.value)}><option value="">{fr?'Choisir une liste':'Choose a list'}</option>{store.lists.filter(l=>l.id!==list.id&&!l.archived).map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select>
+          <button disabled={!selected.length||!destination} onClick={()=>{selected.forEach(id=>store.addItemToList(destination,id));setSelected([]);toast.success(fr?'Œuvres copiées':'Works copied');}}>{fr?'Copier vers':'Copy to'}</button>
+          <button disabled={!selected.length} onClick={()=>{selected.forEach(id=>store.removeItemFromList(list.id,id));setSelected([]);}}>{fr?'Retirer de cette liste':'Remove from this list'}</button>
+        </div>}
         {orderedItems.length === 0 ? (
           <p className="muted-note big">{t("lists.empty")}</p>
         ) : (
           <Reorder.Group axis="y" values={orderedItems} onReorder={onReorder} className="reorder-list" as="div">
             {orderedItems.map((item) => (
               <Reorder.Item key={item.id} value={item} className="reorder-row" as="div">
+                <input type="checkbox" aria-label={(fr?"Sélectionner ":"Select ")+item.title} checked={selected.includes(item.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>
                 <span className="drag-handle" aria-hidden>
                   <GripVertical size={16} />
                 </span>

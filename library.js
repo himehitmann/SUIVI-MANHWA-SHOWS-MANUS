@@ -775,13 +775,15 @@ function renderPlans() {
 /* ================= LISTS ================= */
 function listCover(l) { return l.cover && /^https?:|^data:/.test(l.cover) ? `background-image:url('${esc(l.cover)}')` : `background:${esc(l.cover || "#EDE6FF")}`; }
 function isImg(v) { return v && /^https?:|^data:/.test(v); }
+let showArchivedLists=false;
 function renderLists() {
   const strip = document.getElementById("list-strip");
   if (!strip) return;
-  strip.innerHTML = lists.map((l) => { const n = (l.itemIds || []).length; return `<div class="strip-list" data-list="${l.id}">
+  strip.innerHTML = lists.filter(l=>Boolean(l.archived)===showArchivedLists).map((l) => { const n = (l.itemIds || []).length; return `<div class="strip-list" data-list="${l.id}">
       <div class="lc" style="${listCover(l)}">${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
       <b>${esc(l.name)}</b><small>${n} ${n === 1 ? t("work") : t("works")}</small>
-    </div>`; }).join("") + `<button class="strip-new" id="new-list">${I.plus}</button>`;
+    </div>`; }).join("") + `<button class="strip-new" id="new-list">${I.plus}</button><button class="btn" id="toggle-archived">${showArchivedLists?(settings.lang==='fr'?'Actives':'Active'):(settings.lang==='fr'?'Archivées':'Archived')}</button>`;
+  document.getElementById("toggle-archived").onclick=()=>{showArchivedLists=!showArchivedLists;renderLists();};
 }
 /* Quick add-to-list menu anchored to a card's + button. */
 let qaMenuEl = null;
@@ -846,6 +848,7 @@ function renderListDetail() {
       </div>
       <button class="btn" id="list-view-btn" title="${t("viewToggle")}">${grid ? I.rows : I.grid} ${grid ? t("viewRows") : t("viewGrid")}</button>
       <button class="btn" id="list-cover-btn">${I.image} ${t("cover")}</button>
+      <button class="btn" id="list-duplicate">${settings.lang==='fr'?'Dupliquer':'Duplicate'}</button><button class="btn" id="list-archive">${l.archived?(settings.lang==='fr'?'Restaurer':'Restore'):(settings.lang==='fr'?'Archiver':'Archive')}</button>
       <button class="btn danger" id="list-del">${I.trash} ${t("delete")}</button>
     </div>
     <div class="section-t">${t("inThisList")}</div>
@@ -863,6 +866,8 @@ function renderListDetail() {
 }
 function wireListDetail(l) {
   document.getElementById("back-lists").onclick = backToLists;
+  document.getElementById("list-duplicate").onclick=()=>listMsg("LIST_DUPLICATE",{id:l.id},()=>{renderLists();openList(lists[lists.length-1].id);});
+  document.getElementById("list-archive").onclick=()=>listMsg("LIST_UPDATE",{id:l.id,patch:{archived:!l.archived}},()=>{renderLists();backToLists();});
   const name = document.getElementById("list-name");
   name.onchange = () => listMsg("LIST_UPDATE", { id: l.id, patch: { name: name.value.trim() || "Untitled" } });
   document.getElementById("list-view-btn").onclick = () => { l.view = l.view === "grid" ? "rows" : "grid"; listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view } }); };

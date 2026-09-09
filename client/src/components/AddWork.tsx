@@ -127,7 +127,7 @@ export function AddWork({ onClose, initial }: { onClose: () => void; initial?:Ca
             />
           </div>
           <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={t("add.url")} />
-          <label>{fr?"Liste de destination":"Destination list"}<select value={listId} onChange={e=>setListId(e.target.value)}><option value="">{fr?"Bibliothèque":"Library"}</option>{store.lists.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
+          <label>{fr?"Liste de destination":"Destination list"}<select value={listId} onChange={e=>setListId(e.target.value)}><option value="">{fr?"Bibliothèque":"Library"}</option>{store.lists.filter(l=>!l.archived).map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
           <button className="primary-cta full" onClick={submit} disabled={!title.trim()}>
             {t("add.submit")}
           </button>

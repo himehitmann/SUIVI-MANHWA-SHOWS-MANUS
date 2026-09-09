@@ -1232,6 +1232,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       mutateAndReply(async()=>{const notifications=message.type==='NOTIF_CLEAR'?[]:(await read(NOTIF_KEY,[])).map(n=>({...n,read:true}));await writeData({[NOTIF_KEY]:notifications});return {notifications};},sendResponse);return true;
     case "SET_SETTINGS":
       mutateAndReply(async()=>{const settings={...DEFAULT_SETTINGS,...await read(SETTINGS_KEY,{}),...message.patch};await writeData({[SETTINGS_KEY]:settings});return {settings};},sendResponse);return true;
+    case "LIST_DUPLICATE":
     case "LIST_CREATE":
     case "LIST_UPDATE":
     case "LIST_DELETE":
@@ -1239,6 +1240,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       mutateAndReply(async()=>{
         let lists=await read(LISTS_KEY,[]),list;
         if(message.type==='LIST_CREATE') {list={id:'l_'+Math.random().toString(36).slice(2,10),name:String(message.name||'New list').slice(0,60),cover:message.cover||'#EDE6FF',itemIds:[],createdAt:Date.now(),updatedAt:Date.now()};lists=[...lists,list];}
+        if(message.type==='LIST_DUPLICATE'){const old=lists.find(l=>l.id===message.id);if(!old)throw Error('list_not_found');list={...old,id:'l_'+crypto.randomUUID(),name:String(old.name+' (copy)').slice(0,100),itemIds:[...(old.itemIds||[])],archived:false,createdAt:Date.now(),updatedAt:Date.now()};delete list.memberships;lists=[...lists,list];}
         if(message.type==='LIST_DELETE')lists=lists.filter(l=>l.id!==message.id);
         if(message.type==='LIST_UPDATE'){const patch=Object.fromEntries(Object.entries(message.patch||{}).filter(([k])=>!['id','createdAt','itemIds','__proto__','constructor','prototype'].includes(k)));lists=lists.map(l=>l.id===message.id?{...l,...patch,updatedAt:Date.now()}:l);}
         if(message.type==='LIST_SET_ITEMS'){const valid=new Set((await read(ITEMS_KEY,[])).map(i=>i.id));lists=lists.map(l=>l.id===message.id?{...l,itemIds:[...new Set((message.itemIds||[]).filter(id=>valid.has(id)))],updatedAt:Date.now()}:l);}

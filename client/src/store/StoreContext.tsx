@@ -136,6 +136,8 @@ interface StoreValue extends DasiState {
   removeSite: (id: string) => void;
   createList: (name: string, color: string) => CustomList;
   deleteList: (id: string) => void;
+  updateList:(id:string,changes:Partial<Pick<CustomList,"name"|"description"|"archived"|"cover">>)=>void;
+  duplicateList:(id:string)=>CustomList|undefined;
   setListColor: (id: string, color: string) => void;
   addItemToList: (listId: string, itemId: string) => void;
   removeItemFromList: (listId: string, itemId: string) => void;
@@ -302,6 +304,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     [patch]
   );
+
+  const updateList=useCallback((id:string,changes:Partial<Pick<CustomList,"name"|"description"|"archived"|"cover">>)=>patch(s=>({...s,lists:s.lists.map(l=>l.id===id?{...l,...changes,name:changes.name?.trim()||l.name}:l)})),[patch]);
+  const duplicateList=useCallback((id:string)=>{const old=stateRef.current.lists.find(l=>l.id===id);if(!old)return;const copy:CustomList={...old,id:nanoid(8),name:old.name+' (copy)',itemIds:[...old.itemIds],archived:false,createdAt:Date.now()};patch(s=>({...s,lists:[...s.lists,copy]}));return copy;},[patch]);
 
   const deleteList = useCallback(
     (id: string) =>
@@ -558,7 +563,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addSite,
       removeSite,
       createList,
-      deleteList,
+      deleteList,updateList,duplicateList,
       setListColor,
       addItemToList,
       removeItemFromList,
@@ -588,7 +593,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addSite,
       removeSite,
       createList,
-      deleteList,
+      deleteList,updateList,duplicateList,
       setListColor,
       addItemToList,
       removeItemFromList,

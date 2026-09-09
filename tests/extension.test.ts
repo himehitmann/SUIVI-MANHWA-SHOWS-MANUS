@@ -17,6 +17,7 @@ function worker(seed: Record<string, any> = {}) {
   };
   const ctx = vm.createContext({
     console,
+    crypto:globalThis.crypto,
     importScripts:()=>vm.runInContext(readFileSync(new URL("../sync-core.js",import.meta.url),"utf8"),ctx),
     URL,
     AbortController,
@@ -298,4 +299,12 @@ describe("extension account isolation",()=>{
     await expect(pending).rejects.toThrow('account_changed');
     expect(w.data['dasi.items']).toEqual([]);
   });
+});
+
+describe('list archive and duplication',()=>{
+ it('copies membership independently and archives without removing library items',async()=>{
+  const w=worker({'dasi.items':[{id:'a',title:'Saved',type:'reading'}],'dasi.lists':[{id:'l',name:'Original',itemIds:['a']}]});
+  const copy=await w.call({type:'LIST_DUPLICATE',id:'l'});expect(copy.ok).toBe(true);expect(copy.list.itemIds).toEqual(['a']);expect(copy.list.id).not.toBe('l');
+  await w.call({type:'LIST_SET_ITEMS',id:copy.list.id,itemIds:[]});const archive=await w.call({type:'LIST_UPDATE',id:copy.list.id,patch:{archived:true}});expect(archive.lists.find((l:any)=>l.id==='l').itemIds).toEqual(['a']);expect(archive.lists.find((l:any)=>l.id===copy.list.id).archived).toBe(true);
+ });
 });
