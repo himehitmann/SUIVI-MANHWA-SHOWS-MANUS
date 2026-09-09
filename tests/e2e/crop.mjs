@@ -10,6 +10,19 @@ try {
  const page=await context.newPage();
  await page.goto(`chrome-extension://${new URL(worker.url()).host}/library.html`);
  await page.waitForFunction(()=>typeof openCropper==='function');
+ const failure=await page.evaluate(async()=>{
+   const original=chrome.runtime.sendMessage;
+   items=[{id:"failure-check",title:"Original",chapter:3}];
+   lists=[{id:"list-check",name:"Original list",itemIds:["failure-check"]}];
+   chrome.runtime.sendMessage=(message,callback)=>callback({ok:false,error:"storage_failed"});
+   try {
+     const itemSaved=await update("failure-check",{chapter:8});
+     const oldProfile=JSON.stringify(settings.profile); const profileSaved=await saveProfilePatch({name:"Should fail"}); if(profileSaved!==false||JSON.stringify(settings.profile)!==oldProfile)throw Error("Failed profile save changed state");
+     const listSaved=await listMsg("LIST_UPDATE",{id:"list-check",patch:{name:"Changed"}});
+     return {itemSaved,listSaved,chapter:items[0].chapter,name:lists[0].name};
+   }finally{chrome.runtime.sendMessage=original;}
+ });
+ assert.deepEqual(failure,{itemSaved:false,listSaved:false,chapter:3,name:"Original list"});
  for(const width of [1280,375]) {
   await page.setViewportSize({width,height:900});
   await page.evaluate(()=>{const c=document.createElement('canvas');c.width=800;c.height=400;const x=c.getContext('2d');x.fillStyle='#6353b8';x.fillRect(0,0,800,400);x.fillStyle='#8bd4bf';x.fillRect(200,100,300,200);openCropper({shape:'banner',initial:c.toDataURL(),onSave:()=>{}});});

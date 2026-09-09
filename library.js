@@ -231,11 +231,25 @@ function flagLabel(i) { const u = unseen(i); if (u > 0) return `+${u}`; if (isNe
 let toastT;
 function toast(m) { const el = document.getElementById("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 1800); }
 
+function saveProfilePatch(patch) {
+  const profile={...(settings.profile||{}),...patch};
+  return new Promise(resolve=>api.runtime.sendMessage({type:"SET_SETTINGS",patch:{profile}},r=>{
+    if(api.runtime.lastError || r?.ok===false || !r?.settings){toast(settings.lang==="fr"?"Profil non enregistré. Réessaie.":"Profile could not be saved. Try again.");resolve(false);return;}
+    settings=r.settings;paintAvatar();renderProfileMenu();resolve(true);
+  }));
+}
+function refreshOpenItem(id) {
+  const drawer=document.getElementById("drawer");
+  if(drawer.classList.contains("open") && drawer.dataset.itemId===id)openDrawer(id);
+}
 function update(id, patch) {
-  const it = items.find((x) => x.id === id);
-  if (it) Object.assign(it, patch);
-  renderAll();
-  api.runtime.sendMessage({ type: "UPDATE_ITEM", id, patch }, (r) => { if (r?.items) { items = r.items; renderAll(); } });
+  return new Promise(resolve => api.runtime.sendMessage({type:"UPDATE_ITEM",id,patch}, r => {
+    if (api.runtime.lastError || r?.ok === false || !Array.isArray(r?.items)) {
+      toast(settings.lang === "fr" ? "Enregistrement impossible. Réessaie." : "Could not save. Try again.");
+      refreshOpenItem(id); resolve(false); return;
+    }
+    items = r.items; renderAll(); refreshOpenItem(id); resolve(true);
+  }));
 }
 
 /* ================= HOME ================= */
@@ -582,11 +596,11 @@ function renderLibHeader() {
       </div>
     </div>
   </div>`;
-  const saveP = (patch) => { settings.profile = { ...(settings.profile || {}), ...patch }; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { profile: settings.profile } }, (r) => { if (r?.settings) settings = r.settings; paintAvatar(); renderProfileMenu(); }); };
+  const saveP = patch => saveProfilePatch(patch).then(saved=>{renderLibHeader();return saved;});
   const av = document.getElementById("dash-av");
-  if (av) av.onclick = () => openCropper({ shape: "circle", title: t("changePhoto"), onSave: (data) => { saveP({ avatar: data }); renderLibHeader(); } });
+  if (av) av.onclick = () => openCropper({ shape: "circle", title: t("changePhoto"), initial:p.avatar, onSave: data => saveP({avatar:data}) });
   const eb = document.getElementById("dash-edit-banner");
-  if (eb) eb.onclick = () => openCropper({ shape: "banner", title: t("changeBanner"), onSave: (data) => { saveP({ banner: data }); renderLibHeader(); } });
+  if (eb) eb.onclick = () => openCropper({ shape: "banner", title: t("changeBanner"), initial:p.banner, onSave: data => saveP({banner:data}) });
   // Click the name itself to rename it inline (Enter or click-away saves).
   const nameEl = document.getElementById("dash-name");
   if (nameEl) nameEl.onclick = () => {
@@ -804,11 +818,12 @@ function openQuickAdd(itemId, anchor) {
   m.style.left = `${Math.min(window.innerWidth - m.offsetWidth - 8, r.left - m.offsetWidth + r.width)}px`;
   const rewire = () => { m.innerHTML = build(); wire(); };
   const wire = () => {
-    m.querySelectorAll("[data-ql]").forEach((b) => (b.onclick = (e) => {
+    m.querySelectorAll("[data-ql]").forEach((b) => (b.onclick = async (e) => {
       e.stopPropagation();
       const l = lists.find((x) => x.id === b.dataset.ql); if (!l) return;
       const has = (l.itemIds || []).includes(itemId);
-      setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== itemId) : [...(l.itemIds || []), itemId]);
+      b.disabled=true;
+      await setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== itemId) : [...(l.itemIds || []), itemId]);
       rewire();
     }));
     const nb = m.querySelector("[data-ql-new]");
@@ -870,7 +885,7 @@ function wireListDetail(l) {
   document.getElementById("list-archive").onclick=()=>listMsg("LIST_UPDATE",{id:l.id,patch:{archived:!l.archived}},()=>{renderLists();backToLists();});
   const name = document.getElementById("list-name");
   name.onchange = () => listMsg("LIST_UPDATE", { id: l.id, patch: { name: name.value.trim() || "Untitled" } });
-  document.getElementById("list-view-btn").onclick = () => { l.view = l.view === "grid" ? "rows" : "grid"; listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view } }); };
+  document.getElementById("list-view-btn").onclick = () => { listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view === "grid" ? "rows" : "grid" } }); };
   document.getElementById("list-cover-btn").onclick = () => changeCover((v) => listMsg("LIST_UPDATE", { id: l.id, patch: { cover: v } }), "square");
   document.getElementById("list-del").onclick = () => { if (confirm(`${t("delete")} "${l.name}"?`)) listMsg("LIST_DELETE", { id: l.id }, backToLists); };
   document.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => setListItems(l.id, [...(l.itemIds || []), b.dataset.add])));
@@ -894,16 +909,22 @@ function enableDrag(l) {
     });
   });
 }
-function setListItems(id, itemIds, silent) {
-  const l = lists.find((x) => x.id === id); if (l) l.itemIds = itemIds;
-  api.runtime.sendMessage({ type: "LIST_SET_ITEMS", id, itemIds }, (r) => { if (r?.lists) lists = r.lists; if (!silent) renderListDetail(); });
-  if (!silent) renderListDetail();
+function setListItems(id,itemIds,silent) {return listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{if(!silent)renderListDetail();});}
+function listMsg(type, payload, done) {
+  return new Promise(resolve => api.runtime.sendMessage({type,...payload},r=>{
+    if(api.runtime.lastError || r?.ok===false || !Array.isArray(r?.lists)){
+      toast(settings.lang==="fr"?"La liste n’a pas été enregistrée. Réessaie.":"The list could not be saved. Try again."); resolve(false); return;
+    }
+    lists=r.lists;
+    if(done)done();else {renderLists();if(currentListId)renderListDetail();}
+    resolve(true);
+  }));
 }
-function listMsg(type, payload, done) { api.runtime.sendMessage({ type, ...payload }, (r) => { if (r?.lists) lists = r.lists; if (done) done(); else { renderLists(); if (currentListId) renderListDetail(); } }); }
 function backToLists() { currentListId = null; document.getElementById("list-detail").hidden = true; document.getElementById("lib-main").hidden = false; renderLists(); }
 
 /* ================= DRAWER ================= */
 function openDrawer(id) {
+  document.getElementById("drawer").dataset.itemId=id;
   const i = items.find((x) => x.id === id); if (!i) return;
   const d = document.getElementById("drawer");
   const isWatch = i.type === "watching", isGame = i.type === "game";
@@ -992,36 +1013,36 @@ function wireDrawer(i, isWatch, isGame) {
     const key = isWatch ? "episode" : "chapter", latestKey = isWatch ? "latestEpisode" : "latestChapter";
     if (i.total) num.max = i.total; // real limit — can't go past what exists
     const setNum = (v) => { let n = Math.max(0, Math.round(Number(v) || 0)); if (i.total && n > i.total) n = i.total; num.value = n; const p = { [key]: n || undefined }; p[latestKey] = Math.max(i[latestKey] || 0, n) || undefined; update(i.id, p); };
-    document.getElementById("dr-minus").onclick = () => { setNum((Number(num.value) || 0) - 1); setTimeout(() => openDrawer(i.id), 30); };
-    document.getElementById("dr-plus").onclick = () => { setNum((Number(num.value) || 0) + 1); setTimeout(() => openDrawer(i.id), 30); };
-    num.onchange = () => { setNum(num.value); setTimeout(() => openDrawer(i.id), 30); };
+    document.getElementById("dr-minus").onclick = () => { setNum((Number(num.value) || 0) - 1); };
+    document.getElementById("dr-plus").onclick = () => { setNum((Number(num.value) || 0) + 1); };
+    num.onchange = () => { setNum(num.value); };
     const total = document.getElementById("dr-total");
-    if (total) total.onchange = () => { update(i.id, { total: Math.max(0, Math.round(Number(total.value) || 0)) || undefined }); setTimeout(() => openDrawer(i.id), 30); };
+    if (total) total.onchange = () => { update(i.id, { total: Math.max(0, Math.round(Number(total.value) || 0)) || undefined }); };
     const eps = document.getElementById("dr-eps");
-    if (eps) eps.querySelectorAll("[data-ep]").forEach((c) => (c.onclick = () => { setNum(Number(c.dataset.ep)); setTimeout(() => openDrawer(i.id), 30); }));
+    if (eps) eps.querySelectorAll("[data-ep]").forEach((c) => (c.onclick = () => { setNum(Number(c.dataset.ep)); }));
     const markall = document.getElementById("dr-markall");
-    if (markall) markall.onclick = () => { setNum(i.total || currentNum(i)); setTimeout(() => openDrawer(i.id), 30); };
+    if (markall) markall.onclick = () => { setNum(i.total || currentNum(i)); };
   } else {
-    document.getElementById("dr-prereg").onclick = () => { update(i.id, { preregistered: !i.preregistered }); setTimeout(() => openDrawer(i.id), 30); };
+    document.getElementById("dr-prereg").onclick = () => { update(i.id, { preregistered: !i.preregistered }); };
   }
-  document.getElementById("dr-cover").onclick = () => changeCover((v) => { update(i.id, { coverOverride: v }); setTimeout(() => openDrawer(i.id), 30); });
-  document.querySelectorAll("#dr-rate span").forEach((s) => (s.onclick = () => { const v = Number(s.dataset.v); update(i.id, { rating: i.rating === v ? 0 : v }); setTimeout(() => openDrawer(i.id), 30); }));
+  document.getElementById("dr-cover").onclick = () => changeCover(async (v) => { const saved=await update(i.id, { coverOverride: v }); if(saved)openDrawer(i.id); return saved; });
+  document.querySelectorAll("#dr-rate span").forEach((s) => (s.onclick = () => { const v = Number(s.dataset.v); update(i.id, { rating: i.rating === v ? 0 : v }); }));
   document.querySelectorAll("#dr-status [data-status]").forEach((b) => (b.onclick = () => {
     const s = b.dataset.status; const patch = { state: s };
     if (s === "completed") { patch.progress = 100; patch.status = "completed"; }
     else if (s === "planned") { patch.progress = 0; patch.status = "in_progress"; }
     else patch.status = "in_progress";
-    update(i.id, patch); setTimeout(() => openDrawer(i.id), 30);
+    update(i.id, patch);
   }));
   renderDrawerTags(i);
-  document.querySelectorAll("#dr-lists [data-list]").forEach((b) => (b.onclick = () => { const l = lists.find((x) => x.id === b.dataset.list); if (!l) return; const has = (l.itemIds || []).includes(i.id); setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== i.id) : [...(l.itemIds || []), i.id]); setTimeout(() => openDrawer(i.id), 30); }));
+  document.querySelectorAll("#dr-lists [data-list]").forEach((b) => (b.onclick = () => { const l = lists.find((x) => x.id === b.dataset.list); if (!l) return; const has = (l.itemIds || []).includes(i.id); setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== i.id) : [...(l.itemIds || []), i.id]); }));
   const titleEl = document.getElementById("dr-title");
-  if (titleEl) titleEl.onchange = () => { const v = titleEl.value.trim(); if (v && v !== i.title) { update(i.id, { title: v }); setTimeout(() => openDrawer(i.id), 30); } };
+  if (titleEl) titleEl.onchange = () => { const v = titleEl.value.trim(); if (v && v !== i.title) { update(i.id, { title: v }); } };
   const typeEl = document.getElementById("dr-type");
-  if (typeEl) typeEl.onchange = () => { update(i.id, { type: typeEl.value }); setTimeout(() => openDrawer(i.id), 30); };
+  if (typeEl) typeEl.onchange = () => { update(i.id, { type: typeEl.value }); };
   const seasonEl = document.getElementById("dr-season");
-  if (seasonEl) seasonEl.onchange = () => { const v = Math.max(0, Math.round(Number(seasonEl.value) || 0)); update(i.id, isWatch ? { season: v || undefined } : { volume: v || undefined }); setTimeout(() => openDrawer(i.id), 30); };
-  document.getElementById("dr-remove").onclick = () => { if (!confirm(`${t("removeLib")}?`)) return; api.runtime.sendMessage({ type: "REMOVE_ITEM", id: i.id }, (r) => { items = r?.items || items.filter((x) => x.id !== i.id); closeDrawer(); renderAll(); }); };
+  if (seasonEl) seasonEl.onchange = () => { const v = Math.max(0, Math.round(Number(seasonEl.value) || 0)); update(i.id, isWatch ? { season: v || undefined } : { volume: v || undefined }); };
+  document.getElementById("dr-remove").onclick = () => { if (!confirm(`${t("removeLib")}?`)) return; api.runtime.sendMessage({ type: "REMOVE_ITEM", id: i.id }, (r) => { if(api.runtime.lastError || r?.ok===false || !Array.isArray(r?.items)){toast(settings.lang==="fr"?"Suppression impossible. Réessaie.":"Could not remove. Try again.");return;} items = r.items; closeDrawer(); renderAll(); }); };
 }
 function renderDrawerTags(i) {
   const wrap = document.getElementById("dr-tags");
@@ -1029,14 +1050,14 @@ function renderDrawerTags(i) {
   wrap.querySelectorAll("[data-rm]").forEach((s) => (s.onclick = () => update(i.id, { tags: (i.tags || []).filter((x) => x !== s.dataset.rm) })));
   document.getElementById("dr-addtag").onclick = () => { const tg = (prompt(t("tags")) || "").trim(); if (tg) update(i.id, { tags: [...new Set([...(i.tags || []), tg])] }); };
 }
-function setListItemsSilent(id, itemIds) { const l = lists.find((x) => x.id === id); if (l) l.itemIds = itemIds; api.runtime.sendMessage({ type: "LIST_SET_ITEMS", id, itemIds }, (r) => { if (r?.lists) lists = r.lists; }); }
+function setListItemsSilent(id,itemIds) {return listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{const itemId=document.getElementById("drawer").dataset.itemId;if(itemId)refreshOpenItem(itemId);});}
 function closeDrawer() { document.getElementById("scrim").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); }
 /* ---- image cropper (upload · zoom · reposition), Discord-style ---- */
 // Aspect-aware cropper. The view IS the output shape, so the user sees exactly
 // what will be visible (YouTube-style for the wide banner).
 let CV_W = 280, CV_H = 280, CT_W = 512, CT_H = 512;
 let cropState = null; // { img, zoom, ox, oy, onSave, shape }
-function openCropper({ shape = "square", onSave, initial, title }) {
+function openCropper({ shape = "square", onSave, initial, title, allowClear = false }) {
   cropState = { img: null, zoom: 1, ox: 0, oy: 0, onSave, shape };
   if (shape === "banner") { CV_W = Math.min(460, Math.floor(innerWidth * .94 - 44)); CV_H = Math.round(CV_W / 3); CT_W = 1200; CT_H = 400; }
   else { CV_W = Math.min(280, Math.floor(innerWidth * .94 - 44)); CV_H = CV_W; CT_W = 512; CT_H = 512; }
@@ -1051,6 +1072,9 @@ function openCropper({ shape = "square", onSave, initial, title }) {
   document.getElementById("crop-scrim").classList.add("open");
   document.getElementById("cropper").classList.add("open");
   document.getElementById("crop-save").disabled = true;
+  document.getElementById("crop-remove").hidden = !allowClear;
+  document.getElementById("crop-url-row").hidden = !allowClear;
+  document.getElementById("crop-url").value = "";
   clearCanvas();
   if (initial) loadCropImage(initial); else document.getElementById("crop-input").click();
 }
@@ -1133,14 +1157,33 @@ function exportCrop() {
     if (!f) return; const rd = new FileReader(); rd.onload = () => loadCropImage(String(rd.result)); rd.readAsDataURL(f);
   });
   document.getElementById("crop-cancel").onclick = closeCropper;
-  document.getElementById("crop-save").onclick = () => { if (cropState && cropState.img && cropState.onSave) cropState.onSave(exportCrop()); closeCropper(); };
+  const commitCrop = async (clear, imageUrl) => {
+    const state=cropState;
+    if(!state?.onSave || (!clear && !imageUrl && !state.img))return;
+    const button=document.getElementById("crop-save");button.disabled=true;
+    try {
+      const saved=await state.onSave(imageUrl || (clear?"":exportCrop()));
+      if(cropState!==state)return;
+      if(saved===false){button.disabled=!state.img;return;}
+      closeCropper();
+    }catch{
+      if(cropState!==state)return;
+      document.getElementById("crop-hint").textContent="Could not save this image. Try another image.";
+      button.disabled=!state.img;
+    }
+  };
+  document.getElementById("crop-save").onclick=()=>commitCrop(false);
+  document.getElementById("crop-remove").onclick=()=>commitCrop(true);
+  document.getElementById("crop-use-url").onclick=()=>{
+    const input=document.getElementById("crop-url");
+    try {const url=new URL(input.value.trim());if(!["https:","http:"].includes(url.protocol))throw Error();input.setCustomValidity("");commitCrop(false,url.href);}
+    catch{input.setCustomValidity("Enter a valid https:// image URL.");input.reportValidity();}
+  };
+  document.getElementById("crop-url").oninput=e=>e.target.setCustomValidity("");
 })();
 
 function changeCover(apply, shape) {
-  const c = prompt("Cover — paste an image URL, type 'upload' to pick & crop a file, or leave blank to clear:", "");
-  if (c === null) return;
-  if (c.trim().toLowerCase() === "upload") { openCropper({ shape: shape || "square", title: t("cover"), onSave: apply }); return; }
-  apply(c.trim());
+  openCropper({shape:shape||"square",title:t("cover"),onSave:apply,allowClear:true});
 }
 
 /* ================= SETTINGS ================= */
@@ -1185,9 +1228,9 @@ function renderSettings() {
 }
 function wireSettings() {
   const nameEl = document.getElementById("set-name");
-  const saveProfile = (patch) => { settings.profile = { ...(settings.profile || {}), ...patch }; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { profile: settings.profile } }, (r) => { if (r?.settings) settings = r.settings; paintAvatar(); renderProfileMenu(); }); };
+  const saveProfile = patch => saveProfilePatch(patch).then(saved=>{renderSettings();return saved;});
   nameEl.onchange = () => saveProfile({ name: nameEl.value.trim() });
-  const pickPhoto = () => openCropper({ shape: "circle", title: t("changePhoto"), onSave: (data) => { saveProfile({ avatar: data }); renderSettings(); } });
+  const pickPhoto = () => openCropper({ shape: "circle", title: t("changePhoto"), initial:settings.profile?.avatar, onSave: data => saveProfile({avatar:data}) });
   document.getElementById("set-photo").onclick = pickPhoto;
   document.getElementById("set-avatar").onclick = pickPhoto;
   document.getElementById("sw-notify").onclick = () => { settings.notifyNew = !settings.notifyNew; document.getElementById("sw-notify").classList.toggle("on", settings.notifyNew); api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { notifyNew: settings.notifyNew } }, (r) => { if (r?.settings) settings = r.settings; }); };
@@ -1463,6 +1506,7 @@ function srRow(m, idx) {
   </div>`;
 }
 function openCatalogPreview(m) {
+  delete document.getElementById("drawer").dataset.itemId;
   if (!m) return;
   const drawer = document.getElementById("drawer");
   const labels = settings.lang === "fr" ? {add:"Ajouter à ma bibliothèque", destination:"Ajouter à une liste", lib:"Bibliothèque", source:"Voir la fiche source"} : {add:"Add to my library",destination:"Add to a list",lib:"Library",source:"Open source page"};
