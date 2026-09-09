@@ -158,7 +158,7 @@ async function recognizePanel(dataUrl, lang) {
     }
     }
     return {
-      blocks: regions,
+      blocks: YomuRegions.protectNeighbors(regions),
       width: bitmap.width,
       height: bitmap.height,
       lines: regions.map(r => r.text),

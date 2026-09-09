@@ -12,3 +12,11 @@ it('expands through flat background but stops before ink and image bounds',()=>{
  const box=context.YomuRegions.expandRegion(ctx,{x0:35,y0:30,x1:65,y1:70},100,100,{background:'#ffffff',backgroundConfidence:1});expect(box.x0).toBe(20);expect(box.x1).toBe(81);expect(box.y0).toBe(22);expect(box.y1).toBe(78);
  const uncertain=context.YomuRegions.expandRegion(ctx,{x0:35,y0:30,x1:65,y1:70},100,100,{background:'#ffffff',backgroundConfidence:.4});expect(uncertain.x0).toBe(35);expect(uncertain.x1).toBe(65);
 });
+it('withdraws colliding expansions without changing OCR coordinates or text',()=>{
+ const a={text:'First',bbox:{x0:10,y0:10,x1:30,y1:40},renderBox:{x0:0,y0:10,x1:50,y1:40}},b={text:'Second',bbox:{x0:40,y0:10,x1:60,y1:40},renderBox:{x0:30,y0:10,x1:70,y1:40}};
+ const out=context.YomuRegions.protectNeighbors([a,b]);expect(out[0].renderBox).toEqual(a.bbox);expect(out[1].renderBox).toEqual(b.bbox);expect(out.map((r:any)=>r.text)).toEqual(['First','Second']);expect(a.renderBox.x1).toBe(50);
+});
+it('keeps a safe expansion separated from its neighbor',()=>{
+ const a={bbox:{x0:10,y0:10,x1:30,y1:40},renderBox:{x0:0,y0:10,x1:35,y1:40}},b={bbox:{x0:40,y0:10,x1:60,y1:40}};
+ expect(context.YomuRegions.protectNeighbors([a,b])[0].renderBox.x1).toBe(35);
+});

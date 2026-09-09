@@ -31,5 +31,15 @@
   while(b.y1<bottom&&row(b.y1))b.y1++;
   return b;
  }
- root.YomuRegions={backdrop,sampleBackdrop,expandRegion};
+
+ function protectNeighbors(regions){
+  const conflicts=new Set();
+  const intersects=(a,b)=>Math.min(a.x1,b.x1)>Math.max(a.x0,b.x0)&&Math.min(a.y1,b.y1)>Math.max(a.y0,b.y0);
+  for(let i=0;i<regions.length;i++)for(let j=i+1;j<regions.length;j++){
+   const a=regions[i],b=regions[j];
+   if(intersects(a.renderBox||a.bbox,b.renderBox||b.bbox)&&!intersects(a.bbox,b.bbox)){conflicts.add(i);conflicts.add(j);}
+  }
+  return regions.map((r,i)=>conflicts.has(i)?{...r,renderBox:{...r.bbox}}:r);
+ }
+ root.YomuRegions={backdrop,sampleBackdrop,expandRegion,protectNeighbors};
 })(globalThis);

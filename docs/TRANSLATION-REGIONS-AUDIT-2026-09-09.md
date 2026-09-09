@@ -11,3 +11,7 @@ Remaining on this prioritized workstream: robust bubble segmentation, texture-aw
 ## Additional bubble-space step
 
 Rendering may now use a larger rectangle when the perimeter is confidently uniform. Expansion inspects every pixel in each newly included row/column, stops before contrasting ink, stays inside the image and is capped at 80 horizontal / 8 vertical pixels. OCR coordinates remain separate from rendering coordinates. Uncertain backgrounds are not expanded. A regression verifies stopping at black boundaries and refusing expansion on uncertain backgrounds. This conservative rule cannot distinguish artwork with exactly the same color as the background and is not a general bubble detector.
+
+## Neighbor protection
+
+Expanded rendering boxes that collide with another otherwise separate OCR region now fall back to their original bounds. This keeps expansion from obscuring adjacent dialogue, without altering recognized text or coordinates. Two regression tests cover colliding and safely separated regions. Full suite: 177 passing tests; packaged Chrome/OCR/upgrade suite passed.
