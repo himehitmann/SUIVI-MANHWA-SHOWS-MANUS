@@ -890,7 +890,64 @@ function wireListDetail(l) {
   document.getElementById("list-del").onclick = () => { if (confirm(`${t("delete")} "${l.name}"?`)) listMsg("LIST_DELETE", { id: l.id }, backToLists); };
   document.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => setListItems(l.id, [...(l.itemIds || []), b.dataset.add])));
   document.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => setListItems(l.id, (l.itemIds || []).filter((x) => x !== b.dataset.remove))));
+  wireListBulk(l);
   enableDrag(l);
+}
+function wireListBulk(list) {
+  const container=document.getElementById("list-items"), selected=new Set();
+  const fr=settings.lang==="fr", destinations=lists.filter(l=>l.id!==list.id&&!l.archived);
+  const toolbar=document.createElement("div");toolbar.className="list-bulk";
+  toolbar.innerHTML=`<label><input type="checkbox" id="bulk-all"> ${fr?"Tout sélectionner":"Select all"}</label><span id="bulk-count" role="status"></span><select id="bulk-destination" aria-label="${fr?"Liste de destination":"Destination list"}"><option value="">${fr?"Choisir une liste…":"Choose a list…"}</option>${destinations.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("")}</select><button class="btn" id="bulk-copy">${fr?"Copier":"Copy"}</button><button class="btn" id="bulk-move">${fr?"Déplacer":"Move"}</button><button class="btn" id="bulk-remove">${fr?"Retirer de la liste":"Remove from list"}</button><button class="btn" id="bulk-up" aria-label="${fr?"Monter la sélection":"Move selection up"}">↑</button><button class="btn" id="bulk-down" aria-label="${fr?"Descendre la sélection":"Move selection down"}">↓</button>`;
+  container.before(toolbar);
+  const rows=[...container.querySelectorAll("[data-id]")];let busy=false;
+  const refresh=()=>{
+    container.inert=busy;
+    const all=toolbar.querySelector("#bulk-all");all.checked=rows.length>0&&selected.size===rows.length;all.indeterminate=selected.size>0&&selected.size<rows.length;all.disabled=busy||!rows.length;
+    toolbar.querySelector("#bulk-count").textContent=fr?selected.size+" sélectionnée(s)":selected.size+" selected";
+    for(const id of ["copy","move"])toolbar.querySelector("#bulk-"+id).disabled=busy||!selected.size||!toolbar.querySelector("#bulk-destination").value;
+    toolbar.querySelector("#bulk-remove").disabled=busy||!selected.size;
+    const index=(list.itemIds||[]).indexOf([...selected][0]);
+    toolbar.querySelector("#bulk-up").disabled=busy||selected.size!==1||index<=0;
+    toolbar.querySelector("#bulk-down").disabled=busy||selected.size!==1||index<0||index>=(list.itemIds||[]).length-1;
+    toolbar.querySelector("#bulk-destination").disabled=busy||!destinations.length;
+    rows.forEach(row=>{const input=row.querySelector(".list-select");input.checked=selected.has(row.dataset.id);input.disabled=busy;row.classList.toggle("selected",input.checked);});
+  };
+  rows.forEach(row=>{
+    const input=document.createElement("input");input.type="checkbox";input.className="list-select";
+    const title=items.find(i=>i.id===row.dataset.id)?.title||"";
+    input.setAttribute("aria-label",(fr?"Sélectionner ":"Select ")+title);
+    input.onclick=e=>e.stopPropagation();input.onchange=()=>{if(input.checked)selected.add(row.dataset.id);else selected.delete(row.dataset.id);refresh();};row.prepend(input);
+  });
+  toolbar.querySelector("#bulk-all").onchange=e=>{selected.clear();if(e.target.checked)rows.forEach(r=>selected.add(r.dataset.id));refresh();};
+  toolbar.querySelector("#bulk-destination").onchange=refresh;
+  const act=async action=>{
+    if(busy||!selected.size)return;busy=true;refresh();
+    const ids=[...selected], source=lists.find(l=>l.id===list.id);
+    const destination=lists.find(l=>l.id===toolbar.querySelector("#bulk-destination").value);
+    let ok=false;
+    if(action==="copy"||action==="move"){
+      if(!destination){busy=false;refresh();return;}
+      ok=await listMsg("LIST_SET_ITEMS",{id:destination.id,itemIds:[...new Set([...(destination.itemIds||[]),...ids])]},()=>{});
+      if(!ok){busy=false;refresh();return;}
+    }
+    if(action==="remove"||action==="move"){
+      if(!source){busy=false;refresh();return;}
+      ok=await listMsg("LIST_SET_ITEMS",{id:source.id,itemIds:(source.itemIds||[]).filter(id=>!selected.has(id))},()=>{});
+      if(!ok){if(action==="move")toast(fr?"Copie enregistrée. Retrait de la liste source échoué : les œuvres sont conservées.":"Copy saved. Removal from the source list failed; your works are retained.");busy=false;refresh();return;}
+    }
+    if(ok){renderListDetail();toast(fr?"Liste mise à jour":"List updated");}else{busy=false;refresh();}
+  };
+  for(const action of ["copy","move","remove"])toolbar.querySelector("#bulk-"+action).onclick=()=>act(action);
+  const reorder=async direction=>{
+    if(busy||selected.size!==1)return;
+    const id=[...selected][0],order=[...(lists.find(l=>l.id===list.id)?.itemIds||[])],index=order.indexOf(id),next=index+direction;
+    if(index<0||next<0||next>=order.length)return;
+    busy=true;refresh();[order[index],order[next]]=[order[next],order[index]];
+    const ok=await listMsg("LIST_SET_ITEMS",{id:list.id,itemIds:order},()=>{});
+    if(ok){renderListDetail();const row=[...document.querySelectorAll("#list-items [data-id]")].find(r=>r.dataset.id===id);const checkbox=row?.querySelector(".list-select");if(checkbox){checkbox.click();checkbox.focus();}}else{busy=false;refresh();}
+  };
+  toolbar.querySelector("#bulk-up").onclick=()=>reorder(-1);toolbar.querySelector("#bulk-down").onclick=()=>reorder(1);
+  refresh();
 }
 function enableDrag(l) {
   const c = document.getElementById("list-items");
@@ -909,7 +966,7 @@ function enableDrag(l) {
     });
   });
 }
-function setListItems(id,itemIds,silent) {return listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{if(!silent)renderListDetail();});}
+async function setListItems(id,itemIds,silent) {const saved=await listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{if(!silent)renderListDetail();});if(!saved&&currentListId===id)renderListDetail();return saved;}
 function listMsg(type, payload, done) {
   return new Promise(resolve => api.runtime.sendMessage({type,...payload},r=>{
     if(api.runtime.lastError || r?.ok===false || !Array.isArray(r?.lists)){

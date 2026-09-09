@@ -10,6 +10,7 @@ const profile = await fs.mkdtemp(path.join(os.tmpdir(), "yomu-upgrade-"));
 const originals = {};
 for (const name of ["manifest.json", "background.js"])
   originals[name] = await fs.readFile(path.join(root, name));
+const expectedVersion=JSON.parse(originals["manifest.json"].toString()).version;
 const baseline = "5967171dd7e4cccbee579c34923a31f2c7110106";
 let browser;
 async function launch() {
@@ -69,14 +70,14 @@ try {
     version: chrome.runtime.getManifest().version,
     data: await chrome.storage.local.get(null),
   }));
-  assert.equal(result.version, "0.4.3");
+  assert.equal(result.version, expectedVersion);
   assert.equal(result.data["dasi.items"][0].episode, 3);
   assert.deepEqual(result.data["dasi.lists"][0].itemIds, ["miraculous"]);
   assert.equal(result.data["dasi.settings"].profile.name, "Upgrade Reader");
   assert.equal(result.data["dasi.sync.config"].token, "upgrade-fixture");
   assert.equal(result.data["dasi.migrationError"], undefined);
   console.log(
-    "Persistent Chrome profile upgrade verified: 0.3.1 -> 0.4.3; account, progress, lists and profile retained."
+    `Persistent Chrome profile upgrade verified: 0.3.1 -> ${expectedVersion}; account, progress, lists and profile retained.`
   );
 } finally {
   if (browser) await browser.close();
