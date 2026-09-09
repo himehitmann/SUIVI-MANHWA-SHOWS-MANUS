@@ -290,16 +290,16 @@ $("#tr-go").onclick = () => {
   // Manga/webtoon panels are images; translating them (OCR) needs to fetch the
   // panel from its site. Ask once for that access — text pages don't need it,
   // so denying still lets text translation work.
-  const go = () => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang, src: "" }, (r) => {
+  const go = (imagesAllowed = true) => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang, src: "" }, (r) => {
     void api.runtime.lastError;
     $("#tr-go").disabled = false;
-    if (r && r.ok) { $("#tr-status").textContent = "Translation started — follow progress on the page."; }
+    if (r && r.ok) { $("#tr-status").textContent = imagesAllowed ? "Translation started — follow progress on the page." : "Page translation started. Image access was denied; allow it to translate speech bubbles."; }
     else $("#tr-status").textContent = r && r.error === "restricted_page" ? "Can't translate this page." : "Translation unavailable here.";
   });
   try {
-    api.permissions.request({ origins: ["<all_urls>"] }, () => { void api.runtime.lastError; go(); });
+    api.permissions.request({ origins: ["<all_urls>"] }, granted => { const error = api.runtime.lastError; go(!!granted && !error); });
   } catch {
-    go();
+    go(false);
   }
 };
 
@@ -308,5 +308,5 @@ $("#sync-link").onclick = () => api.runtime.openOptionsPage();
 api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => {
   void api.runtime.lastError;
   popupPlan = (s && s.plan) || null;
-  if (s && s.configured) $("#sync-link").textContent = s.meta && s.meta.lastError ? "Sync needs attention" : "Synced ✓";
+  if (s && s.configured) $("#sync-link").textContent = s.meta?.lastError ? "Sync needs attention" : s.meta?.lastSyncAt ? "Last sync completed" : "Sync pending";
 });

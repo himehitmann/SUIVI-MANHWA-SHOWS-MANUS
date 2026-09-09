@@ -5,6 +5,7 @@
   window.__yomuTranslationInstalled = true;
   let run = 0,
     pill = null,
+    retryFailed = null,
     observer = null,
     mutation = null,
     resize = null,
@@ -45,12 +46,19 @@
         "border:0;border-radius:8px;padding:9px;background:#efe9ff;color:#352859;cursor:pointer;font:600 13px system-ui";
       stop.onclick = restore;
       pill.append(stop);
+      const retry = stop.cloneNode(true);
+      retry.id = "yomu-translation-retry";
+      retry.textContent = wording("Réessayer", "Retry");
+      retry.hidden = true;
+      retry.onclick = () => retryFailed?.();
+      pill.append(retry);
       document.documentElement.append(pill);
     }
     pill.querySelector("span").textContent = message;
   }
   function restore() {
     ++run;
+    retryFailed = null;
     observer?.disconnect();
     mutation?.disconnect();
     resize?.disconnect();
@@ -80,7 +88,7 @@
     return "eng";
   }
   function imageSource(im) {
-    const lazy = im.dataset.src || im.dataset.original || im.dataset.lazySrc;
+    const lazy = im.dataset.src || im.dataset.original || im.dataset.lazySrc || im.dataset.url;
     const current = im.currentSrc || im.src;
     if (
       lazy &&
@@ -181,6 +189,13 @@
       lastError = "",
       active = 0;
     const queue = [];
+    const failures = new Set();
+    retryFailed = () => {
+      if (run !== token || active) return;
+      const pending = [...failures]; failures.clear(); failed = 0; lastError = "";
+      for (const im of pending) { processed.delete(im); if (im.isConnected) enqueue(im); }
+      progress();
+    };
     status(wording("Yomu — traduction en cours…", "Yomu — translating…"));
     const walker = document.createTreeWalker(
       document.body,
@@ -229,6 +244,8 @@
     window.addEventListener("resize", schedule);
     function progress() {
       if (run !== token) return;
+      const retry = document.getElementById("yomu-translation-retry");
+      if (retry) {retry.hidden = !failures.size; retry.disabled = !!active;}
       status(
         active
           ? wording(
@@ -237,8 +254,8 @@
             )
           : failed
             ? wording(
-                `${done} image(s) traduite(s). ${failed} échec(s) (${lastError}) : restaure puis réessaie.`,
-                `${done} image(s) translated. ${failed} failed (${lastError}): restore and try again.`
+                `${done} image(s) traduite(s). ${failed} échec(s) (${lastError}) : réessaie les images échouées.`,
+                `${done} image(s) translated. ${failed} failed (${lastError}): retry the failed images.`
               )
             : done
               ? wording(
@@ -267,20 +284,24 @@
             src,
           });
           if (run !== token) return;
+          if (imageSource(im) !== source) continue;
+          failures.delete(im); failed = failures.size;
           if (result.blocks?.length) {
             applyRegions(im, result, target);
             done++;
           } else empty++;
         } catch (e) {
-          if (run === token) {failed++;lastError=String(e.message||e).slice(0,120);}
+          if (run === token) {failures.add(im);failed=failures.size;lastError=String(e.message||e).slice(0,120);}
         }
       }
       active = 0;
       progress();
     }
     function enqueue(im) {
-      if (processed.get(im) === token) return;
-      processed.set(im, token);
+      const key = `${token}:${imageSource(im)}`;
+      if (processed.get(im) === key) return;
+      overlays.get(im)?.el.remove(); overlays.delete(im);
+      processed.set(im, key);
       queue.push(im);
       drain();
     }
@@ -301,10 +322,17 @@
           r =>
             !r.target.closest?.("[data-yomu-overlay],#yomu-translation-status")
         )
-      )
+      ) {
         scan();
+        for (const record of records) {
+          const im = record.target;
+          if (record.type !== "attributes" || !(im instanceof HTMLImageElement) || !isPanel(im)) continue;
+          const r = im.getBoundingClientRect();
+          if (r.bottom >= -250 && r.top <= innerHeight + 250) enqueue(im);
+        }
+      }
     });
-    mutation.observe(document.body, { childList: true, subtree: true });
+    mutation.observe(document.body, { childList: true, subtree: true, attributes:true, attributeFilter:["src","srcset","data-src","data-original","data-lazy-src","data-url"] });
     scan();
     if (![...document.images].some(isPanel))
       status(

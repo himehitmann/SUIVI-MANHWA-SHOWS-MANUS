@@ -298,9 +298,25 @@ try {
   await reader.screenshot({
     path: path.join(artifactDir, "translation-in-place.png"),
   });
-  await reader.locator("#yomu-translation-status button").click();
+  await reader.locator("#yomu-translation-status button").first().click();
   assert.equal(await reader.locator("[data-yomu-overlay]").count(), 0);
   assert.equal(await reader.locator("#panel").getAttribute("src"), dataUrl);
+  // A transient image failure can be retried without restarting the page.
+  await worker.evaluate(() => {
+    globalThis.savedPanelTranslator = translateImageText;
+    globalThis.panelAttempts = 0;
+    translateImageText = async (...args) => {
+      if (++globalThis.panelAttempts === 1) throw new Error("img_503");
+      return globalThis.savedPanelTranslator(...args);
+    };
+  });
+  await page.evaluate(() => chrome.runtime.sendMessage({type:"DASI_TRANSLATE",lang:"fr",src:"eng"}));
+  await reader.locator("#yomu-translation-retry:not([hidden])").waitFor();
+  await reader.locator("#yomu-translation-retry").click();
+  await reader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  assert.equal(await worker.evaluate(()=>globalThis.panelAttempts),2);
+  await reader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(
