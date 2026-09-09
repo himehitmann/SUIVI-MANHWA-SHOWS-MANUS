@@ -126,8 +126,8 @@
         region.translation.trim() === region.text.trim()
       )
         continue;
-      const b = region.bbox,
-        padding = 3,
+      const b = region.renderBox || region.bbox,
+        padding = region.renderBox ? 0 : 3,
         w = Math.max(12, b.x1 - b.x0 + padding * 2),
         h = Math.max(12, b.y1 - b.y0 + padding * 2);
       const box = document.createElement("div");

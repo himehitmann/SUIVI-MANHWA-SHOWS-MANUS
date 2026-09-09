@@ -145,10 +145,12 @@ async function recognizePanel(dataUrl, lang) {
         }
         const context = canvas.getContext("2d");
         const backdrop=YomuRegions.sampleBackdrop(context,r.bbox,width,h);
+        const area=YomuRegions.expandRegion(context,r.bbox,width,h,backdrop);
+        const renderBox={x0:area.x0/scale,y0:(area.y0+top)/scale,x1:area.x1/scale,y1:(area.y1+top)/scale};
         regions.push({
           ...r,
           bbox,
-          ...backdrop,
+          ...backdrop,renderBox,
         });
       }
       canvas.width = canvas.height = 1;
