@@ -19,6 +19,7 @@ try {
     (await context.waitForEvent("serviceworker"));
   const id = new URL(worker.url()).host,
     base = `chrome-extension://${id}/`;
+  assert(await worker.evaluate(async()=>Boolean(await chrome.alarms.get("yomu-sync-retry"))),"Durable sync alarm missing");
   const image = await context.newPage();
   await image.setViewportSize({ width: 720, height: 1000 });
   await image.setContent(

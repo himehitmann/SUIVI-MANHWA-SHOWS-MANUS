@@ -313,3 +313,13 @@ it('syncs the profile without uploading technical settings',async()=>{
  w.ctx.fetch=async(_url:any,init:any)=>{if(init?.method==='PUT'){pushed=JSON.parse(init.body);return {ok:true,status:200};}return {ok:true,status:200,json:async()=>({blob:{items:[],updatedAt:20,profile:{name:'Remote',bio:'Biography',updatedAt:20}}})};};
  await w.run('syncNow()');expect(w.data['dasi.settings'].profile.name).toBe('Remote');expect(w.data['dasi.settings'].ocrKey).toBe('local-test-value');expect(pushed.blob.profile.bio).toBe('Biography');expect(JSON.stringify(pushed)).not.toContain('local-test-value');
 });
+it('retries failed background sync after its backoff without losing saved data',async()=>{
+ const w=worker({'dasi.items':[{id:'saved',title:'Saved',updatedAt:1}],'dasi.sync.config':{apiUrl:'https://sync.example/api',userId:'a',token:'a'}});let calls=0;
+ w.ctx.fetch=async()=>{calls++;throw Error('offline');};await w.run('runAutoSync()');expect(w.data['dasi.sync.meta'].retryCount).toBe(1);await w.run('runAutoSync()');expect(calls).toBe(1);expect(w.data['dasi.items'][0].id).toBe('saved');
+ w.data['dasi.sync.meta'].nextRetryAt=0;w.ctx.fetch=async(_url:any,init:any)=>({ok:true,status:200,json:async()=>({blob:{items:[],updatedAt:0}})});await w.run('runAutoSync()');expect(w.data['dasi.sync.meta'].retryCount).toBe(0);expect(w.data['dasi.sync.meta'].lastError).toBeNull();expect(w.data['dasi.items'][0].id).toBe('saved');
+});
+it('coalesces simultaneous automatic sync triggers',async()=>{
+ const w=worker({'dasi.items':[],'dasi.sync.config':{apiUrl:'https://sync.example/api',userId:'a',token:'a'}});let requests=0;
+ w.ctx.fetch=async()=>{requests++;await new Promise(resolve=>setTimeout(resolve,10));return {ok:true,status:200,json:async()=>({blob:{items:[],updatedAt:0}})};};
+ await Promise.all([w.run('runAutoSync()'),w.run('runAutoSync()'),w.run('runAutoSync()')]);expect(requests).toBe(2);
+});

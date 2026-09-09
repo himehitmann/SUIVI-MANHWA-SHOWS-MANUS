@@ -261,16 +261,28 @@ async function syncNow() {
   return { items: blob.items.length, sites: blob.sites.length, notifications: blob.notifications.length };
 }
 
-/** Fire-and-forget sync after a local change, rate-limited so saves stay cheap. */
-function autoSync() {
-  if(autoSyncTimer)return;
-  autoSyncTimer=setTimeout(async()=>{
-    autoSyncTimer=null;
-    const cfg=await getSyncConfig();if(!cfg?.token)return;
-    lastAutoSync=Date.now();
-    try{await syncNow();}catch(error){if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({lastError:String(error.message)});}
-  },Math.max(0,AUTO_SYNC_COOLDOWN_MS-(Date.now()-lastAutoSync)));
+/** Short-delay saves plus a durable alarm for suspension/network recovery. */
+const SYNC_ALARM='yomu-sync-retry';
+let syncInFlight=null;
+async function runAutoSync(){
+ if(syncInFlight)return syncInFlight;
+ syncInFlight=(async()=>{
+ const cfg=await getSyncConfig();if(!cfg?.token)return;
+ const meta=await read(SYNC_META_KEY,{});if(Date.now()<(meta.nextRetryAt||0))return;
+  lastAutoSync=Date.now();
+  try{await syncNow();if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({retryCount:0,nextRetryAt:0});}
+  catch(error){if((await getSyncConfig())?.token===cfg.token){const retryCount=Math.min(8,(meta.retryCount||0)+1);await setSyncMeta({lastError:String(error.message),retryCount,nextRetryAt:Date.now()+Math.min(900000,30000*2**(retryCount-1))});}}
+ })();try{return await syncInFlight;}finally{syncInFlight=null;}
 }
+async function ensureSyncAlarm(){
+ try{if(api.alarms?.get&&!await api.alarms.get(SYNC_ALARM))await api.alarms.create(SYNC_ALARM,{periodInMinutes:5});}catch{/* Local saves remain available if alarms are unavailable. */}
+}
+function autoSync() {
+ void ensureSyncAlarm();
+ if(autoSyncTimer)return;
+ autoSyncTimer=setTimeout(()=>{autoSyncTimer=null;void runAutoSync();},Math.max(0,AUTO_SYNC_COOLDOWN_MS-(Date.now()-lastAutoSync)));
+}
+void ensureSyncAlarm();
 
 let libraryWriteQueue = Promise.resolve();
 function serializeLibrary(task) {
@@ -1480,7 +1492,7 @@ async function checkGameReleases() {
 
 try {
   api.alarms?.create("dasi-daily", { periodInMinutes: 720 });
-  api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") checkGameReleases(); });
+  api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") return checkGameReleases();if(a.name===SYNC_ALARM)return runAutoSync(); });
 } catch {
   /* alarms unavailable */
 }
