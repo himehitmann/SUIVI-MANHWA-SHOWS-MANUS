@@ -135,6 +135,7 @@ interface StoreValue extends DasiState {
   addSite: (name: string, url: string) => void;
   removeSite: (id: string) => void;
   createList: (name: string, color: string) => CustomList;
+  updateProfile:(changes:NonNullable<DasiState["profile"]>)=>void;
   deleteList: (id: string) => void;
   updateList:(id:string,changes:Partial<Pick<CustomList,"name"|"description"|"archived"|"cover">>)=>void;
   duplicateList:(id:string)=>CustomList|undefined;
@@ -290,6 +291,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [patch]
   );
 
+  const updateProfile=useCallback((changes:NonNullable<DasiState["profile"]>)=>patch(s=>({...s,profile:{...s.profile,...changes}})),[patch]);
+
   const createList = useCallback(
     (name: string, color: string) => {
       const list: CustomList = {
@@ -372,7 +375,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [patch]
   );
 
-  const reset = useCallback(() => setState(seedState()), []);
+  const reset = useCallback(() => setState(s=>({...s,items:[],lists:[],sites:[],notifications:[]})), []);
 
   const applyState = useCallback(
     (next: Partial<DasiState>) =>
@@ -563,7 +566,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addSite,
       removeSite,
       createList,
-      deleteList,updateList,duplicateList,
+      deleteList,updateList,duplicateList,updateProfile,
       setListColor,
       addItemToList,
       removeItemFromList,
@@ -593,7 +596,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addSite,
       removeSite,
       createList,
-      deleteList,updateList,duplicateList,
+      deleteList,updateList,duplicateList,updateProfile,
       setListColor,
       addItemToList,
       removeItemFromList,

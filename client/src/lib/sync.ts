@@ -161,6 +161,7 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
         notifications: state.notifications,
         plan: state.plan,
         learn: state.learn,
+        profile: state.profile,
         tombstones: state.tombstones,
         updatedAt: state.updatedAt || 0,
       };
@@ -181,6 +182,7 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
       if (requestToken !== token) throw new Error("account_changed");
       if (!data.blob) return null;
       const out: Partial<DasiState> = {
+        profile:data.blob.profile,
         items: data.blob.items ?? [],
         tombstones: data.blob.tombstones,
         updatedAt: data.blob.updatedAt,

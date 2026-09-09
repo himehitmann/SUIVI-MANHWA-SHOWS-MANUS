@@ -104,9 +104,11 @@ const writeData = async (obj, downloaded=false) => {
   if(!downloaded){
     const before={},after={};
     for(const [kind,key] of Object.entries(DATA_KEYS))if(obj[key]){before[kind]=await read(key,[]);after[kind]=obj[key];}
+    if(obj[SETTINGS_KEY]?.profile){before.profile=(await read(SETTINGS_KEY,{})).profile;after.profile=obj[SETTINGS_KEY].profile;}
     before.tombstones=await read(TOMBSTONES_KEY,[]);
     const stamped=YomuSync.stampChanges(before,after);
     for(const [kind,key] of Object.entries(DATA_KEYS))if(stamped[kind])obj[key]=stamped[kind];
+    if(stamped.profile)obj[SETTINGS_KEY]={...obj[SETTINGS_KEY],profile:stamped.profile};
     if(stamped.tombstones)obj[TOMBSTONES_KEY]=stamped.tombstones;
   }
   await api.storage.local.set(obj);
@@ -242,10 +244,12 @@ async function syncNow() {
 
   const blob=await serializeLibrary(async()=>{
     if((await getSyncConfig())?.token!==cfg.token)throw new Error('account_changed');
-    const local={updatedAt:0,tombstones:await read(TOMBSTONES_KEY,[])};
+    const localSettings=await read(SETTINGS_KEY,{});
+    const local={updatedAt:0,tombstones:await read(TOMBSTONES_KEY,[]),profile:localSettings.profile};
     for(const [kind,key] of Object.entries(DATA_KEYS))local[kind]=await read(key,[]);
     const merged=YomuSync.mergeBlobs(rb,local),values={[TOMBSTONES_KEY]:merged.tombstones||[]};
     for(const [kind,key] of Object.entries(DATA_KEYS))values[key]=merged[kind]||[];
+    if(merged.profile)values[SETTINGS_KEY]={...localSettings,profile:merged.profile};
     await writeData(values,true);return merged;
   });
   const putRes = await apiCall(cfg, "/sync", { method: "PUT", body: JSON.stringify({ blob }) });

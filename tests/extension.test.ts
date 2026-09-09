@@ -308,3 +308,8 @@ describe('list archive and duplication',()=>{
   await w.call({type:'LIST_SET_ITEMS',id:copy.list.id,itemIds:[]});const archive=await w.call({type:'LIST_UPDATE',id:copy.list.id,patch:{archived:true}});expect(archive.lists.find((l:any)=>l.id==='l').itemIds).toEqual(['a']);expect(archive.lists.find((l:any)=>l.id===copy.list.id).archived).toBe(true);
  });
 });
+it('syncs the profile without uploading technical settings',async()=>{
+ const w=worker({'dasi.items':[],'dasi.settings':{ocrKey:'local-test-value',profile:{name:'Local',updatedAt:1}},'dasi.sync.config':{apiUrl:'https://sync.example/api',userId:'a',token:'a'}});let pushed:any;
+ w.ctx.fetch=async(_url:any,init:any)=>{if(init?.method==='PUT'){pushed=JSON.parse(init.body);return {ok:true,status:200};}return {ok:true,status:200,json:async()=>({blob:{items:[],updatedAt:20,profile:{name:'Remote',bio:'Biography',updatedAt:20}}})};};
+ await w.run('syncNow()');expect(w.data['dasi.settings'].profile.name).toBe('Remote');expect(w.data['dasi.settings'].ocrKey).toBe('local-test-value');expect(pushed.blob.profile.bio).toBe('Biography');expect(JSON.stringify(pushed)).not.toContain('local-test-value');
+});

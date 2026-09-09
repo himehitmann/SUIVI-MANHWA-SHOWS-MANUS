@@ -23,6 +23,7 @@ export interface SyncBlob {
   notifications?: SyncItem[];
   tombstones?: Tombstone[];
   settings?: unknown;
+  profile?:{name?:string;avatar?:string;banner?:string;bio?:string;updatedAt?:number};
   learn?: unknown;
   plan?: string;
   updatedAt: number;
@@ -78,6 +79,7 @@ export function mergeBlobs(
   const a = remote || { items: [], updatedAt: 0 },
     newer = winner(a, incoming),
     out = { ...a, ...incoming, ...newer } as SyncBlob;
+  if(a.profile||incoming.profile)out.profile=a.profile&&incoming.profile?winner(a.profile,incoming.profile):(a.profile||incoming.profile);
   const deleted = new Map<string, Tombstone>();
   for (const d of [...(a.tombstones || []), ...(incoming.tombstones || [])]) {
     const key = d.kind + ":" + d.id,
@@ -167,6 +169,7 @@ export function stampChanges<T extends object>(
       deleted.set(key, d);
   }
   if (deleted.size) b.tombstones = [...deleted.values()];
+  if(b.profile&&stable(a.profile)!==stable(b.profile))b.profile={...b.profile,updatedAt:Math.max(now,time(a.profile)+1)};
   b.updatedAt = now;
   return b;
 }

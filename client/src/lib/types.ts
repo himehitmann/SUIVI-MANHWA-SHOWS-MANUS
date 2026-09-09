@@ -108,6 +108,7 @@ export interface LearnState {
 }
 
 export interface DasiState {
+  profile?:{name?:string;avatar?:string;banner?:string;bio?:string;updatedAt?:number};
   items: LibraryItem[];
   lists: CustomList[];
   sites: FavoriteSite[];

@@ -82,3 +82,12 @@ describe("multi-device merge", () => {
     expect(mergeBlobs(a, b)).toEqual(mergeBlobs(b, a));
   });
 });
+
+describe('profile synchronization',()=>{
+ it('preserves profile on unrelated library changes and uses its own timestamp',()=>{
+  const remote={items:[],profile:{name:'Newest',updatedAt:20},updatedAt:20};
+  expect(mergeBlobs(remote,{items:[],updatedAt:30}).profile?.name).toBe('Newest');
+  expect(mergeBlobs(remote,{items:[],profile:{name:'Older',updatedAt:10},updatedAt:40}).profile?.name).toBe('Newest');
+  const changed=stampChanges(remote,{...remote,profile:{name:'Edited',updatedAt:20}},50);expect(changed.profile.updatedAt).toBe(50);
+ });
+});

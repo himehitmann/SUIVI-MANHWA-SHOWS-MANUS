@@ -80,6 +80,7 @@ const syncInput = z.object({
     )
     .max(50000)
     .optional(),
+  profile:z.object({name:z.string().max(100).optional(),bio:z.string().max(2000).optional(),avatar:z.string().max(1500000).optional(),banner:z.string().max(2000000).optional(),updatedAt:z.number().finite().nonnegative().optional()}).optional(),
   learn: z.unknown().optional(),
   updatedAt: z.number().finite().nonnegative().optional(),
 });

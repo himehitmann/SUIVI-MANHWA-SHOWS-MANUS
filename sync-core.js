@@ -64,6 +64,7 @@ var YomuSync = (() => {
   }
   function mergeBlobs(remote, incoming) {
     const a = remote || { items: [], updatedAt: 0 }, newer = winner(a, incoming), out = { ...a, ...incoming, ...newer };
+    if (a.profile || incoming.profile) out.profile = a.profile && incoming.profile ? winner(a.profile, incoming.profile) : a.profile || incoming.profile;
     const deleted = /* @__PURE__ */ new Map();
     for (const d of [...a.tombstones || [], ...incoming.tombstones || []]) {
       const key = d.kind + ":" + d.id, old = deleted.get(key);
@@ -132,6 +133,7 @@ var YomuSync = (() => {
         deleted.set(key, d);
     }
     if (deleted.size) b.tombstones = [...deleted.values()];
+    if (b.profile && stable(a.profile) !== stable(b.profile)) b.profile = { ...b.profile, updatedAt: Math.max(now, time(a.profile) + 1) };
     b.updatedAt = now;
     return b;
   }

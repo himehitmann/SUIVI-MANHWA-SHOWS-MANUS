@@ -17,6 +17,7 @@ import { LANGUAGES } from "@/i18n/strings";
 import { useStore } from "@/store/StoreContext";
 import { UNLOCK_ALL } from "@/lib/edition";
 import { syncProvider, currentAccountScope } from "@/lib/sync";
+import {ProfileEditor} from "@/components/ProfileEditor";
 import {LibraryImport} from "@/components/LibraryImport";
 
 export default function Settings() {
@@ -146,6 +147,7 @@ export default function Settings() {
           </div>
         </div>
 
+        <ProfileEditor/>
         <div className="settings-grid">
           <section className="settings-card account-card">
             <h3>

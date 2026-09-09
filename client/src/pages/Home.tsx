@@ -75,6 +75,9 @@ export default function Home() {
     <div className="dasi-app">
       <AppHeader query={query} onQuery={setQuery} />
       <main className="dasi-main">
+        {store.profile?.banner&&<img className="profile-banner" src={store.profile.banner} alt=""/>}
+        {store.profile?.name&&<h2>{store.profile.name}</h2>}
+        {store.profile?.bio&&<p>{store.profile.bio}</p>}
         <div className="welcome">
           <div>
             <span className="eyebrow pastel-label">{t("welcome.eyebrow")}</span>
