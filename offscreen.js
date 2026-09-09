@@ -14,7 +14,7 @@ function deadline(promise, ms, label) {
     }),
   ]).finally(() => clearTimeout(timer));
 }
-const LANGS = new Set(["kor", "jpn", "chi_sim", "eng"]);
+const LANGS = new Set(["kor", "jpn", "jpn_vert", "chi_sim", "eng"]);
 async function getWorker(lang) {
   lang = LANGS.has(lang) ? lang : "jpn";
   if (workerPromise && activeLanguage !== lang) {
@@ -77,8 +77,7 @@ async function recognizePanel(dataUrl, lang) {
   try {
     if (bitmap.width * bitmap.height > 60_000_000)
       throw new Error("image_too_large");
-    const worker = await getWorker(lang);
-    await worker.setParameters({ tessedit_pageseg_mode: "11" });
+
     // Tile tall webtoons rather than shrinking an entire chapter to unreadable text.
     const scale = Math.min(1.5, 1400 / bitmap.width),
       width = Math.round(bitmap.width * scale),
@@ -86,6 +85,9 @@ async function recognizePanel(dataUrl, lang) {
       overlap = 160;
     const height = Math.round(bitmap.height * scale),
       regions = [];
+    for(const pass of (lang==="jpn"?["jpn","jpn_vert"]:[lang])) {
+    const worker=await getWorker(pass);
+    await worker.setParameters({tessedit_pageseg_mode:pass==="jpn_vert"?"5":"11"});
     for (let top = 0; top < height; top += tileHeight - overlap) {
       const h = Math.min(tileHeight, height - top),
         canvas = document.createElement("canvas");
@@ -118,8 +120,9 @@ async function recognizePanel(dataUrl, lang) {
       }
       const { data } = result;
       for (const r of textRegions(data)) {
+        r.orientation=pass==="jpn_vert"?"vertical":"horizontal";
         // Tesseract separates CJK glyphs as words; Japanese/Chinese prose does not.
-        if(lang==='jpn'||lang==='chi_sim')r.text=r.text.replace(/(?<=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])\s+(?=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/gu,'');
+        if(lang==='jpn'||lang==='jpn_vert'||lang==='chi_sim')r.text=r.text.replace(/(?<=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])\s+(?=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/gu,'');
         const bbox = {
           x0: r.bbox.x0 / scale,
           y0: (r.bbox.y0 + top) / scale,
@@ -134,6 +137,11 @@ async function recognizePanel(dataUrl, lang) {
           )
         )
           continue;
+        if(pass==="jpn_vert"){
+          const overlap=regions.filter(p=>{const a=p.bbox;const intersection=Math.max(0,Math.min(a.x1,bbox.x1)-Math.max(a.x0,bbox.x0))*Math.max(0,Math.min(a.y1,bbox.y1)-Math.max(a.y0,bbox.y0));return intersection>0.45*Math.min((a.x1-a.x0)*(a.y1-a.y0),(bbox.x1-bbox.x0)*(bbox.y1-bbox.y0));});
+          if(overlap.some(p=>(p.confidence||0)>=(r.confidence||0)))continue;
+          for(const old of overlap)regions.splice(regions.indexOf(old),1);
+        }
         const context = canvas.getContext("2d");
         const sample = context.getImageData(
           Math.max(0, Math.min(width - 1, Math.round(r.bbox.x0) - 3)),
@@ -151,6 +159,7 @@ async function recognizePanel(dataUrl, lang) {
       }
       canvas.width = canvas.height = 1;
       if (top + h >= height) break;
+    }
     }
     return {
       blocks: regions,
