@@ -20,6 +20,10 @@ try {
   const id = new URL(worker.url()).host,
     base = `chrome-extension://${id}/`;
   assert(await worker.evaluate(async()=>Boolean(await chrome.alarms.get("yomu-sync-retry"))),"Durable sync alarm missing");
+  const releaseAlarm=await worker.evaluate(async()=>{
+    await ensureReleaseAlarm();const before=await chrome.alarms.get("dasi-daily");await ensureReleaseAlarm();const after=await chrome.alarms.get("dasi-daily");return {before:before.scheduledTime,after:after.scheduledTime,period:after.periodInMinutes};
+  });
+  assert.equal(releaseAlarm.before,releaseAlarm.after,"Release alarm was postponed");assert.equal(releaseAlarm.period,720);
   const image = await context.newPage();
   await image.setViewportSize({ width: 720, height: 1000 });
   await image.setContent(

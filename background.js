@@ -1483,17 +1483,26 @@ async function migrateStorage() {
 api.runtime.onInstalled.addListener(()=>serializeLibrary(migrateStorage).catch(error=>api.storage.local.set({'dasi.migrationError':String(error.message)})));
 
 /*
- * Awaited games: once a day (and on startup) flip any game whose release date
- * has passed from "upcoming" to released, and notify. No network — purely the
- * dates you already saved.
+ * Check Steam-confirmed releases every twelve hours. Calendar dates alone
+ * never establish availability. Requests are coalesced and account-scoped.
  */
-async function checkGameReleases() {
+async function ensureReleaseAlarm(){if(api.alarms?.get && !await api.alarms.get("dasi-daily"))await api.alarms.create("dasi-daily",{periodInMinutes:720});}
+let gameReleaseCheck=null;
+function checkGameReleases() {
+  if(gameReleaseCheck)return gameReleaseCheck;
+  gameReleaseCheck=checkGameReleasesOnce().finally(()=>{gameReleaseCheck=null;});
+  return gameReleaseCheck;
+}
+async function checkGameReleasesOnce() {
+  const epoch=accountEpoch;
   const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==='game' && !i.released && steamAppId(i.url)).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,8);
   for(const candidate of candidates){
+    if(epoch!==accountEpoch)return;
     try{
       const details=await steamAppDetails(steamAppId(candidate.url));if(!details)continue;
       await serializeLibrary(async()=>{
-        const items=await read(ITEMS_KEY,[]), current=items.find(i=>i.id===candidate.id);if(!current)return;
+        if(epoch!==accountEpoch)return;
+        const items=await read(ITEMS_KEY,[]), current=items.find(i=>i.id===candidate.id);if(!current||steamAppId(current.url)!==steamAppId(candidate.url))return;
         const released=details.comingSoon===false?true:details.comingSoon===true?false:current.released;
         const next=items.map(i=>i.id===current.id?{...i,released,releaseDate:details.releaseDate||i.releaseDate,releaseCheckedAt:Date.now(),updatedAt:Date.now()}:i);
         await writeData({[ITEMS_KEY]:next});
@@ -1504,7 +1513,7 @@ async function checkGameReleases() {
 }
 
 try {
-  api.alarms?.create("dasi-daily", { periodInMinutes: 720 });
+  void ensureReleaseAlarm().catch(()=>{});
   api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") return checkGameReleases();if(a.name===SYNC_ALARM)return runAutoSync(); });
 } catch {
   /* alarms unavailable */

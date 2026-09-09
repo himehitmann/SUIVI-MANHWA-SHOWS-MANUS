@@ -356,3 +356,21 @@ describe("video resume regression guards",()=>{
     const r=await w.save(book("Show",{type:"watching",season:2,episode:4,position:20,duration:1200}));expect(r.item.episode).toBe(4);expect(r.item.position).toBe(20);
   });
 });
+
+
+describe("release check isolation",()=>{
+  it("ignores a delayed Steam result after the account changes",async()=>{
+    const w=worker();await w.save(book("Game",{type:"game",url:"https://store.steampowered.com/app/123/",released:false}));
+    await w.run("checkGameReleases()");
+    w.run("steamAppDetails=()=>new Promise(resolve=>{globalThis.finishSteam=resolve;})");
+    const pending=w.run("checkGameReleases()");
+    await new Promise(r=>setTimeout(r,10));
+    w.run("accountEpoch++;finishSteam({comingSoon:false,releaseDate:'Today'})");
+    await pending;expect(w.data["dasi.items"][0].released).toBe(false);expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+  });
+  it("coalesces overlapping checks and emits one confirmed release",async()=>{
+    const w=worker();await w.save(book("Game",{type:"game",url:"https://store.steampowered.com/app/123/",released:false}));await w.run("checkGameReleases()");
+    w.run("globalThis.steamCalls=0;steamAppDetails=async()=>{steamCalls++;return {comingSoon:false,releaseDate:'Today'};}");
+    await Promise.all([w.run("checkGameReleases()"),w.run("checkGameReleases()")]);expect(w.run("steamCalls")).toBe(1);expect(w.data["dasi.items"][0].released).toBe(true);expect(w.data["dasi.notifications"]).toHaveLength(1);
+  });
+});
