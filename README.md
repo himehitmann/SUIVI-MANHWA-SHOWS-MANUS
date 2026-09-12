@@ -1,6 +1,6 @@
-# Dasi — Continue Reading & Watching
+# Yomu — Continue Reading & Watching
 
-Dasi is a **local-first**, premium browser extension (plus a companion web app)
+Yomu is a **local-first**, premium browser extension (plus a companion web app)
 that remembers where you stopped in anything you read or watch online — manga,
 manhwa, webtoons, comics, novels, anime, series, films and videos. One click
 saves your place; the library brings it back.
@@ -20,7 +20,7 @@ required to use it; cloud sync is an optional, non-critical upgrade.
   detections are flagged for review instead of being saved silently.
 - **One-click save** from the popup, or `Ctrl+Shift+S`.
 - **Add works manually** with an optional online title search (AniList — free, best-effort), so anything can be tracked even without visiting a page.
-- **Import from other trackers** — MyAnimeList XML export, generic CSV, JSON, and Dasi backups, auto-detected.
+- **Import from other trackers** — MyAnimeList XML export, generic CSV, JSON, and Yomu backups, auto-detected.
 - **Library** with continue queue, Reading/Watching/Favorites filters, search,
   favorites and delete.
 - **Quick-access sites** — save your reading/streaming sites for one-click access.
@@ -65,7 +65,7 @@ In short:
   root — Chrome needs the folder that directly contains `manifest.json`
   (loading the root fails with _"Manifest file is missing or unreadable"_).
 
-Then open a chapter, episode or video, click the Dasi icon, review the
+Then open a chapter, episode or video, click the Yomu icon, review the
 detection, and hit **Save my position** (shortcut `Ctrl+Shift+S`).
 
 ### Where your data is stored

@@ -16,7 +16,7 @@ const planLabel = () => (UNLOCK_ALL || userPlan === "lifetime" ? "Lifetime" : us
 
 const NEW_WINDOW = 14 * 24 * 3600 * 1000;
 const SOON_WINDOW = 30 * 24 * 3600 * 1000;
-const DASI_STORE_URL = "https://chromewebstore.google.com/detail/dasi";
+const DASI_STORE_URL = "https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS";
 const SHARE_TEXT = "Yomu — never lose your spot in any manga, webtoon, anime, series or game. Save & resume in one click.";
 
 /* ---- i18n (en/fr full; others cover the visible shell, fall back to en) --- */
@@ -27,7 +27,7 @@ const LANGS = {
     resume:"Resume", details:"Details", addByName:"Add by name", welcomeTitle:"Welcome to Yomu", welcomeBody:"Yomu remembers where you stopped in anything you read or watch — manga, webtoons, anime, series, films and games. Open a page, hit save, and resume in one click from here.",
     valSaveT:"Save anywhere", valSaveB:"One click on any site — no more lost bookmarks.", valAllT:"One library for everything", valAllB:"Manga, anime, series, films and games together.", valResumeT:"Resume in a click", valResumeB:"Pick up exactly where you left off, on any device.",
     tracked:"Tracked", reading:"Reading", watching:"Watching", favorites:"Favorites", finished:"Finished",
-    all:"All", status:"Status", current:"In progress", planned:"Planned", completed:"Completed", on_hold:"On hold", dropped:"Dropped", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress", released:"Released", markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", editDetails:"Edit details", advanced:"Advanced", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
+    all:"All", status:"Status", current:"In progress", planned:"Planned", completed:"Completed", on_hold:"On hold", dropped:"Dropped", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress",  markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", editDetails:"Edit details", advanced:"Advanced", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
     newList:"New list", cover:"Cover", rename:"Rename", delete:"Delete", inThisList:"In this list", addWorks:"Add works", allLists:"All lists", dragReorder:"drag to reorder",
     viewToggle:"Toggle layout", viewRows:"List", viewGrid:"Grid",
     gamesSub:"Track awaited games — release dates, prices, trailers and pre-registrations.", addGame:"Add a game", title:"Title", platform:"Platform", releaseDate:"Release date", price:"Price", trailer:"Trailer", watchTrailer:"Watch trailer", preRegistered:"Pre-registered", released:"Released", comingSoon:"Coming soon", add:"Add", cancel:"Cancel", free:"Free",
@@ -37,7 +37,7 @@ const LANGS = {
     discover:"Discover", discoverSub:"Fresh picks — not in your library yet.", forYou:"Recommended for you", forYouSub:"Based on your tags", trendingManga:"Trending manga & manhwa", popularAnime:"Popular anime right now", newGames:"New game releases", upcomingGames:"Upcoming games", addToLib:"Add to library", refresh:"Refresh", loadingReco:"Finding fresh picks…",
     imgTranslateSub:"Translate the speech bubbles inside manga/webtoon images too — just press Translate. It works automatically, nothing to install.", imgOn:"On", imgKeyLabel:"OCR key (optional)", imgKeyHint:"Free key from ocr.space for higher daily limits.", imgKeyPh:"ocr.space API key", imgServerHint:"Power users: your own image-translation server URL for best quality.", imgServerLabel:"Custom server (optional)", imgTest:"Test", imgTesting:"Testing…", imgOk:"Connected ✓", imgFail:"No response — check the URL.", imgSetup:"", imgCopy:"Copy", imgCopied:"Copied ✓",
     searchPlaceholder:"Search or add by name…", work:"work", works:"works", upcoming:"Upcoming", discoverGames:"Discover games",
-    topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most anticipated games", hotGames:"Biggest games right now", openInNew:"Open", discoverMore:"Discover more",
+    topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most wishlisted games on Steam", hotGames:"Steam top sellers", openInNew:"Open", discoverMore:"Discover more",
     catAll:"All", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Series", catGames:"Games",
     categories:"Categories", chooseCats:"Choose which categories show on Home", cast:"Cast",
     changeBanner:"Change banner", bioPh:"Write a short bio…",
@@ -55,7 +55,7 @@ const LANGS = {
     resume:"Reprendre", details:"Détails", addByName:"Ajouter par nom", welcomeTitle:"Bienvenue sur Yomu", welcomeBody:"Yomu retient où tu t'es arrêté dans tout ce que tu lis ou regardes — manga, webtoons, anime, séries, films et jeux. Ouvre une page, clique sur enregistrer, et reprends d'un clic depuis ici.",
     valSaveT:"Enregistre partout", valSaveB:"Un clic sur n'importe quel site — fini les favoris perdus.", valAllT:"Une seule bibliothèque", valAllB:"Manga, anime, séries, films et jeux réunis.", valResumeT:"Reprends d'un clic", valResumeB:"Reprends exactement où tu étais, sur tous tes appareils.",
     tracked:"Suivis", reading:"Lecture", watching:"Visionnage", favorites:"Favoris", finished:"Terminés",
-    all:"Tout", status:"Statut", current:"En cours", planned:"Prévu", completed:"Terminé", on_hold:"En pause", dropped:"Abandonné", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression", released:"Sortis", markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", editDetails:"Modifier la fiche", advanced:"Avancé", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
+    all:"Tout", status:"Statut", current:"En cours", planned:"Prévu", completed:"Terminé", on_hold:"En pause", dropped:"Abandonné", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression",  markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", editDetails:"Modifier la fiche", advanced:"Avancé", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
     newList:"Nouvelle liste", cover:"Couverture", rename:"Renommer", delete:"Supprimer", inThisList:"Dans cette liste", addWorks:"Ajouter des œuvres", allLists:"Toutes les listes", dragReorder:"glisser pour réordonner",
     viewToggle:"Changer l'affichage", viewRows:"Liste", viewGrid:"Grille",
     gamesSub:"Suis les jeux attendus — dates de sortie, prix, trailers et préinscriptions.", addGame:"Ajouter un jeu", title:"Titre", platform:"Plateforme", releaseDate:"Date de sortie", price:"Prix", trailer:"Trailer", watchTrailer:"Voir le trailer", preRegistered:"Préinscrit", released:"Sorti", comingSoon:"Bientôt", add:"Ajouter", cancel:"Annuler", free:"Gratuit",
@@ -65,7 +65,7 @@ const LANGS = {
     discover:"Découvrir", discoverSub:"Nouveautés à découvrir — pas encore dans ta bibliothèque.", forYou:"Recommandé pour toi", forYouSub:"D'après tes tags", trendingManga:"Manga & manhwa tendances", popularAnime:"Anime populaires en ce moment", newGames:"Nouveaux jeux sortis", upcomingGames:"Jeux à venir", addToLib:"Ajouter à la bibliothèque", refresh:"Actualiser", loadingReco:"Recherche de nouveautés…",
     imgTranslateSub:"Traduit aussi les bulles à l'intérieur des images de manga/webtoon — appuie simplement sur Traduire. Ça marche automatiquement, rien à installer.", imgOn:"Activé", imgKeyLabel:"Clé OCR (optionnel)", imgKeyHint:"Clé gratuite ocr.space pour des limites quotidiennes plus élevées.", imgKeyPh:"clé API ocr.space", imgServerHint:"Utilisateurs avancés : l'URL de ton propre serveur de traduction d'images pour une qualité optimale.", imgServerLabel:"Serveur personnalisé (optionnel)", imgTest:"Tester", imgTesting:"Test…", imgOk:"Connecté ✓", imgFail:"Aucune réponse — vérifie l'URL.", imgSetup:"", imgCopy:"Copier", imgCopied:"Copié ✓",
     searchPlaceholder:"Rechercher ou ajouter par nom…", work:"œuvre", works:"œuvres", upcoming:"À venir", discoverGames:"Découvrir des jeux",
-    topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus attendus", hotGames:"Les plus gros jeux du moment", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
+    topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus souhaités sur Steam", hotGames:"Meilleures ventes Steam", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
     catAll:"Tout", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Séries", catGames:"Jeux",
     categories:"Catégories", chooseCats:"Choisis les catégories affichées sur l'accueil", cast:"Distribution",
     changeBanner:"Changer la bannière", bioPh:"Écris une petite bio…",
@@ -231,11 +231,25 @@ function flagLabel(i) { const u = unseen(i); if (u > 0) return `+${u}`; if (isNe
 let toastT;
 function toast(m) { const el = document.getElementById("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 1800); }
 
+function saveProfilePatch(patch) {
+  const profile={...(settings.profile||{}),...patch};
+  return new Promise(resolve=>api.runtime.sendMessage({type:"SET_SETTINGS",patch:{profile}},r=>{
+    if(api.runtime.lastError || r?.ok===false || !r?.settings){toast(settings.lang==="fr"?"Profil non enregistré. Réessaie.":"Profile could not be saved. Try again.");resolve(false);return;}
+    settings=r.settings;paintAvatar();renderProfileMenu();resolve(true);
+  }));
+}
+function refreshOpenItem(id) {
+  const drawer=document.getElementById("drawer");
+  if(drawer.classList.contains("open") && drawer.dataset.itemId===id)openDrawer(id);
+}
 function update(id, patch) {
-  const it = items.find((x) => x.id === id);
-  if (it) Object.assign(it, patch);
-  renderAll();
-  api.runtime.sendMessage({ type: "UPDATE_ITEM", id, patch }, (r) => { if (r?.items) { items = r.items; renderAll(); } });
+  return new Promise(resolve => api.runtime.sendMessage({type:"UPDATE_ITEM",id,patch}, r => {
+    if (api.runtime.lastError || r?.ok === false || !Array.isArray(r?.items)) {
+      toast(settings.lang === "fr" ? "Enregistrement impossible. Réessaie." : "Could not save. Try again.");
+      refreshOpenItem(id); resolve(false); return;
+    }
+    items = r.items; renderAll(); refreshOpenItem(id); resolve(true);
+  }));
 }
 
 /* ================= HOME ================= */
@@ -433,7 +447,7 @@ function bindDisco(root = "#view-home") {
   document.querySelectorAll(`${root} [data-open-url]`).forEach((el) => (el.onclick = (e) => {
     if (e.target.closest("[data-add-disco]")) return;
     const u = el.dataset.openUrl;
-    if (u) api.tabs ? api.tabs.create({ url: u }) : window.open(u, "_blank", "noreferrer");
+    const match = discoItems.find((m) => m.url === u); if (match) openCatalogPreview(match);
   }));
 }
 // Home category picker — check which categories appear on Home. Persisted to
@@ -582,11 +596,11 @@ function renderLibHeader() {
       </div>
     </div>
   </div>`;
-  const saveP = (patch) => { settings.profile = { ...(settings.profile || {}), ...patch }; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { profile: settings.profile } }, (r) => { if (r?.settings) settings = r.settings; paintAvatar(); renderProfileMenu(); }); };
+  const saveP = patch => saveProfilePatch(patch).then(saved=>{renderLibHeader();return saved;});
   const av = document.getElementById("dash-av");
-  if (av) av.onclick = () => openCropper({ shape: "circle", title: t("changePhoto"), onSave: (data) => { saveP({ avatar: data }); renderLibHeader(); } });
+  if (av) av.onclick = () => openCropper({ shape: "circle", title: t("changePhoto"), initial:p.avatar, onSave: data => saveP({avatar:data}) });
   const eb = document.getElementById("dash-edit-banner");
-  if (eb) eb.onclick = () => openCropper({ shape: "banner", title: t("changeBanner"), onSave: (data) => { saveP({ banner: data }); renderLibHeader(); } });
+  if (eb) eb.onclick = () => openCropper({ shape: "banner", title: t("changeBanner"), initial:p.banner, onSave: data => saveP({banner:data}) });
   // Click the name itself to rename it inline (Enter or click-away saves).
   const nameEl = document.getElementById("dash-name");
   if (nameEl) nameEl.onclick = () => {
@@ -775,13 +789,15 @@ function renderPlans() {
 /* ================= LISTS ================= */
 function listCover(l) { return l.cover && /^https?:|^data:/.test(l.cover) ? `background-image:url('${esc(l.cover)}')` : `background:${esc(l.cover || "#EDE6FF")}`; }
 function isImg(v) { return v && /^https?:|^data:/.test(v); }
+let showArchivedLists=false;
 function renderLists() {
   const strip = document.getElementById("list-strip");
   if (!strip) return;
-  strip.innerHTML = lists.map((l) => { const n = (l.itemIds || []).length; return `<div class="strip-list" data-list="${l.id}">
+  strip.innerHTML = lists.filter(l=>Boolean(l.archived)===showArchivedLists).map((l) => { const n = (l.itemIds || []).length; return `<div class="strip-list" data-list="${l.id}">
       <div class="lc" style="${listCover(l)}">${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
       <b>${esc(l.name)}</b><small>${n} ${n === 1 ? t("work") : t("works")}</small>
-    </div>`; }).join("") + `<button class="strip-new" id="new-list">${I.plus}</button>`;
+    </div>`; }).join("") + `<button class="strip-new" id="new-list">${I.plus}</button><button class="btn" id="toggle-archived">${showArchivedLists?(settings.lang==='fr'?'Actives':'Active'):(settings.lang==='fr'?'Archivées':'Archived')}</button>`;
+  document.getElementById("toggle-archived").onclick=()=>{showArchivedLists=!showArchivedLists;renderLists();};
 }
 /* Quick add-to-list menu anchored to a card's + button. */
 let qaMenuEl = null;
@@ -802,11 +818,12 @@ function openQuickAdd(itemId, anchor) {
   m.style.left = `${Math.min(window.innerWidth - m.offsetWidth - 8, r.left - m.offsetWidth + r.width)}px`;
   const rewire = () => { m.innerHTML = build(); wire(); };
   const wire = () => {
-    m.querySelectorAll("[data-ql]").forEach((b) => (b.onclick = (e) => {
+    m.querySelectorAll("[data-ql]").forEach((b) => (b.onclick = async (e) => {
       e.stopPropagation();
       const l = lists.find((x) => x.id === b.dataset.ql); if (!l) return;
       const has = (l.itemIds || []).includes(itemId);
-      setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== itemId) : [...(l.itemIds || []), itemId]);
+      b.disabled=true;
+      await setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== itemId) : [...(l.itemIds || []), itemId]);
       rewire();
     }));
     const nb = m.querySelector("[data-ql-new]");
@@ -846,6 +863,7 @@ function renderListDetail() {
       </div>
       <button class="btn" id="list-view-btn" title="${t("viewToggle")}">${grid ? I.rows : I.grid} ${grid ? t("viewRows") : t("viewGrid")}</button>
       <button class="btn" id="list-cover-btn">${I.image} ${t("cover")}</button>
+      <button class="btn" id="list-duplicate">${settings.lang==='fr'?'Dupliquer':'Duplicate'}</button><button class="btn" id="list-archive">${l.archived?(settings.lang==='fr'?'Restaurer':'Restore'):(settings.lang==='fr'?'Archiver':'Archive')}</button>
       <button class="btn danger" id="list-del">${I.trash} ${t("delete")}</button>
     </div>
     <div class="section-t">${t("inThisList")}</div>
@@ -863,14 +881,73 @@ function renderListDetail() {
 }
 function wireListDetail(l) {
   document.getElementById("back-lists").onclick = backToLists;
+  document.getElementById("list-duplicate").onclick=()=>listMsg("LIST_DUPLICATE",{id:l.id},()=>{renderLists();openList(lists[lists.length-1].id);});
+  document.getElementById("list-archive").onclick=()=>listMsg("LIST_UPDATE",{id:l.id,patch:{archived:!l.archived}},()=>{renderLists();backToLists();});
   const name = document.getElementById("list-name");
   name.onchange = () => listMsg("LIST_UPDATE", { id: l.id, patch: { name: name.value.trim() || "Untitled" } });
-  document.getElementById("list-view-btn").onclick = () => { l.view = l.view === "grid" ? "rows" : "grid"; listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view } }); };
+  document.getElementById("list-view-btn").onclick = () => { listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view === "grid" ? "rows" : "grid" } }); };
   document.getElementById("list-cover-btn").onclick = () => changeCover((v) => listMsg("LIST_UPDATE", { id: l.id, patch: { cover: v } }), "square");
   document.getElementById("list-del").onclick = () => { if (confirm(`${t("delete")} "${l.name}"?`)) listMsg("LIST_DELETE", { id: l.id }, backToLists); };
   document.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => setListItems(l.id, [...(l.itemIds || []), b.dataset.add])));
   document.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => setListItems(l.id, (l.itemIds || []).filter((x) => x !== b.dataset.remove))));
+  wireListBulk(l);
   enableDrag(l);
+}
+function wireListBulk(list) {
+  const container=document.getElementById("list-items"), selected=new Set();
+  const fr=settings.lang==="fr", destinations=lists.filter(l=>l.id!==list.id&&!l.archived);
+  const toolbar=document.createElement("div");toolbar.className="list-bulk";
+  toolbar.innerHTML=`<label><input type="checkbox" id="bulk-all"> ${fr?"Tout sélectionner":"Select all"}</label><span id="bulk-count" role="status"></span><select id="bulk-destination" aria-label="${fr?"Liste de destination":"Destination list"}"><option value="">${fr?"Choisir une liste…":"Choose a list…"}</option>${destinations.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("")}</select><button class="btn" id="bulk-copy">${fr?"Copier":"Copy"}</button><button class="btn" id="bulk-move">${fr?"Déplacer":"Move"}</button><button class="btn" id="bulk-remove">${fr?"Retirer de la liste":"Remove from list"}</button><button class="btn" id="bulk-up" aria-label="${fr?"Monter la sélection":"Move selection up"}">↑</button><button class="btn" id="bulk-down" aria-label="${fr?"Descendre la sélection":"Move selection down"}">↓</button>`;
+  container.before(toolbar);
+  const rows=[...container.querySelectorAll("[data-id]")];let busy=false;
+  const refresh=()=>{
+    container.inert=busy;
+    const all=toolbar.querySelector("#bulk-all");all.checked=rows.length>0&&selected.size===rows.length;all.indeterminate=selected.size>0&&selected.size<rows.length;all.disabled=busy||!rows.length;
+    toolbar.querySelector("#bulk-count").textContent=fr?selected.size+" sélectionnée(s)":selected.size+" selected";
+    for(const id of ["copy","move"])toolbar.querySelector("#bulk-"+id).disabled=busy||!selected.size||!toolbar.querySelector("#bulk-destination").value;
+    toolbar.querySelector("#bulk-remove").disabled=busy||!selected.size;
+    const index=(list.itemIds||[]).indexOf([...selected][0]);
+    toolbar.querySelector("#bulk-up").disabled=busy||selected.size!==1||index<=0;
+    toolbar.querySelector("#bulk-down").disabled=busy||selected.size!==1||index<0||index>=(list.itemIds||[]).length-1;
+    toolbar.querySelector("#bulk-destination").disabled=busy||!destinations.length;
+    rows.forEach(row=>{const input=row.querySelector(".list-select");input.checked=selected.has(row.dataset.id);input.disabled=busy;row.classList.toggle("selected",input.checked);});
+  };
+  rows.forEach(row=>{
+    const input=document.createElement("input");input.type="checkbox";input.className="list-select";
+    const title=items.find(i=>i.id===row.dataset.id)?.title||"";
+    input.setAttribute("aria-label",(fr?"Sélectionner ":"Select ")+title);
+    input.onclick=e=>e.stopPropagation();input.onchange=()=>{if(input.checked)selected.add(row.dataset.id);else selected.delete(row.dataset.id);refresh();};row.prepend(input);
+  });
+  toolbar.querySelector("#bulk-all").onchange=e=>{selected.clear();if(e.target.checked)rows.forEach(r=>selected.add(r.dataset.id));refresh();};
+  toolbar.querySelector("#bulk-destination").onchange=refresh;
+  const act=async action=>{
+    if(busy||!selected.size)return;busy=true;refresh();
+    const ids=[...selected], source=lists.find(l=>l.id===list.id);
+    const destination=lists.find(l=>l.id===toolbar.querySelector("#bulk-destination").value);
+    let ok=false;
+    if(action==="copy"||action==="move"){
+      if(!destination){busy=false;refresh();return;}
+      ok=await listMsg("LIST_SET_ITEMS",{id:destination.id,itemIds:[...new Set([...(destination.itemIds||[]),...ids])]},()=>{});
+      if(!ok){busy=false;refresh();return;}
+    }
+    if(action==="remove"||action==="move"){
+      if(!source){busy=false;refresh();return;}
+      ok=await listMsg("LIST_SET_ITEMS",{id:source.id,itemIds:(source.itemIds||[]).filter(id=>!selected.has(id))},()=>{});
+      if(!ok){if(action==="move")toast(fr?"Copie enregistrée. Retrait de la liste source échoué : les œuvres sont conservées.":"Copy saved. Removal from the source list failed; your works are retained.");busy=false;refresh();return;}
+    }
+    if(ok){renderListDetail();toast(fr?"Liste mise à jour":"List updated");}else{busy=false;refresh();}
+  };
+  for(const action of ["copy","move","remove"])toolbar.querySelector("#bulk-"+action).onclick=()=>act(action);
+  const reorder=async direction=>{
+    if(busy||selected.size!==1)return;
+    const id=[...selected][0],order=[...(lists.find(l=>l.id===list.id)?.itemIds||[])],index=order.indexOf(id),next=index+direction;
+    if(index<0||next<0||next>=order.length)return;
+    busy=true;refresh();[order[index],order[next]]=[order[next],order[index]];
+    const ok=await listMsg("LIST_SET_ITEMS",{id:list.id,itemIds:order},()=>{});
+    if(ok){renderListDetail();const row=[...document.querySelectorAll("#list-items [data-id]")].find(r=>r.dataset.id===id);const checkbox=row?.querySelector(".list-select");if(checkbox){checkbox.click();checkbox.focus();}}else{busy=false;refresh();}
+  };
+  toolbar.querySelector("#bulk-up").onclick=()=>reorder(-1);toolbar.querySelector("#bulk-down").onclick=()=>reorder(1);
+  refresh();
 }
 function enableDrag(l) {
   const c = document.getElementById("list-items");
@@ -889,16 +966,22 @@ function enableDrag(l) {
     });
   });
 }
-function setListItems(id, itemIds, silent) {
-  const l = lists.find((x) => x.id === id); if (l) l.itemIds = itemIds;
-  api.runtime.sendMessage({ type: "LIST_SET_ITEMS", id, itemIds }, (r) => { if (r?.lists) lists = r.lists; if (!silent) renderListDetail(); });
-  if (!silent) renderListDetail();
+async function setListItems(id,itemIds,silent) {const saved=await listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{if(!silent)renderListDetail();});if(!saved&&currentListId===id)renderListDetail();return saved;}
+function listMsg(type, payload, done) {
+  return new Promise(resolve => api.runtime.sendMessage({type,...payload},r=>{
+    if(api.runtime.lastError || r?.ok===false || !Array.isArray(r?.lists)){
+      toast(settings.lang==="fr"?"La liste n’a pas été enregistrée. Réessaie.":"The list could not be saved. Try again."); resolve(false); return;
+    }
+    lists=r.lists;
+    if(done)done();else {renderLists();if(currentListId)renderListDetail();}
+    resolve(true);
+  }));
 }
-function listMsg(type, payload, done) { api.runtime.sendMessage({ type, ...payload }, (r) => { if (r?.lists) lists = r.lists; if (done) done(); else { renderLists(); if (currentListId) renderListDetail(); } }); }
 function backToLists() { currentListId = null; document.getElementById("list-detail").hidden = true; document.getElementById("lib-main").hidden = false; renderLists(); }
 
 /* ================= DRAWER ================= */
 function openDrawer(id) {
+  document.getElementById("drawer").dataset.itemId=id;
   const i = items.find((x) => x.id === id); if (!i) return;
   const d = document.getElementById("drawer");
   const isWatch = i.type === "watching", isGame = i.type === "game";
@@ -987,36 +1070,36 @@ function wireDrawer(i, isWatch, isGame) {
     const key = isWatch ? "episode" : "chapter", latestKey = isWatch ? "latestEpisode" : "latestChapter";
     if (i.total) num.max = i.total; // real limit — can't go past what exists
     const setNum = (v) => { let n = Math.max(0, Math.round(Number(v) || 0)); if (i.total && n > i.total) n = i.total; num.value = n; const p = { [key]: n || undefined }; p[latestKey] = Math.max(i[latestKey] || 0, n) || undefined; update(i.id, p); };
-    document.getElementById("dr-minus").onclick = () => { setNum((Number(num.value) || 0) - 1); setTimeout(() => openDrawer(i.id), 30); };
-    document.getElementById("dr-plus").onclick = () => { setNum((Number(num.value) || 0) + 1); setTimeout(() => openDrawer(i.id), 30); };
-    num.onchange = () => { setNum(num.value); setTimeout(() => openDrawer(i.id), 30); };
+    document.getElementById("dr-minus").onclick = () => { setNum((Number(num.value) || 0) - 1); };
+    document.getElementById("dr-plus").onclick = () => { setNum((Number(num.value) || 0) + 1); };
+    num.onchange = () => { setNum(num.value); };
     const total = document.getElementById("dr-total");
-    if (total) total.onchange = () => { update(i.id, { total: Math.max(0, Math.round(Number(total.value) || 0)) || undefined }); setTimeout(() => openDrawer(i.id), 30); };
+    if (total) total.onchange = () => { update(i.id, { total: Math.max(0, Math.round(Number(total.value) || 0)) || undefined }); };
     const eps = document.getElementById("dr-eps");
-    if (eps) eps.querySelectorAll("[data-ep]").forEach((c) => (c.onclick = () => { setNum(Number(c.dataset.ep)); setTimeout(() => openDrawer(i.id), 30); }));
+    if (eps) eps.querySelectorAll("[data-ep]").forEach((c) => (c.onclick = () => { setNum(Number(c.dataset.ep)); }));
     const markall = document.getElementById("dr-markall");
-    if (markall) markall.onclick = () => { setNum(i.total || currentNum(i)); setTimeout(() => openDrawer(i.id), 30); };
+    if (markall) markall.onclick = () => { setNum(i.total || currentNum(i)); };
   } else {
-    document.getElementById("dr-prereg").onclick = () => { update(i.id, { preregistered: !i.preregistered }); setTimeout(() => openDrawer(i.id), 30); };
+    document.getElementById("dr-prereg").onclick = () => { update(i.id, { preregistered: !i.preregistered }); };
   }
-  document.getElementById("dr-cover").onclick = () => changeCover((v) => { update(i.id, { coverOverride: v }); setTimeout(() => openDrawer(i.id), 30); });
-  document.querySelectorAll("#dr-rate span").forEach((s) => (s.onclick = () => { const v = Number(s.dataset.v); update(i.id, { rating: i.rating === v ? 0 : v }); setTimeout(() => openDrawer(i.id), 30); }));
+  document.getElementById("dr-cover").onclick = () => changeCover(async (v) => { const saved=await update(i.id, { coverOverride: v }); if(saved)openDrawer(i.id); return saved; });
+  document.querySelectorAll("#dr-rate span").forEach((s) => (s.onclick = () => { const v = Number(s.dataset.v); update(i.id, { rating: i.rating === v ? 0 : v }); }));
   document.querySelectorAll("#dr-status [data-status]").forEach((b) => (b.onclick = () => {
     const s = b.dataset.status; const patch = { state: s };
     if (s === "completed") { patch.progress = 100; patch.status = "completed"; }
     else if (s === "planned") { patch.progress = 0; patch.status = "in_progress"; }
     else patch.status = "in_progress";
-    update(i.id, patch); setTimeout(() => openDrawer(i.id), 30);
+    update(i.id, patch);
   }));
   renderDrawerTags(i);
-  document.querySelectorAll("#dr-lists [data-list]").forEach((b) => (b.onclick = () => { const l = lists.find((x) => x.id === b.dataset.list); if (!l) return; const has = (l.itemIds || []).includes(i.id); setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== i.id) : [...(l.itemIds || []), i.id]); setTimeout(() => openDrawer(i.id), 30); }));
+  document.querySelectorAll("#dr-lists [data-list]").forEach((b) => (b.onclick = () => { const l = lists.find((x) => x.id === b.dataset.list); if (!l) return; const has = (l.itemIds || []).includes(i.id); setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== i.id) : [...(l.itemIds || []), i.id]); }));
   const titleEl = document.getElementById("dr-title");
-  if (titleEl) titleEl.onchange = () => { const v = titleEl.value.trim(); if (v && v !== i.title) { update(i.id, { title: v }); setTimeout(() => openDrawer(i.id), 30); } };
+  if (titleEl) titleEl.onchange = () => { const v = titleEl.value.trim(); if (v && v !== i.title) { update(i.id, { title: v }); } };
   const typeEl = document.getElementById("dr-type");
-  if (typeEl) typeEl.onchange = () => { update(i.id, { type: typeEl.value }); setTimeout(() => openDrawer(i.id), 30); };
+  if (typeEl) typeEl.onchange = () => { update(i.id, { type: typeEl.value }); };
   const seasonEl = document.getElementById("dr-season");
-  if (seasonEl) seasonEl.onchange = () => { const v = Math.max(0, Math.round(Number(seasonEl.value) || 0)); update(i.id, isWatch ? { season: v || undefined } : { volume: v || undefined }); setTimeout(() => openDrawer(i.id), 30); };
-  document.getElementById("dr-remove").onclick = () => { if (!confirm(`${t("removeLib")}?`)) return; api.runtime.sendMessage({ type: "REMOVE_ITEM", id: i.id }, (r) => { items = r?.items || items.filter((x) => x.id !== i.id); closeDrawer(); renderAll(); }); };
+  if (seasonEl) seasonEl.onchange = () => { const v = Math.max(0, Math.round(Number(seasonEl.value) || 0)); update(i.id, isWatch ? { season: v || undefined } : { volume: v || undefined }); };
+  document.getElementById("dr-remove").onclick = () => { if (!confirm(`${t("removeLib")}?`)) return; api.runtime.sendMessage({ type: "REMOVE_ITEM", id: i.id }, (r) => { if(api.runtime.lastError || r?.ok===false || !Array.isArray(r?.items)){toast(settings.lang==="fr"?"Suppression impossible. Réessaie.":"Could not remove. Try again.");return;} items = r.items; closeDrawer(); renderAll(); }); };
 }
 function renderDrawerTags(i) {
   const wrap = document.getElementById("dr-tags");
@@ -1024,27 +1107,31 @@ function renderDrawerTags(i) {
   wrap.querySelectorAll("[data-rm]").forEach((s) => (s.onclick = () => update(i.id, { tags: (i.tags || []).filter((x) => x !== s.dataset.rm) })));
   document.getElementById("dr-addtag").onclick = () => { const tg = (prompt(t("tags")) || "").trim(); if (tg) update(i.id, { tags: [...new Set([...(i.tags || []), tg])] }); };
 }
-function setListItemsSilent(id, itemIds) { const l = lists.find((x) => x.id === id); if (l) l.itemIds = itemIds; api.runtime.sendMessage({ type: "LIST_SET_ITEMS", id, itemIds }, (r) => { if (r?.lists) lists = r.lists; }); }
+function setListItemsSilent(id,itemIds) {return listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{const itemId=document.getElementById("drawer").dataset.itemId;if(itemId)refreshOpenItem(itemId);});}
 function closeDrawer() { document.getElementById("scrim").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); }
 /* ---- image cropper (upload · zoom · reposition), Discord-style ---- */
 // Aspect-aware cropper. The view IS the output shape, so the user sees exactly
 // what will be visible (YouTube-style for the wide banner).
 let CV_W = 280, CV_H = 280, CT_W = 512, CT_H = 512;
 let cropState = null; // { img, zoom, ox, oy, onSave, shape }
-function openCropper({ shape = "square", onSave, initial, title }) {
+function openCropper({ shape = "square", onSave, initial, title, allowClear = false }) {
   cropState = { img: null, zoom: 1, ox: 0, oy: 0, onSave, shape };
-  if (shape === "banner") { CV_W = 460; CV_H = 154; CT_W = 1200; CT_H = 400; }
-  else { CV_W = 280; CV_H = 280; CT_W = 512; CT_H = 512; }
+  if (shape === "banner") { CV_W = Math.min(460, Math.floor(innerWidth * .94 - 44)); CV_H = Math.round(CV_W / 3); CT_W = 1200; CT_H = 400; }
+  else { CV_W = Math.min(280, Math.floor(innerWidth * .94 - 44)); CV_H = CV_W; CT_W = 512; CT_H = 512; }
   const view = document.getElementById("crop-view");
   view.classList.toggle("circle", shape === "circle");
   view.style.width = CV_W + "px"; view.style.height = CV_H + "px";
   const canvas = document.getElementById("crop-canvas");
   canvas.width = CV_W; canvas.height = CV_H; canvas.style.width = CV_W + "px"; canvas.style.height = CV_H + "px";
   document.getElementById("crop-title").textContent = title || "Adjust image";
-  document.getElementById("crop-hint").textContent = shape === "banner" ? "Drag & zoom — this is exactly what will show" : "Drag to reposition · slide to zoom";
+  document.getElementById("crop-hint").textContent = "Drag to reposition · scroll or use the slider to zoom";
   document.getElementById("crop-zoom").value = 1;
   document.getElementById("crop-scrim").classList.add("open");
   document.getElementById("cropper").classList.add("open");
+  document.getElementById("crop-save").disabled = true;
+  document.getElementById("crop-remove").hidden = !allowClear;
+  document.getElementById("crop-url-row").hidden = !allowClear;
+  document.getElementById("crop-url").value = "";
   clearCanvas();
   if (initial) loadCropImage(initial); else document.getElementById("crop-input").click();
 }
@@ -1058,8 +1145,12 @@ function clearCanvas() {
   x.clearRect(0, 0, CV_W, CV_H); x.fillStyle = "#F0EEF6"; x.fillRect(0, 0, CV_W, CV_H);
 }
 function loadCropImage(src) {
+  const state = cropState;
+  if (!state) return;
   const img = new Image();
   img.onload = () => {
+    if (cropState !== state) return;
+    document.getElementById("crop-save").disabled = false;
     const cover = Math.max(CT_W / img.naturalWidth, CT_H / img.naturalHeight);
     cropState.img = img; cropState.cover = cover; cropState.zoom = 1;
     const dw = img.naturalWidth * cover, dh = img.naturalHeight * cover;
@@ -1067,6 +1158,7 @@ function loadCropImage(src) {
     document.getElementById("crop-zoom").value = 1;
     drawCrop();
   };
+  img.onerror = () => { if(cropState === state) document.getElementById("crop-hint").textContent = "This image could not be loaded. Choose another file."; };
   img.src = src;
 }
 function cropDims() { const s = cropState.cover * cropState.zoom; return { dw: cropState.img.naturalWidth * s, dh: cropState.img.naturalHeight * s }; }
@@ -1092,33 +1184,63 @@ function exportCrop() {
   const down = (e) => { if (!cropState || !cropState.img) return; const pt = e.touches ? e.touches[0] : e; drag = { x: pt.clientX, y: pt.clientY }; };
   const move = (e) => {
     if (!drag || !cropState || !cropState.img) return;
-    const pt = e.touches ? e.touches[0] : e; const rx = CT_W / CV_W, ry = CT_H / CV_H;
+    const pt = e.touches ? e.touches[0] : e; const bounds = view.getBoundingClientRect(); const rx = CT_W / bounds.width, ry = CT_H / bounds.height;
     cropState.ox += (pt.clientX - drag.x) * rx; cropState.oy += (pt.clientY - drag.y) * ry;
     drag = { x: pt.clientX, y: pt.clientY }; drawCrop(); if (e.cancelable) e.preventDefault();
   };
   const up = () => (drag = null);
   view.addEventListener("mousedown", down); window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
   view.addEventListener("touchstart", down, { passive: true }); view.addEventListener("touchmove", move, { passive: false }); view.addEventListener("touchend", up);
-  document.getElementById("crop-zoom").addEventListener("input", (e) => {
-    if (!cropState || !cropState.img) return;
-    const before = cropDims(); const fx = (CT_W / 2 - cropState.ox) / before.dw, fy = (CT_H / 2 - cropState.oy) / before.dh;
-    cropState.zoom = Number(e.target.value); const after = cropDims();
-    cropState.ox = CT_W / 2 - fx * after.dw; cropState.oy = CT_H / 2 - fy * after.dh; drawCrop();
-  });
+  const zoomAt = (value, x = CT_W / 2, y = CT_H / 2) => {
+    if (!cropState?.img) return;
+    const before = cropDims(), fx = (x - cropState.ox) / before.dw, fy = (y - cropState.oy) / before.dh;
+    cropState.zoom = Math.min(3, Math.max(1, value));
+    const after = cropDims();
+    cropState.ox = x - fx * after.dw; cropState.oy = y - fy * after.dh;
+    document.getElementById("crop-zoom").value = cropState.zoom;
+    drawCrop();
+  };
+  document.getElementById("crop-zoom").addEventListener("input", e => zoomAt(Number(e.target.value)));
+  view.addEventListener("wheel", e => {
+    if (!cropState?.img) return;
+    e.preventDefault();
+    const r = view.getBoundingClientRect();
+    const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? r.height : 1);
+    zoomAt(cropState.zoom * Math.exp(-Math.max(-200,Math.min(200,delta)) * .002), (e.clientX-r.left)/r.width*CT_W, (e.clientY-r.top)/r.height*CT_H);
+  }, {passive:false});
   document.getElementById("crop-file").onclick = () => document.getElementById("crop-input").click();
   document.getElementById("crop-input").addEventListener("change", (e) => {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
     if (!f) return; const rd = new FileReader(); rd.onload = () => loadCropImage(String(rd.result)); rd.readAsDataURL(f);
   });
   document.getElementById("crop-cancel").onclick = closeCropper;
-  document.getElementById("crop-save").onclick = () => { if (cropState && cropState.img && cropState.onSave) cropState.onSave(exportCrop()); closeCropper(); };
+  const commitCrop = async (clear, imageUrl) => {
+    const state=cropState;
+    if(!state?.onSave || (!clear && !imageUrl && !state.img))return;
+    const button=document.getElementById("crop-save");button.disabled=true;
+    try {
+      const saved=await state.onSave(imageUrl || (clear?"":exportCrop()));
+      if(cropState!==state)return;
+      if(saved===false){button.disabled=!state.img;return;}
+      closeCropper();
+    }catch{
+      if(cropState!==state)return;
+      document.getElementById("crop-hint").textContent="Could not save this image. Try another image.";
+      button.disabled=!state.img;
+    }
+  };
+  document.getElementById("crop-save").onclick=()=>commitCrop(false);
+  document.getElementById("crop-remove").onclick=()=>commitCrop(true);
+  document.getElementById("crop-use-url").onclick=()=>{
+    const input=document.getElementById("crop-url");
+    try {const url=new URL(input.value.trim());if(!["https:","http:"].includes(url.protocol))throw Error();input.setCustomValidity("");commitCrop(false,url.href);}
+    catch{input.setCustomValidity("Enter a valid https:// image URL.");input.reportValidity();}
+  };
+  document.getElementById("crop-url").oninput=e=>e.target.setCustomValidity("");
 })();
 
 function changeCover(apply, shape) {
-  const c = prompt("Cover — paste an image URL, type 'upload' to pick & crop a file, or leave blank to clear:", "");
-  if (c === null) return;
-  if (c.trim().toLowerCase() === "upload") { openCropper({ shape: shape || "square", title: t("cover"), onSave: apply }); return; }
-  apply(c.trim());
+  openCropper({shape:shape||"square",title:t("cover"),onSave:apply,allowClear:true});
 }
 
 /* ================= SETTINGS ================= */
@@ -1144,6 +1266,7 @@ function renderSettings() {
     </div>
     <div class="section-t">${t("newAlerts")}</div>
     <div class="panel"><div class="row"><div class="grow"><b>${t("newAlerts")}</b><small>${t("newAlertsSub")}</small></div><button class="switch ${settings.notifyNew ? "on" : ""}" id="sw-notify"></button></div></div>
+    <div class="panel"><div class="row"><div class="grow"><b>${settings.lang==='fr'?'Suivi automatique des vidéos enregistrées':'Automatically track saved videos'}</b><small>${settings.lang==='fr'?'Après ouverture de Yomu sur le lecteur, conserve la progression pendant la lecture.':'After opening Yomu on the player, keep progress updated while watching.'}</small></div><input id="set-autotrack" type="checkbox" aria-label="${settings.lang==='fr'?'Suivi automatique':'Automatic tracking'}" ${settings.autoTrack!==false?'checked':''}></div></div>
     <div class="section-t">${t("backup")}</div>
     <div class="panel">
       <div class="row"><div class="grow"><b>${t("yourLibrary")}</b><small>${t("exportRestore")}</small></div><button class="btn" id="export">${I.image} ${t("export")}</button><button class="btn" id="import">${t("import")}</button><input id="file" type="file" accept=".json,.csv,.xml,.zip,.tsv,application/json,application/zip" multiple hidden aria-label="${t("import")}" /></div>
@@ -1163,12 +1286,20 @@ function renderSettings() {
 }
 function wireSettings() {
   const nameEl = document.getElementById("set-name");
-  const saveProfile = (patch) => { settings.profile = { ...(settings.profile || {}), ...patch }; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { profile: settings.profile } }, (r) => { if (r?.settings) settings = r.settings; paintAvatar(); renderProfileMenu(); }); };
+  const saveProfile = patch => saveProfilePatch(patch).then(saved=>{renderSettings();return saved;});
   nameEl.onchange = () => saveProfile({ name: nameEl.value.trim() });
-  const pickPhoto = () => openCropper({ shape: "circle", title: t("changePhoto"), onSave: (data) => { saveProfile({ avatar: data }); renderSettings(); } });
+  const pickPhoto = () => openCropper({ shape: "circle", title: t("changePhoto"), initial:settings.profile?.avatar, onSave: data => saveProfile({avatar:data}) });
   document.getElementById("set-photo").onclick = pickPhoto;
   document.getElementById("set-avatar").onclick = pickPhoto;
   document.getElementById("sw-notify").onclick = () => { settings.notifyNew = !settings.notifyNew; document.getElementById("sw-notify").classList.toggle("on", settings.notifyNew); api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { notifyNew: settings.notifyNew } }, (r) => { if (r?.settings) settings = r.settings; }); };
+  document.getElementById("set-autotrack").onchange=e=>{
+    const input=e.currentTarget;input.disabled=true;
+    api.runtime.sendMessage({type:"SET_SETTINGS",patch:{autoTrack:input.checked}},r=>{
+      if(api.runtime.lastError||!r?.settings||r.ok===false){input.checked=settings.autoTrack!==false;toast(settings.lang==="fr"?"Réglage non enregistré":"Setting could not be saved");}
+      else settings=r.settings;
+      input.disabled=false;
+    });
+  };
   const uilang = document.getElementById("set-uilang");
   uilang.onchange = () => applyLanguage(uilang.value);
   const trlang = document.getElementById("set-trlang");
@@ -1195,13 +1326,21 @@ function renderAccountPanel() {
     }
     el.innerHTML = `
       <div class="row"><div class="grow"><b>${esc(s.email || "")}</b><small>${t("signedInAs")} · ${esc(s.plan || "free")}</small></div><button class="btn" id="acc-manage">${t("manageSync")}</button></div>
-      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changeEmail")}</b></div><input class="field" id="acc-email" type="email" placeholder="new@email.com" style="max-width:200px" /><button class="btn" id="acc-email-btn">${t("save")}</button></div>
-      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changePassword")}</b></div><input class="field" id="acc-pw-cur" type="password" placeholder="${t("currentPassword")}" style="max-width:150px" /><input class="field" id="acc-pw-new" type="password" placeholder="${t("newPassword")}" style="max-width:150px" /><button class="btn" id="acc-pw-btn">${t("save")}</button></div>`;
+      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changeEmail")}</b></div><input class="field" id="acc-email" type="email" placeholder="new@email.com" style="max-width:200px" /><input class="field" id="acc-email-current" type="password" autocomplete="current-password" placeholder="${t("currentPassword")}" style="max-width:150px" /><button class="btn" id="acc-email-btn">${t("save")}</button></div>
+      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changePassword")}</b></div><input class="field" id="acc-pw-cur" type="password" placeholder="${t("currentPassword")}" style="max-width:150px" /><input class="field" id="acc-pw-new" type="password" placeholder="${t("newPassword")}" style="max-width:150px" /><button class="btn" id="acc-pw-btn">${t("save")}</button></div>
+      <div class="row"><button class="btn" id="acc-logout-all">${settings.lang==='fr'?'Déconnecter tous les appareils':'Sign out all devices'}</button><button class="btn" id="acc-delete">${settings.lang==='fr'?'Supprimer mon compte':'Delete my account'}</button></div>`;
+    document.getElementById('acc-logout-all').onclick=()=>api.runtime.sendMessage({type:'SYNC_LOGOUT_ALL'},r=>{if(r?.ok){api.runtime.sendMessage({type:'GET_STATE'},hydrate);renderAccountPanel();}else toast(r?.error||'Try again');});
+    document.getElementById('acc-delete').onclick=()=>{
+      const current=document.getElementById('acc-pw-cur').value;
+      if(!current){toast(t('currentPassword'));return;}
+      if(!confirm(settings.lang==='fr'?'Supprimer définitivement ce compte et ses données synchronisées ? Une copie locale sera conservée.':'Permanently delete this account and its synced data? A local copy will be retained.'))return;
+      api.runtime.sendMessage({type:'SYNC_DELETE_ACCOUNT',current},r=>{if(r?.ok){api.runtime.sendMessage({type:'GET_STATE'},hydrate);renderAccountPanel();}else toast(r?.error||'Try again');});
+    };
     document.getElementById("acc-manage").onclick = () => api.runtime.openOptionsPage();
     document.getElementById("acc-email-btn").onclick = () => {
       const v = document.getElementById("acc-email").value.trim();
       if (!v) return;
-      api.runtime.sendMessage({ type: "SYNC_CHANGE_EMAIL", email: v }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changeEmail") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) renderAccountPanel(); });
+      api.runtime.sendMessage({ type: "SYNC_CHANGE_EMAIL", email: v,current:document.getElementById("acc-email-current").value }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changeEmail") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) renderAccountPanel(); });
     };
     document.getElementById("acc-pw-btn").onclick = () => {
       const cur = document.getElementById("acc-pw-cur").value, nw = document.getElementById("acc-pw-new").value;
@@ -1212,7 +1351,7 @@ function renderAccountPanel() {
 }
 function doExport() {
   const blob = new Blob([JSON.stringify({ version: 2, items, sites, notifications, lists, settings }, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `dasi-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);
+  const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `yomu-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);
 }
 // Universal import: accepts one or many files (JSON, CSV, XML, ZIP) from Yomu
 // or other trackers (Trakt, TV Time, IMDb, Letterboxd, MyAnimeList). Parses
@@ -1224,23 +1363,12 @@ async function doImport(e) {
     if (!window.YomuImport) { toast(t("importFailed")); return; }
     toast(t("importing"));
     const res = await window.YomuImport.parseFiles(files);
-    // A full Yomu backup (has sites/lists/settings) restores everything;
-    // anything else is an additive merge of works.
-    const isFullBackup = res.formats.includes("Yomu") && (res.sites || res.lists);
-    if (isFullBackup) {
-      api.runtime.sendMessage({ type: "IMPORT_STATE", payload: { items: res.items, sites: res.sites, lists: res.lists, settings: res.settings } }, () => {
-        api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
-        toast(t("importedN", { n: res.items.length }));
-      });
-      return;
-    }
-    if (!res.count) { toast(t("importNothing")); return; }
-    api.runtime.sendMessage({ type: "IMPORT_MERGE", items: res.items }, (r) => {
-      void api.runtime.lastError;
-      api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
-      const n = (r && (r.added + r.updated)) || res.count;
-      const src = res.formats.length ? " (" + res.formats.join(", ") + ")" : "";
-      toast(t("importedN", { n }) + src);
+    if(res.warnings.length)toast(res.warnings.join(' · '));
+    if (!res.count && !res.lists?.length && !res.sites?.length) { toast(t("importNothing")); return; }
+    api.runtime.sendMessage({type:"IMPORT_MERGE",payload:res}, r=>{
+      if(api.runtime.lastError || !r?.ok){toast(t("importFailed"));return;}
+      api.runtime.sendMessage({type:"GET_STATE"},hydrate);
+      toast(t("importedN",{n:r.added+r.updated})+(res.warnings.length?' · '+res.warnings.join(' · '):''));
     });
   } catch (err) {
     toast(t("importFailed"));
@@ -1259,16 +1387,11 @@ function buildShare(el) {
   sf.onclick = () => openUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(DASI_STORE_URL)}`);
   sw.onclick = () => openUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(SHARE_TEXT + " " + DASI_STORE_URL)}`);
   sr.onclick = () => openUrl(`https://www.reddit.com/submit?url=${encodeURIComponent(DASI_STORE_URL)}&title=${encodeURIComponent(SHARE_TEXT)}`);
-  sc.onclick = () => { try { navigator.clipboard?.writeText(DASI_STORE_URL); } catch {} toast("Link copied"); };
+  sc.onclick = async () => { try { await navigator.clipboard.writeText(DASI_STORE_URL);toast(settings.lang==='fr'?'Lien copié':'Link copied'); } catch {toast(settings.lang==='fr'?'Copie impossible. Réessaie.':'Could not copy. Try again.');} };
 }
 function buildRateStore(el) {
-  if (!el) return;
-  el.innerHTML = [1,2,3,4,5].map((n) => `<span data-v="${n}">${I.star}</span>`).join("");
-  const stars = [...el.querySelectorAll("span")];
-  const paint = (n) => stars.forEach((s, idx) => s.querySelector(".ic").classList.toggle("on", idx < n));
-  stars.forEach((s) => (s.onmouseenter = () => paint(Number(s.dataset.v))));
-  el.onmouseleave = () => paint(0);
-  el.onclick = () => { paint(5); setTimeout(() => openUrl(DASI_STORE_URL), 350); };
+  if(!el)return;
+  el.innerHTML=`<a class="btn" href="${DASI_STORE_URL}" target="_blank" rel="noopener noreferrer">${settings.lang==='fr'?'Voir le projet Yomu':'Open the Yomu project'}</a>`;
 }
 
 /* ================= chrome (header, nav, menus) ================= */
@@ -1342,7 +1465,7 @@ function switchView(v) {
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${v}`));
   document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.v === v));
   if (v === "home") { renderHome(); } else clearInterval(spotTimer);
-  if (v === "library") { if (!currentListId) { document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true; } renderLists(); renderSites(); }
+  if (v === "library") { currentListId = null; if (!currentListId) { document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true; } renderLists(); renderSites(); renderGrid(); }
   if (v === "games") renderGames();
   if (v === "plans") renderPlans();
   if (v === "settings") renderSettings();
@@ -1379,21 +1502,39 @@ document.getElementById("bell").onclick = (e) => {
     if ((notifications || []).some((n) => !n.read)) api.runtime.sendMessage({ type: "NOTIF_READ_ALL" }, (r) => { notifications = r?.notifications || notifications.map((n) => ({ ...n, read: true })); renderBell(); });
   }
 };
-document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("profile-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
+document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); closeMenus(); switchView("settings"); };
 document.getElementById("lang-btn").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("lang-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
 document.getElementById("go-pro").onclick = () => { clearSearchResults(); switchView("plans"); };
 document.addEventListener("click", (e) => { if (!e.target.closest(".top-right")) closeMenus(); if (!e.target.closest(".qa-menu") && !e.target.closest(".quick-add")) closeQuickAdd(); });
-document.getElementById("q").addEventListener("input", (e) => { query = e.target.value; if (view !== "library") switchView("library"); renderGrid(); if (!query) clearSearchResults(); });
+document.getElementById("q").addEventListener("input", (e) => {
+  clearSearchResults(); query = e.target.value; currentListId = null;
+  if (view !== "library") switchView("library");
+  document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true;
+  renderGrid(); const q = query.trim();
+  if (q.length >= 2) {
+    document.getElementById("lib-main").classList.add("searching");
+    document.getElementById("search-results").innerHTML = '<div class="sr-wrap" role="status"><span class="spinner"></span> '+t("searching")+'…</div>';
+    searchTimer = setTimeout(() => catalogSearch(q), 300);
+  }
+});
 document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library") switchView("library"); catalogSearch(query.trim()); } });
 
-function clearSearchResults() { const el = document.getElementById("search-results"); if (el) el.innerHTML = ""; const m = document.getElementById("lib-main"); if (m) m.classList.remove("searching"); }
+let searchVersion = 0, searchTimer = null;
+function clearSearchResults() { searchVersion++; clearTimeout(searchTimer); lastResults = []; const el = document.getElementById("search-results"); if (el) el.innerHTML = ""; const m = document.getElementById("lib-main"); if (m) m.classList.remove("searching"); }
 let srCountry = "all";
 function catalogSearch(q) {
+  clearTimeout(searchTimer);
+  const version = ++searchVersion;
   const el = document.getElementById("search-results");
   const main = document.getElementById("lib-main"); if (main) main.classList.add("searching"); // become a search page
   el.innerHTML = `<div class="sr-wrap"><div class="sr-head"><span class="spinner"></span> ${t("searching")} “${esc(q)}”…</div></div>`;
   api.runtime.sendMessage({ type: "CATALOG_SEARCH", query: q }, (r) => {
-    void api.runtime.lastError;
+    const networkError = api.runtime.lastError;
+    if (version !== searchVersion || view !== "library" || query.trim() !== q) return;
+    if (networkError || !r || !r.ok) {
+      el.innerHTML = `<div class="sr-wrap" role="status"><div class="sr-head">${t("searchTitle")} · “${esc(q)}”</div><p>${settings.lang === "fr" ? "Les catalogues ne répondent pas. Réessaie dans un instant." : "The catalogs could not be reached. Please try again."}</p><button class="btn" id="search-retry">${t("refresh")}</button></div>`;
+      document.getElementById("search-retry").onclick = () => catalogSearch(q); return;
+    }
     if (!r || !r.ok || !r.results || !r.results.length) {
       el.innerHTML = `<div class="sr-wrap"><div class="sr-head">${t("searchTitle")} · “${esc(q)}”</div><p class="sr-empty">${t("noMatch")}</p></div>`;
       return;
@@ -1418,26 +1559,40 @@ function renderSearchResults(q) {
     ${shown.length ? shown.map((m) => srRow(m, lastResults.indexOf(m))).join("") : `<p class="sr-empty">${t("noMatch")}</p>`}</div>`;
   el.querySelectorAll("[data-srf]").forEach((b) => (b.onclick = () => { srFilter = b.dataset.srf; renderSearchResults(q); }));
   el.querySelectorAll("[data-src]").forEach((b) => (b.onclick = () => { srCountry = b.dataset.src; renderSearchResults(q); }));
+  el.querySelectorAll("[data-preview]").forEach((b) => b.onclick = () => openCatalogPreview(lastResults[Number(b.dataset.preview)]));
   shown.forEach((m) => { const idx = lastResults.indexOf(m); const btn = el.querySelector(`[data-add-cat="${idx}"]`); if (btn) btn.onclick = () => addFromCatalog(m, btn); });
 }
 function srRow(m, idx) {
   const tags = (m.genres || []).slice(0, 3).map((g) => `<span class="tag">${esc(g)}</span>`).join("");
   const meta = [m.season, m.price].filter(Boolean).join(" · ");
   return `<div class="sr-row">
-    <div class="sc"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}</div>
+    <button class="sc" data-preview="${idx}" aria-label="${esc(t("details") + ": " + m.title)}"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}</button>
     <div class="si"><b>${esc(m.title)}<span class="cat">${esc(catLabel(m))}</span></b><small>${esc(meta)}${m.synopsis ? (meta ? " — " : "") + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
     <button class="btn primary" data-add-cat="${idx}">${I.plus} ${t("add")}</button>
   </div>`;
 }
+function openCatalogPreview(m) {
+  delete document.getElementById("drawer").dataset.itemId;
+  if (!m) return;
+  const drawer = document.getElementById("drawer");
+  const labels = settings.lang === "fr" ? {add:"Ajouter à ma bibliothèque", destination:"Ajouter à une liste", lib:"Bibliothèque", source:"Voir la fiche source"} : {add:"Add to my library",destination:"Add to a list",lib:"Library",source:"Open source page"};
+  drawer.innerHTML = '<div class="drawer-hero"><button id="preview-close" class="icon-btn drawer-close" aria-label="Close">'+I.close+'</button><div class="drawer-cover"><span class="cover-ph">'+esc(m.title[0])+'</span>'+covImg(m.cover,m.coverFallback)+'</div><h2 class="drawer-title">'+esc(m.title)+'</h2><p class="preview-meta">'+esc([catLabel(m),m.country,m.releaseDate || m.year,m.platform].filter(Boolean).join(' · '))+'</p></div><div class="drawer-body"><p class="synopsis">'+esc(m.synopsis || '')+'</p><div class="tags">'+(m.genres || []).map(g=>'<span class="tag">'+esc(g)+'</span>').join('')+'</div><div class="preview-actions"><label for="preview-list">'+labels.destination+'</label><select class="field" id="preview-list"><option value="">'+labels.lib+'</option>'+lists.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join('')+'</select><button class="btn primary" id="preview-add">'+I.plus+' '+labels.add+'</button>'+( /^https?:\/\//.test(m.url || '') ? '<a class="btn" target="_blank" rel="noopener noreferrer" href="'+esc(m.url)+'">'+I.open+' '+labels.source+'</a>' : '')+'</div></div>';
+  drawer.setAttribute("role","dialog"); drawer.setAttribute("aria-modal","true"); drawer.setAttribute("aria-label",m.title);
+  drawer.classList.add("open"); document.getElementById("scrim").classList.add("open");
+  document.getElementById("preview-close").onclick = closeDrawer;
+  document.getElementById("preview-add").onclick = e => addFromCatalog({...m,listId:document.getElementById("preview-list").value},e.currentTarget);
+  document.getElementById("preview-close").focus();
+}
 function addFromCatalog(m, btn) {
   const payload = {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, coverFallback: m.coverFallback || undefined, synopsis: m.synopsis || undefined,
-    genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? m.season : undefined,
+    genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds,
     format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
   };
   if (btn) { btn.disabled = true; btn.innerHTML = I.check; }
-  api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload }, () => {
+  api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload, listId: m.listId || undefined }, (saved) => {
+    if (api.runtime.lastError || !saved || saved.ok === false) { if(btn){btn.disabled=false;btn.innerHTML=I.plus+" "+t("add");} toast(settings.lang === "fr" ? "Sauvegarde impossible. Réessaie." : "Could not save. Try again."); return; }
     api.runtime.sendMessage({ type: "GET_STATE" }, (s) => {
       hydrate(s);
       toast(m.title + " ✓");
@@ -1475,3 +1630,5 @@ function hydrate(state) {
   if (!discoverTried) loadDiscover(false);
 }
 api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
+
+document.addEventListener("load", (event) => { const im=event.target; if(im instanceof HTMLImageElement && im.matches("img.cov")) im.classList.toggle("landscape", im.naturalWidth > im.naturalHeight * 1.2); }, true);

@@ -437,10 +437,33 @@
       .crop-view.circle { border-radius:50%; } .crop-view:active { cursor:grabbing; }
       .crop-view canvas { display:block; }
       #crop-zoom { width:100%; margin:16px 0 4px; accent-color:var(--lav-ink); }
-      .crop-actions { display:flex; align-items:center; gap:8px; margin-top:8px; }
+      .crop-actions { flex-wrap:wrap; display:flex; align-items:center; gap:8px; margin-top:8px; }
       .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#241F33; color:#fff; padding:11px 18px; border-radius:12px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:.25s; z-index:80; box-shadow:0 12px 30px rgba(0,0,0,.25); } .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
       input[type=file] { display:none; }
-    </style>
+
+      /* Media always stays inside its own frame, including search/list previews. */
+      :where(.sc,.cover,.li-cover,.li-card-cov,.rank-art,.art,.game-cover,.drawer-cover,.list-cover,.lc) { position:relative; overflow:hidden; isolation:isolate; }
+      img.cov { max-width:100%; max-height:100%; }
+      img.cov.landscape { object-fit:contain; background:var(--card); }
+      [hidden] { display:none !important; }
+      :focus-visible { outline:3px solid var(--lav-ink); outline-offset:3px; }
+      main { max-width:1480px; padding-inline:clamp(20px,4vw,60px); }
+      .sr-row { padding:14px; gap:18px; } .sr-row .sc { width:84px; height:112px; border:0; cursor:pointer; }
+      .sr-row .si b { font-size:18px; } .sr-row .si small { font-size:14px; line-height:1.5; }
+      .rank-card,.rank-art { width:180px; } .rank-art { height:260px; }
+      .rank-card h4 { font-size:15px; white-space:normal; min-height:38px; } .rank-card small { font-size:12px; }
+      .plan-grid.two { max-width:1100px; margin-inline:auto; } .plan li { font-size:15px; line-height:1.6; }
+      .disco-track { animation:none; transform:none; width:max-content; will-change:auto; }
+      .disco-wrap { overflow-x:auto; } .preview-meta { color:var(--muted); line-height:1.7; }
+      .preview-actions { display:grid; gap:12px; margin-top:24px; }
+      @media(max-width:680px) { header { flex-wrap:wrap; gap:12px; padding:12px 16px; } .search { order:3; width:100%; flex-basis:100%; } .top-right { margin-left:auto; } nav.tabs { order:4; width:100%; } nav.tabs button { flex:1; } .brand .shine { display:inline; } .pro-btn { height:42px; padding-inline:12px; } .sr-row { gap:10px; } .sr-row .sc { width:60px; height:82px; } .sr-row .si b { font-size:15px; } .sr-row .si small { font-size:12px; } .sr-row > .btn { padding:10px; } .plan-grid.two { grid-template-columns:1fr; } }
+    .avatar { padding:0; flex-shrink:0; }
+.avatar img,.avatar-lg img,.dash-av img {display:block; min-width:0; min-height:0; object-position:center; border-radius:inherit;}
+.cropper {width: min(520px,94vw); box-sizing:border-box; max-height:94vh; overflow:auto;}
+.crop-view {max-width:100%;}
+.crop-view canvas {width:100%!important;height:100%!important;}
+.list-bulk{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:14px;margin:12px 0;background:var(--card);border:1px solid var(--line);border-radius:14px;font-size:12px}.list-bulk label{display:flex;align-items:center;gap:6px}.list-bulk select{padding:8px;border:1px solid var(--line);border-radius:8px;max-width:100%;background:var(--card);color:var(--ink)}.list-bulk button:disabled{opacity:.45;cursor:default}.list-select{width:18px;height:18px;accent-color:var(--lav-ink);flex-shrink:0}.li-card{position:relative}.li-card>.list-select{position:absolute;top:8px;left:8px;z-index:2}.li-row.selected,.li-card.selected{outline:2px solid var(--lav-ink);outline-offset:2px}.list-bulk :focus-visible,.list-select:focus-visible{outline:2px solid var(--lav-ink);outline-offset:3px}
+</style>
   </head>
   <body>
     <header>
@@ -482,17 +505,19 @@
     <aside class="drawer" id="drawer"></aside>
 
     <div class="crop-scrim" id="crop-scrim"></div>
-    <div class="cropper" id="cropper" role="dialog" aria-modal="true">
+    <div class="cropper" id="cropper" role="dialog" aria-modal="true" aria-labelledby="crop-title">
       <h3 id="crop-title">Adjust image</h3>
       <p class="crop-hint" id="crop-hint">Drag to reposition · slide to zoom</p>
       <div class="crop-view" id="crop-view"><canvas id="crop-canvas" width="280" height="280"></canvas></div>
-      <input type="range" id="crop-zoom" min="1" max="3" step="0.01" value="1" />
+      <input type="range" id="crop-zoom" aria-label="Image zoom" min="1" max="3" step="0.01" value="1" />
       <div class="crop-actions">
         <button class="btn" id="crop-file">Choose image</button>
+        <button class="btn" id="crop-remove" hidden>Remove</button>
         <span style="flex:1"></span>
         <button class="btn" id="crop-cancel">Cancel</button>
         <button class="btn primary" id="crop-save">Save</button>
       </div>
+      <div id="crop-url-row" hidden style="margin-top:12px"><label for="crop-url">Image URL</label><div style="display:flex;gap:8px;margin-top:6px"><input class="field" id="crop-url" type="url" placeholder="https://…" style="min-width:0;flex:1"><button class="btn" id="crop-use-url">Use URL</button></div></div>
       <input id="crop-input" type="file" accept="image/*" />
     </div>
 
