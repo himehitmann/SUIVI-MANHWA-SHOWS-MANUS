@@ -2,7 +2,7 @@ name: Yomu quality
 on:
   pull_request:
   push:
-    branches: [main, private, 'fix/**']
+    branches: [main, private, "fix/**"]
 permissions:
   contents: read
 concurrency:
@@ -33,6 +33,9 @@ jobs:
       - run: pnpm test:web
       - run: pnpm build:extension
       - run: pnpm test:package
+      - run: node tests/e2e/crop.mjs
+      - run: node tests/e2e/bulk-lists.mjs
+      - run: node tests/e2e/video.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

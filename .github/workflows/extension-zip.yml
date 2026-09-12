@@ -14,7 +14,14 @@ on:
       - "options.html"
       - "library.html"
       - "icon.png"
-      - "scripts/pack-extension.sh"
+      - "scripts/**"
+      - "shared/**"
+      - "tesseract/**"
+      - "vendor/**"
+      - "offscreen.html"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tests/**"
       - ".github/workflows/extension-zip.yml"
   workflow_dispatch:
 
@@ -26,11 +33,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
 
       - name: Zip the extension files (manifest at the zip root)
         run: |
-          bash scripts/pack-extension.sh
+          pnpm build:extension
           unzip -l yomu-extension.zip
+
+      - name: Verify the exact archive before publication
+        run: pnpm test:package
 
       - name: Upload as workflow artifact
         uses: actions/upload-artifact@v4
