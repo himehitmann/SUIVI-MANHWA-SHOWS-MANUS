@@ -374,3 +374,18 @@ describe("release check isolation",()=>{
     await Promise.all([w.run("checkGameReleases()"),w.run("checkGameReleases()")]);expect(w.run("steamCalls")).toBe(1);expect(w.data["dasi.items"][0].released).toBe(true);expect(w.data["dasi.notifications"]).toHaveLength(1);
   });
 });
+
+
+describe("translation rate limits",()=>{
+  it("does not expand a rate-limited batch into per-line requests",async()=>{
+    const w=worker();w.run("globalThis.requests=0;fetch=async()=>{requests++;return {status:429,ok:false,headers:{get:()=> '120'}};}");
+    await expect(w.run("translateTexts(['hello','world'],'fr')")).rejects.toThrow("translation_rate_limited");expect(w.run("requests")).toBe(1);
+    await expect(w.run("gtxTranslate('again','fr')")).rejects.toThrow("translation_rate_limited");expect(w.run("requests")).toBe(1);
+  });
+});
+
+
+it("retains the translation cooldown after restarting the worker",async()=>{
+  const w=worker({"yomu.translationRetryAt":Date.now()+120000});w.run("globalThis.requests=0;fetch=async()=>{requests++;throw Error('unexpected request');}");
+  await expect(w.run("gtxTranslate('hello','fr')")).rejects.toThrow("translation_rate_limited");expect(w.run("requests")).toBe(0);
+});

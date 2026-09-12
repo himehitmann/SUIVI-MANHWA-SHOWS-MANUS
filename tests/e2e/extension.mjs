@@ -321,6 +321,18 @@ try {
   assert.equal(await worker.evaluate(()=>globalThis.panelAttempts),2);
   await reader.locator("#yomu-translation-status button").first().click();
   await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
+  // CDN blocks extension downloads; page-origin fetch supplies the image to local OCR.
+  await reader.route("https://reader-images.example/panel.png",r=>r.fulfill({contentType:"image/png",headers:{"access-control-allow-origin":"*"},body:png}));
+  await reader.locator("#panel").evaluate(async im=>{im.src="https://reader-images.example/panel.png";await im.decode();});
+  await worker.evaluate(()=>{
+    globalThis.fallbackCalls=[];
+    translateImageText=async(url,...args)=>{globalThis.fallbackCalls.push(url.startsWith("data:")?"data":"remote");if(url==="https://reader-images.example/panel.png")throw new Error("img_403");return globalThis.savedPanelTranslator(url,...args);};
+  });
+  await page.evaluate(()=>chrome.runtime.sendMessage({type:"DASI_TRANSLATE",lang:"fr",src:"eng"}));
+  await reader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  assert.deepEqual(await worker.evaluate(()=>globalThis.fallbackCalls),["remote","data"]);
+  await reader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(

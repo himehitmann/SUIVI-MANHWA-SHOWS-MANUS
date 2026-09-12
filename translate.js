@@ -30,6 +30,21 @@
         else resolve(result);
       })
     );
+  async function requestPanel(source,target,src) {
+    try {return await request({type:"TRANSLATE_IMAGE_TEXT",url:source,target,src});}
+    catch(error) {
+      // Some image CDNs require the normal page referrer. A content-script fetch
+      // uses that referrer and still obeys the CDN's CORS policy.
+      if(error.message!=="img_403" || !/^https?:/.test(source))throw error;
+      const response=await fetch(source,{credentials:"omit",signal:AbortSignal.timeout(15000)});
+      if(!response.ok)throw new Error("img_"+response.status);
+      const blob=await response.blob();
+      if(blob.size>25*1024*1024)throw new Error("image_too_large");
+      if(!blob.type.startsWith("image/"))throw new Error("not_an_image");
+      const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("image_read_failed"));reader.readAsDataURL(blob);});
+      return request({type:"TRANSLATE_IMAGE_TEXT",url:dataUrl,target,src});
+    }
+  }
   function status(message) {
     if (!pill) {
       pill = document.createElement("div");
@@ -93,7 +108,7 @@
     if (
       lazy &&
       (!im.naturalWidth ||
-        /placeholder|blank|spacer|^data:image\/gif/i.test(current))
+        /placeholder|blank|spacer|bg_transparency|^data:image\/gif/i.test(current))
     )
       return new URL(lazy, location.href).href;
     return current || (lazy ? new URL(lazy, location.href).href : "");
@@ -277,12 +292,7 @@
         try {
           const source = imageSource(im);
           if (!source) continue;
-          const result = await request({
-            type: "TRANSLATE_IMAGE_TEXT",
-            url: source,
-            target,
-            src,
-          });
+          const result = await requestPanel(source,target,src);
           if (run !== token) return;
           if (imageSource(im) !== source) continue;
           failures.delete(im); failed = failures.size;
@@ -291,7 +301,7 @@
             done++;
           } else empty++;
         } catch (e) {
-          if (run === token) {failures.add(im);failed=failures.size;lastError=String(e.message||e).slice(0,120);}
+          if (run === token) {failures.add(im);failed=failures.size;lastError=e.message==="translation_rate_limited"?wording("service temporairement limité, patiente au moins une minute","service temporarily rate-limited, wait at least one minute"):String(e.message||e).slice(0,120);}
         }
       }
       active = 0;

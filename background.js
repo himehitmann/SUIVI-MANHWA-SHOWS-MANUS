@@ -420,9 +420,13 @@ async function addItemToList(itemId, listId, listName) {
  * cross-origin fetch uses the extension's host permissions instead of the
  * page's CSP. Best-effort: a failed segment returns the original text.
  */
+let translationRetryAt=0, translationRetryLoaded=false;
 async function gtxTranslate(text, target) {
+  if(!translationRetryLoaded){translationRetryAt=Math.max(translationRetryAt,Number(await read("yomu.translationRetryAt",0))||0);translationRetryLoaded=true;}
+  if(Date.now()<translationRetryAt)throw new Error("translation_rate_limited");
   const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(text)}`;
   const r = await fetchRemote(url);
+  if(r.status===429){const retry=r.headers.get("retry-after");const seconds=Number(retry);const delay=retry?(Number.isFinite(seconds)?seconds*1000:Date.parse(retry)-Date.now()):60000;translationRetryAt=Date.now()+Math.max(60000,Number.isFinite(delay)?delay:60000);await api.storage.local.set({"yomu.translationRetryAt":translationRetryAt});throw new Error("translation_rate_limited");}
   if (!r.ok) throw new Error(`gtx_${r.status}`);
   const j = await r.json();
   if(!Array.isArray(j && j[0])) throw new Error("translation_response_invalid");
@@ -450,8 +454,9 @@ async function translateTexts(texts, target) {
         const tr = await gtxTranslate(joined, target);
         const parts = tr.split(SEP);
         if (parts.length === chunk.length) { parts.forEach((p, k) => (out[i + k] = p)); ok = true; }
-      } catch {
-        /* fall through to per-item */
+      } catch(error) {
+        if(error.message==="translation_rate_limited")throw error;
+        /* fall through to per-item only for other failures */
       }
     }
     if (!ok) for (let k = 0; k < chunk.length; k++) out[i + k] = await translateOne(chunk[k], target);
