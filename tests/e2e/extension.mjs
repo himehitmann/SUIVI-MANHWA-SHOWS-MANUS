@@ -247,16 +247,11 @@ try {
     ),
     "Tall image lost its bottom text"
   );
-  await tall.setViewportSize({ width: 720, height: 1000 });
-  await tall.setContent(
-    '<body style="margin:0;background:white"><p style="position:absolute;top:200px;left:80px;font:48px sans-serif">こんにちは 世界</p></body>'
-  );
-  const japanese =
-    "data:image/png;base64," + (await tall.screenshot()).toString("base64");
-  await fs.writeFile(path.join(artifactDir,"japanese-fixture.png"),Buffer.from(japanese.split(",")[1],"base64"));
-  await tall.setContent('<body style="margin:0;background:white"><div style="position:absolute;top:120px;right:180px;height:700px;writing-mode:vertical-rl;font:52px sans-serif">こんにちは世界</div></body>');
-  const verticalJapanese='data:image/png;base64,'+(await tall.screenshot()).toString('base64');
-  await fs.writeFile(path.join(artifactDir,'japanese-vertical-fixture.png'),Buffer.from(verticalJapanese.split(',')[1],'base64'));
+  // Fixed raster inputs keep OCR assertions independent of OS font substitution.
+  const japanese = "data:image/png;base64," +
+    (await fs.readFile(new URL("../fixtures/japanese-fixture.png", import.meta.url))).toString("base64");
+  const verticalJapanese = "data:image/png;base64," +
+    (await fs.readFile(new URL("../fixtures/japanese-vertical-fixture.png", import.meta.url))).toString("base64");
   const verticalOcr=await worker.evaluate(async d=>ocrViaTesseract(d,'jpn'),verticalJapanese);
   console.log('Vertical Japanese OCR:',JSON.stringify(verticalOcr.lines));
   assert(verticalOcr.lines.join('').includes('世界'),'Japanese vertical text was not recognized');
