@@ -389,3 +389,24 @@ it("retains the translation cooldown after restarting the worker",async()=>{
   const w=worker({"yomu.translationRetryAt":Date.now()+120000});w.run("globalThis.requests=0;fetch=async()=>{requests++;throw Error('unexpected request');}");
   await expect(w.run("gtxTranslate('hello','fr')")).rejects.toThrow("translation_rate_limited");expect(w.run("requests")).toBe(0);
 });
+
+describe("import catalog enrichment", () => {
+  it("fills a matching series without changing viewing progress", async () => {
+    const w=worker({"dasi.items":[{id:"show",title:"The Example",type:"watching",season:2,episode:7,updatedAt:1}]});
+    w.run('catalogSearchAll=async()=>[{title:"The Example",type:"watching",format:"SERIES",cover:"https://example.org/poster.jpg",synopsis:"A series.",genres:["Drama"]}]');
+    await w.run('enrichWork("show")');
+    expect(w.data["dasi.items"][0]).toMatchObject({format:"SERIES",season:2,episode:7,synopsis:"A series."});
+  });
+  it("does not enrich a conflicting film adaptation", async () => {
+    const w=worker({"dasi.items":[{id:"show",title:"The Example",type:"watching",format:"ANIME",episode:7,updatedAt:1}]});
+    w.run('catalogSearchAll=async()=>[{title:"The Example",type:"watching",format:"MOVIE",cover:"https://example.org/wrong.jpg",genres:[]}]');
+    await w.run('enrichWork("show")');
+    expect(w.data["dasi.items"][0].cover).toBeUndefined();
+  });
+  it("does not overwrite changes made during a catalog lookup", async () => {
+    const w=worker({"dasi.items":[{id:"show",title:"The Example",type:"watching",updatedAt:1}]});
+    w.run('catalogSearchAll=async()=>{await chrome.storage.local.set({"dasi.items":[{id:"show",title:"The Example",type:"watching",cover:"manual",updatedAt:2}]});return [{title:"The Example",type:"watching",format:"SERIES",cover:"automatic",genres:[]}]}');
+    await w.run('enrichWork("show")');
+    expect(w.data["dasi.items"][0].cover).toBe("manual");
+  });
+});
