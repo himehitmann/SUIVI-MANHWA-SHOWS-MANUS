@@ -50,6 +50,16 @@
     return "";
   };
 
+  const importStatus = raw => {
+    const value = String(raw || "").trim().toLowerCase().replace(/[ _-]+/g, " ");
+    if (["completed","complete","finished","terminé","terminée"].includes(value)) return "completed";
+    if (["on hold","paused","pause","en pause"].includes(value)) return "on_hold";
+    if (["dropped","abandoned","abandonné","abandonnée"].includes(value)) return "dropped";
+    if (["planned","plan to watch","plan to read","watchlist","want to watch","want to read"].includes(value)) return "planned";
+    if (["watching","reading","current","in progress","en cours"].includes(value)) return "current";
+    return undefined;
+  };
+
   // Build a Yomu import payload from a loosely-shaped media record.
   function toPayload(rec, hintType) {
     if (!rec || typeof rec !== "object") return null;
@@ -65,7 +75,7 @@
 
     let type = hintType || asType(rec.type || src.type || src.media_type || src.Title_Type || src["Title Type"] || (rec.movie ? "movie" : rec.show ? "show" : ""));
     if (!type) type = "watching";
-    const format = inferFormat(src.format || src.Format || src.kind || src.media_type || src.type || rec.type || rec.list_type, type);
+    const format = inferFormat(src.format || src.Format || src.kind || src.media_type || src.type || rec.type || src.Title_Type || src["Title Type"] || (rec.movie ? "movie" : rec.show || rec.series ? "series" : ""), type);
 
     const yearRaw = firstString(src, ["year", "Year", "release_year", "first_air_date", "startDate"]);
     const year = yearRaw ? parseInt(yearRaw, 10) || undefined : undefined;
@@ -97,8 +107,8 @@
     if (type === "reading" && !chapter && episode) { chapter = episode; episode = undefined; }
 
     const cover = firstString(src, ["cover", "image", "poster", "thumb", "Image"]) || undefined;
-    const total = num(src.total) || num(src.episodes) || num(src.total_episodes) || num(src.totalEpisodes) || num(src.num_episodes);
-    const status = /plan|watchlist|want|planned/i.test(String(rec.list_type || rec.status || src.status || "")) ? "planned" : undefined;
+    const total = num(src.total) || (type === "reading" ? num(src.chapters) || num(src.total_chapters) || num(src.num_chapters) : num(src.episodes) || num(src.total_episodes) || num(src.totalEpisodes) || num(src.num_episodes));
+    const status = importStatus(src.my_status || rec.status || src.status || rec.list_type);
 
     return {
       title, type, format: format || undefined, year, url, cover, total,
@@ -171,14 +181,19 @@
   function collectFromXml(text, out) {
     try {
       const doc = new DOMParser().parseFromString(text, "application/xml");
-      const isManga = !!doc.querySelector("manga");
+      
       doc.querySelectorAll("anime, manga").forEach((node) => {
+        const isManga = node.tagName.toLowerCase() === "manga";
         const g = (t) => (node.querySelector(t)?.textContent || "").trim();
         const title = g("series_title") || g("manga_title") || g("title");
         if (!title) return;
         out.push({
           title,
           type: isManga ? "reading" : "watching",
+          format: isManga ? "MANGA" : "ANIME",
+          total: parseInt(g(isManga ? "series_chapters" : "series_episodes"), 10) || undefined,
+          status: importStatus(g("my_status")),
+          externalIds: { mal: g(isManga ? "series_mangadb_id" : "series_animedb_id") || undefined },
           episode: isManga ? undefined : parseInt(g("my_watched_episodes"), 10) || undefined,
           chapter: isManga ? parseInt(g("my_read_chapters"), 10) || undefined : undefined,
           rating: (() => { const s = Math.round((parseInt(g("my_score"), 10) || 0) / 2); return s > 0 ? s : undefined; })(),
