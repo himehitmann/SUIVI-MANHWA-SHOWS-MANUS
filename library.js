@@ -1651,6 +1651,7 @@ api.storage.onChanged.addListener((changes, area) => {
   storageRefresh = setTimeout(() => api.runtime.sendMessage({ type: "GET_STATE" }, state => {
     if (api.runtime.lastError || !Array.isArray(state?.items)) return;
     items = state.items;
+    if (Array.isArray(state.lists)) lists = state.lists;
     // Preserve selected list rows, open editors, profile and navigation state.
     renderGrid();
     renderStats();
@@ -1668,12 +1669,14 @@ async function completeMissingMetadata() {
   const button = document.getElementById("complete-metadata");
   const label = document.getElementById("metadata-status");
   const fr = settings.lang === "fr";
-  const candidates = items.filter(item => !coverUrl(item) || !item.synopsis);
-  let checked = 0, matched = 0;
+  const candidates = items.filter(item => !coverUrl(item) || !item.synopsis || (item.type === "reading" && item.identityVersion !== 1));
+  let checked = 0, matched = 0, merged = 0;
+  const mergedIds = new Set();
   if (button) button.disabled = true;
   try {
     for (const item of candidates) {
       if (!button?.isConnected) break;
+      if (mergedIds.has(item.id)) {checked++;continue;}
       if (label) label.textContent = (fr ? "Recherche " : "Checking ") + (checked + 1) + "/" + candidates.length;
       const response = await new Promise((resolve, reject) => api.runtime.sendMessage({type:"COMPLETE_ITEM_METADATA",id:item.id}, result => {
         if (api.runtime.lastError || !result?.ok) reject(new Error(result?.error || "metadata_unavailable"));
@@ -1681,9 +1684,12 @@ async function completeMissingMetadata() {
       }));
       checked++;
       if (response.matched) matched++;
-      if (response.item) items = items.map(saved => saved.id === item.id ? response.item : saved);
+      for (const id of response.mergedIds || []) mergedIds.add(id);
+      merged += (response.mergedIds || []).length;
+      if (response.item) items = items.filter(saved => !mergedIds.has(saved.id)).map(saved => saved.id === response.item.id ? response.item : saved);
+      if (response.lists) lists = response.lists;
     }
-    if (label) label.textContent = fr ? checked + " fiches vérifiées · " + matched + " complétées. Les correspondances incertaines restent inchangées." : checked + " checked · " + matched + " completed. Uncertain matches are left unchanged.";
+    if (label) label.textContent = fr ? checked + " fiches vérifiées · " + matched + " complétées · " + merged + " doublons regroupés. Les correspondances incertaines restent inchangées." : checked + " checked · " + matched + " completed · " + merged + " duplicates combined. Uncertain matches are left unchanged.";
   } catch {
     if (label) label.textContent = fr ? "Recherche interrompue. Les résultats enregistrés sont conservés ; tu peux réessayer." : "Search interrupted. Saved results are retained; you can retry.";
   } finally {
