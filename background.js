@@ -860,6 +860,7 @@ async function enrichGame(id) {
   if(!it || it.type!=="game" || (it.enrichedAt && it.cover && it.synopsis)) return;
   let match;
   try { match=(await steamSearch(it.title)).find(r=>sameWork(r.title,it.title)); } catch { return; }
+  if (!match) return;
   const patch={enrichedAt:Date.now(),format:it.format||"Game"};
   if(match) {
     if(!it.coverOverride && match.cover) patch.cover=match.cover;
