@@ -466,3 +466,54 @@ describe("multilingual work identity",()=>{
     expect(result.externalIds).toEqual({anilist:"123",mal:"456"});
   });
 });
+
+describe("confirmed reading duplicate consolidation",()=>{
+  it("repairs already illustrated records and combines multilingual duplicates atomically",async()=>{
+    const w=worker({
+      "dasi.items":[
+        {id:"fr",title:"Titre français",type:"reading",format:"MANGA",chapter:4,total:10,cover:"manual",coverOverride:true,synopsis:"Personal summary",enrichedAt:1,createdAt:1,updatedAt:3,tags:["FR"],favorite:true,externalIds:{anilist:"123"}},
+        {id:"en",title:"English title",type:"reading",format:"MANGA",chapter:8,page:6,url:"https://reader.example/chapter/8",createdAt:2,updatedAt:4,tags:["EN"],rating:4,customField:"retained"}
+      ],
+      "dasi.lists":[{id:"list",itemIds:["fr","en"],createdAt:1}],
+      "dasi.notifications":[{id:"notice",itemId:"en",title:"Update"}]
+    });
+    w.run('catalogSearchAll=async()=>[{title:"English title",type:"reading",format:"MANGA",externalIds:{anilist:"123"},alternativeTitles:["Titre français"],authors:["Creator"],cover:"catalog",synopsis:"Catalog summary"}]');
+    const response=await w.call({type:"COMPLETE_ITEM_METADATA",id:"en"});
+    expect(response.ok).toBe(true);
+    expect(response.mergedIds).toEqual(["en"]);
+    expect(w.data["dasi.items"]).toHaveLength(1);
+    expect(response.item).toMatchObject({id:"fr",title:"Titre français",chapter:8,page:6,rating:4,favorite:true,cover:"manual",synopsis:"Personal summary"});
+    expect(response.item.alternativeTitles).toEqual(expect.arrayContaining(["Titre français","English title"]));
+    expect(response.item.tags).toEqual(expect.arrayContaining(["FR","EN"]));
+    expect(response.item.mergedFrom.find((i:any)=>i.id==="en").customField).toBe("retained");
+    expect(w.data["dasi.lists"][0].itemIds).toEqual(["fr"]);
+    expect(w.data["dasi.notifications"][0].itemId).toBe("fr");
+    expect(w.data["yomu.tombstones.v1"]).toEqual(expect.arrayContaining([expect.objectContaining({kind:"items",id:"en"})]));
+  });
+  it("fetches aliases for an older record even with an existing cover and synopsis",async()=>{
+    const w=worker({"dasi.items":[{id:"old",title:"Existing",type:"reading",enrichedAt:1,cover:"cover",synopsis:"summary",chapter:7,updatedAt:1}]});
+    w.run('catalogSearchAll=async()=>[{title:"Existing",type:"reading",alternativeTitles:["Autre titre"],externalIds:{anilist:"123"},authors:["Creator"]}]');
+    await w.call({type:"COMPLETE_ITEM_METADATA",id:"old"});
+    expect(w.data["dasi.items"][0]).toMatchObject({identityVersion:1,authors:["Creator"],chapter:7});
+    expect(w.data["dasi.items"][0].alternativeTitles).toContain("Autre titre");
+  });
+  it("prioritizes an exact catalog ID over an otherwise ambiguous alias",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"One",type:"reading",externalIds:{anilist:"1"},alternativeTitles:["Shared"]},{id:"b",title:"Two",type:"reading",alternativeTitles:["Shared"]}]});
+    const result=await w.call({type:"CHECK_EXISTING",payload:book("Shared",{externalIds:{anilist:"1"}})});
+    expect(result.existing.id).toBe("a");
+  });
+  it("keeps conflicting cross-catalog mappings separate",async()=>{
+    const w=worker({"dasi.items":[
+      {id:"a",title:"One",type:"reading",externalIds:{anilist:"1",mal:"2"}},
+      {id:"b",title:"Two",type:"reading",externalIds:{anilist:"1",mal:"3"}}
+    ]});
+    const checked=await w.run('(async()=>consolidateReadingIdentity(await read(ITEMS_KEY,[]),"a"))()');
+    expect(checked.items).toHaveLength(2);
+  });
+  it("does not merge title-only matches or conflicting user ratings",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"Same",type:"reading",rating:1,externalIds:{anilist:"1"}},{id:"b",title:"Same",type:"reading",rating:5,externalIds:{anilist:"1"}},{id:"c",title:"Same",type:"reading"}]});
+    const result=await w.run('(async()=>consolidateReadingIdentity(await read(ITEMS_KEY,[]),"a"))()');
+    expect(result.mergedIds).toEqual([]);
+    expect(result.items).toHaveLength(3);
+  });
+});
