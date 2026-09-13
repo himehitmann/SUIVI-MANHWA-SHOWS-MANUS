@@ -1311,9 +1311,61 @@ async function detectTab(tabId) {
 function mutateAndReply(task, respond) {
   serializeLibrary(task).then(result=>{respond(result);autoSync();},error=>respond({ok:false,error:String(error.message || error)}));
 }
-let importEnrichmentQueue = Promise.resolve();
+const IMPORT_ENRICH_ALARM="yomu-import-enrichment";
+let importEnrichmentQueue=null;
+async function ensureImportEnrichmentAlarm() {
+  if(!api.alarms?.get)return;
+  const pending=(await read(ITEMS_KEY,[])).some(i=>i.metadataPending);
+  if(pending) {
+    if(!await api.alarms.get(IMPORT_ENRICH_ALARM))await api.alarms.create(IMPORT_ENRICH_ALARM,{periodInMinutes:1});
+  } else if(api.alarms.clear)await api.alarms.clear(IMPORT_ENRICH_ALARM);
+}
+function runImportEnrichment() {
+  if(importEnrichmentQueue)return importEnrichmentQueue;
+  importEnrichmentQueue=runImportEnrichmentBatch().finally(()=>{importEnrichmentQueue=null;});
+  return importEnrichmentQueue;
+}
+async function runImportEnrichmentBatch() {
+  const epoch=accountEpoch;
+  // Persist the attempt before requesting metadata; a terminated worker leaves
+  // a retriable record, not a lost promise. Small batches respect catalog limits.
+  for(let count=0;count<2;count++) {
+    const candidate=await serializeLibrary(async()=>{
+      if(epoch!==accountEpoch)return;
+      const items=await read(ITEMS_KEY,[]);
+      const item=items.find(i=>i.metadataPending&&(Number(i.metadataPending.nextAttemptAt)||0)<=Date.now());
+      if(!item)return;
+      const pending={attempts:(Number(item.metadataPending.attempts)||0)+1,nextAttemptAt:Date.now()+60000};
+      const updated={...item,metadataPending:pending};
+      await writeData({[ITEMS_KEY]:items.map(i=>i.id===item.id?updated:i)});
+      return updated;
+    });
+    if(!candidate)break;
+    let completion;
+    try {completion=await(candidate.type==="game"?enrichGame(candidate.id):enrichWork(candidate.id));}catch{/* Retried below. */}
+    await serializeLibrary(async()=>{
+      if(epoch!==accountEpoch)return;
+      const items=await read(ITEMS_KEY,[]);
+      const id=completion?.item?.id||candidate.id;
+      const current=items.find(i=>i.id===id);
+      if(!current?.metadataPending)return;
+      // A re-import or user edit may have replaced this attempt.
+      if(id===candidate.id&&current.metadataPending.attempts!==candidate.metadataPending.attempts)return;
+      const matched=Boolean(current.enrichedAt&&current.enrichedAt!==candidate.enrichedAt)||Boolean(completion?.mergedIds?.length);
+      const exhausted=candidate.metadataPending.attempts>=3;
+      const next={...current,metadataPending:matched||exhausted?undefined:{
+        attempts:candidate.metadataPending.attempts,
+        nextAttemptAt:Date.now()+candidate.metadataPending.attempts*60000
+      }};
+      await writeData({[ITEMS_KEY]:items.map(i=>i.id===id?next:i)});
+    });
+    if(epoch!==accountEpoch)break;
+  }
+  await ensureImportEnrichmentAlarm();
+  if(epoch===accountEpoch)autoSync();
+}
+
 async function mergeImport(payload) {
-  const importEpoch = accountEpoch;
   const items=await read(ITEMS_KEY,[]), byId=new Map(items.map(i=>[i.id,i])), ids=new Map(), enrichIds=new Set();
   let added=0,updated=0;
   for(const raw of (Array.isArray(payload.items)?payload.items:[])) {
@@ -1337,7 +1389,7 @@ async function mergeImport(payload) {
     byId.set(key,item);
     // Imported exports often contain progress but omit artwork and synopsis.
     // Queue a best-effort lookup after the atomic import is safely stored.
-    if(!item.enrichedAt || !item.cover || !item.synopsis || (item.type==="reading" && item.identityVersion!==1)) enrichIds.add(key);
+    if(!item.enrichedAt || !item.cover || !item.synopsis || (item.type==="reading" && item.identityVersion!==1)) {enrichIds.add(key);item.metadataPending={attempts:0,nextAttemptAt:0};}
     if(ex)updated++;else added++;
   }
   const patch={[ITEMS_KEY]:[...byId.values()]};
@@ -1354,18 +1406,9 @@ async function mergeImport(payload) {
   if(Array.isArray(payload.notifications))patch[NOTIF_KEY]=mergeById(payload.notifications.map(n=>({...n,itemId:ids.get(n.itemId)||n.itemId})),await read(NOTIF_KEY,[]));
   if(payload.settings)patch[SETTINGS_KEY]={...DEFAULT_SETTINGS,...payload.settings,...await read(SETTINGS_KEY,{})};
   await writeData(patch);
-  // Do not hold the import response while network lookups run. Each lookup
-  // preserves user-supplied progress and only fills missing metadata.
-  // Serialize imports' lookups to avoid launching dozens of catalog calls.
-  // Each task is scoped to the account that performed the import.
-  for (const id of enrichIds) {
-    const item = byId.get(id);
-    importEnrichmentQueue = importEnrichmentQueue.then(async () => {
-      if (accountEpoch !== importEpoch) return;
-      await (item?.type === "game" ? enrichGame(id) : enrichWork(id));
-      if (accountEpoch === importEpoch) autoSync();
-    }).catch(() => {});
-  }
+  // Queue state was saved atomically with the imported works. The periodic
+  // alarm resumes remaining records even after Chrome suspends this worker.
+  void ensureImportEnrichmentAlarm().then(()=>runImportEnrichment()).catch(()=>{});
   return {ok:true,added,updated,total:byId.size,enrichmentQueued:enrichIds.size};
 }
 
@@ -1712,7 +1755,8 @@ async function checkGameReleasesOnce() {
 
 try {
   void ensureReleaseAlarm().catch(()=>{});
-  api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") return checkGameReleases();if(a.name===SYNC_ALARM)return runAutoSync(); });
+  void ensureImportEnrichmentAlarm().catch(()=>{});
+  api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") return checkGameReleases();if(a.name===SYNC_ALARM)return runAutoSync();if(a.name===IMPORT_ENRICH_ALARM)return runImportEnrichment(); });
 } catch {
   /* alarms unavailable */
 }
