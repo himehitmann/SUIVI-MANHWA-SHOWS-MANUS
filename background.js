@@ -904,7 +904,7 @@ async function enrichWork(id) {
     if (!it.synopsis && match.synopsis) patch.synopsis = match.synopsis;
     if ((!it.tags || !it.tags.length) && match.genres.length) patch.tags = match.genres;
     if (match.total && match.total > (it.total || 0)) patch.total = match.total;
-    if (!it.season && it.type === "watching" && match.season) patch.season = match.season;
+    // Catalog seasonYear is a release year, never a viewing-season number.
     if (!it.format && match.format) patch.format = match.format;
     // Second pass: trailer, cast and exact released counts (real limits, so the
     // drawer can't run past the true episode/chapter count).
@@ -1182,7 +1182,9 @@ async function detectTab(tabId) {
 function mutateAndReply(task, respond) {
   serializeLibrary(task).then(result=>{respond(result);autoSync();},error=>respond({ok:false,error:String(error.message || error)}));
 }
+let importEnrichmentQueue = Promise.resolve();
 async function mergeImport(payload) {
+  const importEpoch = accountEpoch;
   const items=await read(ITEMS_KEY,[]), byId=new Map(items.map(i=>[i.id,i])), ids=new Map(), enrichIds=new Set();
   let added=0,updated=0;
   for(const raw of (Array.isArray(payload.items)?payload.items:[])) {
@@ -1227,12 +1229,16 @@ async function mergeImport(payload) {
   await writeData(patch);
   // Do not hold the import response while network lookups run. Each lookup
   // preserves user-supplied progress and only fills missing metadata.
-  Promise.resolve().then(() => {
-    for (const id of enrichIds) {
-      const item=byId.get(id);
-      (item?.type==="game" ? enrichGame(id) : enrichWork(id)).then(() => autoSync()).catch(() => {});
-    }
-  });
+  // Serialize imports' lookups to avoid launching dozens of catalog calls.
+  // Each task is scoped to the account that performed the import.
+  for (const id of enrichIds) {
+    const item = byId.get(id);
+    importEnrichmentQueue = importEnrichmentQueue.then(async () => {
+      if (accountEpoch !== importEpoch) return;
+      await (item?.type === "game" ? enrichGame(id) : enrichWork(id));
+      if (accountEpoch === importEpoch) autoSync();
+    }).catch(() => {});
+  }
   return {ok:true,added,updated,total:byId.size,enrichmentQueued:enrichIds.size};
 }
 
