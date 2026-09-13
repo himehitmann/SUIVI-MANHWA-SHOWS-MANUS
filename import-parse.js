@@ -26,8 +26,27 @@
     const s = String(raw || "").toLowerCase();
     if (/manhwa|manhua|manga|webtoon|comic|book|novel|light.?novel|bd/.test(s)) return "reading";
     if (/game|jeu/.test(s)) return "game";
-    if (/movie|film/.test(s)) return "watching";
-    if (/show|serie|série|tv|episode|épisode|anime|drama|season/.test(s)) return "watching";
+    if (/movie|film|show|serie|série|tv|episode|épisode|anime|drama|season/.test(s)) return "watching";
+    return "";
+  };
+  // Preserve the real media kind from exports. "watching" is only the tracking
+  // mode; format is what makes Yomu say Anime, Series, Film, K-Drama, etc.
+  const inferFormat = (raw, type) => {
+    const s = String(raw || "").toLowerCase();
+    if (type === "game" || /game|jeu/.test(s)) return "GAME";
+    if (/webtoon/.test(s)) return "WEBTOON";
+    if (/manhwa/.test(s)) return "MANHWA";
+    if (/manhua/.test(s)) return "MANHUA";
+    if (/manga/.test(s)) return "MANGA";
+    if (/light.?novel/.test(s)) return "LIGHT_NOVEL";
+    if (/novel/.test(s)) return "NOVEL";
+    if (/book|livre/.test(s)) return "BOOK";
+    if (/k.?drama|korean drama|corée/.test(s)) return "KDRAMA";
+    if (/c.?drama|chinese drama/.test(s)) return "CDRAMA";
+    if (/j.?drama|japanese drama/.test(s)) return "JDRAMA";
+    if (/anime|animation|ona|ova/.test(s)) return "ANIME";
+    if (/movie|film/.test(s)) return "MOVIE";
+    if (/show|serie|série|tv|drama/.test(s)) return "SERIES";
     return "";
   };
 
@@ -46,6 +65,7 @@
 
     let type = hintType || asType(rec.type || src.type || src.media_type || src.Title_Type || src["Title Type"] || (rec.movie ? "movie" : rec.show ? "show" : ""));
     if (!type) type = "watching";
+    const format = inferFormat(src.format || src.Format || src.kind || src.media_type || src.type || rec.type || rec.list_type, type);
 
     const yearRaw = firstString(src, ["year", "Year", "release_year", "first_air_date", "startDate"]);
     const year = yearRaw ? parseInt(yearRaw, 10) || undefined : undefined;
@@ -71,16 +91,17 @@
       }
     }
     const num = (v) => { const n = parseInt(v, 10); return isFinite(n) && n > 0 ? n : undefined; };
-    episode = episode || num(src.episode) || num(src.episodes_watched) || num(src.num_watched_episodes) || num(src.my_watched_episodes) || num(src.watched_episodes);
-    chapter = num(src.chapter) || num(src.chapters_read) || num(src.num_read_chapters) || num(src.my_read_chapters);
+    episode = episode || num(src.episode) || num(src.episode_number) || num(src.episodeNumber) || num(src.episodes_watched) || num(src.num_watched_episodes) || num(src.my_watched_episodes) || num(src.watched_episodes) || num(src.watchedEpisodes) || num(src.progress);
+    chapter = num(src.chapter) || num(src.chapter_number) || num(src.chapters_read) || num(src.num_read_chapters) || num(src.my_read_chapters) || num(src.progress);
     season = season || num(src.season);
     if (type === "reading" && !chapter && episode) { chapter = episode; episode = undefined; }
 
     const cover = firstString(src, ["cover", "image", "poster", "thumb", "Image"]) || undefined;
+    const total = num(src.total) || num(src.episodes) || num(src.total_episodes) || num(src.totalEpisodes) || num(src.num_episodes) || num(src.num_episodes_watched);
     const status = /plan|watchlist|want|planned/i.test(String(rec.list_type || rec.status || src.status || "")) ? "planned" : undefined;
 
     return {
-      title, type, year, url, cover,
+      title, type, format: format || undefined, year, url, cover, total,
       externalIds: src.ids && typeof src.ids === "object" ? src.ids : undefined,
       episode: type === "watching" ? episode : undefined,
       chapter: type === "reading" ? chapter : undefined,
