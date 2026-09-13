@@ -1276,6 +1276,7 @@ function renderSettings() {
     <div class="panel">
       <div class="row"><div class="grow"><b>${t("yourLibrary")}</b><small>${t("exportRestore")}</small></div><button class="btn" id="export">${I.image} ${t("export")}</button><button class="btn" id="import">${t("import")}</button><input id="file" type="file" accept=".json,.csv,.xml,.zip,.tsv,application/json,application/zip" multiple hidden aria-label="${t("import")}" /></div>
       <p class="field-hint" style="margin:-2px 2px 0">${t("importFormats")}</p>
+      <div class="row"><div class="grow"><b>${settings.lang === "fr" ? "Compléter les fiches" : "Complete missing details"}</b><small id="metadata-status" role="status">${settings.lang === "fr" ? "Rechercher les affiches et descriptions manquantes dans les catalogues." : "Find missing artwork and descriptions in the catalogs."}</small></div><button class="btn" id="complete-metadata">${I.refresh} ${settings.lang === "fr" ? "Rechercher" : "Search"}</button></div>
       <div class="row"><div class="grow"><b>${t("cloudSync")}</b><small id="sync-state">${t("cloudSyncSub")}</small></div><button class="btn" id="sync-link">${t("manageSync")}</button></div>
     </div>
     <div class="section-t">${t("enjoying")}</div>
@@ -1310,6 +1311,7 @@ function wireSettings() {
   const trlang = document.getElementById("set-trlang");
   trlang.onchange = () => { settings.translateLang = trlang.value; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: settings.translateLang } }, (r) => { if (r?.settings) settings = r.settings; }); };
   renderAccountPanel();
+  document.getElementById("complete-metadata").onclick = completeMissingMetadata;
   document.getElementById("export").onclick = doExport;
   document.getElementById("import").onclick = () => document.getElementById("file").click();
   document.getElementById("file").addEventListener("change", doImport);
@@ -1656,3 +1658,34 @@ api.storage.onChanged.addListener((changes, area) => {
 });
 
 document.addEventListener("load", (event) => { const im=event.target; if(im instanceof HTMLImageElement && im.matches("img.cov")) im.classList.toggle("landscape", im.naturalWidth > im.naturalHeight * 1.2); }, true);
+
+let completingMetadata = false;
+async function completeMissingMetadata() {
+  if (completingMetadata) return;
+  completingMetadata = true;
+  const button = document.getElementById("complete-metadata");
+  const label = document.getElementById("metadata-status");
+  const fr = settings.lang === "fr";
+  const candidates = items.filter(item => !coverUrl(item) || !item.synopsis);
+  let checked = 0, matched = 0;
+  if (button) button.disabled = true;
+  try {
+    for (const item of candidates) {
+      if (!button?.isConnected) break;
+      if (label) label.textContent = (fr ? "Recherche " : "Checking ") + (checked + 1) + "/" + candidates.length;
+      const response = await new Promise((resolve, reject) => api.runtime.sendMessage({type:"COMPLETE_ITEM_METADATA",id:item.id}, result => {
+        if (api.runtime.lastError || !result?.ok) reject(new Error(result?.error || "metadata_unavailable"));
+        else resolve(result);
+      }));
+      checked++;
+      if (response.matched) matched++;
+      if (response.item) items = items.map(saved => saved.id === item.id ? response.item : saved);
+    }
+    if (label) label.textContent = fr ? checked + " fiches vérifiées · " + matched + " complétées. Les correspondances incertaines restent inchangées." : checked + " checked · " + matched + " completed. Uncertain matches are left unchanged.";
+  } catch {
+    if (label) label.textContent = fr ? "Recherche interrompue. Les résultats enregistrés sont conservés ; tu peux réessayer." : "Search interrupted. Saved results are retained; you can retry.";
+  } finally {
+    completingMetadata = false;
+    if (button) button.disabled = false;
+  }
+}
