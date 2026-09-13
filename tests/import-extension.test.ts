@@ -101,4 +101,23 @@ describe("extension importer", () => {
     ]);
     expect(r.warnings[0]).toContain("50 MB");
   });
+  it("keeps watched counts separate from series totals", async () => {
+    const c = parser();
+    const r = await c.window.YomuImport.parseFiles([file([
+      {title:"Known total",type:"anime",num_episodes_watched:7,num_episodes:24},
+      {title:"Unknown total",type:"series",num_episodes_watched:4},
+    ])]);
+    expect(r.items[0]).toMatchObject({episode:7,total:24,format:"ANIME"});
+    expect(r.items[1].episode).toBe(4);
+    expect(r.items[1].total).toBeUndefined();
+  });
+  it("does not interpret an ambiguous progress percentage as an episode", async () => {
+    const c = parser();
+    const r = await c.window.YomuImport.parseFiles([file([
+      {title:"Series",type:"series",progress:80},
+      {title:"Manga",type:"manga",progress:50},
+    ])]);
+    expect(r.items[0].episode).toBeUndefined();
+    expect(r.items[1].chapter).toBeUndefined();
+  });
 });
