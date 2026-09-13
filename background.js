@@ -66,6 +66,56 @@ const sameWork = (a, b) => {
   return editRatio(na, nb) >= 0.9;
 };
 
+
+function identityTitles(item) {
+  return [...new Set([item?.title,...(Array.isArray(item?.alternativeTitles)?item.alternativeTitles:[])].filter(x=>typeof x==="string"&&x.trim()).map(x=>x.trim()))];
+}
+function identityIds(item) {
+  const ids={};
+  for(const [key,value] of Object.entries(item?.externalIds||{})) {
+    if(["anilist","mal","mangaupdates","tvmaze","tmdb","openlibrary","steam"].includes(key)&&["string","number"].includes(typeof value)&&String(value).trim())ids[key]=String(value);
+  }
+  if(item?.anilistId)ids.anilist=String(item.anilistId);
+  return ids;
+}
+function identityCompatible(a,b) {
+  if(a.type!==b.type)return false;
+  if(a.format&&b.format&&String(a.format).toUpperCase()!==String(b.format).toUpperCase())return false;
+  const ai=identityIds(a),bi=identityIds(b);
+  if(Object.keys(ai).some(k=>bi[k]&&ai[k]!==bi[k]))return false;
+  return !a.year||!b.year||Number(a.year)===Number(b.year);
+}
+function sameIdentity(a,b,fuzzy=false) {
+  if(!identityCompatible(a,b))return false;
+  const ai=identityIds(a),bi=identityIds(b);
+  if(Object.keys(ai).some(k=>bi[k]===ai[k]))return true;
+  return identityTitles(a).some(x=>identityTitles(b).some(y=>fuzzy?sameWork(x,y):normalizeTitle(x)===normalizeTitle(y)));
+}
+function findIdentity(items,payload) {
+  const exact=items.filter(i=>sameIdentity(i,payload));
+  if(exact.length)return exact.length===1?exact[0]:null;
+  const fuzzy=items.filter(i=>sameIdentity(i,payload,true));
+  return fuzzy.length===1?fuzzy[0]:null;
+}
+function identityMetadata(a,b) {
+  return {
+    alternativeTitles:[...new Set([...identityTitles(a),...identityTitles(b)])].slice(0,100),
+    authors:[...new Set([...(Array.isArray(a?.authors)?a.authors:[]),...(Array.isArray(b?.authors)?b.authors:[])].filter(x=>typeof x==="string"&&x.trim()))].slice(0,30),
+    externalIds:{...identityIds(a),...identityIds(b)},
+  };
+}
+async function resolveIncomingIdentity(payload) {
+  if(!payload?.title||payload.type!=="reading")return payload;
+  const saved=await read(ITEMS_KEY,[]);
+  if(!saved.some(i=>i.type===payload.type)||findIdentity(saved,payload))return payload;
+  try {
+    const results=await anilistSearch(payload.title);
+    const matches=results.filter(r=>sameIdentity(r,payload));
+    if(matches.length===1)return {...payload,...identityMetadata(payload,matches[0])};
+  } catch { /* Offline saving remains available. */ }
+  return payload;
+}
+
 const numericProgress = (p) =>
   p.chapter || p.episode || p.page || (p.duration && p.position ? p.position / p.duration : 0) || 0;
 
@@ -303,21 +353,15 @@ function boundedProgress(item) {
   if (out.progress !== undefined) out.progress = Math.max(0,Math.min(100,Number(out.progress) || 0));
   return out;
 }
-function writeItem(payload) { return serializeLibrary(() => writeItemUnlocked(payload)); }
+async function writeItem(payload) { const epoch=accountEpoch; const resolved=await resolveIncomingIdentity(payload); return serializeLibrary(() => {if(epoch!==accountEpoch)throw new Error("account_changed");return writeItemUnlocked(resolved);}); }
 async function writeItemUnlocked(payload) {
   if (!payload || typeof payload.title !== 'string' || !payload.title.trim()) throw new Error('missing_title');
   payload = Object.fromEntries(Object.entries(payload).filter(([k,v]) => v !== undefined && !['__proto__','constructor','prototype','id','createdAt'].includes(k)));
   const items = await read(ITEMS_KEY, []);
   let key = workKey(payload);
-  const compatible=i=>i.type===payload.type && (!i.year || !payload.year || Number(i.year)===Number(payload.year));
-  let existing = items.find(i=>i.id===key && compatible(i));
-  if(!existing && items.some(i=>i.id===key)){const base=key+'-'+(payload.type||'reading')+(payload.year?'-'+payload.year:'');key=base;let n=2;while(items.some(i=>i.id===key))key=base+'-'+n++;}
-  // Cross-site merge: no exact id match → look for the same work saved under a
-  // slightly different title on another site, and keep its id so they converge.
-  if (!existing && payload.type !== "game") {
-    const fuzzy = items.find((i) => compatible(i) && i.id !== key && sameWork(i.title, payload.title));
-    if (fuzzy) { existing = fuzzy; key = fuzzy.id; }
-  }
+  let existing=findIdentity(items,payload);
+  if(existing)key=existing.id;
+  else if(items.some(i=>i.id===key)){const base=key+'-'+(payload.type||'reading');let n=2;key=base;while(items.some(i=>i.id===key))key=base+'-'+n++;}
   const sameSeason = !existing || (Number(payload.season) || 1) === (Number(existing.season) || 1);
   payload = boundedProgress({ ...payload, total: payload.total || (sameSeason ? existing?.total : undefined) });
   const incomingScore = numericProgress(payload);
@@ -350,6 +394,8 @@ async function writeItemUnlocked(payload) {
   const merged = {
     ...existing,
     ...incoming,
+    ...identityMetadata(existing,payload),
+    title: existing?.title || payload.title,
     cover,
     coverOverride: existing?.coverOverride || undefined,
     synopsis: payload.synopsis || existing?.synopsis || "",
@@ -487,6 +533,9 @@ function mediaToResult(m) {
     title,
     type,
     anilistId: m.id || undefined,
+    externalIds: { ...(m.id?{anilist:String(m.id)}:{}), ...(m.idMal?{mal:String(m.idMal)}:{}) },
+    alternativeTitles: [...new Set([...Object.values(m.title||{}),...(m.synonyms||[])].filter(x=>typeof x==="string"&&x.trim()))],
+    authors: [...new Set((m.staff?.edges||[]).filter(e=>/^(story|art|story & art|original creator|original story)$/i.test(e.role||"")).map(e=>e.node?.name?.full||e.node?.name?.native).filter(Boolean))],
     cover: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large || m.coverImage.medium)) || "",
     // Smaller AniList size the UI can fall back to if the big one 404s/blocks.
     coverFallback: (m.coverImage && (m.coverImage.medium || m.coverImage.large)) || undefined,
@@ -531,7 +580,7 @@ async function anilistDetail(id) {
   };
 }
 async function anilistSearch(query) {
-  const gql = `query($s:String){Page(perPage:10){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
+  const gql = `query($s:String){Page(perPage:10){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
   const res = await fetchRemote(ANILIST_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -704,7 +753,7 @@ async function catalogSearchAll(query) {
 const DISCOVER_KEY = "dasi.discover.cache.v2";
 const DISCOVER_TTL = 6 * 3600 * 1000;
 async function anilistTrending(type, country) {
-  const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
+  const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
   const res = await fetchRemote(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { t: type, c: country || undefined } }) });
   if (!res.ok) throw new Error(`anilist_${res.status}`);
   const data = await res.json();
@@ -857,7 +906,7 @@ async function enrichGame(id) {
   const epoch=accountEpoch;
   const items=await read(ITEMS_KEY,[]);
   const it=items.find(x=>x.id===id);
-  if(!it || it.type!=="game" || (it.enrichedAt && it.cover && it.synopsis)) return;
+  if(!it || it.type!=="game" || (it.enrichedAt && it.cover && it.synopsis && it.identityVersion===1)) return;
   let match;
   try { match=(await steamSearch(it.title)).find(r=>sameWork(r.title,it.title)); } catch { return; }
   if (!match) return;
@@ -901,14 +950,14 @@ async function enrichWork(id) {
   // Automatic imports require an exact normalized title and compatible year
   // and format. Ambiguous remakes/adaptations must not receive random artwork.
   const candidates = results.filter(r =>
-    normalizeTitle(r.title) === normalizeTitle(it.title) &&
+    sameIdentity(r,it) &&
     r.type === it.type &&
     (!it.year || !(r.year || r.season) || Number(it.year) === Number(r.year || r.season)) &&
     (!it.format || !r.format || String(it.format).toUpperCase() === String(r.format).toUpperCase())
   );
   if (candidates.length !== 1) return;
   const match = candidates[0];
-  const patch = { enrichedAt: Date.now() };
+  const patch = { enrichedAt: Date.now(), identityVersion:1, ...identityMetadata(it,match) };
   if (match) {
     if (!it.coverOverride && match.cover) patch.cover = match.cover; // real series cover (fixes episode-thumbnail covers)
     if (!it.coverFallback && match.coverFallback) patch.coverFallback = match.coverFallback;
@@ -1202,17 +1251,15 @@ async function mergeImport(payload) {
     if(!raw || typeof raw.title!=='string' || !raw.title.trim())continue;
     const p=Object.fromEntries(Object.entries(raw).filter(([k,v])=>v!==undefined&&!['__proto__','constructor','prototype'].includes(k)));
     const type=['reading','watching','game'].includes(p.type)?p.type:'watching';
-    const compatible=i=>i.type===type && (!i.year || !p.year || Number(i.year)===Number(p.year));
-    let key=p.id || workKey(p), ex=byId.get(key);
-    if(ex && (!compatible(ex) || !sameWork(ex.title,p.title)))ex=null;
-    if(!ex)ex=[...byId.values()].find(i=>compatible(i)&&sameWork(i.title,p.title));
+    p.type=type;
+    let key=p.id || workKey(p), ex=findIdentity([...byId.values()],p);
     if(ex)key=ex.id;
     else {const base=key||'imported-work';let n=1;while(byId.has(key))key=base+'-'+type+'-'+n++;}
     if(p.id)ids.set(p.id,key);
     const season=Math.max(Number(ex?.season)||1,Number(p.season)||1);
     const episode=(Number(ex?.season)||1)>(Number(p.season)||1)?ex.episode:(Number(p.season)||1)>(Number(ex?.season)||1)?p.episode:Math.max(ex?.episode||0,p.episode||0);
     const sameSeason=!ex||(Number(ex.season)||1)===(Number(p.season)||1);
-    const item=boundedProgress({...p,...ex,id:key,title:ex?.title||p.title,type,season:type==='watching'?season:undefined,
+    const item=boundedProgress({...p,...ex,...identityMetadata(ex,p),id:key,title:ex?.title||p.title,type,season:type==='watching'?season:undefined,
       episode:type==='watching'?episode:undefined,chapter:type==='reading'?Math.max(ex?.chapter||0,p.chapter||0):undefined,
       total:sameSeason?(ex?.total||p.total):season===(Number(p.season)||1)?p.total:ex?.total,
       rating:ex?.rating||p.rating||0,cover:ex?.cover||p.cover||'',url:ex?.url||p.url||'',favorite:ex?.favorite||p.favorite||false,
@@ -1289,8 +1336,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // the popup can show the previous marker and ask before overwriting.
     case "CHECK_EXISTING":
       read(ITEMS_KEY, []).then((items) => {
-        const key = workKey(message.payload || {});
-        sendResponse({ existing: items.find((i) => i.id === key) || null, key });
+        const existing = findIdentity(items,message.payload || {});
+        const key = existing?.id || workKey(message.payload || {});
+        sendResponse({ existing, key });
       });
       return true;
 
