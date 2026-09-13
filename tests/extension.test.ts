@@ -517,3 +517,53 @@ describe("confirmed reading duplicate consolidation",()=>{
     expect(result.items).toHaveLength(3);
   });
 });
+
+describe("persistent import metadata queue",()=>{
+  it("resumes an unfinished lookup in a new worker without losing progress",async()=>{
+    const original={id:"imported",title:"Imported work",type:"reading",chapter:12,updatedAt:1,metadataPending:{attempts:0,nextAttemptAt:0}};
+    const first=worker({"dasi.items":[original]});
+    first.run('catalogSearchAll=async()=>{throw Error("offline")}');
+    await first.run("runImportEnrichment()");
+    expect(first.data["dasi.items"][0].metadataPending.attempts).toBe(1);
+    const persisted=structuredClone(first.data);
+    persisted["dasi.items"][0].metadataPending.nextAttemptAt=0;
+    const restarted=worker(persisted);
+    restarted.run('catalogSearchAll=async()=>[{title:"Imported work",type:"reading",cover:"https://example.org/cover.jpg",synopsis:"A synopsis",externalIds:{anilist:"123"}}]');
+    await restarted.run("runImportEnrichment()");
+    expect(restarted.data["dasi.items"][0]).toMatchObject({chapter:12,cover:"https://example.org/cover.jpg",synopsis:"A synopsis"});
+    expect(restarted.data["dasi.items"][0].metadataPending).toBeUndefined();
+  });
+  it("limits a batch to two works and retains the remaining queue",async()=>{
+    const w=worker({"dasi.items":Array.from({length:3},(_,n)=>({id:"work"+n,title:"Work "+n,type:"reading",metadataPending:{attempts:0,nextAttemptAt:0}}))});
+    w.run('catalogSearchAll=async title=>[{title,type:"reading",cover:"cover",synopsis:"summary"}]');
+    await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"].filter((i:any)=>i.metadataPending)).toHaveLength(1);
+    await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"].filter((i:any)=>i.metadataPending)).toHaveLength(0);
+  });
+  it("stops automatic retries after three unsuccessful attempts",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Unknown",type:"reading",chapter:3,metadataPending:{attempts:2,nextAttemptAt:0}}]});
+    w.run('catalogSearchAll=async()=>[]');
+    await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+    expect(w.data["dasi.items"][0].chapter).toBe(3);
+  });
+  it("does not restore a work removed during an external lookup",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Deleted",type:"reading",metadataPending:{attempts:0,nextAttemptAt:0}}]});
+    w.run('catalogSearchAll=async()=>{await chrome.storage.local.set({"dasi.items":[]});return [{title:"Deleted",type:"reading",cover:"cover",synopsis:"summary"}]}');
+    await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"]).toEqual([]);
+  });
+  it("does not write delayed results into another account",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Old account",type:"reading",metadataPending:{attempts:0,nextAttemptAt:0}}]});
+    w.run('catalogSearchAll=async()=>{accountEpoch++;await chrome.storage.local.set({"dasi.items":[{id:"new",title:"New account",type:"reading"}]});return [{title:"Old account",type:"reading",cover:"cover",synopsis:"summary"}]}');
+    await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"]).toEqual([{id:"new",title:"New account",type:"reading"}]);
+  });
+  it("recreates a missing alarm while unfinished records remain",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Pending",type:"reading",metadataPending:{attempts:1,nextAttemptAt:Date.now()+60000}}]});
+    w.run('globalThis.createdAlarms=[];chrome.alarms={get:async()=>undefined,create:async(name,options)=>createdAlarms.push({name,options})}');
+    await w.run("ensureImportEnrichmentAlarm()");
+    expect(w.run("createdAlarms")).toEqual([{name:"yomu-import-enrichment",options:{periodInMinutes:1}}]);
+  });
+});
