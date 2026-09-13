@@ -667,7 +667,7 @@ function renderGrid() {
     if ((filter === "reading" || filter === "watching") && i.type !== filter) return false;
     if (STATUSES.includes(filter) && itemState(i) !== filter) return false;
     if (!q) return true;
-    return `${i.title} ${marker(i)} ${(i.tags || []).join(" ")}`.toLowerCase().includes(q);
+    return `${i.title} ${(i.alternativeTitles || []).join(" ")} ${(i.authors || []).join(" ")} ${marker(i)} ${(i.tags || []).join(" ")}`.toLowerCase().includes(q);
   });
   grid.innerHTML = list.length ? [...list].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(cardHtml).join("") : `<p class="empty">${t("welcomeBody")}</p>`;
 }
@@ -1001,6 +1001,8 @@ function openDrawer(id) {
       <p class="drawer-marker">${esc(marker(i))}${isGame ? "" : " · " + relative(i.updatedAt)}</p>
     </div>
     <div class="drawer-body">
+      ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${settings.lang==="fr"?"Auteurs":"Creators"}</div><p class="synopsis">${i.authors.filter(x=>typeof x==="string").map(esc).join(" · ")}</p>` : ""}
+      ${Array.isArray(i.alternativeTitles)&&i.alternativeTitles.length ? `<details><summary class="section-t">${settings.lang==="fr"?"Autres titres":"Alternative titles"} (${i.alternativeTitles.length})</summary><ul class="synopsis">${i.alternativeTitles.filter(x=>typeof x==="string").map(x=>`<li>${esc(x)}</li>`).join("")}</ul></details>` : ""}
       ${i.synopsis ? `<div class="section-t">${t("synopsis")}</div><p class="synopsis clamp" id="dr-syn">${esc(i.synopsis)}</p><button class="link-btn" id="dr-syn-toggle">${t("showMore")}</button>` : ""}
       ${!isGame && Array.isArray(i.cast) && i.cast.length ? `<div class="section-t">${t("cast")}</div><div class="cast-strip scroll-x">${i.cast.map((c) => `<div class="cast-card"><div class="cast-av"><span class="cast-ph">${esc((c.name || "?")[0].toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : ""}</div><b>${esc(c.name)}</b>${c.role && c.role !== "MAIN" ? `<small>${esc(c.role.toLowerCase())}</small>` : ""}</div>`).join("")}</div>` : ""}
       ${isGame ? `
@@ -1593,7 +1595,7 @@ function openCatalogPreview(m) {
 function addFromCatalog(m, btn) {
   const payload = {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, coverFallback: m.coverFallback || undefined, synopsis: m.synopsis || undefined,
-    genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds,
+    genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds, alternativeTitles:m.alternativeTitles, authors:m.authors, anilistId:m.anilistId,
     format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
   };
@@ -1606,7 +1608,7 @@ function addFromCatalog(m, btn) {
       // Open the work's card so the user sees it was added and can set progress
       // and pick a list right away (no "added into the void").
       const key = normTitle(m.title);
-      const it = items.find((x) => normTitle(x.title) === key);
+      const it = items.find((x) => x.id === saved.item?.id) || items.find((x) => normTitle(x.title) === key);
       if (it) openDrawer(it.id);
     });
   });
