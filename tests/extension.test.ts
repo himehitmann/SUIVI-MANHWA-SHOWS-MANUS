@@ -410,3 +410,20 @@ describe("import catalog enrichment", () => {
     expect(w.data["dasi.items"][0].cover).toBe("manual");
   });
 });
+
+describe("metadata repair requests", () => {
+  it("repairs an existing import without replacing its progress", async () => {
+    const w=worker({"dasi.items":[{id:"old",title:"Existing",type:"watching",episode:9,updatedAt:1}]});
+    w.run('catalogSearchAll=async()=>[{title:"Existing",type:"watching",format:"SERIES",cover:"https://example.org/cover.jpg",synopsis:"Description",genres:[]}]');
+    const result=await w.call({type:"COMPLETE_ITEM_METADATA",id:"old"});
+    expect(result.ok).toBe(true);
+    expect(result.matched).toBe(true);
+    expect(result.item).toMatchObject({episode:9,format:"SERIES",synopsis:"Description"});
+    expect(w.data["dasi.items"]).toHaveLength(1);
+  });
+  it("reports an unavailable item without searching", async () => {
+    const w=worker();
+    const result=await w.call({type:"COMPLETE_ITEM_METADATA",id:"missing"});
+    expect(result).toMatchObject({ok:false,error:"item_unavailable"});
+  });
+});
