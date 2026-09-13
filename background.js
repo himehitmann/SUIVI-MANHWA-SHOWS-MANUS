@@ -1345,6 +1345,19 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "ADD_SITE":
     case "REMOVE_SITE":
       mutateAndReply(async()=>{const previous=await read(SITES_KEY,[]);const sites=message.type==='REMOVE_SITE'?previous.filter(s=>(s.id||s.url)!==message.id):previous.some(s=>s.url===message.payload.url)?previous:[...previous,message.payload];await writeData({[SITES_KEY]:sites});return {sites};},sendResponse);return true;
+    case "COMPLETE_ITEM_METADATA": {
+      const epoch = accountEpoch;
+      read(ITEMS_KEY, []).then(async saved => {
+        const item = saved.find(x => x.id === message.id);
+        if (!item || epoch !== accountEpoch) return {ok:false,error:"item_unavailable"};
+        await (item.type === "game" ? enrichGame(item.id) : enrichWork(item.id));
+        if (epoch !== accountEpoch) return {ok:false,error:"account_changed"};
+        const current = (await read(ITEMS_KEY, [])).find(x => x.id === item.id);
+        autoSync();
+        return {ok:true,item:current,matched:Boolean(current?.enrichedAt && current.enrichedAt !== item.enrichedAt)};
+      }).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));
+      return true;
+    }
     case "IMPORT_STATE":
     case "IMPORT_MERGE":
       mutateAndReply(()=>mergeImport(message.payload||{items:message.items}),sendResponse);return true;
