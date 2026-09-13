@@ -245,6 +245,10 @@
       .rank-row { gap:22px; padding:10px 2px 18px; }
       .rank-card { width:150px; flex:0 0 auto; display:flex; flex-direction:column; position:relative; }
       .rank-art { position:relative; width:150px; height:200px; border-radius:16px; overflow:hidden; display:grid; place-items:center; color:#fff; font-weight:800; font-size:30px; background:linear-gradient(140deg,#B7A2F2,#8AD3C0); box-shadow:var(--shadow); transition:transform .18s, box-shadow .18s; }
+      .rank-art img { width:100%; height:100%; object-fit:cover; }
+      .rank-art .cat-badge { position:absolute; top:8px; left:8px; z-index:2; font-size:8.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:3px 7px; border-radius:7px; color:#fff; background:rgba(20,14,35,.55); backdrop-filter:blur(3px); }
+      .rank-art .badge-soon { position:absolute; left:8px; bottom:8px; z-index:2; font-size:8.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:3px 7px; border-radius:7px; color:#fff; background:var(--game); max-width:78px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .rank-art .badge-price { position:absolute; right:8px; bottom:8px; z-index:2; font-size:10px; font-weight:800; padding:3px 7px; border-radius:7px; color:#fff; background:rgba(20,14,35,.62); backdrop-filter:blur(3px); white-space:nowrap; }
       .rank-card:hover .rank-art { transform:translateY(-5px); box-shadow:var(--shadow-lg); }
       .rank-num { position:absolute; left:5px; bottom:0; z-index:4; font-size:58px; line-height:.85; font-weight:900; font-style:italic; letter-spacing:-.05em; color:#fff; -webkit-text-stroke:2.5px var(--lav-ink); paint-order:stroke fill; text-shadow:0 4px 12px rgba(0,0,0,.45); pointer-events:none; }
       .rank-card .rank-meta { margin-top:10px; padding-left:2px; }
