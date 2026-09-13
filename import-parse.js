@@ -112,7 +112,10 @@
 
     return {
       title, type, format: format || undefined, year, url, cover, total,
-      externalIds: src.ids && typeof src.ids === "object" ? src.ids : undefined,
+      externalIds: src.externalIds && typeof src.externalIds === "object" ? src.externalIds : src.ids && typeof src.ids === "object" ? src.ids : undefined,
+      alternativeTitles: [...new Set([...(Array.isArray(src.alternativeTitles)?src.alternativeTitles:[]),...(Array.isArray(src.synonyms)?src.synonyms:[]),src.title_english,src.title_romaji,src.title_native].filter(x=>typeof x==="string"&&x.trim()))],
+      authors: (Array.isArray(src.authors)?src.authors:[src.author]).map(x=>typeof x==="string"?x:x?.name).filter(x=>typeof x==="string"&&x.trim()),
+      synopsis: firstString(src,["synopsis","description","summary"]) || undefined,
       episode: type === "watching" ? episode : undefined,
       chapter: type === "reading" ? chapter : undefined,
       season: type === "watching" ? season : undefined,
