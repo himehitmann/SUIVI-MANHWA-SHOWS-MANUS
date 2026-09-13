@@ -893,16 +893,26 @@ async function enrichWork(id) {
   if (!it || it.type === "game" || (it.enrichedAt && it.cover && it.synopsis)) return;
   let results;
   try {
-    results = await anilistSearch(it.title);
+    results = await catalogSearchAll(it.title);
   } catch {
     return;
   }
-  const match = results.find((r) => sameWork(r.title, it.title) && (r.type === it.type || !it.type));
+  // Automatic imports require an exact normalized title and compatible year
+  // and format. Ambiguous remakes/adaptations must not receive random artwork.
+  const candidates = results.filter(r =>
+    normalizeTitle(r.title) === normalizeTitle(it.title) &&
+    r.type === it.type &&
+    (!it.year || !(r.year || r.season) || Number(it.year) === Number(r.year || r.season)) &&
+    (!it.format || !r.format || String(it.format).toUpperCase() === String(r.format).toUpperCase())
+  );
+  if (candidates.length !== 1) return;
+  const match = candidates[0];
   const patch = { enrichedAt: Date.now() };
   if (match) {
     if (!it.coverOverride && match.cover) patch.cover = match.cover; // real series cover (fixes episode-thumbnail covers)
+    if (!it.coverFallback && match.coverFallback) patch.coverFallback = match.coverFallback;
     if (!it.synopsis && match.synopsis) patch.synopsis = match.synopsis;
-    if ((!it.tags || !it.tags.length) && match.genres.length) patch.tags = match.genres;
+    if ((!it.tags || !it.tags.length) && match.genres?.length) patch.tags = match.genres;
     if (match.total && match.total > (it.total || 0)) patch.total = match.total;
     // Catalog seasonYear is a release year, never a viewing-season number.
     if (!it.format && match.format) patch.format = match.format;
@@ -925,7 +935,7 @@ async function enrichWork(id) {
   await serializeLibrary(async () => {
     if(epoch!==accountEpoch)return;
     const current = await read(ITEMS_KEY, []);
-    const next = current.map(x => x.id === id ? boundedProgress({...x,...patch}) : x);
+    const next = current.map(x => x.id === id && x.updatedAt === it.updatedAt && x.title === it.title && x.type === it.type ? boundedProgress({...x,...patch}) : x);
     await writeData({[ITEMS_KEY]:next});
   });
 }
