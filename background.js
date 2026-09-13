@@ -852,6 +852,39 @@ async function getDiscover(force) {
   return fresh;
 }
 
+/** Enrich one imported game with Steam artwork, price, store link and synopsis. */
+async function enrichGame(id) {
+  const epoch=accountEpoch;
+  const items=await read(ITEMS_KEY,[]);
+  const it=items.find(x=>x.id===id);
+  if(!it || it.type!=="game" || (it.enrichedAt && it.cover && it.synopsis)) return;
+  let match;
+  try { match=(await steamSearch(it.title)).find(r=>sameWork(r.title,it.title)); } catch { return; }
+  const patch={enrichedAt:Date.now(),format:it.format||"Game"};
+  if(match) {
+    if(!it.coverOverride && match.cover) patch.cover=match.cover;
+    if(!it.coverFallback && match.coverFallback) patch.coverFallback=match.coverFallback;
+    if(!it.price && match.price) patch.price=match.price;
+    if(!it.platform && match.platform) patch.platform=match.platform;
+    if(!it.url && match.url) patch.url=match.url;
+    const appid=steamAppId(match.url || it.url);
+    if(appid) try {
+      const d=await steamAppDetails(appid);
+      if(d) {
+        if(!it.synopsis && d.synopsis) patch.synopsis=d.synopsis;
+        if((!it.tags || !it.tags.length) && d.genres?.length) patch.tags=d.genres;
+        if(!it.releaseDate && d.releaseDate) patch.releaseDate=d.releaseDate;
+        if(d.comingSoon!==undefined && it.released===undefined) patch.released=!d.comingSoon;
+      }
+    } catch {}
+  }
+  await serializeLibrary(async()=>{
+    if(epoch!==accountEpoch)return;
+    const current=await read(ITEMS_KEY,[]);
+    await writeData({[ITEMS_KEY]:current.map(x=>x.id===id?boundedProgress({...x,...patch}):x)});
+  });
+}
+
 /** Enrich one stored work in place from AniList (once per work). */
 async function enrichWork(id) {
   const epoch=accountEpoch;
@@ -1175,7 +1208,7 @@ async function mergeImport(payload) {
     byId.set(key,item);
     // Imported exports often contain progress but omit artwork and synopsis.
     // Queue a best-effort lookup after the atomic import is safely stored.
-    if(type!=="game" && (!item.enrichedAt || !item.cover || !item.synopsis)) enrichIds.add(key);
+    if(!item.enrichedAt || !item.cover || !item.synopsis) enrichIds.add(key);
     if(ex)updated++;else added++;
   }
   const patch={[ITEMS_KEY]:[...byId.values()]};
@@ -1195,7 +1228,10 @@ async function mergeImport(payload) {
   // Do not hold the import response while network lookups run. Each lookup
   // preserves user-supplied progress and only fills missing metadata.
   queueMicrotask(() => {
-    for (const id of enrichIds) enrichWork(id).then(() => autoSync()).catch(() => {});
+    for (const id of enrichIds) {
+      const item=byId.get(id);
+      (item?.type==="game" ? enrichGame(id) : enrichWork(id)).then(() => autoSync()).catch(() => {});
+    }
   });
   return {ok:true,added,updated,total:byId.size,enrichmentQueued:enrichIds.size};
 }
