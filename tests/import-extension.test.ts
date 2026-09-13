@@ -134,3 +134,9 @@ describe("extension importer", () => {
     expect(r.items[3].status).toBe("dropped");
   });
 });
+
+it("retains imported catalog identity and descriptive metadata",async()=>{
+  const c=parser();
+  const r=await c.window.YomuImport.parseFiles([file([{title:"Titre français",type:"manga",synonyms:["English title"],author:{name:"Creator"},ids:{anilist:123},description:"A synopsis",chapters_read:8}])]);
+  expect(r.items[0]).toMatchObject({alternativeTitles:["English title"],authors:["Creator"],externalIds:{anilist:123},synopsis:"A synopsis",chapter:8});
+});
