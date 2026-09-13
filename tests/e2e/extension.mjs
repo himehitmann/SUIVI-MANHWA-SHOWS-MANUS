@@ -19,7 +19,14 @@ try {
     (await context.waitForEvent("serviceworker"));
   const id = new URL(worker.url()).host,
     base = `chrome-extension://${id}/`;
-  assert(await worker.evaluate(async()=>Boolean(await chrome.alarms.get("yomu-sync-retry"))),"Durable sync alarm missing");
+  // Service worker visibility precedes completion of asynchronous alarm setup.
+  const alarmDeadline = Date.now() + 5000;
+  let syncAlarmReady = false;
+  while (!syncAlarmReady && Date.now() < alarmDeadline) {
+    syncAlarmReady = await worker.evaluate(async()=>Boolean(await chrome.alarms.get("yomu-sync-retry")));
+    if (!syncAlarmReady) await new Promise(resolve=>setTimeout(resolve,100));
+  }
+  assert(syncAlarmReady,"Durable sync alarm missing after startup");
   const releaseAlarm=await worker.evaluate(async()=>{
     await ensureReleaseAlarm();const before=await chrome.alarms.get("dasi-daily");await ensureReleaseAlarm();const after=await chrome.alarms.get("dasi-daily");return {before:before.scheduledTime,after:after.scheduledTime,period:after.periodInMinutes};
   });
