@@ -1637,10 +1637,21 @@ api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
 // Background metadata lookups finish after an import. Refresh the open library
 // as storage changes so covers and episode totals appear without a page reload.
 let storageRefresh = 0;
-api.storage.onChanged.addListener((_changes, area) => {
-  if (area !== "local") return;
+api.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !changes["dasi.items"]) return;
+  const change = changes["dasi.items"];
+  const before = new Map((change.oldValue || []).map(item => [item.id, item.enrichedAt]));
+  if (!(change.newValue || []).some(item => item.enrichedAt && before.get(item.id) !== item.enrichedAt)) return;
   clearTimeout(storageRefresh);
-  storageRefresh = setTimeout(() => api.runtime.sendMessage({ type: "GET_STATE" }, hydrate), 120);
+  storageRefresh = setTimeout(() => api.runtime.sendMessage({ type: "GET_STATE" }, state => {
+    if (api.runtime.lastError || !Array.isArray(state?.items)) return;
+    items = state.items;
+    // Preserve selected list rows, open editors, profile and navigation state.
+    renderGrid();
+    renderStats();
+    if (view === "home" && !currentListId) renderHome();
+    if (view === "games" && !document.querySelector("#game-form input")) renderGames();
+  }), 120);
 });
 
 document.addEventListener("load", (event) => { const im=event.target; if(im instanceof HTMLImageElement && im.matches("img.cov")) im.classList.toggle("landscape", im.naturalWidth > im.naturalHeight * 1.2); }, true);
