@@ -187,10 +187,14 @@ const isUpcoming = (i) => { const d = parseDate(i.releaseDate); return d && d > 
 
 function marker(i) {
   if (i.type === "game") return i.platform || (i.releaseDate ? i.releaseDate : "Game");
-  const parts = i.type === "watching"
-    ? [i.season && `${t("watching") ? "" : ""}Season ${i.season}`, i.episode && `Episode ${i.episode}`]
-    : [i.volume && `Vol. ${i.volume}`, i.chapter && `Chapter ${i.chapter}`, i.page && `Page ${i.page}`];
-  return parts.filter(Boolean).join(" · ") || i.domain || "";
+  if (i.type === "watching") {
+    const watched = Number(i.episode) || 0, total = Number(i.total) || 0;
+    const progress = total ? watched + "/" + total + " episodes" : watched ? "Episode " + watched : "";
+    return [i.season && "Season " + i.season, progress].filter(Boolean).join(" · ") || i.domain || "";
+  }
+  const read = Number(i.chapter) || 0, total = Number(i.total) || 0;
+  const progress = total ? read + "/" + total + " chapters" : read ? "Chapter " + read : "";
+  return [i.volume && "Vol. " + i.volume, progress, i.page && "Page " + i.page].filter(Boolean).join(" · ") || i.domain || "";
 }
 function relative(ts) {
   if (!ts) return "";
