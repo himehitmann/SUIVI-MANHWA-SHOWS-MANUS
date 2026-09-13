@@ -120,4 +120,17 @@ describe("extension importer", () => {
     expect(r.items[0].episode).toBeUndefined();
     expect(r.items[1].chapter).toBeUndefined();
   });
+  it("preserves tracker statuses, reading totals and nested media categories", async () => {
+    const c=parser();
+    const r=await c.window.YomuImport.parseFiles([file([
+      {show:{title:"Show"},status:"Completed",episodes_watched:12,total_episodes:12},
+      {movie:{title:"Film"},status:"plan_to_watch"},
+      {title:"Comic",type:"manga",status:"on_hold",chapters_read:8,total_chapters:40},
+      {title:"Dropped show",type:"series",status:"dropped"},
+    ])]);
+    expect(r.items[0]).toMatchObject({format:"SERIES",status:"completed",episode:12,total:12});
+    expect(r.items[1]).toMatchObject({format:"MOVIE",status:"planned"});
+    expect(r.items[2]).toMatchObject({format:"MANGA",status:"on_hold",chapter:8,total:40});
+    expect(r.items[3].status).toBe("dropped");
+  });
 });
