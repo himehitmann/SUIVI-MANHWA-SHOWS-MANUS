@@ -857,7 +857,7 @@ async function enrichWork(id) {
   const epoch=accountEpoch;
   const items = await read(ITEMS_KEY, []);
   const it = items.find((x) => x.id === id);
-  if (!it || it.type === "game" || it.enrichedAt) return;
+  if (!it || it.type === "game" || (it.enrichedAt && it.cover && it.synopsis)) return;
   let results;
   try {
     results = await anilistSearch(it.title);
@@ -1150,7 +1150,7 @@ function mutateAndReply(task, respond) {
   serializeLibrary(task).then(result=>{respond(result);autoSync();},error=>respond({ok:false,error:String(error.message || error)}));
 }
 async function mergeImport(payload) {
-  const items=await read(ITEMS_KEY,[]), byId=new Map(items.map(i=>[i.id,i])), ids=new Map();
+  const items=await read(ITEMS_KEY,[]), byId=new Map(items.map(i=>[i.id,i])), ids=new Map(), enrichIds=new Set();
   let added=0,updated=0;
   for(const raw of (Array.isArray(payload.items)?payload.items:[])) {
     if(!raw || typeof raw.title!=='string' || !raw.title.trim())continue;
@@ -1172,7 +1172,11 @@ async function mergeImport(payload) {
       rating:ex?.rating||p.rating||0,cover:ex?.cover||p.cover||'',url:ex?.url||p.url||'',favorite:ex?.favorite||p.favorite||false,
       tags:[...new Set([...(ex?.tags||[]),...(p.tags||[])])],sources:[...new Set([...(ex?.sources||[]),...(p.sources||[])])],
       createdAt:ex?.createdAt||p.createdAt||Date.now(),updatedAt:Date.now(),imported:true});
-    byId.set(key,item);if(ex)updated++;else added++;
+    byId.set(key,item);
+    // Imported exports often contain progress but omit artwork and synopsis.
+    // Queue a best-effort lookup after the atomic import is safely stored.
+    if(type!=="game" && (!item.enrichedAt || !item.cover || !item.synopsis)) enrichIds.add(key);
+    if(ex)updated++;else added++;
   }
   const patch={[ITEMS_KEY]:[...byId.values()]};
   if(Array.isArray(payload.lists)) {
@@ -1187,7 +1191,13 @@ async function mergeImport(payload) {
   if(Array.isArray(payload.sites))patch[SITES_KEY]=mergeById(payload.sites,await read(SITES_KEY,[]));
   if(Array.isArray(payload.notifications))patch[NOTIF_KEY]=mergeById(payload.notifications.map(n=>({...n,itemId:ids.get(n.itemId)||n.itemId})),await read(NOTIF_KEY,[]));
   if(payload.settings)patch[SETTINGS_KEY]={...DEFAULT_SETTINGS,...payload.settings,...await read(SETTINGS_KEY,{})};
-  await writeData(patch);return {ok:true,added,updated,total:byId.size};
+  await writeData(patch);
+  // Do not hold the import response while network lookups run. Each lookup
+  // preserves user-supplied progress and only fills missing metadata.
+  queueMicrotask(() => {
+    for (const id of enrichIds) enrichWork(id).then(() => autoSync()).catch(() => {});
+  });
+  return {ok:true,added,updated,total:byId.size,enrichmentQueued:enrichIds.size};
 }
 
 api.runtime.onMessage.addListener((message, sender, sendResponse) => {
