@@ -427,3 +427,42 @@ describe("metadata repair requests", () => {
     expect(result).toMatchObject({ok:false,error:"item_unavailable"});
   });
 });
+
+describe("multilingual work identity",()=>{
+  it("updates a known translated title and preserves the original title",async()=>{
+    const w=worker();
+    await w.save(book("L'Attaque des Titans",{chapter:3,alternativeTitles:["Attack on Titan","Shingeki no Kyojin"],externalIds:{anilist:"53390"},authors:["Hajime Isayama"]}));
+    const result=await w.save(book("Attack on Titan",{chapter:4}));
+    expect(w.data["dasi.items"]).toHaveLength(1);
+    expect(result.item).toMatchObject({title:"L'Attaque des Titans",chapter:4,authors:["Hajime Isayama"]});
+    const check=await w.call({type:"CHECK_EXISTING",payload:book("Shingeki no Kyojin")});
+    expect(check.existing.id).toBe(result.item.id);
+  });
+  it("uses a unique catalog identity before saving another language",async()=>{
+    const w=worker();
+    await w.save(book("Titre français",{chapter:2,externalIds:{anilist:"123"}}));
+    w.run('anilistSearch=async()=>[{title:"English title",type:"reading",externalIds:{anilist:"123"},alternativeTitles:["Titre français"]}]');
+    await w.save(book("English title",{chapter:5}));
+    expect(w.data["dasi.items"]).toHaveLength(1);
+    expect(w.data["dasi.items"][0].chapter).toBe(5);
+  });
+  it("does not merge conflicting catalog IDs or adaptations",async()=>{
+    const w=worker();
+    await w.save(book("Shared title",{externalIds:{anilist:"1"},format:"MANGA"}));
+    await w.save(book("Shared title",{externalIds:{anilist:"2"},format:"MANGA"}));
+    await w.save(book("Shared title",{type:"watching",format:"ANIME",externalIds:{anilist:"3"}}));
+    expect(w.data["dasi.items"]).toHaveLength(3);
+  });
+  it("does not choose arbitrarily between two alias matches",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"One",type:"reading",alternativeTitles:["Ambiguous"]},{id:"b",title:"Two",type:"reading",alternativeTitles:["Ambiguous"]}]});
+    const check=await w.call({type:"CHECK_EXISTING",payload:book("Ambiguous")});
+    expect(check.existing).toBeNull();
+  });
+  it("maps multilingual catalog titles and writers without voice actors",()=>{
+    const w=worker();
+    const result=w.run('mediaToResult({id:123,idMal:456,format:"MANGA",title:{english:"English",romaji:"Romaji",native:"日本語"},synonyms:["Français"],staff:{edges:[{role:"Story & Art",node:{name:{full:"Creator"}}},{role:"Voice",node:{name:{full:"Actor"}}}]}})');
+    expect(result.alternativeTitles).toEqual(["English","Romaji","日本語","Français"]);
+    expect(result.authors).toEqual(["Creator"]);
+    expect(result.externalIds).toEqual({anilist:"123",mal:"456"});
+  });
+});
