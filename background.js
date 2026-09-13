@@ -1227,7 +1227,7 @@ async function mergeImport(payload) {
   await writeData(patch);
   // Do not hold the import response while network lookups run. Each lookup
   // preserves user-supplied progress and only fills missing metadata.
-  queueMicrotask(() => {
+  Promise.resolve().then(() => {
     for (const id of enrichIds) {
       const item=byId.get(id);
       (item?.type==="game" ? enrichGame(id) : enrichWork(id)).then(() => autoSync()).catch(() => {});
