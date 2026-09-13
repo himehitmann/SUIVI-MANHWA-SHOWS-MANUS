@@ -159,6 +159,7 @@ const accentFor = (i) => (i.type === "watching" ? "#7E9BE6" : i.type === "game" 
 function catLabel(i) {
   const f = String(i.format || "").toUpperCase();
   if (i.type === "game" || f === "GAME") return "Game";
+  if (f === "WEBTOON") return "Webtoon";
   if (f === "MANHWA") return "Manhwa";
   if (f === "MANHUA") return "Manhua";
   if (f === "MANGA") return "Manga";
@@ -296,7 +297,7 @@ function scoreTaste(m, w) {
 let discoItems = []; // flat candidate list; cards reference indices into this
 function discoBadges(m, opts) {
   const soon = opts.soon ? `<span class="badge-soon">${esc(m.releaseDate || t("comingSoon"))}</span>` : "";
-  const price = m.price ? `<span class="badge-price">${esc(m.price)}</span>` : (m.type === "game" && !opts.soon ? `<span class="badge-price">${t("free")}</span>` : "");
+  const price = m.price ? `<span class="badge-price">${esc(m.price)}</span>` : "";
   return { soon, price };
 }
 function discoCard(m, idx, opts = {}) {
@@ -633,7 +634,7 @@ function renderStats() {
     [items.filter((i) => i.type === "reading").length, t("reading")],
     [items.filter((i) => i.type === "watching").length, t("watching")],
     [items.filter((i) => i.favorite).length, t("favorites")],
-    [items.filter((i) => (i.progress || 0) >= 100).length, t("finished")],
+    [items.filter((i) => itemState(i) === "completed").length, t("finished")],
   ];
   document.getElementById("stats").innerHTML = s.map(([n, l]) => `<div class="chip"><b>${n}</b><span>${l}</span></div>`).join("");
 }
