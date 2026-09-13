@@ -91,13 +91,13 @@
       }
     }
     const num = (v) => { const n = parseInt(v, 10); return isFinite(n) && n > 0 ? n : undefined; };
-    episode = episode || num(src.episode) || num(src.episode_number) || num(src.episodeNumber) || num(src.episodes_watched) || num(src.num_watched_episodes) || num(src.my_watched_episodes) || num(src.watched_episodes) || num(src.watchedEpisodes) || num(src.progress);
-    chapter = num(src.chapter) || num(src.chapter_number) || num(src.chapters_read) || num(src.num_read_chapters) || num(src.my_read_chapters) || num(src.progress);
+    episode = episode || num(src.episode) || num(src.episode_number) || num(src.episodeNumber) || num(src.episodes_watched) || num(src.num_watched_episodes) || num(src.my_watched_episodes) || num(src.watched_episodes) || num(src.watchedEpisodes) || num(src.num_episodes_watched);
+    chapter = num(src.chapter) || num(src.chapter_number) || num(src.chapters_read) || num(src.num_read_chapters) || num(src.my_read_chapters);
     season = season || num(src.season);
     if (type === "reading" && !chapter && episode) { chapter = episode; episode = undefined; }
 
     const cover = firstString(src, ["cover", "image", "poster", "thumb", "Image"]) || undefined;
-    const total = num(src.total) || num(src.episodes) || num(src.total_episodes) || num(src.totalEpisodes) || num(src.num_episodes) || num(src.num_episodes_watched);
+    const total = num(src.total) || num(src.episodes) || num(src.total_episodes) || num(src.totalEpisodes) || num(src.num_episodes);
     const status = /plan|watchlist|want|planned/i.test(String(rec.list_type || rec.status || src.status || "")) ? "planned" : undefined;
 
     return {
