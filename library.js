@@ -1630,5 +1630,13 @@ function hydrate(state) {
   if (!discoverTried) loadDiscover(false);
 }
 api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
+// Background metadata lookups finish after an import. Refresh the open library
+// as storage changes so covers and episode totals appear without a page reload.
+let storageRefresh = 0;
+api.storage.onChanged.addListener((_changes, area) => {
+  if (area !== "local") return;
+  clearTimeout(storageRefresh);
+  storageRefresh = setTimeout(() => api.runtime.sendMessage({ type: "GET_STATE" }, hydrate), 120);
+});
 
 document.addEventListener("load", (event) => { const im=event.target; if(im instanceof HTMLImageElement && im.matches("img.cov")) im.classList.toggle("landscape", im.naturalWidth > im.naturalHeight * 1.2); }, true);
