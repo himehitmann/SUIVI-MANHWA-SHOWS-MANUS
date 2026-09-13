@@ -91,7 +91,14 @@ function sameIdentity(a,b,fuzzy=false) {
   if(Object.keys(ai).some(k=>bi[k]===ai[k]))return true;
   return identityTitles(a).some(x=>identityTitles(b).some(y=>fuzzy?sameWork(x,y):normalizeTitle(x)===normalizeTitle(y)));
 }
+function sharedCatalogIdentity(a,b) {
+  if(!identityCompatible(a,b))return false;
+  const ai=identityIds(a),bi=identityIds(b);
+  return Object.keys(ai).some(k=>bi[k]===ai[k]);
+}
 function findIdentity(items,payload) {
+  const identified=items.filter(i=>sharedCatalogIdentity(i,payload));
+  if(identified.length)return identified.length===1?identified[0]:null;
   const exact=items.filter(i=>sameIdentity(i,payload));
   if(exact.length)return exact.length===1?exact[0]:null;
   const fuzzy=items.filter(i=>sameIdentity(i,payload,true));
@@ -936,11 +943,69 @@ async function enrichGame(id) {
 }
 
 /** Enrich one stored work in place from AniList (once per work). */
+
+/** Consolidate only confirmed reading identities, never title-only matches.
+ * Keep original records inside the surviving item so custom imported fields
+ * remain recoverable in exports. writeData stamps deletions and memberships.
+ * Caller must hold serializeLibrary's lock.
+ */
+async function consolidateReadingIdentity(items,id) {
+  const target=items.find(i=>i.id===id);
+  const unchanged={items,item:target,mergedIds:[]};
+  if(!target||target.type!=="reading")return unchanged;
+  const group=items.filter(i=>i.type==="reading"&&sharedCatalogIdentity(i,target));
+  if(group.length<2)return unchanged;
+  // A shared alias or inconsistent cross-catalog mapping must not bridge works.
+  if(group.some(a=>group.some(b=>!sharedCatalogIdentity(a,b))))return unchanged;
+  // Distinct user-selected covers or ratings need a deliberate user decision.
+  for(const key of ["coverOverride","rating","notes"]) {
+    if(new Set(group.map(i=>i[key]).filter(Boolean)).size>1)return unchanged;
+  }
+  group.sort((a,b)=>(Number(a.createdAt)||Number(a.updatedAt)||0)-(Number(b.createdAt)||Number(b.updatedAt)||0)||String(a.id).localeCompare(String(b.id)));
+  const primary=group[0];
+  const byRecent=[...group].sort((a,b)=>(Number(a.updatedAt)||0)-(Number(b.updatedAt)||0));
+  let merged={};
+  for(const entry of byRecent)merged={...merged,...entry};
+  for(const entry of group)merged={...merged,...identityMetadata(merged,entry)};
+  const furthest=[...group].sort((a,b)=>(Number(b.chapter)||0)-(Number(a.chapter)||0)||(Number(b.page)||0)-(Number(a.page)||0)||(Number(b.updatedAt)||0)-(Number(a.updatedAt)||0))[0];
+  const mergedIds=group.filter(i=>i.id!==primary.id).map(i=>i.id), removed=new Set(mergedIds);
+  const chapter=Math.max(...group.map(i=>Number(i.chapter)||0));
+  const total=Math.max(...group.map(i=>Number(i.total)||0));
+  const unique=key=>[...new Set(group.flatMap(i=>Array.isArray(i[key])?i[key]:[]))];
+  merged={
+    ...merged,id:primary.id,title:primary.title,createdAt:primary.createdAt||Date.now(),updatedAt:Date.now(),
+    chapter,total:total>=chapter?total||undefined:undefined,
+    page:furthest.page,position:furthest.position,duration:furthest.duration,progress:furthest.progress,
+    url:furthest.url||primary.url||merged.url,
+    latestChapter:Math.max(chapter,...group.map(i=>Number(i.latestChapter)||0)),
+    favorite:group.some(i=>i.favorite),rating:group.find(i=>i.rating)?.rating||0,
+    notes:group.find(i=>i.notes)?.notes,
+    coverOverride:group.find(i=>i.coverOverride)?.coverOverride,
+    cover:group.find(i=>i.coverOverride)?.cover||primary.cover||merged.cover,
+    synopsis:primary.synopsis||merged.synopsis,
+    tags:unique("tags"),sources:unique("sources"),
+    sourceUrls:[...new Set([...unique("sourceUrls"),...group.map(i=>i.url).filter(Boolean)])],
+    mergedFrom:group.flatMap(i=>{const {mergedFrom,...snapshot}=i;return [...(Array.isArray(mergedFrom)?mergedFrom:[]),snapshot];}),
+  };
+  const next=items.filter(i=>!removed.has(i.id)).map(i=>i.id===primary.id?merged:i);
+  const lists=(await read(LISTS_KEY,[])).map(l=>({...l,itemIds:[...new Set((l.itemIds||[]).map(key=>removed.has(key)?primary.id:key))]}));
+  const notifications=(await read(NOTIF_KEY,[])).map(n=>removed.has(n.itemId)?{...n,itemId:primary.id}:n);
+  return {items:next,item:merged,mergedIds,lists,notifications};
+}
+
 async function enrichWork(id) {
   const epoch=accountEpoch;
   const items = await read(ITEMS_KEY, []);
   const it = items.find((x) => x.id === id);
-  if (!it || it.type === "game" || (it.enrichedAt && it.cover && it.synopsis)) return;
+  if (!it || it.type === "game") return;
+  if(it.enrichedAt && it.cover && it.synopsis && it.identityVersion===1) {
+    return serializeLibrary(async()=>{
+      if(epoch!==accountEpoch)return;
+      const result=await consolidateReadingIdentity(await read(ITEMS_KEY,[]),id);
+      if(result.mergedIds.length)await writeData({[ITEMS_KEY]:result.items,[LISTS_KEY]:result.lists,[NOTIF_KEY]:result.notifications});
+      return result;
+    });
+  }
   let results;
   try {
     results = await catalogSearchAll(it.title);
@@ -982,11 +1047,15 @@ async function enrichWork(id) {
       } catch {}
     }
   }
-  await serializeLibrary(async () => {
+  return serializeLibrary(async () => {
     if(epoch!==accountEpoch)return;
     const current = await read(ITEMS_KEY, []);
-    const next = current.map(x => x.id === id && x.updatedAt === it.updatedAt && x.title === it.title && x.type === it.type ? boundedProgress({...x,...patch}) : x);
-    await writeData({[ITEMS_KEY]:next});
+    const live=current.find(x=>x.id===id);
+    if(!live||live.updatedAt!==it.updatedAt||live.title!==it.title||live.type!==it.type)return;
+    const next = current.map(x => x.id === id ? boundedProgress({...x,...patch}) : x);
+    const result=await consolidateReadingIdentity(next,id);
+    await writeData({[ITEMS_KEY]:result.items,...(result.mergedIds.length?{[LISTS_KEY]:result.lists,[NOTIF_KEY]:result.notifications}:{})});
+    return result;
   });
 }
 
@@ -1268,7 +1337,7 @@ async function mergeImport(payload) {
     byId.set(key,item);
     // Imported exports often contain progress but omit artwork and synopsis.
     // Queue a best-effort lookup after the atomic import is safely stored.
-    if(!item.enrichedAt || !item.cover || !item.synopsis) enrichIds.add(key);
+    if(!item.enrichedAt || !item.cover || !item.synopsis || (item.type==="reading" && item.identityVersion!==1)) enrichIds.add(key);
     if(ex)updated++;else added++;
   }
   const patch={[ITEMS_KEY]:[...byId.values()]};
@@ -1399,11 +1468,11 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       read(ITEMS_KEY, []).then(async saved => {
         const item = saved.find(x => x.id === message.id);
         if (!item || epoch !== accountEpoch) return {ok:false,error:"item_unavailable"};
-        await (item.type === "game" ? enrichGame(item.id) : enrichWork(item.id));
+        const completion=await (item.type === "game" ? enrichGame(item.id) : enrichWork(item.id));
         if (epoch !== accountEpoch) return {ok:false,error:"account_changed"};
-        const current = (await read(ITEMS_KEY, [])).find(x => x.id === item.id);
+        const current = (await read(ITEMS_KEY, [])).find(x => x.id === (completion?.item?.id||item.id));
         autoSync();
-        return {ok:true,item:current,matched:Boolean(current?.enrichedAt && current.enrichedAt !== item.enrichedAt)};
+        return {ok:true,item:current,mergedIds:completion?.mergedIds||[],lists:completion?.lists,matched:Boolean(current?.enrichedAt && current.enrichedAt !== item.enrichedAt)};
       }).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));
       return true;
     }
