@@ -475,7 +475,7 @@
 #preview-info summary{cursor:pointer;font-weight:600}
 
 /* Full artwork and accessible horizontal navigation. */
-img.cov,img.cov.landscape {object-fit:contain;background:linear-gradient(145deg,#252139,#423851);object-position:center}
+img.cov,img.cov.landscape,.disco .art img.cov,.poster .art img.cov,.drawer-cover img.cov,.game-cover img.cov,.cover img.cov {object-fit:contain;background:linear-gradient(145deg,#252139,#423851);object-position:center}
 .disco-game{width:240px}.disco-game .art{height:150px;aspect-ratio:16/10}
 .drawer-cover{background:linear-gradient(145deg,#252139,#423851)}
 .cast-card{flex:0 0 88px}.cast-av{width:80px;height:100px;border-radius:12px;flex-shrink:0}
@@ -484,6 +484,7 @@ img.cov,img.cov.landscape {object-fit:contain;background:linear-gradient(145deg,
 .carousel-shell>.scroll-x,.carousel-shell>.disco-wrap{overflow-x:auto;scrollbar-width:none;mask-image:none}
 .carousel-shell>.scroll-x::-webkit-scrollbar,.carousel-shell>.disco-wrap::-webkit-scrollbar{display:none}
 .disco-track{animation:none;transform:none}
+.disco-wrap::before,.disco-wrap::after{display:none}
 .carousel-arrow{position:absolute;top:35%;z-index:3;width:32px;height:48px;border:1px solid #ffffff40;border-radius:12px;background:#242036d9;color:white;font-size:32px;cursor:pointer;box-shadow:0 4px 14px #15112430}
 .carousel-arrow.prev{left:0}.carousel-arrow.next{right:0}
 .carousel-arrow:focus-visible{outline:3px solid var(--lav-ink);outline-offset:2px}
