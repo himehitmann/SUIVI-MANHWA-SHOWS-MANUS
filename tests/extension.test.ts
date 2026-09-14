@@ -567,3 +567,31 @@ describe("persistent import metadata queue",()=>{
     expect(w.run("createdAlarms")).toEqual([{name:"yomu-import-enrichment",options:{periodInMinutes:1}}]);
   });
 });
+
+describe("catalog navigation and destinations",()=>{
+  it("rejects a removed destination before saving a work",async()=>{
+    const w=worker();
+    const r=await w.call({type:"SAVE_PROGRESS",payload:book("New"),listId:"deleted"});
+    expect(r).toMatchObject({ok:false,error:"list_unavailable"});
+    expect(w.data["dasi.items"]||[]).toEqual([]);
+    expect(w.data["dasi.lists"]||[]).toEqual([]);
+  });
+  it("loads a catalog detail without adding an item",async()=>{
+    const w=worker();
+    w.run('anilistDetail=async()=>({title:"English",alternativeTitles:["Français"],cast:[{name:"Character"}],trailerUrl:"https://www.youtube.com/watch?v=abcdefghijk"})');
+    const r=await w.call({type:"CATALOG_DETAIL",item:book("Français",{externalIds:{anilist:"123"}})});
+    expect(r.ok).toBe(true);
+    expect(r.item.title).toBe("Français");
+    expect(r.item.cast).toEqual([{name:"Character"}]);
+    expect(w.data["dasi.items"]||[]).toEqual([]);
+  });
+  it("updates an existing series across sites with a catalog identifier",async()=>{
+    const w=worker();
+    await w.save(book("French series",{type:"watching",season:6,episode:26,externalIds:{tvmaze:"123"}}));
+    w.run('catalogSearchAll=async()=>[{title:"English series",type:"watching",externalIds:{tvmaze:"123"}}]');
+    const result=await w.save(book("English series",{type:"watching",season:6,episode:26,domain:"second.example"}));
+    expect(w.data["dasi.items"]).toHaveLength(1);
+    expect(result.item).toMatchObject({season:6,episode:26});
+    expect(result.item.sources).toContain("second.example");
+  });
+});
