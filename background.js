@@ -915,7 +915,7 @@ async function buildDiscover() {
   const val = (r) => (r.status === "fulfilled" ? r.value : []);
   const dramas = val(drama);
   return {
-    ts: Date.now(),
+    ts: Date.now(), discoveryVersion:2,
     manga: val(manga),
     manhwa: val(manhwa),
     manhua: val(manhua),
@@ -932,9 +932,10 @@ async function buildDiscover() {
 async function getDiscover(force) {
   if (!force) {
     const c = (await api.storage.local.get(DISCOVER_KEY))[DISCOVER_KEY];
-    if (c && Date.now() - c.ts < DISCOVER_TTL) return c;
+    if (c && c.discoveryVersion===2 && Date.now() - c.ts < DISCOVER_TTL) return c;
   }
   const fresh = await buildDiscover();
+  if(!Object.values(fresh).some(value=>Array.isArray(value)&&value.length))throw Error("discovery_unavailable");
   await api.storage.local.set({ [DISCOVER_KEY]: fresh });
   return fresh;
 }
