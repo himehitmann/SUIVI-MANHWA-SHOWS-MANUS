@@ -178,7 +178,7 @@ const coverUrl = (i) => i.coverOverride || i.cover || "";
 const currentNum = (i) => (i.type === "watching" ? i.episode || 0 : i.chapter || 0);
 const STATUSES = ["current", "planned", "completed", "on_hold", "dropped"];
 const itemState = (i) => i.state || ((i.progress || 0) >= 100 ? "completed" : "current");
-const unseen = (i) => (i.type === "game" ? 0 : Math.max(0, (i.total || 0) - currentNum(i)));
+const unseen = (i) => (i.type === "game" ? 0 : Math.max(0, (i.type==="watching" && i.releaseSeason===(Number(i.season)||1) && Number.isFinite(i.releasedTotal) ? i.releasedTotal : i.total || 0) - currentNum(i)));
 // "New for you": you have unseen released entries, OR it changed recently.
 const isNew = (i) => i.type !== "game" && itemState(i) !== "dropped" && ((i.recentEpisodes||[]).some(ep=>Date.now()-ep.at<NEW_WINDOW && ep.at<=Date.now() && (ep.season>(i.season||1)||(ep.season===(i.season||1)&&ep.episode>(i.episode||0)))) || (unseen(i)>0 && Number(i.lastReleaseAt)>0 && Date.now()-Number(i.lastReleaseAt)<NEW_WINDOW));
 const parseDate = (s) => { if (!s) return null; const d = Date.parse(s); return Number.isFinite(d) ? d : null; };
@@ -293,7 +293,7 @@ function tasteWeights() {
   for(const item of items) {
     if(itemState(item)==="dropped"||(item.rating&&item.rating<=2))continue;
     if(!item.favorite&&!item.rating&&!currentNum(item))continue;
-    const age=(Date.now()-(item.updatedAt||0))/86400000;
+    const age=(Date.now()-(item.activityAt||item.updatedAt||0))/86400000;
     const strength=(item.favorite?3:1)+(Number(item.rating)||0)/2;
     const factor=strength/(1+Math.max(0,age)/90);
     for(const genre of item.tags||[]) {const key="genre:"+String(genre).toLowerCase();weights[key]=(weights[key]||0)+factor*3;}
@@ -390,8 +390,7 @@ function loadDiscover(force) {
     discoverTried = true;
     if (r && r.ok && r.data) {
       discover = r.data;
-      const recent=[...(discover.series||[]),...(discover.kdrama||[]),...(discover.cdrama||[]),...(discover.jdrama||[])];
-      items=items.map(item=>{const match=recent.find(m=>catalogSavedItem(m)?.id===item.id);return match?{...item,recentEpisodes:match.recentEpisodes}:item;});
+
     }
     if (view === "home") renderHome();
     else if (view === "games") renderGames();
@@ -482,8 +481,8 @@ function renderHome() {
   const used = new Set();
   const take = (list, n) => { const out = []; for (const i of list) { if (out.length >= n) break; if (!used.has(i.id)) { used.add(i.id); out.push(i); } } return out; };
 
-  const inProgress = items.filter((i) => i.type !== "game" && itemState(i) === "current" && (i.progress || 0) < 100).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-  const newsAll = items.filter(isNew).sort((a, b) => unseen(b) - unseen(a) || (b.updatedAt || 0) - (a.updatedAt || 0));
+  const inProgress = items.filter((i) => i.type !== "game" && itemState(i) === "current" && (i.progress || 0) < 100).sort((a, b) => (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0));
+  const newsAll = items.filter(isNew).sort((a, b) => unseen(b) - unseen(a) || (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0));
   const soon = items.filter((i) => i.type === "game" && isSoon(i));
   const genres = topGenres();
   const topG = genres[0] && genres[0][1] >= 2 ? genres[0][0] : null;
@@ -494,6 +493,7 @@ function renderHome() {
   if (!spotItems.length) spotItems = recentAll.slice(0, 4);
 
   const rNew = take(newsAll, 14);        // actionable: something you haven't seen
+  const rCatchUp = take(items.filter(i=>unseen(i)>0&&itemState(i)!=="dropped"&&currentNum(i)>0),14);
   const rContinue = take(inProgress, 14); // in progress, not already shown as new
   const rReco = topG ? take(recoAll, 14) : [];
   const rRecent = take(recentAll, 14);
@@ -502,6 +502,7 @@ function renderHome() {
     <div id="spot-wrap">${spotHtml(spotItems[spotIdx % Math.max(1, spotItems.length)])}${spotItems.length > 1 ? `<div class="dots" id="dots">${spotItems.map((_, i) => `<i class="${i === spotIdx % spotItems.length ? "on" : ""}" data-dot="${i}"></i>`).join("")}</div>` : ""}</div>
     ${row(t("continue"), rContinue)}
     ${row(t("newWeek"), rNew)}
+    ${row(settings.lang==="fr"?"À rattraper":"Catch up",rCatchUp)}
     ${renderDiscover()}
     ${rReco.length ? row(t("becauseYouLove", { g: topG }), rReco) : ""}
     ${genres.length ? `<div class="section-h"><h2>${t("yourGenres")}</h2></div><div class="genres">${genres.slice(0, 10).map(([g, n]) => `<span class="genre" data-genre="${esc(g)}">${esc(g)} <b>${n}</b></span>`).join("")}</div>` : ""}
@@ -620,7 +621,7 @@ function cardHtml(i) {
     <div class="card-body">
       <h3>${esc(i.title || "Untitled")}</h3><p>${esc(marker(i))}${itemState(i) !== "current" ? ` · <b style="color:var(--lav-ink)">${t(itemState(i))}</b>` : ""}</p>
       ${(i.progress || 0) > 0 ? `<div class="bar"><i style="width:${Math.min(100, i.progress)}%;background:${accentFor(i)}"></i></div>` : ""}
-      <small>${relative(i.updatedAt)}</small>
+      <small>${relative(i.activityAt||i.updatedAt)}</small>
       <div class="rate">${[1,2,3,4,5].map((n) => `<span data-rate="${i.id}" data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= rating ? "on" : ""}"`)}</span>`).join("")}</div>
       ${tags ? `<div class="tags">${tags}</div>` : ""}
     </div>
@@ -640,7 +641,7 @@ function renderGrid() {
   });
   const total=items.filter(i=>i.type!=="game").length;
   const count='<p class="sub" role="status">'+list.length+' / '+total+' '+t("tracked")+(list.length<total?' <button class="link-btn" id="reset-library-filters">'+(settings.lang==="fr"?"Tout afficher":"Show all")+'</button>':'')+'</p>';
-  grid.innerHTML = count + (list.length ? [...list].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(cardHtml).join("") : `<p class="empty">${t("welcomeBody")}</p>`);
+  grid.innerHTML = count + (list.length ? [...list].sort((a, b) => (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0)).map(cardHtml).join("") : `<p class="empty">${t("welcomeBody")}</p>`);
   const reset=document.getElementById("reset-library-filters");if(reset)reset.onclick=()=>{query="";filter="all";document.getElementById("q").value="";clearSearchResults();renderFilters();renderGrid();};
 }
 
@@ -970,7 +971,7 @@ function openDrawer(id) {
       <button class="icon-btn drawer-close" id="dr-close">${I.close}</button>
       <div class="drawer-cover" style="background:${i.accent || accentFor(i)}">${coverInner(i, 40)}<button class="change-cover" id="dr-cover">${I.image}</button></div>
       <h2 class="drawer-title">${esc(i.title || "Untitled")}</h2>
-      <p class="drawer-marker">${esc(marker(i))}${isGame ? "" : " · " + relative(i.updatedAt)}</p>
+      <p class="drawer-marker">${esc(marker(i))}${isGame ? "" : " · " + relative(i.activityAt||i.updatedAt)}</p>
     </div>
     <div class="drawer-body">
       ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${settings.lang==="fr"?"Auteurs":"Creators"}</div><p class="synopsis">${i.authors.filter(x=>typeof x==="string").map(esc).join(" · ")}</p>` : ""}
@@ -1671,8 +1672,8 @@ let storageRefresh = 0;
 api.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes["dasi.items"]) return;
   const change = changes["dasi.items"];
-  const before = new Map((change.oldValue || []).map(item => [item.id, item.enrichedAt]));
-  if (!(change.newValue || []).some(item => item.enrichedAt && before.get(item.id) !== item.enrichedAt)) return;
+  const before = new Map((change.oldValue || []).map(item => [item.id, [item.enrichedAt,item.releaseCheckedAt].join(":")]));
+  if (!(change.newValue || []).some(item => (item.enrichedAt||item.releaseCheckedAt) && before.get(item.id) !== [item.enrichedAt,item.releaseCheckedAt].join(":"))) return;
   clearTimeout(storageRefresh);
   storageRefresh = setTimeout(() => api.runtime.sendMessage({ type: "GET_STATE" }, state => {
     if (api.runtime.lastError || !Array.isArray(state?.items)) return;
