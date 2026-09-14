@@ -258,9 +258,9 @@ function update(id, patch) {
 }
 
 /* ================= HOME ================= */
-function topGenres() {
+function topGenres(source=items) {
   const count = {};
-  for (const i of items) for (const g of i.tags || []) count[g] = (count[g] || 0) + 1;
+  for (const i of source) for (const g of i.tags || []) count[g] = (count[g] || 0) + 1;
   return Object.entries(count).sort((a, b) => b[1] - a[1]);
 }
 function posterHtml(i) {
@@ -467,6 +467,7 @@ function valueStrip() {
   return `<div class="value-strip">${cards.map(([ic, a, b]) => `<div class="value-card"><span class="vc-ic">${ic}</span><div><b>${esc(a)}</b><small>${esc(b)}</small></div></div>`).join("")}</div>`;
 }
 function renderHome() {
+  const homeItems=items.filter(i=>!i.homeHidden);
   const el = document.getElementById("view-home");
   if (!items.length) {
     el.innerHTML = `<div class="onboard"><div class="big"><i></i></div><h2>${t("welcomeTitle")}</h2><p>${t("welcomeBody")}</p>
@@ -481,19 +482,19 @@ function renderHome() {
   const used = new Set();
   const take = (list, n) => { const out = []; for (const i of list) { if (out.length >= n) break; if (!used.has(i.id)) { used.add(i.id); out.push(i); } } return out; };
 
-  const inProgress = items.filter((i) => i.type !== "game" && itemState(i) === "current" && (i.progress || 0) < 100).sort((a, b) => (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0));
-  const newsAll = items.filter(isNew).sort((a, b) => unseen(b) - unseen(a) || (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0));
-  const soon = items.filter((i) => i.type === "game" && isSoon(i));
-  const genres = topGenres();
+  const inProgress = homeItems.filter((i) => i.type !== "game" && itemState(i) === "current" && (i.progress || 0) < 100).sort((a, b) => (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0));
+  const newsAll = homeItems.filter(isNew).sort((a, b) => unseen(b) - unseen(a) || (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0));
+  const soon = homeItems.filter((i) => i.type === "game" && isSoon(i));
+  const genres = topGenres(homeItems);
   const topG = genres[0] && genres[0][1] >= 2 ? genres[0][0] : null;
-  const recoAll = topG ? items.filter((i) => (i.tags || []).includes(topG)).sort((a, b) => (b.rating || 0) - (a.rating || 0)) : [];
-  const recentAll = [...items].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const recoAll = topG ? homeItems.filter((i) => (i.tags || []).includes(topG)).sort((a, b) => (b.rating || 0) - (a.rating || 0)) : [];
+  const recentAll = [...homeItems].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   spotItems = [...newsAll, ...soon, ...inProgress].filter((v, idx, arr) => arr.findIndex((x) => x.id === v.id) === idx).slice(0, 6);
   if (!spotItems.length) spotItems = recentAll.slice(0, 4);
 
   const rNew = take(newsAll, 14);        // actionable: something you haven't seen
-  const rCatchUp = take(items.filter(i=>unseen(i)>0&&itemState(i)!=="dropped"&&currentNum(i)>0),14);
+  const rCatchUp = take(homeItems.filter(i=>unseen(i)>0&&itemState(i)!=="dropped"&&currentNum(i)>0),14);
   const rContinue = take(inProgress, 14); // in progress, not already shown as new
   const rReco = topG ? take(recoAll, 14) : [];
   const rRecent = take(recentAll, 14);
@@ -507,7 +508,7 @@ function renderHome() {
     ${rReco.length ? row(t("becauseYouLove", { g: topG }), rReco) : ""}
     ${genres.length ? `<div class="section-h"><h2>${t("yourGenres")}</h2></div><div class="genres">${genres.slice(0, 10).map(([g, n]) => `<span class="genre" data-genre="${esc(g)}">${esc(g)} <b>${n}</b></span>`).join("")}</div>` : ""}
     ${row(t("recentlyAdded"), rRecent)}
-    ${items.length < 4 ? valueStrip() : ""}
+    ${homeItems.length < 4 ? valueStrip() : ""}
   `;
   bindHome();
   bindDisco();
@@ -1000,13 +1001,13 @@ function openDrawer(id) {
     <div class="drawer-body">
       ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${settings.lang==="fr"?"Auteurs":"Creators"}</div><p class="synopsis">${i.authors.filter(x=>typeof x==="string").map(esc).join(" · ")}</p>` : ""}
       ${Array.isArray(i.alternativeTitles)&&i.alternativeTitles.length ? `<details><summary class="section-t">${settings.lang==="fr"?"Autres titres":"Alternative titles"} (${i.alternativeTitles.length})</summary><ul class="synopsis">${i.alternativeTitles.filter(x=>typeof x==="string").map(x=>`<li>${esc(x)}</li>`).join("")}</ul></details>` : ""}
-      <div id="dr-extra-info"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="dr-refresh-info">${I.refresh} ${settings.lang==="fr"?"Actualiser la fiche":"Refresh details"}</button><button class="btn" id="dr-home-toggle" aria-pressed="${!!i.homeHidden}">${settings.lang==="fr"?(i.homeHidden?"Réafficher sur l’accueil":"Masquer de l’accueil"):(i.homeHidden?"Show on Home":"Hide from Home")}</button></div><p class="field-hint" id="dr-refresh-status" role="status"></p><div id="dr-extra-info"></div>
       ${i.synopsis ? `<div class="section-t">${t("synopsis")}</div><p class="synopsis clamp" id="dr-syn">${esc(i.synopsis)}</p><button class="link-btn" id="dr-syn-toggle">${t("showMore")}</button>` : ""}
-      ${!isGame && Array.isArray(i.cast) && i.cast.length ? `<div class="section-t">${t("cast")}</div><div class="cast-strip scroll-x">${i.cast.map((c) => `<div class="cast-card"><div class="cast-av"><span class="cast-ph">${esc((c.name || "?")[0].toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : ""}</div><b>${esc(c.name)}</b>${c.role && c.role !== "MAIN" ? `<small>${esc(c.role.toLowerCase())}</small>` : ""}</div>`).join("")}</div>` : ""}
+      ${!isGame && Array.isArray(i.cast) && i.cast.length ? `<div class="section-t">${t("cast")}</div><div class="cast-strip scroll-x">${i.cast.map((c) => `<div class="cast-card"><div class="cast-av"><span class="cast-ph">${esc((c.name || "?")[0].toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : ""}</div><b>${esc(c.name)}</b>${c.character ? `<small>${esc(c.character)}</small>` : ""}${c.role && c.role !== "MAIN" ? `<small>${esc(c.role.toLowerCase())}</small>` : ""}</div>`).join("")}</div>` : ""}
       ${isGame ? `
         <div class="section-t">${t("games")}</div>
         <div class="game-meta">${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}</span>` : ""}${i.price ? `<span class="meta-pill price">${esc(i.price)}</span>` : ""}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${i.trailer ? `<a class="btn" href="${esc(i.trailer)}" target="_blank" rel="noreferrer">${I.play} ${t("watchTrailer")}</a>` : ""}<a class="btn" href="${esc(gameLink(i))}" target="_blank" rel="noreferrer">${I.open} ${esc(gameLinkLabel(i))}</a><label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${embeddedTrailer(i.trailer||i.trailerUrl)}<a class="btn" href="${esc(gameLink(i))}" target="_blank" rel="noreferrer">${I.open} ${esc(gameLinkLabel(i))}</a><label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
       : `
         <div class="section-t">${t("progress")}</div>
         <p class="field-hint">${isWatch ? t("progHintWatch") : t("progHintRead")}</p>
@@ -1068,6 +1069,22 @@ function episodeGrid(i) {
 }
 function wireDrawer(i, isWatch, isGame) {
   document.getElementById("dr-close").onclick = closeDrawer;
+  document.getElementById("dr-home-toggle").onclick=()=>update(i.id,{homeHidden:!i.homeHidden});
+  document.getElementById("dr-refresh-info").onclick=async e=>{
+    const button=e.currentTarget,status=document.getElementById("dr-refresh-status");
+    button.disabled=true;status.textContent=settings.lang==="fr"?"Recherche des informations…":"Looking up details…";
+    api.runtime.sendMessage({type:isGame?"GAME_ENRICH":"COMPLETE_ITEM_METADATA",id:i.id,force:true},r=>{
+      const failed=api.runtime.lastError||!r?.ok;
+      if(document.getElementById("drawer").dataset.itemId!==i.id||!button.isConnected)return;
+      button.disabled=false;
+      if(failed||!r.item||(!isGame&&!r.matched)){status.textContent=settings.lang==="fr"?"Aucune mise à jour disponible. Réessaie plus tard.":"No update available. Try again later.";return;}
+      const removed=new Set(r.mergedIds||[]);
+      items=items.filter(x=>!removed.has(x.id)).map(x=>x.id===r.item.id?r.item:x);
+      if(r.lists)lists=r.lists;
+      renderAll();openDrawer(r.item.id);
+      document.getElementById("dr-refresh-status").textContent=settings.lang==="fr"?"Fiche actualisée.":"Details updated.";
+    });
+  };
   const syn = document.getElementById("dr-syn"), synT = document.getElementById("dr-syn-toggle");
   if (synT) synT.onclick = () => { syn.classList.toggle("clamp"); synT.textContent = syn.classList.contains("clamp") ? t("showMore") : t("showLess"); };
   if (!isGame) {
