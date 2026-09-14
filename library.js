@@ -43,8 +43,8 @@ const LANGS = {
     changeBanner:"Change banner", bioPh:"Write a short bio…",
     searching:"Searching", searchTitle:"Search", noMatch:"No match · try another spelling or a different language.",
     progHintWatch:"The episode you last watched.", progHintRead:"The chapter you last read.", totalReleased:"Latest available", totalHint:"The newest chapter/episode out · so Yomu can tell you when there's something new.",
-    planFreePer:"free forever", planProPer:"or $29.99/yr · 2 months free", planLifePer:"one-time · best value",
-    monthly:"Monthly", yearly:"Yearly", save2mo:"2 months free", perMonthNote:"billed monthly, cancel anytime", perYearNote:"billed yearly · about $2.50/mo",
+    planFreePer:"free forever", planProPer:"or $29.99/yr", planLifePer:"one-time · best value",
+    monthly:"Monthly", yearly:"Yearly", save2mo:"Annual plan", perMonthNote:"billed monthly, cancel anytime", perYearNote:"billed yearly · about $2.50/mo",
     planFoot:"Tracking is free forever. Paid tiers fund the optional sync, update alerts and translation engine.",
     freeFeatures:["Unlimited tracking · manga, manhwa, webtoons, anime, series, films, games", "Auto-detect & one-click save, resume anywhere", "Lists, tags, ratings, synopsis, series grouping", "Episode / chapter seen tracking", "Import from MAL, CSV, JSON + backup", "Every UI language", "Page translation · up to 5 pages / day"],
     proFeatures:["Everything in Free", "Encrypted multi-device sync · unlimited devices", "New-episode & game-release alerts (notifications)", "Unlimited page translation, every language, priority engine", "Full stats & insights · streaks, trends, forecasts", "Custom list covers & profile (upload, crop, reposition)", "Priority support & early features"],
@@ -71,8 +71,8 @@ const LANGS = {
     changeBanner:"Changer la bannière", bioPh:"Écris une petite bio…",
     searching:"Recherche", searchTitle:"Recherche", noMatch:"Aucun résultat · essaie une autre orthographe ou une autre langue.",
     progHintWatch:"Le dernier épisode que tu as regardé.", progHintRead:"Le dernier chapitre que tu as lu.", totalReleased:"Dernier disponible", totalHint:"Le dernier chapitre/épisode sorti · pour que Yomu te prévienne quand il y a du nouveau.",
-    planFreePer:"gratuit à vie", planProPer:"ou 29,99 $/an · 2 mois offerts", planLifePer:"paiement unique · meilleure offre",
-    monthly:"Mensuel", yearly:"Annuel", save2mo:"2 mois offerts", perMonthNote:"facturé au mois, résiliable à tout moment", perYearNote:"facturé à l'année · environ 2,50 $/mois",
+    planFreePer:"gratuit à vie", planProPer:"ou 29,99 $/an", planLifePer:"paiement unique · meilleure offre",
+    monthly:"Mensuel", yearly:"Annuel", save2mo:"Offre annuelle", perMonthNote:"facturé au mois, résiliable à tout moment", perYearNote:"facturé à l'année · environ 2,50 $/mois",
     planFoot:"Le suivi est gratuit à vie. Les offres payantes financent la sync, les alertes de sortie et le moteur de traduction optionnels.",
     freeFeatures:["Suivi illimité · manga, manhwa, webtoons, anime, séries, films, jeux", "Détection auto & enregistrement en un clic, reprise partout", "Listes, tags, notes, synopsis, regroupement de séries", "Suivi des épisodes / chapitres vus", "Import depuis MAL, CSV, JSON + sauvegarde", "Toutes les langues d'interface", "Traduction de page · jusqu'à 5 pages / jour"],
     proFeatures:["Tout ce qu'il y a dans Free", "Sync multi-appareils chiffrée · appareils illimités", "Alertes nouveaux épisodes & sorties de jeux (notifications)", "Traduction de page illimitée, toutes langues, moteur prioritaire", "Stats & analyses complètes · séries, tendances, prévisions", "Couvertures de listes & profil personnalisés (upload, recadrage)", "Support prioritaire & fonctions en avant-première"],
@@ -316,7 +316,7 @@ function discoBadges(m, opts) {
 }
 function discoCard(m, idx, opts = {}) {
   const sub=(m.genres||[]).slice(0,2).join(" · ")||catLabel(m);
-  return `<article class="disco"><button class="art" data-preview-disco="${idx}" aria-label="${esc(t("details")+": "+m.title)}"><span class="cover-ph">${esc((m.title||"?")[0])}</span>${covImg(m.cover,m.coverFallback)}</button><h4><button class="link-btn" data-preview-disco="${idx}">${esc(m.title)}</button></h4><small>${esc(sub)}</small>${m.price?`<small>${esc(m.price)}</small>`:""}${opts.soon?`<small>${esc(m.releaseDate||t("comingSoon"))}</small>`:""}</article>`;
+  return `<article class="disco ${m.type==="game"?"disco-game":""}"><button class="art" data-preview-disco="${idx}" aria-label="${esc(t("details")+": "+m.title)}"><span class="cover-ph">${esc((m.title||"?")[0])}</span>${covImg(m.cover,m.coverFallback)}</button><h4><button class="link-btn" data-preview-disco="${idx}">${esc(m.title)}</button></h4><small>${esc(sub)}</small>${opts.soon?`<small>${esc(m.releaseDate||t("comingSoon"))}</small>`:""}</article>`;
 }
 function rankCard(m, idx, rank, opts = {}) { return discoCard(m,idx,opts); }
 function rankRow(titleText, list, opts = {}) {
@@ -337,7 +337,7 @@ function discoRow(titleText, list, opts = {}) {
   const cards = list.map((m, i) => discoCard(m, base + i, opts)).join("");
   const dur = Math.max(28, Math.min(90, list.length * 6));
   const head = `<div class="section-h"><h2>${esc(titleText)}${opts.forYou ? ` <span class="reco-tag">${I.spark}</span>` : ""}</h2>${opts.sub ? `<span>${esc(opts.sub)}</span>` : ""}</div>`;
-  return `${head}<div class="disco-wrap"><div class="disco-track${opts.rev ? " rev" : ""}" style="--dur:${dur}s">${cards}${cards}</div></div>`;
+  return `${head}<div class="disco-wrap"><div class="disco-track${opts.rev ? " rev" : ""}" style="--dur:${dur}s">${cards}</div></div>`;
 }
 // Build the ordered list of discovery categories that actually have content.
 // Order matches the user's ask: manga/manhwa/manhua, anime, then dramas &
@@ -346,7 +346,7 @@ function discoPools() {
   const lib = libTitleSet();
   const fresh = (arr) => (arr || []).filter((m) => m && m.title && m.cover && !lib.has(normTitle(m.title)));
   const pools = [];
-  const add = (key, list) => { const l = fresh(list); if (l.length >= 3) pools.push({ key, label: t("cat" + key[0].toUpperCase() + key.slice(1)), list: l, game: key === "games" }); };
+  const add = (key, list) => { const l = fresh(list); if (l.length > 0) pools.push({ key, label: t("cat" + key[0].toUpperCase() + key.slice(1)), list: l, game: key === "games" }); };
   add("manhwa", discover.manhwa);
   add("manga", discover.manga);
   add("manhua", discover.manhua);
@@ -360,30 +360,31 @@ function discoPools() {
   // empty/absent list means "show everything". Never hide all · if the filter
   // would empty Home, fall back to the full set.
   const allow = Array.isArray(settings.homeCats) ? settings.homeCats : null;
-  if (allow && allow.length) {
-    const filtered = pools.filter((p) => allow.includes(p.key));
-    if (filtered.length) return filtered;
-  }
+  if (allow) return pools.filter(p=>allow.includes(p.key));
   return pools;
 }
 // The full ordered catalogue of Home categories (for the picker), regardless of
 // what currently has content.
 const HOME_CAT_KEYS = ["manhwa", "manga", "manhua", "anime", "kdrama", "cdrama", "jdrama", "series", "games"];
-function homeCatAllowed(key) { const a = settings.homeCats; return !Array.isArray(a) || !a.length || a.includes(key); }
+function homeCatAllowed(key) { const a = settings.homeCats; return !Array.isArray(a) || a.includes(key); }
 function renderDiscover() {
   if(!discover)return discoverTried?"":`<p class="sub" role="status">${t("loadingReco")}</p>`;
   discoItems=[];
   const pools=discoPools();
-  let out=`<div class="section-h discover-h"><h2>${settings.lang==="fr"?"À découvrir maintenant":"Discover now"}</h2><div class="disco-h-actions"><button class="refresh-btn" id="disco-cats">${I.sliders}${t("categories")}</button><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div></div>`;
+  let out=`<div class="section-h discover-h"><h2>${settings.lang==="fr"?"À découvrir maintenant":"Discover now"}</h2><div class="disco-h-actions"><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div></div>`;
+  out+='<div class="home-category-chips">'+HOME_CAT_KEYS.map(key=>'<button class="chip-toggle '+(homeCatAllowed(key)?'on':'')+'" data-home-category="'+key+'" aria-pressed="'+homeCatAllowed(key)+'">'+esc(t("cat"+key[0].toUpperCase()+key.slice(1)))+'</button>').join("")+'</div>';
+  if(!pools.length)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Aucune tendance disponible pour cette sélection.":"No trends available for this selection.")+'</p>';
   const weights=tasteWeights();
   if(Object.keys(weights).length) {
     const seen=new Set();
     const picks=pools.filter(p=>!p.game).flatMap(p=>p.list).map(m=>({m,score:scoreTaste(m,weights)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).filter(x=>{const key=normTitle(x.m.title);if(seen.has(key))return false;seen.add(key);return true;}).slice(0,14).map(x=>x.m);
     if(picks.length)out+=discoRow(t("forYou"),picks,{forYou:true});
   }
-  for(const pool of pools)out+=discoRow(pool.label,pool.list.slice(0,14),{sub:pool.game?"Steam":pool.key==="series"||pool.key.endsWith("drama")?(settings.lang==="fr"?"Diffusions récentes":"Recently airing"):(settings.lang==="fr"?"Tendances du moment":"Trending now")});
+  for(const pool of pools.slice(0,homeShowAll?9:3))out+=discoRow(pool.label,pool.list.slice(0,14),{sub:pool.game?"Steam":pool.key==="series"||pool.key.endsWith("drama")?(settings.lang==="fr"?"Diffusions récentes":"Recently airing"):(settings.lang==="fr"?"Tendances du moment":"Trending now")});
+  if(pools.length>3)out+='<button class="btn" id="home-more">'+(settings.lang==="fr"?(homeShowAll?"Réduire les catégories":"Voir les autres catégories"):(homeShowAll?"Show fewer categories":"Show more categories"))+'</button>';
   return out;
 }
+let homeShowAll=false;
 function loadDiscover(force) {
   api.runtime.sendMessage({ type: "DISCOVER", force: !!force }, (r) => {
     void api.runtime.lastError;
@@ -410,7 +411,32 @@ function renderGamesDiscover() {
   out += discoRow(t("hotGames"), hot, { rev: true, sub: "Steam" });
   return out;
 }
+function enhanceCarousels(root) {
+  document.querySelectorAll(root+" .scroll-x,"+root+" .disco-wrap").forEach(track=>{
+    if(track.parentElement.classList.contains("carousel-shell"))return;
+    const shell=document.createElement("div");shell.className="carousel-shell";
+    track.before(shell);shell.append(track);
+    for(const direction of [-1,1]) {
+      const button=document.createElement("button");button.className="carousel-arrow "+(direction<0?"prev":"next");
+      button.type="button";button.textContent=direction<0?"‹":"›";
+      button.setAttribute("aria-label",settings.lang==="fr"?(direction<0?"Précédent":"Suivant"):(direction<0?"Previous":"Next"));
+      button.onclick=()=>track.scrollBy({left:direction*Math.max(160,track.clientWidth*.85),behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
+      shell.append(button);
+    }
+  });
+}
 function bindDisco(root = "#view-home") {
+  enhanceCarousels(root);
+  const more=document.querySelector(root+" #home-more");
+  if(more)more.onclick=()=>{homeShowAll=!homeShowAll;renderHome();};
+  document.querySelectorAll(root+" [data-home-category]").forEach(button=>button.onclick=()=>{
+    const current=HOME_CAT_KEYS.filter(homeCatAllowed),key=button.dataset.homeCategory;
+    const homeCats=current.includes(key)?current.filter(x=>x!==key):[...current,key];
+    api.runtime.sendMessage({type:"SET_SETTINGS",patch:{homeCats}},r=>{
+      if(api.runtime.lastError||!r?.settings){toast(settings.lang==="fr"?"Filtre non enregistré.":"Filter could not be saved.");return;}
+      settings=r.settings;renderHome();
+    });
+  });
   const rf = document.querySelector(`${root} #disco-refresh`);
   if (rf) rf.onclick = () => { rf.classList.add("spin"); loadDiscover(true); };
   const cb = document.querySelector(`${root} #disco-cats`);
@@ -548,6 +574,7 @@ function refreshSpot() {
   bindHome();
 }
 function bindHome() {
+  enhanceCarousels("#view-home");
   document.querySelectorAll("#view-home [data-open]").forEach((n) => (n.onclick = (e) => { if (!e.target.closest("[data-stop],[data-details]")) openDrawer(n.dataset.open); }));
   document.querySelectorAll("#view-home [data-details]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); openDrawer(b.dataset.details); }));
   document.querySelectorAll("#view-home [data-dot]").forEach((d) => (d.onclick = (e) => { e.stopPropagation(); spotIdx = Number(d.dataset.dot); refreshSpot(); }));
@@ -694,7 +721,7 @@ function gameCardHtml(i) {
       <div class="game-meta">
         ${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}
         ${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}${soon ? " · " + t("comingSoon") : released ? " · " + t("released") : isUpcoming(i) ? " · " + t("upcoming") : ""}</span>` : ""}
-        ${i.price ? `<span class="meta-pill price">${esc(i.price)}</span>` : ""}
+        
       </div>
       <div class="game-actions">
         ${embeddedTrailer(i.trailer)}
@@ -1000,7 +1027,7 @@ function openDrawer(id) {
     </div>
     <div class="drawer-body">
       ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${settings.lang==="fr"?"Auteurs":"Creators"}</div><p class="synopsis">${i.authors.filter(x=>typeof x==="string").map(esc).join(" · ")}</p>` : ""}
-      ${Array.isArray(i.alternativeTitles)&&i.alternativeTitles.length ? `<details><summary class="section-t">${settings.lang==="fr"?"Autres titres":"Alternative titles"} (${i.alternativeTitles.length})</summary><ul class="synopsis">${i.alternativeTitles.filter(x=>typeof x==="string").map(x=>`<li>${esc(x)}</li>`).join("")}</ul></details>` : ""}
+      ${Array.isArray(i.alternativeTitles)&&i.alternativeTitles.length ? `<div class="section-t">${settings.lang==="fr"?"Autres titres":"Alternative titles"}</div><ul class="synopsis">${i.alternativeTitles.filter(x=>typeof x==="string").map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="dr-refresh-info">${I.refresh} ${settings.lang==="fr"?"Actualiser la fiche":"Refresh details"}</button><button class="btn" id="dr-home-toggle" aria-pressed="${!!i.homeHidden}">${settings.lang==="fr"?(i.homeHidden?"Réafficher sur l’accueil":"Masquer de l’accueil"):(i.homeHidden?"Show on Home":"Hide from Home")}</button></div><p class="field-hint" id="dr-refresh-status" role="status"></p><div id="dr-extra-info"></div>
       ${i.synopsis ? `<div class="section-t">${t("synopsis")}</div><p class="synopsis clamp" id="dr-syn">${esc(i.synopsis)}</p><button class="link-btn" id="dr-syn-toggle">${t("showMore")}</button>` : ""}
       ${!isGame && Array.isArray(i.cast) && i.cast.length ? `<div class="section-t">${t("cast")}</div><div class="cast-strip scroll-x">${i.cast.map((c) => `<div class="cast-card"><div class="cast-av"><span class="cast-ph">${esc((c.name || "?")[0].toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : ""}</div><b>${esc(c.name)}</b>${c.character ? `<small>${esc(c.character)}</small>` : ""}${c.role && c.role !== "MAIN" ? `<small>${esc(c.role.toLowerCase())}</small>` : ""}</div>`).join("")}</div>` : ""}
@@ -1043,6 +1070,7 @@ function openDrawer(id) {
   document.getElementById("scrim").classList.add("open");
   d.classList.add("open");
   wireDrawer(i, isWatch, isGame);
+  enhanceCarousels("#drawer");
   // Games arrive from Steam search/discovery without genres; pull them (and a
   // description) the first time the fiche opens, then re-render in place.
   if (isGame && !i.gameEnrichedAt && !(i.tags && i.tags.length) && /store\.steampowered\.com\/app\//.test(i.url || "")) {
@@ -1623,11 +1651,19 @@ function embeddedTrailer(url) {
   }catch{}
   return "";
 }
+function safeStoreLink(value) {
+  try {const url=new URL(value);return url.protocol==="https:"&&["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com"].includes(url.hostname)&&!url.username&&!url.password?url.href:"";}catch{return "";}
+}
 function catalogInformation(m) {
   const fr=settings.lang==="fr";
-  return (m.synopsis?'<div class="section-t">'+t("synopsis")+'</div><p class="synopsis">'+esc(m.synopsis)+'</p>':"")+
+  const tags=[...new Set([...(m.genres||[]),...(m.tags||[])])].filter(x=>typeof x==="string");
+  const store=m.type==="game"?safeStoreLink(m.url):"";
+  return (tags.length?'<div class="tags">'+tags.map(x=>'<span class="tag">'+esc(x)+'</span>').join("")+'</div>':"")+
+    (m.type==="game"&&m.price?'<p class="detail-price">'+esc(m.price)+'</p>':"")+
+    (store?'<a class="btn" href="'+esc(store)+'" target="_blank" rel="noopener noreferrer">'+esc(gameLinkLabel(m))+' '+I.open+'</a>':"")+
+    (m.synopsis?'<div class="section-t">'+t("synopsis")+'</div><p class="synopsis">'+esc(m.synopsis)+'</p>':"")+
     ((m.authors||[]).length?'<div class="section-t">'+(fr?"Auteurs":"Creators")+'</div><p>'+m.authors.map(esc).join(" · ")+'</p>':"")+
-    ((m.alternativeTitles||[]).length?'<details><summary>'+(fr?"Autres titres":"Alternative titles")+'</summary><ul>'+m.alternativeTitles.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></details>':"")+
+    ((m.alternativeTitles||[]).length?'<div class="section-t">'+(fr?"Autres titres":"Alternative titles")+'</div><ul class="synopsis">'+m.alternativeTitles.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>':"")+
     ((m.cast||[]).length?'<div class="section-t">'+(fr?"Distribution et personnages":"Cast and characters")+'</div><div class="cast-strip scroll-x">'+m.cast.map(c=>'<div class="cast-card"><div class="cast-av">'+(c.image?'<img src="'+esc(c.image)+'" alt="" loading="lazy">':'')+'</div><b>'+esc(c.name)+'</b><small>'+esc(c.character||c.role||"")+'</small></div>').join("")+'</div>':"")+
     embeddedTrailer(m.trailerUrl||m.trailer);
 }
@@ -1655,6 +1691,7 @@ function openCatalogPreview(m) {
     if(api.runtime.lastError||!r?.ok){if(status)status.textContent=fr?"Les informations supplémentaires sont indisponibles pour le moment.":"Additional details are unavailable at the moment.";return;}
     if(r.item)Object.assign(m,r.item);
     document.getElementById("preview-info").innerHTML=catalogInformation(m);
+    enhanceCarousels("#preview-info");
     if(status)status.textContent="";
   });
 }
