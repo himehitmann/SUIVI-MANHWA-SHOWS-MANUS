@@ -1044,12 +1044,12 @@ async function consolidateReadingIdentity(items,id) {
   return {items:next,item:merged,mergedIds,lists,notifications};
 }
 
-async function enrichWork(id) {
+async function enrichWork(id,force=false) {
   const epoch=accountEpoch;
   const items = await read(ITEMS_KEY, []);
   const it = items.find((x) => x.id === id);
   if (!it || it.type === "game") return;
-  if(it.enrichedAt && it.cover && it.synopsis && it.identityVersion===1) {
+  if(!force && it.enrichedAt && it.cover && it.synopsis && it.identityVersion===1) {
     return serializeLibrary(async()=>{
       if(epoch!==accountEpoch)return;
       const result=await consolidateReadingIdentity(await read(ITEMS_KEY,[]),id);
@@ -1570,7 +1570,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       read(ITEMS_KEY, []).then(async saved => {
         const item = saved.find(x => x.id === message.id);
         if (!item || epoch !== accountEpoch) return {ok:false,error:"item_unavailable"};
-        const completion=await (item.type === "game" ? enrichGame(item.id) : enrichWork(item.id));
+        const completion=await (item.type === "game" ? enrichGame(item.id) : enrichWork(item.id,message.force===true));
         if (epoch !== accountEpoch) return {ok:false,error:"account_changed"};
         const current = (await read(ITEMS_KEY, [])).find(x => x.id === (completion?.item?.id||item.id));
         autoSync();
