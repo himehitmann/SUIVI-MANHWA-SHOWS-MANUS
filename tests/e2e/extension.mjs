@@ -124,6 +124,19 @@ try {
     assert(!detected.releaseDate);
     await game.close();
   }
+
+  for (const domain of ["reader-one.example","reader-two.example"]) {
+    const reading=await context.newPage();
+    await reading.route("**/*",r=>r.fulfill({contentType:"text/html",body:'<title>Miraculoushub | Watch online</title><meta property="og:site_name" content="Miraculoushub"><meta property="og:title" content="Miraculoushub"><h1>Miraculous Season 6 Episode 26 English Dub</h1>'}));
+    await reading.goto("https://"+domain+"/miraculous/season-6/episode-26");
+    await reading.evaluate(()=>{globalThis.chrome={runtime:{sendMessage:m=>{if(m.type==="DETECTION_UPDATED")globalThis.testDetection=m.payload;},onMessage:{addListener(){}}}};});
+    await reading.addScriptTag({path:path.join(root,"content.js")});
+    await reading.waitForFunction(()=>globalThis.testDetection);
+    const detection=await reading.evaluate(()=>globalThis.testDetection);
+    assert.equal(detection.title,"Miraculous","Site branding must not replace the series title");
+    assert.equal(detection.season,6);assert.equal(detection.episode,26);
+    await reading.close();
+  }
   const page = await context.newPage(),
     errors = [];
   page.on("pageerror", e => errors.push(e.message));
