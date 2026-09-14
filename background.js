@@ -1827,8 +1827,9 @@ async function checkTrackedReleasesOnce() {
       const current=await read(ITEMS_KEY,[]),live=current.find(i=>i.id===candidate.id);
       if(!live||releaseIdentity(live)!==releaseIdentity(candidate))return;
       const season=Number(live.season)||1;
-      const recentEpisodes=normalizeReleaseEpisodes(episodes).filter(ep=>Date.now()-ep.at<7*86400000);
-      const aired=episodes.filter(ep=>ep.season===season).map(ep=>ep.episode);
+      const confirmed=normalizeReleaseEpisodes(episodes);
+      const recentEpisodes=confirmed.filter(ep=>Date.now()-ep.at<7*86400000);
+      const aired=confirmed.filter(ep=>ep.season===season).map(ep=>ep.episode);
       const updated={...live,recentEpisodes,releaseCheckedAt:Date.now(),activityAt:live.activityAt||live.updatedAt||live.createdAt||0};
       if(aired.length) {updated.releasedTotal=Math.max(...aired);updated.releaseSeason=season;}
       await writeData({[ITEMS_KEY]:current.map(i=>i.id===live.id?updated:i)});
