@@ -99,5 +99,16 @@ try {
  assert.equal(await p.evaluate(()=>safeStoreLink("https://store.steampowered.com.evil.example/app/1")),"");
  assert(await p.evaluate(()=>!discoCard({title:"Game",type:"game",price:"$12.99"},0).includes("$12.99")));
  await p.screenshot({path:"test-results/visual-refinement.png"});
+
+ await p.evaluate(()=>{closeDrawer();switchView("library");showArchivedLists=false;renderLists();});
+ const beforeCount=await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].length);
+ await p.locator('[data-delete-list="destination"]').click();
+ assert(await p.locator("#list-delete-confirm").isVisible());
+ await p.locator("#list-delete-cancel").click();
+ assert(await p.locator('[data-delete-list="destination"]').isVisible());
+ await p.locator('[data-delete-list="destination"]').click();
+ await p.locator("#list-delete-yes").click();
+ await p.waitForFunction(()=>!lists.some(l=>l.id==="destination"));
+ assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].length),beforeCount);
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
