@@ -638,3 +638,35 @@ describe("tracked release feed",()=>{
     expect(w.run('releaseIdentity({type:"watching",season:2,externalIds:{anilist:"123"}})')).toBe("");
   });
 });
+
+describe("confirmed series duplicate repair",()=>{
+  it("merges the same season across sites and preserves progress, lists and snapshots",async()=>{
+    const w=worker({"dasi.items":[
+      {id:"a",title:"French title",type:"watching",season:2,episode:3,position:100,createdAt:1,externalIds:{tvmaze:"123"},url:"https://first.example"},
+      {id:"b",title:"English title",type:"watching",season:2,episode:5,position:42,createdAt:2,externalIds:{tvmaze:"123"},url:"https://second.example"}
+    ],"dasi.lists":[{id:"list",itemIds:["a","b"]}]});
+    const result=await w.run('(async()=>consolidateReadingIdentity(await read(ITEMS_KEY,[]),"b"))()');
+    expect(result.items).toHaveLength(1);
+    expect(result.item).toMatchObject({id:"a",title:"French title",season:2,episode:5,position:42,url:"https://second.example"});
+    expect(result.item.alternativeTitles).toEqual(expect.arrayContaining(["French title","English title"]));
+    expect(result.item.mergedFrom).toHaveLength(2);
+    expect(result.lists[0].itemIds).toEqual(["a"]);
+    expect(result.item.chapter).toBeUndefined();
+  });
+  it("keeps different seasons and conflicting ratings separate",async()=>{
+    const w=worker({"dasi.items":[
+      {id:"a",type:"watching",season:1,rating:1,externalIds:{tvmaze:"123"}},
+      {id:"b",type:"watching",season:2,rating:1,externalIds:{tvmaze:"123"}},
+      {id:"c",type:"watching",season:1,rating:5,externalIds:{tvmaze:"123"}}
+    ]});
+    const result=await w.run('(async()=>consolidateReadingIdentity(await read(ITEMS_KEY,[]),"a"))()');
+    expect(result.items).toHaveLength(3);
+    expect(result.mergedIds).toEqual([]);
+  });
+  it("repairs already enriched series without a network lookup",async()=>{
+    const w=worker({"dasi.items":["a","b"].map(id=>({id,title:"Series",type:"watching",season:1,episode:id==="a"?2:4,externalIds:{tvmaze:"123"},cover:"cover",synopsis:"summary",enrichedAt:1,identityVersion:1}))});
+    await w.run('enrichWork("b")');
+    expect(w.data["dasi.items"]).toHaveLength(1);
+    expect(w.data["dasi.items"][0].episode).toBe(4);
+  });
+});
