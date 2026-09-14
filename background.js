@@ -124,7 +124,7 @@ async function resolveIncomingIdentity(payload) {
   const saved=await read(ITEMS_KEY,[]);
   if(!saved.some(i=>i.type===payload.type)||findIdentity(saved,payload))return payload;
   try {
-    const results=await (payload.type==="reading"?anilistSearch(payload.title):catalogSearchAll(payload.title));
+    const results=await (payload.type==="reading"?mangaSearchResilient(payload.title):catalogSearchAll(payload.title));
     const matches=results.filter(r=>sameIdentity(r,payload));
     if(matches.length===1)return {...payload,...identityMetadata(payload,matches[0])};
   } catch { /* Offline saving remains available. */ }
@@ -598,12 +598,58 @@ async function anilistDetail(id) {
   };
 }
 
+
+let jikanQueue=Promise.resolve();
+function jikanRequest(path) {
+  const request=jikanQueue.then(async()=>{
+    const response=await fetchRemote("https://api.jikan.moe/v4/"+path);
+    if(!response.ok)throw Error("jikan_"+response.status);
+    return response.json();
+  });
+  jikanQueue=request.catch(()=>{}).then(()=>new Promise(resolve=>setTimeout(resolve,400)));
+  return request;
+}
+function jikanMedia(m,type) {
+  if(!m||!Number.isInteger(m.mal_id)||m.mal_id<1)return null;
+  const formats={Manga:"MANGA",Manhwa:"MANHWA",Manhua:"MANHUA",Novel:"NOVEL","Light Novel":"NOVEL"};
+  return {title:m.title_english||m.title||m.title_japanese||"",type,
+    externalIds:{mal:String(m.mal_id)},alternativeTitles:[...new Set([m.title,m.title_english,m.title_japanese,...(m.title_synonyms||[]),...(m.titles||[]).map(t=>t.title)].filter(Boolean))],
+    authors:(m.authors||[]).map(a=>a.name).filter(Boolean),
+    cover:m.images?.jpg?.large_image_url||m.images?.jpg?.image_url||"",
+    coverFallback:m.images?.jpg?.image_url||"",synopsis:stripHtml(m.synopsis),
+    genres:[...new Set([...(m.genres||[]),...(m.themes||[]),...(m.demographics||[])].map(g=>g.name).filter(Boolean))],
+    format:type==="reading"?(formats[m.type]||"MANGA"):(m.type==="Movie"?"MOVIE":"ANIME"),
+    total:type==="reading"?m.chapters||undefined:m.episodes||undefined,
+    trailerUrl:m.trailer?.url||"",url:m.url||"",source:"myanimelist"};
+}
+async function jikanSearch(query) {
+  const settled=await Promise.allSettled(["manga","anime"].map(async kind=>{
+    const data=await jikanRequest(kind+"?q="+encodeURIComponent(query)+"&limit=25&sfw=true");
+    return (data.data||[]).map(m=>jikanMedia(m,kind==="manga"?"reading":"watching")).filter(Boolean);
+  }));
+  if(settled.every(r=>r.status==="rejected"))throw Error("manga_catalogs_unavailable");
+  return settled.flatMap(r=>r.status==="fulfilled"?r.value:[]);
+}
+async function mangaSearchResilient(query) {
+  try {return await anilistSearch(query);}catch{return jikanSearch(query);}
+}
+async function jikanDetail(item) {
+  const id=identityIds(item).mal;
+  if(!/^[1-9]\d*$/.test(id||"")||!["reading","watching"].includes(item.type))throw Error("missing_catalog_identity");
+  const result=await jikanRequest((item.type==="reading"?"manga/":"anime/")+id+"/full");
+  if(String(result.data?.mal_id)!==id)throw Error("catalog_identity_mismatch");
+  return jikanMedia(result.data,item.type);
+}
+
 async function catalogDetail(item) {
   const ids=identityIds(item);
   if(/^\d+$/.test(ids.anilist||"")) {
-    const detail=await anilistDetail(Number(ids.anilist));
+    let detail;
+    try {detail=await anilistDetail(Number(ids.anilist));if(!detail)throw Error("details_unavailable");}
+    catch(error) {if(!ids.mal)throw error;detail=await jikanDetail(item);}
     return detail?{...item,...detail,title:item.title||detail.title,...identityMetadata(item,detail)}:item;
   }
+  if(!ids.anilist&&/^[1-9]\d*$/.test(ids.mal||""))return {...item,...await jikanDetail(item),title:item.title};
   if(/^\d+$/.test(ids.tvmaze||"")) {
     const base="https://api.tvmaze.com/shows/"+ids.tvmaze;
     const [show,akas]=await Promise.all([
@@ -766,7 +812,7 @@ async function rawgSearch(query, key) {
  * RAWG run only when a key is configured. Each source is best-effort. */
 async function catalogSearchAll(query) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-  const tasks = [anilistSearch(query), steamSearch(query), openLibrarySearch(query), tvmazeSearch(query), wikipediaSearch(query, "en")];
+  const tasks = [mangaSearchResilient(query), steamSearch(query), openLibrarySearch(query), tvmazeSearch(query), wikipediaSearch(query, "en")];
   // Also query the user's own-language Wikipedia so local titles (e.g. a French
   // or Korean film) surface even if the English page is thin.
   const wl = (s && s.lang || "en").slice(0, 2);
@@ -1059,12 +1105,12 @@ async function enrichWork(id,force=false) {
   }
   let match;
   const ids=identityIds(it);
-  const known= /^[1-9]\d*$/.test(ids.anilist||"") || /^[1-9]\d*$/.test(ids.tvmaze||"");
+  const known= /^[1-9]\d*$/.test(ids.anilist||"") || /^[1-9]\d*$/.test(ids.tvmaze||"") || /^[1-9]\d*$/.test(ids.mal||"");
   if(known) {
     // A confirmed identifier remains authoritative when the displayed title changes.
     // A failed exact lookup must not silently select another similarly named work.
     try {
-      const detail=ids.anilist?await anilistDetail(Number(ids.anilist)):await catalogDetail(it);
+      const detail=await catalogDetail(it);
       if(!detail||!sharedCatalogIdentity(it,detail))return;
       match=detail;
     } catch {return;}
