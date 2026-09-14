@@ -698,3 +698,29 @@ describe("exact catalog metadata recovery",()=>{
     expect(w.data["dasi.items"][0].cover).toBeUndefined();
   });
 });
+
+describe("season-aware existing work selection",()=>{
+  it("updates the matching season without creating a third record",async()=>{
+    const w=worker({"dasi.items":[
+      {id:"s1",title:"Series",type:"watching",season:1,episode:10,externalIds:{tvmaze:"123"}},
+      {id:"s2",title:"Series",type:"watching",season:2,episode:3,externalIds:{tvmaze:"123"}}
+    ]});
+    await w.save(book("Series",{type:"watching",season:2,episode:4,externalIds:{tvmaze:"123"}}));
+    expect(w.data["dasi.items"]).toHaveLength(2);
+    expect(w.data["dasi.items"].find((i:any)=>i.id==="s1").episode).toBe(10);
+    expect(w.data["dasi.items"].find((i:any)=>i.id==="s2").episode).toBe(4);
+  });
+  it("selects the matching season through a translated alias",()=>{
+    const w=worker();
+    const selected=w.run('findIdentity([{id:"s1",title:"English",alternativeTitles:["Français"],type:"watching",season:1},{id:"s2",title:"English",alternativeTitles:["Français"],type:"watching",season:2}],{title:"Français",type:"watching",season:2})');
+    expect(selected.id).toBe("s2");
+  });
+  it("leaves multiple matches in the same season unresolved",()=>{
+    const w=worker();
+    expect(w.run('findIdentity([{id:"a",title:"Same",type:"watching",season:1},{id:"b",title:"Same",type:"watching",season:1}],{title:"Same",type:"watching",season:1})')).toBeNull();
+  });
+  it("retains the single-record season progression behavior",()=>{
+    const w=worker();
+    expect(w.run('findIdentity([{id:"a",title:"Same",type:"watching",season:1}],{title:"Same",type:"watching",season:2}).id')).toBe("a");
+  });
+});
