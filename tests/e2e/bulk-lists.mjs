@@ -25,5 +25,39 @@ try {
  assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get('dasi.items'))['dasi.items'].length),3);
  await p.setViewportSize({width:375,height:900});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile overflow');
  await p.screenshot({path:'test-results/bulk-lists-mobile.png'});
+
+ await p.setViewportSize({width:1440,height:1000});
+ await w.evaluate(async()=>{
+   catalogDetail=async item=>({...item,synopsis:"A magical academy adventure",cast:[{name:"Actor",character:"Hero"}],trailerUrl:"https://www.youtube.com/watch?v=abcdefghijk"});
+   await chrome.storage.local.set({"dasi.items":Array.from({length:7},(_,n)=>({id:"fixture"+n,title:"Fixture "+n,type:n<4?"reading":"watching",chapter:1,episode:1,total:3,enrichedAt:1,identityVersion:1,synopsis:"Magic academy"}))});
+ });
+ await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"GET_STATE"},r=>{hydrate(r);query="";filter="all";clearSearchResults();switchView("library");resolve();})));
+ assert.equal(await p.locator("#grid .card").count(),7,"All seven tracked works must remain visible");
+ assert.equal(await p.locator("#grid .quick-add").count(),0);
+ await p.evaluate(()=>openCatalogPreview({title:"Unsaved fixture",type:"reading",externalIds:{anilist:"999"},cover:"",genres:["Fantasy"]}));
+ assert(await p.locator("#preview-add").isDisabled(),"A destination must be selected");
+ await p.waitForFunction(()=>document.querySelector("#preview-info").textContent.includes("Actor"));
+ assert.equal(await p.locator("#preview-info iframe").count(),1,"Trailer stays inside Yomu");
+ assert.equal(await p.locator("#drawer a[target='_blank']").count(),0,"Preview must not redirect to a catalog");
+ assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].length),7,"Browsing must not save");
+ await p.locator("#preview-list").selectOption("destination");
+ await p.locator("#preview-add").click();
+ await p.waitForFunction(()=>items.length===8&&document.querySelectorAll("#grid .card").length===8);
+ assert(await p.evaluate(()=>!document.getElementById("lib-main").classList.contains("searching")));
+ const savedId=await p.evaluate(()=>items.find(i=>i.title==="Unsaved fixture").id);
+ assert(await p.evaluate(id=>lists.find(l=>l.id==="destination").itemIds.includes(id),savedId));
+ await p.evaluate(()=>{closeDrawer();openCatalogPreview({title:"Unsaved fixture",type:"reading",externalIds:{anilist:"999"}});});
+ assert.equal(await p.locator("#preview-add").count(),0,"Already-saved work opens its library record");
+ assert.equal(await p.evaluate(()=>document.getElementById("drawer").dataset.itemId),savedId);
+ assert(await p.evaluate(()=>!isNew({type:"watching",episode:2,total:2,updatedAt:Date.now()})),"Saving is not a new release");
+ assert(await p.evaluate(()=>isNew({type:"watching",season:1,episode:2,recentEpisodes:[{season:1,episode:3,at:Date.now()-1000}]})));
+ assert(await p.evaluate(()=>!isNew({type:"watching",season:1,episode:3,recentEpisodes:[{season:1,episode:3,at:Date.now()-1000}]})),"Caught-up work leaves new releases");
+ await p.evaluate(()=>{closeDrawer();discover={manga:[1,2,3].map(n=>({title:"Manga "+n,type:"reading",cover:"cover",genres:[]})),anime:[1,2,3].map(n=>({title:"Anime "+n,type:"watching",cover:"cover",genres:[]}))};switchView("home");});
+ assert.equal(await p.locator("#view-home [data-add-disco]").count(),0);
+ assert.equal(await p.locator("#view-home .disco-tabs").count(),0,"Categories must not be mixed into an all-time ranking");
+ assert.equal(await p.locator("#view-home .disco-wrap").count(),2);
+ await p.locator("#view-home [data-preview-disco]").first().click();
+ assert(await p.locator("#preview-add").isDisabled());
+ await p.screenshot({path:"test-results/internal-discovery.png"});
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
