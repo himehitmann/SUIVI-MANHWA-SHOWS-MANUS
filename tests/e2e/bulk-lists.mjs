@@ -83,5 +83,20 @@ try {
  assert.equal(await p.locator("#drawer iframe").count(),1);
  assert.equal(await p.locator('#drawer a[href*="youtube.com"]').count(),0);
 
+
+ await p.evaluate(()=>{closeDrawer();settings.homeCats=[];renderHome();});
+ assert.equal(await p.locator("#view-home .disco-wrap").count(),0,"An empty selection must stay empty");
+ await p.locator('[data-home-category="manga"]').click();
+ await p.waitForFunction(()=>settings.homeCats.length===1&&settings.homeCats[0]==="manga");
+ assert.equal(await p.locator("#view-home .disco-wrap").count(),1);
+ assert(await p.locator("#view-home .carousel-arrow").count()>0);
+ await p.evaluate(()=>openCatalogPreview({title:"Store fixture",type:"game",url:"https://store.steampowered.com/app/123/",price:"$12.99",genres:["Adventure"],alternativeTitles:["Other title"]}));
+ assert.equal(await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').count(),1);
+ assert.equal(await p.locator("#preview-info details").count(),0);
+ assert.equal(await p.locator("#preview-info .detail-price").textContent(),"$12.99");
+ assert.equal(await p.evaluate(()=>safeStoreLink("javascript:alert(1)")),"");
+ assert.equal(await p.evaluate(()=>safeStoreLink("https://store.steampowered.com.evil.example/app/1")),"");
+ assert(await p.evaluate(()=>!discoCard({title:"Game",type:"game",price:"$12.99"},0).includes("$12.99")));
+ await p.screenshot({path:"test-results/visual-refinement.png"});
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
