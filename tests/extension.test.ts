@@ -724,3 +724,13 @@ describe("season-aware existing work selection",()=>{
     expect(w.run('findIdentity([{id:"a",title:"Same",type:"watching",season:1}],{title:"Same",type:"watching",season:2}).id')).toBe("a");
   });
 });
+
+describe("manual metadata refresh",()=>{
+  it("refreshes known artwork even when a record was already enriched",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"Saved",type:"reading",chapter:7,cover:"old",synopsis:"Saved synopsis",identityVersion:1,enrichedAt:1,externalIds:{anilist:"123"}}]});
+    w.run('anilistDetail=async()=>({title:"Canonical",type:"reading",cover:"new",synopsis:"Summary",externalIds:{anilist:"123"}})');
+    const result=await w.call({type:"COMPLETE_ITEM_METADATA",id:"a",force:true});
+    expect(result.matched).toBe(true);
+    expect(result.item).toMatchObject({chapter:7,cover:"new",title:"Saved",synopsis:"Saved synopsis"});
+  });
+});
