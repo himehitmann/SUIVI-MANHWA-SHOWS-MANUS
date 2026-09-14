@@ -1723,3 +1723,6 @@ async function completeMissingMetadata() {
     if (button) button.disabled = false;
   }
 }
+
+// Refresh visible discovery as its provider cache expires.
+setInterval(()=>{if(document.visibilityState==="visible"&&(view==="home"||view==="games"))loadDiscover(false);},30*60*1000);
