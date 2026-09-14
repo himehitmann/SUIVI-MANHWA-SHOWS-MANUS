@@ -88,7 +88,8 @@ try {
  assert.equal(await p.locator("#view-home .disco-wrap").count(),0,"An empty selection must stay empty");
  await p.locator('[data-home-category="manga"]').click();
  await p.waitForFunction(()=>settings.homeCats.length===1&&settings.homeCats[0]==="manga");
- assert.equal(await p.locator("#view-home .disco-wrap").count(),1);
+ assert.deepEqual(await p.evaluate(()=>discoPools().map(pool=>pool.key)),["manga"]);
+ assert(await p.evaluate(()=>discoItems.every(item=>item.title.startsWith("Manga "))));
  assert(await p.locator("#view-home .carousel-arrow").count()>0);
  await p.evaluate(()=>openCatalogPreview({title:"Store fixture",type:"game",url:"https://store.steampowered.com/app/123/",price:"$12.99",genres:["Adventure"],alternativeTitles:["Other title"]}));
  assert.equal(await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').count(),1);
