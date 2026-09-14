@@ -734,3 +734,34 @@ describe("manual metadata refresh",()=>{
     expect(result.item).toMatchObject({chapter:7,cover:"new",title:"Saved",synopsis:"Saved synopsis"});
   });
 });
+
+describe("independent manga catalog fallback",()=>{
+  it("keeps title search available when AniList is down",async()=>{
+    const w=worker();
+    w.run('anilistSearch=async()=>{throw Error("offline")};jikanSearch=async()=>[{title:"Fallback manga",type:"reading",externalIds:{mal:"123"}}]');
+    expect(await w.run('mangaSearchResilient("manga")')).toEqual([{title:"Fallback manga",type:"reading",externalIds:{mal:"123"}}]);
+  });
+  it("recovers metadata using the confirmed MAL identity",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"Local title",type:"reading",chapter:9,externalIds:{anilist:"1",mal:"123"}}]});
+    w.run('anilistDetail=async()=>{throw Error("offline")};jikanRequest=async()=>({data:{mal_id:123,title:"Canonical",type:"Manga",images:{jpg:{large_image_url:"cover"}},synopsis:"Summary",chapters:20}})');
+    await w.run('enrichWork("a")');
+    expect(w.data["dasi.items"][0]).toMatchObject({title:"Local title",chapter:9,cover:"cover",synopsis:"Summary",externalIds:{anilist:"1",mal:"123"}});
+  });
+  it("preserves stored details if both sources fail",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"Saved",type:"reading",chapter:9,cover:"original",externalIds:{anilist:"1",mal:"123"}}]});
+    w.run('anilistDetail=async()=>{throw Error("offline")};jikanRequest=async()=>{throw Error("offline")}');
+    await w.run('enrichWork("a",true)');
+    expect(w.data["dasi.items"][0]).toMatchObject({chapter:9,cover:"original"});
+  });
+  it("rejects the wrong MAL identifier",async()=>{
+    const w=worker();
+    w.run('jikanRequest=async()=>({data:{mal_id:456,title:"Wrong"}})');
+    await expect(w.run('jikanDetail({type:"reading",externalIds:{mal:"123"}})')).rejects.toThrow("catalog_identity_mismatch");
+  });
+  it("maps real metadata and themes without inventing user progress",()=>{
+    const w=worker();
+    const item=w.run('jikanMedia({mal_id:12,title:"Title",type:"Manhwa",chapters:80,themes:[{name:"Reincarnation"}],authors:[{name:"Author"}]},"reading")');
+    expect(item).toMatchObject({format:"MANHWA",total:80,authors:["Author"],genres:["Reincarnation"]});
+    expect(item.chapter).toBeUndefined();
+  });
+});
