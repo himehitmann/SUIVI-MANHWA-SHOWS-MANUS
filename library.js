@@ -628,11 +628,25 @@ function cardHtml(i) {
 
   </article>`;
 }
+let libraryFormat="all",libraryUnlisted=false;
+function libraryCompare(a,b) {
+  const title=()=>String(a.title||"").localeCompare(String(b.title||""),settings.lang||"en",{numeric:true,sensitivity:"base"});
+  switch(settings.librarySort) {
+    case "title":return title();
+    case "rating":return (Number(b.rating)||0)-(Number(a.rating)||0)||title();
+    case "remaining":return unseen(b)-unseen(a)||title();
+    case "added":return (Number(b.createdAt)||0)-(Number(a.createdAt)||0)||title();
+    default:return (b.activityAt||b.updatedAt||0)-(a.activityAt||a.updatedAt||0)||title();
+  }
+}
 function renderGrid() {
   const grid = document.getElementById("grid");
   const q = query.toLowerCase();
+  const listed=new Set(lists.filter(l=>!l.archived).flatMap(l=>l.itemIds||[]));
   const list = items.filter((i) => {
     if (i.type === "game") return false;
+    if(libraryFormat!=="all"&&String(i.format||"").toUpperCase()!==libraryFormat)return false;
+    if(libraryUnlisted&&listed.has(i.id))return false;
     if (filter === "favorites" && !i.favorite) return false;
     if ((filter === "reading" || filter === "watching") && i.type !== filter) return false;
     if (STATUSES.includes(filter) && itemState(i) !== filter) return false;
@@ -641,8 +655,18 @@ function renderGrid() {
   });
   const total=items.filter(i=>i.type!=="game").length;
   const count='<p class="sub" role="status">'+list.length+' / '+total+' '+t("tracked")+(list.length<total?' <button class="link-btn" id="reset-library-filters">'+(settings.lang==="fr"?"Tout afficher":"Show all")+'</button>':'')+'</p>';
-  grid.innerHTML = count + (list.length ? [...list].sort((a, b) => (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0)).map(cardHtml).join("") : `<p class="empty">${t("welcomeBody")}</p>`);
-  const reset=document.getElementById("reset-library-filters");if(reset)reset.onclick=()=>{query="";filter="all";document.getElementById("q").value="";clearSearchResults();renderFilters();renderGrid();};
+  const fr=settings.lang==="fr";
+  const formats=[...new Set(items.filter(i=>i.type!=="game").map(i=>String(i.format||"").toUpperCase()).filter(Boolean))].sort();
+  const controls='<div style="grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'+
+    '<label>'+ (fr?"Trier par":"Sort by")+' <select class="field" id="library-sort">'+
+    [["recent",fr?"Activité récente":"Recent activity"],["title",fr?"Titre":"Title"],["rating",fr?"Ma note":"My rating"],["remaining",fr?"À rattraper":"Remaining"],["added",fr?"Ajout récent":"Recently added"]].map(([v,label])=>'<option value="'+v+'"'+((settings.librarySort||"recent")===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>'+
+    '<label>'+ (fr?"Format":"Format")+' <select class="field" id="library-format"><option value="all">'+(fr?"Tous":"All")+'</option>'+formats.map(v=>'<option value="'+esc(v)+'"'+(libraryFormat===v?' selected':'')+'>'+esc(v)+'</option>').join("")+'</select></label>'+
+    '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="library-unlisted"'+(libraryUnlisted?' checked':'')+'>'+ (fr?"Sans liste active":"Without an active list")+'</label></div>';
+  grid.innerHTML = controls + count + (list.length ? [...list].sort(libraryCompare).map(cardHtml).join("") : `<p class="empty">${t("welcomeBody")}</p>`);
+  document.getElementById("library-sort").onchange=e=>{settings.librarySort=e.target.value;api.runtime.sendMessage({type:"SET_SETTINGS",patch:{librarySort:settings.librarySort}});renderGrid();document.getElementById("library-sort").focus();};
+  document.getElementById("library-format").onchange=e=>{libraryFormat=e.target.value;renderGrid();document.getElementById("library-format").focus();};
+  document.getElementById("library-unlisted").onchange=e=>{libraryUnlisted=e.target.checked;renderGrid();document.getElementById("library-unlisted").focus();};
+  const reset=document.getElementById("reset-library-filters");if(reset)reset.onclick=()=>{query="";filter="all";libraryFormat="all";libraryUnlisted=false;document.getElementById("q").value="";clearSearchResults();renderFilters();renderGrid();};
 }
 
 /* ================= GAMES ================= */
