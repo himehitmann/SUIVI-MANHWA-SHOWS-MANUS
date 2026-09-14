@@ -602,7 +602,8 @@ async function catalogDetail(item) {
       fetchRemote(base+"?embed=cast").then(r=>{if(!r.ok)throw Error("details_unavailable");return r.json();}),
       fetchRemote(base+"/akas").then(r=>r.ok?r.json():[]).catch(()=>[])
     ]);
-    return {...item,synopsis:stripHtml(show.summary).slice(0,1500)||item.synopsis,cover:show.image?.original||item.cover,coverFallback:show.image?.medium||item.coverFallback,
+    if(String(show.id)!==ids.tvmaze)throw Error("catalog_identity_mismatch");
+    return {...item,genres:Array.isArray(show.genres)?show.genres:[],synopsis:stripHtml(show.summary).slice(0,1500)||item.synopsis,cover:show.image?.original||item.cover,coverFallback:show.image?.medium||item.coverFallback,
       alternativeTitles:[...new Set([...identityTitles(item),show.name,...akas.map(a=>a.name)].filter(Boolean))],
       cast:(show._embedded?.cast||[]).slice(0,20).map(c=>({name:c.person?.name,character:c.character?.name,image:c.person?.image?.medium||c.character?.image?.medium||""})).filter(c=>c.name)
     };
@@ -1048,22 +1049,25 @@ async function enrichWork(id) {
       return result;
     });
   }
-  let results;
-  try {
-    results = await catalogSearchAll(it.title);
-  } catch {
-    return;
+  let match;
+  const ids=identityIds(it);
+  const known= /^[1-9]\d*$/.test(ids.anilist||"") || /^[1-9]\d*$/.test(ids.tvmaze||"");
+  if(known) {
+    // A confirmed identifier remains authoritative when the displayed title changes.
+    // A failed exact lookup must not silently select another similarly named work.
+    try {
+      const detail=ids.anilist?await anilistDetail(Number(ids.anilist)):await catalogDetail(it);
+      if(!detail||!sharedCatalogIdentity(it,detail))return;
+      match=detail;
+    } catch {return;}
+  } else {
+    let results;
+    try {results=await catalogSearchAll(it.title);} catch {return;}
+    const candidates=results.filter(r=>sameIdentity(r,it)&&
+      (!it.year||!(r.year||r.season)||Number(it.year)===Number(r.year||r.season)));
+    if(candidates.length!==1)return;
+    match=candidates[0];
   }
-  // Automatic imports require an exact normalized title and compatible year
-  // and format. Ambiguous remakes/adaptations must not receive random artwork.
-  const candidates = results.filter(r =>
-    sameIdentity(r,it) &&
-    r.type === it.type &&
-    (!it.year || !(r.year || r.season) || Number(it.year) === Number(r.year || r.season)) &&
-    (!it.format || !r.format || String(it.format).toUpperCase() === String(r.format).toUpperCase())
-  );
-  if (candidates.length !== 1) return;
-  const match = candidates[0];
   const patch = { enrichedAt: Date.now(), identityVersion:1, ...identityMetadata(it,match) };
   if (match) {
     if (!it.coverOverride && match.cover) patch.cover = match.cover; // real series cover (fixes episode-thumbnail covers)
@@ -1073,9 +1077,13 @@ async function enrichWork(id) {
     if (match.total && match.total > (it.total || 0)) patch.total = match.total;
     // Catalog seasonYear is a release year, never a viewing-season number.
     if (!it.format && match.format) patch.format = match.format;
+    if(match.trailerUrl&&!it.trailerUrl)patch.trailerUrl=match.trailerUrl;
+    if(match.cast?.length&&!it.cast?.length)patch.cast=match.cast;
+    if(match.volumes&&it.type==="reading"&&!it.volumesTotal)patch.volumesTotal=match.volumes;
+    if(match.status&&!it.releaseStatus)patch.releaseStatus=match.status;
     // Second pass: trailer, cast and exact released counts (real limits, so the
     // drawer can't run past the true episode/chapter count).
-    if (match.anilistId) {
+    if (match.anilistId && !known) {
       try {
         const d = await anilistDetail(match.anilistId);
         if (d) {
