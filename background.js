@@ -448,6 +448,7 @@ async function addItemToList(itemId, listId, listName) {
   if (!itemId) return null;
   const lists = await read(LISTS_KEY, []);
   let target = listId ? lists.find((l) => l.id === listId) : null;
+  if(listId&&!target)throw new Error("list_unavailable");
   let next;
   if (!target) {
     const name = (listName || "New list").toString().slice(0, 60);
@@ -1460,18 +1461,18 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }).then(r=>{sendResponse(r);if(r.item)autoSync();},e=>sendResponse({ok:false,error:String(e.message)}));
       return true;
     case "SAVE_PROGRESS":
-      writeItem(message.payload).then(async (result) => {
-        // Optional: assign the saved work to a list (in-page bubble / popup ask
-        // "which list?"). Accepts an existing listId, or a new list by name.
-        if (result && result.item && (message.listId || message.listName)) {
-          try {
-            await serializeLibrary(()=>addItemToList(result.item.id, message.listId, message.listName));
-          } catch (e) {sendResponse({ok:false,error:"list_save_failed",item:result.item});return;}
+      {const epoch=accountEpoch;
+      resolveIncomingIdentity(message.payload).then(payload=>serializeLibrary(async()=>{
+        if(epoch!==accountEpoch)throw Error("account_changed");
+        if(message.listId&&!(await read(LISTS_KEY,[])).some(l=>l.id===message.listId))throw Error("list_unavailable");
+        const result=await writeItemUnlocked(payload);
+        if(result?.item&&(message.listId||message.listName)) {
+          try {await addItemToList(result.item.id,message.listId,message.listName);}
+          catch {return {ok:false,error:"list_save_failed",item:result.item};}
         }
-        sendResponse(result);
-        autoSync();
-      }).catch(e=>sendResponse({ok:false,error:String(e.message)}));
-      return true;
+        return result;
+      })).then(result=>{sendResponse(result);autoSync();},error=>sendResponse({ok:false,error:String(error.message)}));
+      return true;}
 
     // Look up (without saving) whether this work already has a saved position, so
     // the popup can show the previous marker and ask before overwriting.
