@@ -35,7 +35,7 @@ try {
  assert.equal(await p.locator("#grid .card").count(),7,"All seven tracked works must remain visible");
  assert.equal(await p.locator("#grid .quick-add").count(),0);
  await p.locator("#library-sort").selectOption("title");
- assert.equal(await p.locator("#grid .card").first().getAttribute("data-id"),"fixture0");
+ assert.equal(await p.locator("#grid .card").first().getAttribute("data-open"),"fixture0");
  await p.evaluate(()=>{items[0].format="MANGA";items[1].format="ANIME";lists=[...lists,{id:"filter-test",itemIds:["fixture0"]}];renderGrid();});
  await p.locator("#library-format").selectOption("MANGA");
  assert.equal(await p.locator("#grid .card").count(),1);
