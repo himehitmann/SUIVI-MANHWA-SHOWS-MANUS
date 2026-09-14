@@ -473,6 +473,22 @@
 #grid>p.sub{grid-column:1/-1}
 #preview-info details{margin:16px 0}
 #preview-info summary{cursor:pointer;font-weight:600}
+
+/* Full artwork and accessible horizontal navigation. */
+img.cov,img.cov.landscape {object-fit:contain;background:linear-gradient(145deg,#252139,#423851);object-position:center}
+.disco-game{width:240px}.disco-game .art{height:150px;aspect-ratio:16/10}
+.drawer-cover{background:linear-gradient(145deg,#252139,#423851)}
+.cast-card{flex:0 0 88px}.cast-av{width:80px;height:100px;border-radius:12px;flex-shrink:0}
+.cast-av img{object-fit:contain;object-position:center;background:#252139}
+.carousel-shell{position:relative;min-width:0}
+.carousel-shell>.scroll-x,.carousel-shell>.disco-wrap{overflow-x:auto;scrollbar-width:none;mask-image:none}
+.carousel-shell>.scroll-x::-webkit-scrollbar,.carousel-shell>.disco-wrap::-webkit-scrollbar{display:none}
+.disco-track{animation:none;transform:none}
+.carousel-arrow{position:absolute;top:35%;z-index:3;width:32px;height:48px;border:1px solid #ffffff40;border-radius:12px;background:#242036d9;color:white;font-size:32px;cursor:pointer;box-shadow:0 4px 14px #15112430}
+.carousel-arrow.prev{left:0}.carousel-arrow.next{right:0}
+.carousel-arrow:focus-visible{outline:3px solid var(--lav-ink);outline-offset:2px}
+.home-category-chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 20px}
+.detail-price{font-weight:700;font-size:20px;margin:12px 0}
 </style>
   </head>
   <body>
