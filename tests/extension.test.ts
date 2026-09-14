@@ -595,3 +595,46 @@ describe("catalog navigation and destinations",()=>{
     expect(result.item.sources).toContain("second.example");
   });
 });
+
+describe("tracked release feed",()=>{
+  it("retains real release dates and progress outside discovery recommendations",async()=>{
+    const w=worker({"dasi.items":[{id:"show",title:"Followed",type:"watching",season:2,episode:3,total:12,externalIds:{tvmaze:"123"},updatedAt:10}]});
+    w.run('fetchTrackedReleases=async()=>[{season:2,episode:4,at:Date.now()-1000},{season:2,episode:5,at:Date.now()+86400000}]');
+    await w.run("checkTrackedReleasesOnce()");
+    const item=w.data["dasi.items"][0];
+    expect(item).toMatchObject({season:2,episode:3,total:12,activityAt:10});
+    expect(item.recentEpisodes).toHaveLength(1);
+    const restarted=worker(w.data);
+    const state=await restarted.call({type:"GET_STATE"});
+    expect(state.items[0].recentEpisodes[0].episode).toBe(4);
+  });
+  it("deduplicates dates and excludes future and invalid episodes",()=>{
+    const w=worker();
+    const result=w.run('normalizeReleaseEpisodes([{season:1,episode:2,at:100},{season:1,episode:2,at:200},{season:1,episode:3,at:2000},{season:0,episode:1,at:100},{season:1,episode:0,at:100}],1000)');
+    expect(result).toEqual([{season:1,episode:2,at:100}]);
+  });
+  it("does not overwrite a newer saved position during a release lookup",async()=>{
+    const w=worker({"dasi.items":[{id:"show",title:"Followed",type:"watching",season:1,episode:2,externalIds:{tvmaze:"123"},updatedAt:1}]});
+    w.run('fetchTrackedReleases=async()=>{await chrome.storage.local.set({"dasi.items":[{id:"show",title:"Followed",type:"watching",season:1,episode:8,externalIds:{tvmaze:"123"},updatedAt:9}]});return [{season:1,episode:8,at:Date.now()-1000}]}');
+    await w.run("checkTrackedReleasesOnce()");
+    expect(w.data["dasi.items"][0].episode).toBe(8);
+  });
+  it("ignores a changed catalog identity and another account",async()=>{
+    const w=worker({"dasi.items":[{id:"show",title:"Followed",type:"watching",externalIds:{tvmaze:"123"}}]});
+    w.run('fetchTrackedReleases=async()=>{accountEpoch++;await chrome.storage.local.set({"dasi.items":[{id:"show",title:"Other account",type:"watching",externalIds:{tvmaze:"456"}}]});return [{season:1,episode:8,at:Date.now()-1000}]}');
+    await w.run("checkTrackedReleasesOnce()");
+    expect(w.data["dasi.items"][0].recentEpisodes).toBeUndefined();
+    expect(w.data["dasi.items"][0].title).toBe("Other account");
+  });
+  it("leaves previously confirmed releases intact during a source failure",async()=>{
+    const recent=[{season:1,episode:5,at:Date.now()-1000}];
+    const w=worker({"dasi.items":[{id:"show",type:"watching",externalIds:{tvmaze:"123"},recentEpisodes:recent}]});
+    w.run('fetchTrackedReleases=async()=>{throw Error("offline")}');
+    await w.run("checkTrackedReleasesOnce()");
+    expect(w.data["dasi.items"][0].recentEpisodes).toEqual(recent);
+  });
+  it("does not map a later viewing season onto an unrelated AniList season",()=>{
+    const w=worker();
+    expect(w.run('releaseIdentity({type:"watching",season:2,externalIds:{anilist:"123"}})')).toBe("");
+  });
+});
