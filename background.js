@@ -625,7 +625,7 @@ async function catalogDetail(item) {
 }
 
 async function anilistSearch(query) {
-  const gql = `query($s:String){Page(perPage:10){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
+  const gql = `query($s:String){Page(perPage:50){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
   const res = await fetchRemote(ANILIST_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -787,7 +787,7 @@ async function catalogSearchAll(query) {
     const better = (!prev.cover && r.cover) || (prev.source === "wikipedia" && r.source !== "wikipedia" && r.cover);
     if (better) seen.set(k, r);
   }
-  return [...seen.values()].slice(0, 40);
+  return [...seen.values()].slice(0, 120);
 }
 
 /*
