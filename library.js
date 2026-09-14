@@ -1259,7 +1259,7 @@ function renderSettings() {
     <div class="panel">
       <div class="row"><div class="grow"><b>${t("yourLibrary")}</b><small>${t("exportRestore")}</small></div><button class="btn" id="export">${I.image} ${t("export")}</button><button class="btn" id="import">${t("import")}</button><input id="file" type="file" accept=".json,.csv,.xml,.zip,.tsv,application/json,application/zip" multiple hidden aria-label="${t("import")}" /></div>
       <p class="field-hint" style="margin:-2px 2px 0">${t("importFormats")}</p>
-      <div class="row"><div class="grow"><b>${settings.lang === "fr" ? "Compléter les fiches" : "Complete missing details"}</b><small id="metadata-status" role="status">${settings.lang === "fr" ? "Rechercher les affiches et descriptions manquantes dans les catalogues." : "Find missing artwork and descriptions in the catalogs."}</small></div><button class="btn" id="complete-metadata">${I.refresh} ${settings.lang === "fr" ? "Rechercher" : "Search"}</button></div>
+      <div class="row"><div class="grow"><b>${settings.lang === "fr" ? "Compléter les fiches" : "Complete missing details"}</b><small id="metadata-status" role="status">${settings.lang === "fr" ? "Rechercher les affiches et descriptions manquantes et regrouper les doublons confirmés." : "Find missing artwork and descriptions and combine confirmed duplicates."}</small></div><button class="btn" id="complete-metadata">${I.refresh} ${settings.lang === "fr" ? "Rechercher" : "Search"}</button></div>
       <div class="row"><div class="grow"><b>${t("cloudSync")}</b><small id="sync-state">${t("cloudSyncSub")}</small></div><button class="btn" id="sync-link">${t("manageSync")}</button></div>
     </div>
     <div class="section-t">${t("enjoying")}</div>
@@ -1696,7 +1696,7 @@ async function completeMissingMetadata() {
   const button = document.getElementById("complete-metadata");
   const label = document.getElementById("metadata-status");
   const fr = settings.lang === "fr";
-  const candidates = items.filter(item => !coverUrl(item) || !item.synopsis || (item.type === "reading" && item.identityVersion !== 1));
+  const candidates = items.filter(item => !coverUrl(item) || !item.synopsis || ["reading","watching"].includes(item.type));
   let checked = 0, matched = 0, merged = 0;
   const mergedIds = new Set();
   if (button) button.disabled = true;
