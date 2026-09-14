@@ -670,3 +670,31 @@ describe("confirmed series duplicate repair",()=>{
     expect(w.data["dasi.items"][0].episode).toBe(4);
   });
 });
+
+describe("exact catalog metadata recovery",()=>{
+  it("uses the catalog ID despite a different title without searching again",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"Titre traduit",type:"reading",chapter:8,externalIds:{anilist:"123"}}]});
+    w.run('catalogSearchAll=async()=>{throw Error("Must not search")};anilistDetail=async()=>({title:"Original title",type:"reading",externalIds:{anilist:"123"},cover:"cover.jpg",synopsis:"Summary",authors:["Author"],cast:[{name:"Hero"}],total:20})');
+    await w.run('enrichWork("a")');
+    expect(w.data["dasi.items"][0]).toMatchObject({title:"Titre traduit",chapter:8,cover:"cover.jpg",synopsis:"Summary",authors:["Author"],cast:[{name:"Hero"}]});
+    expect(w.data["dasi.items"][0].alternativeTitles).toContain("Original title");
+  });
+  it("keeps user covers and progress when recovering exact details",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"Local",type:"watching",season:3,episode:4,cover:"custom",coverOverride:true,externalIds:{anilist:"123"}}]});
+    w.run('anilistDetail=async()=>({title:"Catalog",type:"watching",season:2020,externalIds:{anilist:"123"},cover:"catalog",synopsis:"Summary",total:12})');
+    await w.run('enrichWork("a")');
+    expect(w.data["dasi.items"][0]).toMatchObject({season:3,episode:4,cover:"custom",synopsis:"Summary"});
+  });
+  it("does not replace a failed exact lookup with a title match",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"Same title",type:"reading",externalIds:{anilist:"123"}}]});
+    w.run('anilistDetail=async()=>{throw Error("offline")};catalogSearchAll=async()=>[{title:"Same title",type:"reading",cover:"wrong"}]');
+    await w.run('enrichWork("a")');
+    expect(w.data["dasi.items"][0].cover).toBeUndefined();
+  });
+  it("rejects a conflicting identifier returned by a provider",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"Local",type:"reading",externalIds:{anilist:"123"}}]});
+    w.run('anilistDetail=async()=>({title:"Other",type:"reading",externalIds:{anilist:"456"},cover:"wrong"})');
+    await w.run('enrichWork("a")');
+    expect(w.data["dasi.items"][0].cover).toBeUndefined();
+  });
+});
