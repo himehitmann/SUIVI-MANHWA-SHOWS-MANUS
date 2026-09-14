@@ -132,12 +132,12 @@ try {
   await page.locator("#q").fill("old");
   await page.waitForTimeout(350);
   await page.locator("#q").fill("Aniimo");
-  await page.locator("[data-preview]").waitFor();
+  await page.locator("[data-preview]").first().waitFor();
   await page.waitForTimeout(1000);
   assert(
     !(await page.locator("#search-results").innerText()).includes("Old result")
   );
-  await page.locator("[data-preview]").click();
+  await page.locator("[data-preview]").first().click();
   await page.locator("#preview-add").waitFor();
   assert.equal(
     await page.locator("#drawer .drawer-title").innerText(),
