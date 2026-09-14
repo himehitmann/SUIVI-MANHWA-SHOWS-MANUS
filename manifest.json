@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Yomu — Continue Reading & Watching",
-  "version": "0.4.11",
-  "description": "Track and resume any manga, webtoon, anime, series, film or game — with one-click page translation.",
+  "name": "Yomu · Continue Reading & Watching",
+  "version": "0.4.12",
+  "description": "Track and resume any manga, webtoon, anime, series, film or game · with one-click page translation.",
   "action": {
     "default_title": "Open Yomu",
     "default_popup": "popup.html"
