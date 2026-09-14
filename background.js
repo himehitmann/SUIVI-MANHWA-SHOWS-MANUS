@@ -823,7 +823,8 @@ function parseSteamSearch(html) {
     if (!idm || !tm) continue;
     const pm = chunk.match(/discount_final_price[^>]*>([^<]+)</i) || chunk.match(/search_price[^>]*>\s*([^<\r\n]+?)\s*</i);
     const name = tm[1].trim().replace(/&amp;/g, "&").replace(/&#0?39;/g, "'");
-    out.push({ id: idm[1], name, price: pm ? pm[1].trim().replace(/&nbsp;/g, "") : "" });
+    const image=chunk.match(/<img[^>]+src=["\']([^"\']+)["\']/i);
+    out.push({ id: idm[1], name, cover:image?image[1].replace(/&amp;/g,"&"):undefined, price: pm ? pm[1].trim().replace(/&nbsp;/g, "") : "" });
   }
   return out;
 }
@@ -847,7 +848,7 @@ function steamGames(list, soon) {
       title: g.name,
       type: "game",
       cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/library_600x900.jpg`,
-      coverFallback: `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/header.jpg`,
+      coverFallback: g.cover || `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/header.jpg`,
       price: g.price || undefined,
       platform: "Steam",
       format: "Game",
