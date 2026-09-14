@@ -96,11 +96,19 @@ function sharedCatalogIdentity(a,b) {
   const ai=identityIds(a),bi=identityIds(b);
   return Object.keys(ai).some(k=>bi[k]===ai[k]);
 }
+function selectIdentityMatch(matches,payload) {
+  if(matches.length===1)return matches[0];
+  if(payload.type==="watching"&&Number.isInteger(Number(payload.season))&&Number(payload.season)>0) {
+    const season=matches.filter(i=>Number(i.season||1)===Number(payload.season));
+    if(season.length===1)return season[0];
+  }
+  return null;
+}
 function findIdentity(items,payload) {
   const identified=items.filter(i=>sharedCatalogIdentity(i,payload));
-  if(identified.length)return identified.length===1?identified[0]:null;
+  if(identified.length)return selectIdentityMatch(identified,payload);
   const exact=items.filter(i=>sameIdentity(i,payload));
-  if(exact.length)return exact.length===1?exact[0]:null;
+  if(exact.length)return selectIdentityMatch(exact,payload);
   const fuzzy=items.filter(i=>sameIdentity(i,payload,true));
   return fuzzy.length===1?fuzzy[0]:null;
 }
