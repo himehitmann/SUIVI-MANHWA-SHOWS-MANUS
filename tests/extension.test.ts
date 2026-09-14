@@ -602,7 +602,7 @@ describe("tracked release feed",()=>{
     w.run('fetchTrackedReleases=async()=>[{season:2,episode:4,at:Date.now()-1000},{season:2,episode:5,at:Date.now()+86400000}]');
     await w.run("checkTrackedReleasesOnce()");
     const item=w.data["dasi.items"][0];
-    expect(item).toMatchObject({season:2,episode:3,total:12,activityAt:10});
+    expect(item).toMatchObject({season:2,episode:3,total:12,activityAt:10,releasedTotal:4,releaseSeason:2});
     expect(item.recentEpisodes).toHaveLength(1);
     const restarted=worker(w.data);
     const state=await restarted.call({type:"GET_STATE"});
