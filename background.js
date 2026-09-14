@@ -985,8 +985,9 @@ async function enrichGame(id) {
 async function consolidateReadingIdentity(items,id) {
   const target=items.find(i=>i.id===id);
   const unchanged={items,item:target,mergedIds:[]};
-  if(!target||target.type!=="reading")return unchanged;
-  const group=items.filter(i=>i.type==="reading"&&sharedCatalogIdentity(i,target));
+  if(!target||!["reading","watching"].includes(target.type))return unchanged;
+  const watching=target.type==="watching";
+  const group=items.filter(i=>i.type===target.type&&sharedCatalogIdentity(i,target)&&(!watching||Number(i.season||1)===Number(target.season||1)));
   if(group.length<2)return unchanged;
   // A shared alias or inconsistent cross-catalog mapping must not bridge works.
   if(group.some(a=>group.some(b=>!sharedCatalogIdentity(a,b))))return unchanged;
@@ -1000,7 +1001,7 @@ async function consolidateReadingIdentity(items,id) {
   let merged={};
   for(const entry of byRecent)merged={...merged,...entry};
   for(const entry of group)merged={...merged,...identityMetadata(merged,entry)};
-  const furthest=[...group].sort((a,b)=>(Number(b.chapter)||0)-(Number(a.chapter)||0)||(Number(b.page)||0)-(Number(a.page)||0)||(Number(b.updatedAt)||0)-(Number(a.updatedAt)||0))[0];
+  const furthest=[...group].sort((a,b)=>watching?((Number(b.episode)||0)-(Number(a.episode)||0)||(Number(b.position)||0)-(Number(a.position)||0)||(Number(b.updatedAt)||0)-(Number(a.updatedAt)||0)):(Number(b.chapter)||0)-(Number(a.chapter)||0)||(Number(b.page)||0)-(Number(a.page)||0)||(Number(b.updatedAt)||0)-(Number(a.updatedAt)||0))[0];
   const mergedIds=group.filter(i=>i.id!==primary.id).map(i=>i.id), removed=new Set(mergedIds);
   const chapter=Math.max(...group.map(i=>Number(i.chapter)||0));
   const total=Math.max(...group.map(i=>Number(i.total)||0));
@@ -1020,6 +1021,14 @@ async function consolidateReadingIdentity(items,id) {
     sourceUrls:[...new Set([...unique("sourceUrls"),...group.map(i=>i.url).filter(Boolean)])],
     mergedFrom:group.flatMap(i=>{const {mergedFrom,...snapshot}=i;return [...(Array.isArray(mergedFrom)?mergedFrom:[]),snapshot];}),
   };
+  if(watching) {
+    const episode=Math.max(...group.map(i=>Number(i.episode)||0));
+    merged={...merged,season:Number(primary.season||1),episode,
+      total:total>=episode?total||undefined:undefined,
+      recentEpisodes:normalizeReleaseEpisodes(group.flatMap(i=>i.recentEpisodes||[])),
+      activityAt:Math.max(...group.map(i=>Number(i.activityAt||i.updatedAt)||0))};
+    delete merged.chapter;delete merged.latestChapter;delete merged.page;
+  }
   const next=items.filter(i=>!removed.has(i.id)).map(i=>i.id===primary.id?merged:i);
   const lists=(await read(LISTS_KEY,[])).map(l=>({...l,itemIds:[...new Set((l.itemIds||[]).map(key=>removed.has(key)?primary.id:key))]}));
   const notifications=(await read(NOTIF_KEY,[])).map(n=>removed.has(n.itemId)?{...n,itemId:primary.id}:n);
