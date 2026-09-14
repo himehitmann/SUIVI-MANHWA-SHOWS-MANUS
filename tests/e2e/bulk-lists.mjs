@@ -34,6 +34,18 @@ try {
  await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"GET_STATE"},r=>{hydrate(r);query="";filter="all";clearSearchResults();switchView("library");resolve();})));
  assert.equal(await p.locator("#grid .card").count(),7,"All seven tracked works must remain visible");
  assert.equal(await p.locator("#grid .quick-add").count(),0);
+ await p.locator("#library-sort").selectOption("title");
+ assert.equal(await p.locator("#grid .card").first().getAttribute("data-id"),"fixture0");
+ await p.evaluate(()=>{items[0].format="MANGA";items[1].format="ANIME";lists=[...lists,{id:"filter-test",itemIds:["fixture0"]}];renderGrid();});
+ await p.locator("#library-format").selectOption("MANGA");
+ assert.equal(await p.locator("#grid .card").count(),1);
+ await p.locator("#library-unlisted").check();
+ assert.equal(await p.locator("#grid .card").count(),0);
+ await p.locator("#reset-library-filters").click();
+ assert.equal(await p.locator("#grid .card").count(),7);
+ assert.equal(await p.locator("#library-format").inputValue(),"all");
+ assert.equal(await p.locator("#library-unlisted").isChecked(),false);
+
  await p.evaluate(()=>openCatalogPreview({title:"Unsaved fixture",type:"reading",externalIds:{anilist:"999"},cover:"",genres:["Fantasy"]}));
  assert(await p.locator("#preview-add").isDisabled(),"A destination must be selected");
  await p.waitForFunction(()=>document.querySelector("#preview-info").textContent.includes("Actor"));
