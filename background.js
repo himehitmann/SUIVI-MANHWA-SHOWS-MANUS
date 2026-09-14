@@ -377,6 +377,7 @@ async function writeItemUnlocked(payload) {
   const incoming = {
     ...payload,
     id: key,
+    activityAt: Date.now(),
     updatedAt: Date.now(),
     progress: percent(payload) ?? existing?.progress ?? 0,
     status: percent(payload) && percent(payload) > 92 ? "completed" : "in_progress",
@@ -1496,6 +1497,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case "GET_STATE":
+      void checkTrackedReleases().catch(()=>{});
       Promise.all([
         read(ITEMS_KEY, []),
         read(SITES_KEY, []),
@@ -1562,7 +1564,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       serializeLibrary(async () => {
         const items = await read(ITEMS_KEY, []);
         const patch = Object.fromEntries(Object.entries(message.patch || {}).filter(([k]) => !['id','createdAt','__proto__','constructor','prototype'].includes(k)));
-        const next = items.map(i => i.id === message.id ? boundedProgress({...i,...patch,updatedAt:Date.now()}) : i);
+        const next = items.map(i => i.id === message.id ? boundedProgress({...i,...patch,activityAt:Date.now(),updatedAt:Date.now()}) : i);
         await writeData({[ITEMS_KEY]:next});
         sendResponse({items:next}); autoSync();
       }).catch(e => sendResponse({ok:false,error:String(e.message)}));
@@ -1761,6 +1763,80 @@ api.runtime.onInstalled.addListener(()=>serializeLibrary(migrateStorage).catch(e
  * Check Steam-confirmed releases every twelve hours. Calendar dates alone
  * never establish availability. Requests are coalesced and account-scoped.
  */
+
+const TRACKED_RELEASE_ALARM="yomu-tracked-releases";
+const TRACKED_RELEASE_INTERVAL=6*3600*1000;
+let trackedReleaseTask=null,lastTrackedReleaseBatch=0;
+function releaseIdentity(item) {
+  const ids=identityIds(item);
+  if(item.type!=="watching")return "";
+  if(/^\d+$/.test(ids.tvmaze||""))return "tvmaze:"+ids.tvmaze;
+  // An AniList anime record identifies a specific season, not a whole TV series.
+  if(/^\d+$/.test(ids.anilist||"")&&Number(item.season||1)===1)return "anilist:"+ids.anilist;
+  return "";
+}
+function normalizeReleaseEpisodes(episodes,now=Date.now()) {
+  const unique=new Map();
+  for(const ep of episodes||[]) {
+    const season=Number(ep.season),episode=Number(ep.episode),at=Number(ep.at);
+    if(!Number.isInteger(season)||season<1||!Number.isInteger(episode)||episode<1||!Number.isFinite(at)||at<=0||at>now)continue;
+    const key=season+":"+episode;
+    const old=unique.get(key);
+    if(!old||at<old.at)unique.set(key,{season,episode,at});
+  }
+  return [...unique.values()].sort((a,b)=>b.at-a.at);
+}
+async function fetchTrackedReleases(item) {
+  const identity=releaseIdentity(item);
+  if(!identity)return null;
+  const [source,id]=identity.split(":");
+  if(source==="tvmaze") {
+    const r=await fetchRemote("https://api.tvmaze.com/shows/"+id+"/episodes");
+    if(!r.ok)throw Error("releases_unavailable");
+    const episodes=await r.json();
+    if(!Array.isArray(episodes))throw Error("invalid_release_data");
+    return normalizeReleaseEpisodes(episodes.map(ep=>({season:ep.season,episode:ep.number,at:Date.parse(ep.airstamp||(ep.airdate<new Date().toISOString().slice(0,10)?ep.airdate:""))})));
+  }
+  const query='query($id:Int,$since:Int,$now:Int){Page(perPage:50){airingSchedules(mediaId:$id,airingAt_greater:$since,airingAt_lesser:$now){airingAt episode}}}';
+  const r=await fetchRemote(ANILIST_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query,variables:{id:Number(id),since:Math.floor((Date.now()-7*86400000)/1000),now:Math.floor(Date.now()/1000)}})});
+  if(!r.ok)throw Error("releases_unavailable");
+  const data=await r.json(),episodes=data.data?.Page?.airingSchedules;
+  if(!Array.isArray(episodes)||data.errors?.length)throw Error("invalid_release_data");
+  return normalizeReleaseEpisodes(episodes.map(ep=>({season:1,episode:ep.episode,at:ep.airingAt*1000})));
+}
+async function ensureTrackedReleaseAlarm() {
+  if(api.alarms?.get&&!await api.alarms.get(TRACKED_RELEASE_ALARM))await api.alarms.create(TRACKED_RELEASE_ALARM,{periodInMinutes:15});
+}
+function checkTrackedReleases() {
+  if(trackedReleaseTask)return trackedReleaseTask;
+  if(Date.now()-lastTrackedReleaseBatch<60000)return Promise.resolve();
+  lastTrackedReleaseBatch=Date.now();
+  trackedReleaseTask=checkTrackedReleasesOnce().finally(()=>{trackedReleaseTask=null;});
+  return trackedReleaseTask;
+}
+async function checkTrackedReleasesOnce() {
+  const epoch=accountEpoch;
+  const candidates=(await read(ITEMS_KEY,[])).filter(i=>releaseIdentity(i)&&i.status!=="dropped"&&Date.now()-(i.releaseCheckedAt||0)>=TRACKED_RELEASE_INTERVAL).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,6);
+  for(const candidate of candidates) {
+    if(epoch!==accountEpoch)return;
+    let episodes;
+    try{episodes=await fetchTrackedReleases(candidate);}catch{continue;}
+    if(!episodes)continue;
+    await serializeLibrary(async()=>{
+      if(epoch!==accountEpoch)return;
+      const current=await read(ITEMS_KEY,[]),live=current.find(i=>i.id===candidate.id);
+      if(!live||releaseIdentity(live)!==releaseIdentity(candidate))return;
+      const season=Number(live.season)||1;
+      const recentEpisodes=normalizeReleaseEpisodes(episodes).filter(ep=>Date.now()-ep.at<7*86400000);
+      const aired=episodes.filter(ep=>ep.season===season).map(ep=>ep.episode);
+      const updated={...live,recentEpisodes,releaseCheckedAt:Date.now(),activityAt:live.activityAt||live.updatedAt||live.createdAt||0};
+      if(aired.length) {updated.releasedTotal=Math.max(...aired);updated.releaseSeason=season;}
+      await writeData({[ITEMS_KEY]:current.map(i=>i.id===live.id?updated:i)});
+    });
+  }
+  if(epoch===accountEpoch&&candidates.length)autoSync();
+}
+
 async function ensureReleaseAlarm(){if(api.alarms?.get && !await api.alarms.get("dasi-daily"))await api.alarms.create("dasi-daily",{periodInMinutes:720});}
 let gameReleaseCheck=null;
 function checkGameReleases() {
@@ -1789,8 +1865,9 @@ async function checkGameReleasesOnce() {
 
 try {
   void ensureReleaseAlarm().catch(()=>{});
+  void ensureTrackedReleaseAlarm().catch(()=>{});
   void ensureImportEnrichmentAlarm().catch(()=>{});
-  api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") return checkGameReleases();if(a.name===SYNC_ALARM)return runAutoSync();if(a.name===IMPORT_ENRICH_ALARM)return runImportEnrichment(); });
+  api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") return checkGameReleases();if(a.name===SYNC_ALARM)return runAutoSync();if(a.name===IMPORT_ENRICH_ALARM)return runImportEnrichment();if(a.name===TRACKED_RELEASE_ALARM)return checkTrackedReleases(); });
 } catch {
   /* alarms unavailable */
 }
