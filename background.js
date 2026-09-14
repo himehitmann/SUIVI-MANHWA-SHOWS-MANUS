@@ -112,11 +112,11 @@ function identityMetadata(a,b) {
   };
 }
 async function resolveIncomingIdentity(payload) {
-  if(!payload?.title||payload.type!=="reading")return payload;
+  if(!payload?.title||!["reading","watching"].includes(payload.type))return payload;
   const saved=await read(ITEMS_KEY,[]);
   if(!saved.some(i=>i.type===payload.type)||findIdentity(saved,payload))return payload;
   try {
-    const results=await anilistSearch(payload.title);
+    const results=await (payload.type==="reading"?anilistSearch(payload.title):catalogSearchAll(payload.title));
     const matches=results.filter(r=>sameIdentity(r,payload));
     if(matches.length===1)return {...payload,...identityMetadata(payload,matches[0])};
   } catch { /* Offline saving remains available. */ }
@@ -566,7 +566,7 @@ function trailerUrl(tr) {
 // from search so the list query stays light. Best-effort; throws are swallowed
 // by the caller.
 async function anilistDetail(id) {
-  const gql = `query($id:Int){Media(id:$id){episodes chapters volumes seasonYear status trailer{id site} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{name{full} image{large}}}}}}`;
+  const gql = `query($id:Int){Media(id:$id){id idMal title{romaji english native} synonyms staff(perPage:25){edges{role node{name{full native}}}} coverImage{extraLarge large medium} description genres format countryOfOrigin siteUrl episodes chapters volumes seasonYear status trailer{id site} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{name{full} image{large}}}}}}`;
   const res = await fetchRemote(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { id } }) });
   if (!res.ok) throw new Error(`anilist_detail_${res.status}`);
   const data = await res.json();
@@ -577,6 +577,7 @@ async function anilistDetail(id) {
     .filter((c) => c.name)
     .slice(0, 12);
   return {
+    ...mediaToResult(m),
     episodes: m.episodes || undefined,
     chapters: m.chapters || undefined,
     volumes: m.volumes || undefined,
@@ -586,6 +587,32 @@ async function anilistDetail(id) {
     cast,
   };
 }
+
+async function catalogDetail(item) {
+  const ids=identityIds(item);
+  if(/^\d+$/.test(ids.anilist||"")) {
+    const detail=await anilistDetail(Number(ids.anilist));
+    return detail?{...item,...detail,title:item.title||detail.title,...identityMetadata(item,detail)}:item;
+  }
+  if(/^\d+$/.test(ids.tvmaze||"")) {
+    const base="https://api.tvmaze.com/shows/"+ids.tvmaze;
+    const [show,akas]=await Promise.all([
+      fetchRemote(base+"?embed=cast").then(r=>{if(!r.ok)throw Error("details_unavailable");return r.json();}),
+      fetchRemote(base+"/akas").then(r=>r.ok?r.json():[]).catch(()=>[])
+    ]);
+    return {...item,synopsis:stripHtml(show.summary).slice(0,1500)||item.synopsis,cover:show.image?.original||item.cover,coverFallback:show.image?.medium||item.coverFallback,
+      alternativeTitles:[...new Set([...identityTitles(item),show.name,...akas.map(a=>a.name)].filter(Boolean))],
+      cast:(show._embedded?.cast||[]).slice(0,20).map(c=>({name:c.person?.name,character:c.character?.name,image:c.person?.image?.medium||c.character?.image?.medium||""})).filter(c=>c.name)
+    };
+  }
+  const steam=ids.steam||steamAppId(item.url);
+  if(item.type==="game"&&/^\d+$/.test(steam||"")) {
+    const detail=await steamAppDetails(steam);
+    return detail?{...item,...detail}:item;
+  }
+  return item;
+}
+
 async function anilistSearch(query) {
   const gql = `query($s:String){Page(perPage:10){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
   const res = await fetchRemote(ANILIST_URL, {
@@ -631,6 +658,7 @@ async function tvmazeSearch(query) {
   const data = await res.json();
   return (data || []).slice(0, 6).map((row) => row.show).filter((sh) => sh && sh.name).map((sh) => ({
     title: sh.name,
+    externalIds:{tvmaze:String(sh.id)},
     type: "watching",
     cover: (sh.image && (sh.image.original || sh.image.medium)) || "",
     synopsis: stripHtml(sh.summary).slice(0, 500),
@@ -831,7 +859,7 @@ function steamGames(list, soon) {
 // fiche is opened without tags). Keyless appdetails endpoint.
 function steamAppId(url) { const m = String(url || "").match(/\/app\/(\d+)/); return m ? m[1] : ""; }
 async function steamAppDetails(appid) {
-  const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&filters=basic,genres,release_date`;
+  const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&filters=basic,genres,release_date,movies`;
   const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`steam_details_${res.status}`);
   const data = await res.json();
@@ -841,6 +869,8 @@ async function steamAppDetails(appid) {
     genres: Array.isArray(d.genres) ? d.genres.map((g) => g.description).filter(Boolean).slice(0, 6) : [],
     synopsis: (d.short_description || "").trim(),
     releaseDate: d.release_date && d.release_date.date ? d.release_date.date : undefined,
+    cover:d.header_image||undefined,
+    trailer: d.movies?.find(m=>m.mp4?.max||m.webm?.max)?.mp4?.max || d.movies?.find(m=>m.webm?.max)?.webm?.max,
     comingSoon: typeof d.release_date?.coming_soon === "boolean" ? d.release_date.coming_soon : undefined,
   };
 }
@@ -853,28 +883,27 @@ async function steamDiscover() {
 // Live-action drama/series discovery (keyless, via TVMaze). Split by country so
 // the Home can offer K-Drama / C-Drama / J-Drama / Series tabs like Webtoon.
 async function tvmazeTrending() {
-  const pages = await Promise.allSettled([
-    fetchRemote("https://api.tvmaze.com/shows?page=0").then((r) => (r.ok ? r.json() : [])),
-    fetchRemote("https://api.tvmaze.com/shows?page=1").then((r) => (r.ok ? r.json() : [])),
-  ]);
-  const shows = pages.flatMap((p) => (p.status === "fulfilled" && Array.isArray(p.value) ? p.value : []));
-  const cc = (s) => (s.network && s.network.country && s.network.country.code) || (s.webChannel && s.webChannel.country && s.webChannel.country.code) || "";
-  const bucket = (code) => (code === "KR" ? "kdrama" : code === "CN" || code === "TW" || code === "HK" ? "cdrama" : code === "JP" ? "jdrama" : "series");
-  return shows
-    .filter((s) => s && s.name && s.image && s.image.original)
-    .sort((a, b) => (b.weight || 0) - (a.weight || 0) || (((b.rating && b.rating.average) || 0) - ((a.rating && a.rating.average) || 0)))
-    .slice(0, 80)
-    .map((s) => ({
-      title: s.name,
-      type: "watching",
-      cat: bucket(cc(s)),
-      cover: s.image.original,
-      synopsis: (s.summary || "").replace(/<[^>]+>/g, "").slice(0, 400),
-      genres: Array.isArray(s.genres) ? s.genres.slice(0, 4) : [],
-      season: s.premiered ? Number(String(s.premiered).slice(0, 4)) : undefined,
-      format: bucket(cc(s)) === "series" ? "SERIES" : "DRAMA",
-      url: s.officialSite || (s.url || ""),
-    }));
+  const dates=[0,1,2,3,4,5,6].map(n=>new Date(Date.now()-n*86400000).toISOString().slice(0,10));
+  const pages=await Promise.allSettled(dates.flatMap(date=>["https://api.tvmaze.com/schedule?country=US&date=","https://api.tvmaze.com/schedule/web?date="].map(base=>fetchRemote(base+date).then(r=>r.ok?r.json():[]))));
+  const shows=new Map();
+  for(const result of pages) {
+    if(result.status!=="fulfilled"||!Array.isArray(result.value))continue;
+    for(const episode of result.value) {
+      const show=episode.show||episode._embedded?.show;
+      if(!show?.id||!show.name||!show.image)continue;
+      const existing=shows.get(show.id)||{...show,recentEpisodes:[]};
+      const at=Date.parse(episode.airstamp||episode.airdate);
+      if(Number.isFinite(at)&&at<=Date.now())existing.recentEpisodes.push({season:episode.season,episode:episode.number,at});
+      shows.set(show.id,existing);
+    }
+  }
+  const cc=s=>s.network?.country?.code||s.webChannel?.country?.code||"";
+  const bucket=code=>code==="KR"?"kdrama":["CN","TW","HK"].includes(code)?"cdrama":code==="JP"?"jdrama":"series";
+  return [...shows.values()].filter(s=>s.recentEpisodes.length).sort((a,b)=>(b.weight||0)-(a.weight||0)).slice(0,80).map(s=>({
+    title:s.name,type:"watching",cat:bucket(cc(s)),externalIds:{tvmaze:String(s.id)},cover:s.image.original||s.image.medium,coverFallback:s.image.medium,
+    synopsis:stripHtml(s.summary).slice(0,700),genres:s.genres||[],year:s.premiered?Number(s.premiered.slice(0,4)):undefined,
+    format:bucket(cc(s))==="series"?"SERIES":bucket(cc(s)).toUpperCase(),url:s.url||"",recentEpisodes:s.recentEpisodes
+  }));
 }
 async function buildDiscover() {
   const [manga, manhwa, manhua, anime, games, drama] = await Promise.allSettled([
@@ -1567,6 +1596,8 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     // Online search-to-add (AniList): returns catalog results for a title.
+    case "CATALOG_DETAIL":
+      catalogDetail(message.item||{}).then(item=>sendResponse({ok:true,item}),()=>sendResponse({ok:false,error:"details_unavailable"}));return true;
     case "CATALOG_SEARCH":
       catalogSearchAll(message.query || "")
         .then((results) => sendResponse({ ok: true, results }))
