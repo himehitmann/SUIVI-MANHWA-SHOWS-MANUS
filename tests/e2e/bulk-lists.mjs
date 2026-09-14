@@ -71,5 +71,17 @@ try {
  await p.locator("#view-home [data-preview-disco]").first().click();
  assert(await p.locator("#preview-add").isDisabled());
  await p.screenshot({path:"test-results/internal-discovery.png"});
+ await p.evaluate(()=>{closeDrawer();openDrawer("fixture0");});
+ await p.locator("#dr-home-toggle").click();
+ await p.waitForFunction(()=>items.find(i=>i.id==="fixture0").homeHidden===true);
+ assert.equal(await p.locator('#view-home [data-open="fixture0"]').count(),0);
+ assert(await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].some(i=>i.id==="fixture0")));
+ await p.locator("#dr-home-toggle").click();
+ await p.waitForFunction(()=>items.find(i=>i.id==="fixture0").homeHidden===false);
+ assert(await p.locator('#view-home [data-open="fixture0"]').count()>0);
+ await p.evaluate(()=>{items.push({id:"game-trailer",title:"Game",type:"game",trailer:"https://www.youtube.com/watch?v=abcdefghijk"});openDrawer("game-trailer");});
+ assert.equal(await p.locator("#drawer iframe").count(),1);
+ assert.equal(await p.locator('#drawer a[href*="youtube.com"]').count(),0);
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
