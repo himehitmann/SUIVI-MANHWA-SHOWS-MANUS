@@ -557,19 +557,16 @@
     const crumbSeries = crumbs
       .reverse()
       .find((c) => c && !/^(home|accueil|episodes?|episode|watch|regarder|browse|tv|series|s[ée]ries?|anime|animes?|movies?|films?|read|manga)$/i.test(c) && !/^\d+$/.test(c));
-    const brand = (() => {
-      const b = clean(ogSite).replace(/\.(to|com|net|org|tv|io|co|vip|su|cc|me|rip|onl|es|do)$/i, "").trim();
-      return b ? cleanTitle(b) || b : "";
-    })();
+
 
     const episodic = type === "watching" && Boolean(season || episode);
     const rawTitle =
       adapter?.title ||
       seriesName ||
-      (episodic ? crumbSeries || brand : "") ||
+      (episodic ? crumbSeries : "") ||
       (episodic ? "" : structured?.name || structured?.headline) ||
-      cleanTitle(ogTitle) ||
       cleanTitle(domHeading) ||
+      cleanTitle(ogTitle) ||
       cleanTitle(document.title) ||
       location.hostname;
     const title = clean(rawTitle) || location.hostname;
