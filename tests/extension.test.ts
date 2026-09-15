@@ -804,3 +804,8 @@ describe("game news notifications",()=>{
     expect(w.data["dasi.notifications"]).toBeUndefined();
   });
 });
+
+describe("catalog content categories",()=>{
+  it("excludes biographies and unknown Wikipedia pages",()=>{const w=worker();for(const desc of ["American film actor","Japanese manga author","French actress","American company",""]) {w.ctx.desc=desc;expect(w.run("classifyWiki(desc).type")).toBe("");}expect(w.run('classifyWiki("Japanese manga series").type')).toBe("reading");expect(w.run('classifyWiki("American television series").type')).toBe("watching");});
+  it("does not put animated shows in regional drama rows",()=>{const w=worker();expect(w.run('liveActionShow({type:"Animation",genres:["Adventure"]})')).toBe(false);expect(w.run('liveActionShow({type:"Scripted",genres:["Anime"]})')).toBe(false);expect(w.run('liveActionShow({type:"Scripted",genres:["Drama","Romance"]})')).toBe(true);});
+});
