@@ -436,7 +436,7 @@ async function writeItemUnlocked(payload) {
   if (existing && merged.type !== "game") {
     const cur = merged.type === "watching" ? merged.episode || 0 : merged.chapter || 0;
     const newTotal = merged.total || 0;
-    if (newTotal > (existing.total || 0) && newTotal > cur) {
+    if (merged.notifyUpdates!==false && newTotal > (existing.total || 0) && newTotal > cur) {
       const n = newTotal - cur;
       const unit = merged.type === "watching" ? "episode" : "chapter";
       const msg = `${n} new ${unit}${n > 1 ? "s" : ""} available`;
@@ -549,6 +549,7 @@ function mediaToResult(m) {
   return {
     title,
     type,
+    releaseStatus:m.status||undefined,
     anilistId: m.id || undefined,
     externalIds: { ...(m.id?{anilist:String(m.id)}:{}), ...(m.idMal?{mal:String(m.idMal)}:{}) },
     alternativeTitles: [...new Set([...Object.values(m.title||{}),...(m.synonyms||[])].filter(x=>typeof x==="string"&&x.trim()))],
@@ -613,6 +614,7 @@ function jikanMedia(m,type) {
   if(!m||!Number.isInteger(m.mal_id)||m.mal_id<1)return null;
   const formats={Manga:"MANGA",Manhwa:"MANHWA",Manhua:"MANHUA",Novel:"NOVEL","Light Novel":"NOVEL"};
   return {title:m.title_english||m.title||m.title_japanese||"",type,
+    releaseStatus:m.status||undefined,year:m.year||m.aired?.prop?.from?.year||m.published?.prop?.from?.year,
     externalIds:{mal:String(m.mal_id)},alternativeTitles:[...new Set([m.title,m.title_english,m.title_japanese,...(m.title_synonyms||[]),...(m.titles||[]).map(t=>t.title)].filter(Boolean))],
     authors:(m.authors||[]).map(a=>a.name).filter(Boolean),
     cover:m.images?.jpg?.large_image_url||m.images?.jpg?.image_url||"",
@@ -671,7 +673,7 @@ async function catalogDetail(item) {
 }
 
 async function anilistSearch(query) {
-  const gql = `query($s:String){Page(perPage:50){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
+  const gql = `query($s:String){Page(perPage:50){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres status seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
   const res = await fetchRemote(ANILIST_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -715,6 +717,7 @@ async function tvmazeSearch(query) {
   const data = await res.json();
   return (data || []).slice(0, 6).map((row) => row.show).filter((sh) => sh && sh.name).map((sh) => ({
     title: sh.name,
+    releaseStatus:sh.status||undefined,
     externalIds:{tvmaze:String(sh.id)},
     type: "watching",
     cover: (sh.image && (sh.image.original || sh.image.medium)) || "",
@@ -845,7 +848,7 @@ async function catalogSearchAll(query) {
 const DISCOVER_KEY = "dasi.discover.cache.v2";
 const DISCOVER_TTL = 6 * 3600 * 1000;
 async function anilistTrending(type, country) {
-  const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
+  const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres status seasonYear format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
   const res = await fetchRemote(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { t: type, c: country || undefined } }) });
   if (!res.ok) throw new Error(`anilist_${res.status}`);
   const data = await res.json();
@@ -1929,7 +1932,7 @@ async function checkGameReleasesOnce() {
         const released=details.comingSoon===false?true:details.comingSoon===true?false:current.released;
         const next=items.map(i=>i.id===current.id?{...i,released,releaseDate:details.releaseDate||i.releaseDate,releaseCheckedAt:Date.now(),updatedAt:Date.now()}:i);
         await writeData({[ITEMS_KEY]:next});
-        if(released && !current.released){await pushNotification({itemId:current.id,title:current.title,message:'is out now',url:current.url});systemNotify(current.title,'is out now','dasi_game_'+current.id);}
+        if(released && !current.released && current.notifyUpdates!==false){await pushNotification({itemId:current.id,title:current.title,message:'is out now',url:current.url});systemNotify(current.title,'is out now','dasi_game_'+current.id);}
       });
     }catch{/* A failed source never turns an expected date into a confirmed release. */}
   }
