@@ -1958,11 +1958,62 @@ async function checkGameReleasesOnce() {
   }
 }
 
+
+// Only new publisher news creates alerts; the first fetch establishes a baseline.
+function gameNewsCategory(entry) {
+  const title=String(entry.title||"");
+  if (/\b(redeem|redemption|reward|rewards|giveaway|drops|gift code|promo code)\b/i.test(title)) return "rewards";
+  if (/\b(patch|hotfix|update|changelog|maintenance)\b/i.test(title)) return "updates";
+  return "events";
+}
+function freshGameNews(item,news,settings,now=Date.now()) {
+  if (!item.gameNewsCheckedAt || item.notifyUpdates===false || settings.notifyNew===false) return [];
+  const seen=new Set(item.gameNewsSeenIds||[]);
+  const fields={updates:"notifyGameUpdates",events:"notifyGameEvents",rewards:"notifyGameRewards"};
+  return news.filter(entry=>{
+    const at=Number(entry.publishedAt);
+    if (!entry.id || seen.has(entry.id) || !Number.isFinite(at) || at<=item.gameNewsCheckedAt || at>now || now-at>7*86400000) return false;
+    seen.add(entry.id);
+    return item[fields[gameNewsCategory(entry)]]!==false;
+  }).sort((a,b)=>b.publishedAt-a.publishedAt).slice(0,3);
+}
+let gameNewsTask=null;
+function checkGameNews() {
+  if(gameNewsTask)return gameNewsTask;
+  gameNewsTask=checkGameNewsOnce().finally(()=>{gameNewsTask=null;});
+  return gameNewsTask;
+}
+async function checkGameNewsOnce() {
+  const epoch=accountEpoch;
+  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==="game"&&i.status!=="dropped"&&steamAppId(i.url)&&Date.now()-(i.gameNewsCheckedAt||0)>=6*3600000).sort((a,b)=>(a.gameNewsCheckedAt||0)-(b.gameNewsCheckedAt||0)).slice(0,8);
+  for(const candidate of candidates) {
+    if(epoch!==accountEpoch)return;
+    try {
+      const news=await steamNews(steamAppId(candidate.url));
+      await serializeLibrary(async()=>{
+        if(epoch!==accountEpoch)return;
+        const items=await read(ITEMS_KEY,[]),live=items.find(i=>i.id===candidate.id);
+        if(!live||live.status==="dropped"||steamAppId(live.url)!==steamAppId(candidate.url))return;
+        const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS),now=Date.now();
+        const fresh=freshGameNews(live,news,settings,now);
+        const updated={...live,news,gameNewsCheckedAt:now,gameNewsSeenIds:[...new Set([...news.map(n=>n.id),...(live.gameNewsSeenIds||[])])].slice(0,100)};
+        const changes={[ITEMS_KEY]:items.map(i=>i.id===live.id?updated:i)};
+        if(fresh.length) {
+          const message=fresh.map(n=>n.title).join(" · ");
+          changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:live.id,title:live.title,message,url:live.url,read:false,ts:now},...await read(NOTIF_KEY,[])].slice(0,120);
+        }
+        await writeData(changes);
+        if(fresh.length)await systemNotify(live.title,fresh.map(n=>n.title).join(" · "),"yomu_news_"+live.id);
+      });
+    } catch { /* Retry a failed source without advancing its baseline. */ }
+  }
+}
+
 try {
   void ensureReleaseAlarm().catch(()=>{});
   void ensureTrackedReleaseAlarm().catch(()=>{});
   void ensureImportEnrichmentAlarm().catch(()=>{});
-  api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") return checkGameReleases();if(a.name===SYNC_ALARM)return runAutoSync();if(a.name===IMPORT_ENRICH_ALARM)return runImportEnrichment();if(a.name===TRACKED_RELEASE_ALARM)return checkTrackedReleases(); });
+  api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") return checkGameReleases();if(a.name===SYNC_ALARM)return runAutoSync();if(a.name===IMPORT_ENRICH_ALARM)return runImportEnrichment();if(a.name===TRACKED_RELEASE_ALARM)return Promise.allSettled([checkTrackedReleases(),checkGameNews()]); });
 } catch {
   /* alarms unavailable */
 }
