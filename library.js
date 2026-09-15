@@ -368,7 +368,7 @@ function discoPools() {
 const HOME_CAT_KEYS = ["manhwa", "manga", "manhua", "anime", "kdrama", "cdrama", "jdrama", "series", "games"];
 function homeCatAllowed(key) { const a = settings.homeCats; return !Array.isArray(a) || a.includes(key); }
 function renderDiscover() {
-  if(!discover)return discoverTried?"":`<p class="sub" role="status">${t("loadingReco")}</p>`;
+  if(!discover)return `<div class="section-h"><h2>${settings.lang==="fr"?"Découvrir":"Discover"}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div><p class="sub" role="status">${discoverTried?(settings.lang==="fr"?"Les tendances sont momentanément indisponibles. Réessaie ou utilise la recherche.":"Trends are temporarily unavailable. Retry or use search."):t("loadingReco")}</p>`;
   discoItems=[];
   const pools=discoPools();
   let out=`<div class="section-h discover-h"><h2>${settings.lang==="fr"?"À découvrir maintenant":"Discover now"}</h2><div class="disco-h-actions"><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div></div>`;
@@ -416,15 +416,23 @@ function enhanceCarousels(root) {
     if(track.parentElement.classList.contains("carousel-shell"))return;
     const shell=document.createElement("div");shell.className="carousel-shell";
     track.before(shell);shell.append(track);
+    const buttons=[];
     for(const direction of [-1,1]) {
       const button=document.createElement("button");button.className="carousel-arrow "+(direction<0?"prev":"next");
-      button.type="button";button.textContent=direction<0?"‹":"›";
+      button.type="button";button.hidden=true;
+      button.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(direction<0?'M15 5l-7 7 7 7':'M9 5l7 7-7 7')+'"/></svg>';
       button.setAttribute("aria-label",settings.lang==="fr"?(direction<0?"Précédent":"Suivant"):(direction<0?"Previous":"Next"));
       button.onclick=()=>track.scrollBy({left:direction*Math.max(160,track.clientWidth*.85),behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
-      shell.append(button);
+      shell.append(button);buttons.push(button);
     }
+    const refresh=()=>{const max=track.scrollWidth-track.clientWidth;buttons[0].hidden=max<=2||track.scrollLeft<=2;buttons[1].hidden=max<=2||track.scrollLeft>=max-2;};
+    shell.refreshCarousel=refresh;
+    track.addEventListener("scroll",refresh,{passive:true});
+    track.addEventListener("load",refresh,true);
+    requestAnimationFrame(refresh);
   });
 }
+window.addEventListener("resize",()=>document.querySelectorAll(".carousel-shell").forEach(shell=>shell.refreshCarousel?.()),{passive:true});
 function bindDisco(root = "#view-home") {
   enhanceCarousels(root);
   const more=document.querySelector(root+" #home-more");
@@ -446,7 +454,7 @@ function bindDisco(root = "#view-home") {
     discoCat = b.dataset.cat;
     if (view === "home") renderHome(); else if (view === "games") renderGames();
   }));
-  document.querySelectorAll(`${root} [data-preview-disco]`).forEach(el=>el.onclick=()=>openCatalogPreview(discoItems[Number(el.dataset.previewDisco)]));
+  document.querySelectorAll(`${root} [data-preview-disco]`).forEach(el=>{const item=discoItems[Number(el.dataset.previewDisco)];el.onclick=()=>openCatalogPreview(item);});
 
 }
 // Home category picker · check which categories appear on Home. Persisted to
@@ -501,7 +509,7 @@ function renderHome() {
     bindHome();
     bindDisco();
     const ob = document.getElementById("onb-search");
-    if (ob) ob.onclick = () => { switchView("library"); document.getElementById("q").focus(); };
+    if (ob) ob.onclick = () => { document.getElementById("q").focus(); };
     return;
   }
   // Each work appears in at most ONE row (no duplicates across the home).
