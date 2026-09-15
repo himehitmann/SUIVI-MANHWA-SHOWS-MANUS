@@ -496,6 +496,21 @@ img.cov,img.cov.landscape,.disco .art img.cov,.poster .art img.cov,.drawer-cover
     .game-news-card h4 { margin:5px 0 7px; font-size:14px; line-height:1.35; }
     .game-news-card .synopsis { margin:0; }
     .game-news-meta { color:#7d7395; font-size:11px; font-weight:700; letter-spacing:.02em; text-transform:uppercase; }
+
+/* Artwork keeps its native proportions: no cropping or artificial bands. */
+.disco .art,.disco-game .art{height:auto;aspect-ratio:auto;background:transparent;box-shadow:none;border-radius:12px;min-height:0}
+.disco .art img.cov{position:relative;inset:auto;width:100%;height:auto;max-height:none;object-fit:contain;background:transparent;display:block}
+.disco .art img.cov.failed{display:none}
+.disco .art .cover-ph{position:absolute;inset:0;background:var(--lav);color:var(--lav-ink)}
+.disco .art:not(:has(img.cov:not(.failed))){min-height:150px}
+.disco .art:has(img.cov:not(.failed)) .cover-ph{visibility:hidden}
+.carousel-arrow{top:50%;transform:translateY(-50%);width:38px;height:38px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:var(--card,#fff);color:var(--text,#29243a);box-shadow:0 3px 16px #21183324;transition:background .15s,box-shadow .15s}
+.carousel-arrow:hover{background:var(--lav);box-shadow:0 4px 18px #21183338}
+.carousel-arrow[hidden]{display:none}
+.carousel-arrow.prev{left:-14px}.carousel-arrow.next{right:-14px}
+@media(max-width:600px){.carousel-arrow.prev{left:0}.carousel-arrow.next{right:0}}
+
+a.btn,a.btn-glass,.link-btn{text-decoration:none}
 </style>
   </head>
   <body>
