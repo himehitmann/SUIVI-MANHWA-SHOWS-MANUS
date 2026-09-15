@@ -110,5 +110,28 @@ try {
  await p.locator("#list-delete-yes").click();
  await p.waitForFunction(()=>!lists.some(l=>l.id==="destination"));
  assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].length),beforeCount);
+
+ await p.evaluate(()=>{
+   closeDrawer();switchView("library");
+   lastResults=[
+    {title:"Future drama",type:"watching",format:"KDRAMA",year:2028,genres:["Comedy"],releaseStatus:"NOT_YET_RELEASED"},
+    {title:"Finished show",type:"watching",format:"SERIES",country:"US",year:2020,releaseStatus:"Ended"},
+    {title:"Free game",type:"game",price:"Free"},
+    {title:"Paid game",type:"game",price:"$19.99"},
+    {title:"Unknown price",type:"game"}
+   ];searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};renderSearchResults("fixture");
+ });
+ await p.locator("#sf-kind").selectOption("KDRAMA");
+ await p.locator("#sf-year").fill("2028");await p.locator("#sf-year").press("Tab");
+ await p.locator("#sf-release").selectOption("upcoming");
+ assert.equal(await p.locator("#search-results .sr-row").count(),1);
+ await p.locator("#sf-reset").click();await p.locator("#sf-kind").selectOption("GAME");
+ await p.locator("#sf-price").evaluate(el=>{el.value="0";el.dispatchEvent(new Event("change",{bubbles:true}));});
+ assert.equal(await p.locator("#search-results .sr-row").count(),1);
+ assert(await p.locator("#search-results .sr-row").textContent().then(s=>s.includes("Free game")));
+ assert.equal(await p.evaluate(()=>publicationState({status:"completed"})),"unknown");
+ await p.evaluate(()=>{clearSearchResults();openDrawer("fixture0");});
+ await p.locator("#dr-notify").uncheck();
+ await p.waitForFunction(()=>items.find(i=>i.id==="fixture0").notifyUpdates===false);
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
