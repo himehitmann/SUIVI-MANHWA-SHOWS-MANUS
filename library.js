@@ -1083,7 +1083,7 @@ function openDrawer(id) {
         </select>
         ${!isGame ? `<input class="field" id="dr-season" type="number" min="0" value="${i.season || ""}" placeholder="${isWatch ? "Season" : "Vol."}" />` : ""}
       </div>
-      <div class="section-t">${t("manage")}</div><button class="btn danger" id="dr-remove">${I.trash} ${t("removeLib")}</button>
+      <div class="section-t">${t("manage")}</div><label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input id="dr-notify" type="checkbox" ${i.notifyUpdates!==false?"checked":""}>${settings.lang==="fr"?"Notifications de nouvelles sorties":"New release notifications"}</label><button class="btn danger" id="dr-remove">${I.trash} ${t("removeLib")}</button>
     </div>`;
   document.getElementById("scrim").classList.add("open");
   d.classList.add("open");
@@ -1115,6 +1115,7 @@ function episodeGrid(i) {
 }
 function wireDrawer(i, isWatch, isGame) {
   document.getElementById("dr-close").onclick = closeDrawer;
+  document.getElementById("dr-notify").onchange=e=>update(i.id,{notifyUpdates:e.target.checked});
   document.getElementById("dr-home-toggle").onclick=()=>update(i.id,{homeHidden:!i.homeHidden});
   document.getElementById("dr-refresh-info").onclick=async e=>{
     const button=e.currentTarget,status=document.getElementById("dr-refresh-status");
@@ -1624,24 +1625,67 @@ function catalogSearch(q) {
 let lastResults = [];
 let srFilter = "all";
 const COUNTRY_LABEL = { JP: "Japan", KR: "Korea", CN: "China", TW: "Taiwan", HK: "Hong Kong", US: "USA", GB: "UK", FR: "France" };
+let searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};
+function resultKind(m) {
+  if(m.type==="game")return "GAME";
+  const format=String(m.format||"").toUpperCase();
+  if(format==="SERIES"&&m.country==="US")return "US_SERIES";
+  return format||String(m.type||"").toUpperCase();
+}
+function publicationState(m) {
+  const status=String(m.releaseStatus||"").toUpperCase();
+  if(["FINISHED","ENDED","FINISHED AIRING","FINISHED PUBLISHING"].includes(status))return "finished";
+  if(["RELEASING","RUNNING","CURRENTLY AIRING","PUBLISHING"].includes(status))return "ongoing";
+  if(["NOT_YET_RELEASED","NOT YET AIRED","NOT YET PUBLISHED","UPCOMING","TO BE ANNOUNCED"].includes(status))return "upcoming";
+  return "unknown";
+}
+function resultYear(m) {
+  const value=m.year||m.seasonYear||m.releaseDate||m.season;
+  const year=String(value||"").match(/(?:19|20|21)\d{2}/);
+  return year?year[0]:"";
+}
+function gamePrice(m) {
+  if(m.isFree===true||/^(free(?: to play)?|gratuit)$/i.test(String(m.price||"").trim()))return 0;
+  if(Number.isFinite(m.priceAmount)&&m.priceCurrency==="USD")return m.priceAmount;
+  const price=String(m.price||"").trim();
+  if(!/^\$[\d,.]+$/.test(price))return null;
+  const value=Number(price.slice(1).replace(/,/g,""));return Number.isFinite(value)?value:null;
+}
+function matchesSearchFacets(m) {
+  const f=searchFacets;
+  if(f.kind!=="all"&&resultKind(m)!==f.kind)return false;
+  if(f.genre!=="all"&&!(m.genres||[]).includes(f.genre))return false;
+  if(f.year&&resultYear(m)!==f.year)return false;
+  if(f.release!=="all"&&publicationState(m)!==f.release)return false;
+  if(f.kind==="GAME"&&f.price<200){const price=gamePrice(m);if(price===null||price>f.price)return false;}
+  return true;
+}
 function renderSearchResults(q) {
-  const el = document.getElementById("search-results");
-  const cats = ["all", ...[...new Set(lastResults.map((m) => catLabel(m)))]];
-  const countries = ["all", ...[...new Set(lastResults.map((m) => m.country).filter(Boolean))]];
-  const shown = lastResults.filter((m) => (srFilter === "all" || catLabel(m) === srFilter) && (srCountry === "all" || m.country === srCountry));
-  el.innerHTML = `<div class="sr-wrap">
-    <div class="sr-head"><b>${t("searchTitle")}</b> · “${esc(q)}” · ${shown.length}/${lastResults.length}</div>
-    <div class="sr-filters">${cats.map((c) => `<button data-srf="${esc(c)}" class="${srFilter === c ? "active" : ""}">${c === "all" ? t("all") : esc(c)}</button>`).join("")}</div>
-    ${countries.length > 1 ? `<div class="sr-filters">${countries.map((c) => `<button data-src="${esc(c)}" class="${srCountry === c ? "active" : ""}">${c === "all" ? t("all") : esc(COUNTRY_LABEL[c] || c)}</button>`).join("")}</div>` : ""}
-    ${shown.length ? shown.map((m) => srRow(m, lastResults.indexOf(m))).join("") : `<p class="sr-empty">${t("noMatch")}</p>`}</div>`;
-  el.querySelectorAll("[data-srf]").forEach((b) => (b.onclick = () => { srFilter = b.dataset.srf; renderSearchResults(q); }));
-  el.querySelectorAll("[data-src]").forEach((b) => (b.onclick = () => { srCountry = b.dataset.src; renderSearchResults(q); }));
-  el.querySelectorAll("[data-preview]").forEach((b) => b.onclick = () => openCatalogPreview(lastResults[Number(b.dataset.preview)]));
-  
+  const el=document.getElementById("search-results"),fr=settings.lang==="fr",f=searchFacets;
+  const kinds=[...new Set(lastResults.map(resultKind))].sort();
+  const genres=[...new Set(lastResults.flatMap(m=>m.genres||[]))].sort();
+  const labels={GAME:fr?"Jeux":"Games",MOVIE:fr?"Films":"Films",ANIME:"Anime",MANGA:"Manga",MANHWA:"Manhwa",MANHUA:"Manhua",KDRAMA:"K-drama",CDRAMA:"C-drama",JDRAMA:"J-drama",SERIES:fr?"Séries":"Series",US_SERIES:fr?"Séries américaines":"US series",NOVEL:fr?"Romans":"Novels"};
+  const select=(id,label,values,value)=>'<label>'+label+'<select class="field" id="'+id+'"><option value="all">'+t("all")+'</option>'+values.map(([key,name])=>'<option value="'+esc(key)+'"'+(value===key?' selected':'')+'>'+esc(name)+'</option>').join("")+'</select></label>';
+  const shown=lastResults.filter(matchesSearchFacets);
+  el.innerHTML='<div class="sr-wrap"><div class="sr-head"><b>'+t("searchTitle")+'</b> · '+esc(q)+' · '+shown.length+'/'+lastResults.length+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0">'+
+    select("sf-kind",fr?"Type d’œuvre":"Media type",kinds.map(k=>[k,labels[k]||k]),f.kind)+
+    select("sf-genre",fr?"Genre":"Genre",genres.map(g=>[g,g]),f.genre)+
+    '<label>'+(fr?"Année de sortie":"Release year")+'<input class="field" id="sf-year" type="number" min="1900" max="2199" placeholder="2028" value="'+esc(f.year)+'"></label>'+
+    select("sf-release",fr?"Publication / diffusion":"Publication / airing",[["finished",fr?"Terminée":"Finished"],["ongoing",fr?"En cours":"Ongoing"],["upcoming",fr?"À venir":"Upcoming"],["unknown",fr?"Non renseignée":"Unknown"]],f.release)+
+    '</div>'+(f.kind==="GAME"?'<label>'+(fr?"Prix maximum (USD)":"Maximum price (USD)")+' <output id="sf-price-label">'+(f.price===200?t("all"):f.price===0?(fr?"Gratuit":"Free"):"$"+f.price)+'</output><input id="sf-price" type="range" min="0" max="200" step="5" value="'+f.price+'" style="width:100%"></label>':"")+
+    '<p class="sub">'+(fr?"Filtres appliqués aux résultats reçus. Les dates et états inconnus restent non renseignés.":"Filters apply to the returned results. Unknown dates and publication states remain unspecified.")+'</p><button class="btn" id="sf-reset">'+(fr?"Réinitialiser":"Reset")+'</button>'+
+    (shown.length?shown.map(m=>srRow(m,lastResults.indexOf(m))).join(""):'<p class="sr-empty">'+t("noMatch")+'</p>')+'</div>';
+  for(const [id,key] of [["sf-kind","kind"],["sf-genre","genre"],["sf-year","year"],["sf-release","release"],["sf-price","price"]]){
+    const field=document.getElementById(id);if(!field)continue;
+    field.onchange=()=>{f[key]=key==="price"?Number(field.value):field.value;renderSearchResults(q);document.getElementById(id)?.focus();};
+    if(key==="price")field.oninput=()=>{document.getElementById("sf-price-label").textContent=field.value==="0"?(fr?"Gratuit":"Free"):field.value==="200"?t("all"):"$"+field.value;};
+  }
+  document.getElementById("sf-reset").onclick=()=>{searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};renderSearchResults(q);};
+  el.querySelectorAll("[data-preview]").forEach(button=>button.onclick=()=>openCatalogPreview(lastResults[Number(button.dataset.preview)]));
 }
 function srRow(m, idx) {
   const tags = (m.genres || []).slice(0, 3).map((g) => `<span class="tag">${esc(g)}</span>`).join("");
-  const meta = [m.season, m.price].filter(Boolean).join(" · ");
+  const meta = [resultYear(m)].filter(Boolean).join(" · ");
   return `<div class="sr-row">
     <button class="sc" data-preview="${idx}" aria-label="${esc(t("details") + ": " + m.title)}"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}</button>
     <div class="si"><b><button class="link-btn" data-preview="${idx}">${esc(m.title)}</button><span class="cat">${esc(catLabel(m))}</span></b><small>${esc(meta)}${m.synopsis ? (meta ? " · " : "") + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
