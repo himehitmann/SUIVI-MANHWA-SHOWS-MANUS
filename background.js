@@ -736,6 +736,7 @@ async function tvmazeSearch(query) {
 // description we use to classify the type and country.
 function classifyWiki(desc) {
   const d = (desc || "").toLowerCase();
+  if (/\b(actor|actress|director|singer|writer|author|producer|musician|politician|actrice|acteur|réalisateur|réalisatrice|chanteur|chanteuse|écrivain|auteur)\b/.test(d)) return {type:"",format:"",country:""};
   const country = /south korea|korean/.test(d) ? "KR" : /chinese|china|taiwan|hong kong/.test(d) ? "CN" : /japanese|japan/.test(d) ? "JP" : /american|united states|british|french|european/.test(d) ? "US" : "";
   if (/manhwa|webtoon/.test(d)) return { type: "reading", format: "MANHWA", country: country || "KR" };
   if (/manhua/.test(d)) return { type: "reading", format: "MANHUA", country: country || "CN" };
@@ -746,7 +747,7 @@ function classifyWiki(desc) {
     return { type: "watching", format: country === "KR" ? "KDRAMA" : country === "CN" ? "CDRAMA" : country === "JP" ? "JDRAMA" : "SERIES", country };
   if (/video game|mobile game|role-playing game|gacha|first-person shooter|platform game|indie game/.test(d)) return { type: "game", format: "Game", country };
   if (/\bnovel\b|book|comic/.test(d)) return { type: "reading", format: "BOOK", country };
-  return { type: "watching", format: "", country };
+  return { type: "", format: "", country };
 }
 async function wikipediaSearch(query, lang) {
   const host = `https://${lang || "en"}.wikipedia.org`;
@@ -756,7 +757,7 @@ async function wikipediaSearch(query, lang) {
   const data = await res.json();
   const pages = (data.query && data.query.pages) ? Object.values(data.query.pages) : [];
   pages.sort((a, b) => (a.index || 99) - (b.index || 99));
-  return pages.filter((p) => p.title && !/^(List of|Category:)/i.test(p.title)).map((p) => {
+  return pages.filter((p) => p.title && !/^(List of|Category:)/i.test(p.title) && classifyWiki(p.description).type).map((p) => {
     const c = classifyWiki(p.description);
     return {
       title: p.title,
@@ -960,6 +961,7 @@ async function steamDiscover() {
   return { soon, hot };
 }
 // Live-action drama/series discovery (keyless, via TVMaze). Split by country sources.
+function liveActionShow(show) { return !/animation|anime/i.test([show.type,...(show.genres||[])].join(" ")); }
 async function tvmazeTrending() {
   const dates=[0,1,2,3,4,5,6].map(n=>new Date(Date.now()-n*86400000).toISOString().slice(0,10));
   const pages=await Promise.allSettled(dates.flatMap(date=>["https://api.tvmaze.com/schedule?country=US&date=","https://api.tvmaze.com/schedule/web?date="].map(base=>fetchRemote(base+date).then(r=>r.ok?r.json():[]))));
@@ -968,7 +970,7 @@ async function tvmazeTrending() {
     if(result.status!=="fulfilled"||!Array.isArray(result.value))continue;
     for(const episode of result.value) {
       const show=episode.show||episode._embedded?.show;
-      if(!show?.id||!show.name||!show.image)continue;
+      if(!show?.id||!show.name||!show.image||!liveActionShow(show))continue;
       const existing=shows.get(show.id)||{...show,recentEpisodes:[]};
       const at=Date.parse(episode.airstamp||episode.airdate);
       if(Number.isFinite(at)&&at<=Date.now())existing.recentEpisodes.push({season:episode.season,episode:episode.number,at});
@@ -991,7 +993,7 @@ async function buildDiscover() {
   const val = (r) => (r.status === "fulfilled" ? r.value : []);
   const dramas = val(drama);
   return {
-    ts: Date.now(), discoveryVersion:2,
+    ts: Date.now(), discoveryVersion:3,
     manga: val(manga),
     manhwa: val(manhwa),
     manhua: val(manhua),
@@ -1008,7 +1010,7 @@ async function buildDiscover() {
 async function getDiscover(force) {
   if (!force) {
     const c = (await api.storage.local.get(DISCOVER_KEY))[DISCOVER_KEY];
-    if (c && c.discoveryVersion===2 && Date.now() - c.ts < DISCOVER_TTL) return c;
+    if (c && c.discoveryVersion===3 && Date.now() - c.ts < DISCOVER_TTL) return c;
   }
   const fresh = await buildDiscover();
   if(!Object.values(fresh).some(value=>Array.isArray(value)&&value.length))throw Error("discovery_unavailable");
