@@ -1673,6 +1673,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const d = await steamAppDetails(appid);
           if (!d) { sendResponse({ ok: false }); return; }
           const patch = { gameEnrichedAt: Date.now() };
+          if (d.trailer) patch.trailer = d.trailer;
+          if (d.cover && !it.cover) patch.cover = d.cover;
+          if (d.news?.length) patch.news = d.news;
           if (d.genres.length && !(it.tags && it.tags.length)) patch.tags = d.genres;
           if (d.synopsis && !it.synopsis) patch.synopsis = d.synopsis;
           if (d.releaseDate && !it.releaseDate) patch.releaseDate = d.releaseDate;
