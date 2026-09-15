@@ -44,7 +44,7 @@ describe("postgres store adapter", () => {
   it("creates its schema", async () => {
     const { client, log } = fakePg();
     await ensureSchema(client);
-    expect(log.filter((l) => l.startsWith("CREATE TABLE")).length).toBe(2);
+    expect(log.filter((l) => l.startsWith("CREATE TABLE")).length).toBe(3);
   });
 
   it("round-trips a user and normalizes email", async () => {

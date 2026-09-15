@@ -84,6 +84,8 @@
 
   /* ---- Isolated, site-specific adapters. Each returns a partial detection. ---- */
   const ADAPTERS = [
+    {id:'official-games',match:/(^|\.)aniimo\.com$|^chronoodyssey\.kakaogames\.com$/,
+      parse(){return {title:location.hostname.endsWith('aniimo.com')?'Aniimo':clean(metaFirst(["meta[property='og:title']"])).split('|')[0].trim(),type:'game',releaseDate:document.querySelector('time[datetime]')?.getAttribute('datetime')||undefined};}},
     {
       id: "netflix",
       match: /(^|\.)netflix\.com$/,
@@ -423,7 +425,10 @@
         return [];
       }
     });
-    return values.find((v) => v && (v.name || v.headline || v.partOfSeries || v.episodeNumber));
+    const flatten=v=>[v,...(Array.isArray(v?.['@graph'])?v['@graph'].flatMap(flatten):[])];
+    const records=values.flatMap(flatten);
+    const mediaType=v=>[].concat(v?.['@type']||[]).some(t=>/^(VideoGame|TVSeries|TVEpisode|Movie|Book|ComicSeries|ComicIssue|SoftwareApplication)$/.test(t));
+    return records.find(mediaType)||records.find(v=>v&&(v.name||v.headline||v.partOfSeries||v.episodeNumber));
   };
 
   const largestVideo = () =>
@@ -489,7 +494,10 @@
     );
     let type = adapter?.type;
     if (!type) {
-      if (chapter || readingHint) type = "reading";
+      const schemaTypes=[].concat(structured?.['@type']||[]);
+      if(schemaTypes.includes('VideoGame') || (schemaTypes.includes('SoftwareApplication') && /game/i.test(structured.applicationCategory||''))) type='game';
+      else if(schemaTypes.some(t=>/^(TVSeries|TVEpisode|Movie)$/.test(t)))type='watching';
+      else if (chapter || readingHint) type = "reading";
       else if (media) type = "watching";
       else if (episode || season) type = "watching";
       else type = "reading";
@@ -549,19 +557,16 @@
     const crumbSeries = crumbs
       .reverse()
       .find((c) => c && !/^(home|accueil|episodes?|episode|watch|regarder|browse|tv|series|s[ée]ries?|anime|animes?|movies?|films?|read|manga)$/i.test(c) && !/^\d+$/.test(c));
-    const brand = (() => {
-      const b = clean(ogSite).replace(/\.(to|com|net|org|tv|io|co|vip|su|cc|me|rip|onl|es|do)$/i, "").trim();
-      return b ? cleanTitle(b) || b : "";
-    })();
+
 
     const episodic = type === "watching" && Boolean(season || episode);
     const rawTitle =
       adapter?.title ||
       seriesName ||
-      (episodic ? crumbSeries || brand : "") ||
+      (episodic ? crumbSeries : "") ||
       (episodic ? "" : structured?.name || structured?.headline) ||
-      cleanTitle(ogTitle) ||
       cleanTitle(domHeading) ||
+      cleanTitle(ogTitle) ||
       cleanTitle(document.title) ||
       location.hostname;
     const title = clean(rawTitle) || location.hostname;
@@ -586,9 +591,9 @@
       synopsis,
       genres,
       price: adapter?.price,
-      releaseDate: adapter?.releaseDate,
+      releaseDate: adapter?.releaseDate || (type === "game" ? structured?.datePublished : undefined),
       trailer: adapter?.trailer,
-      platform: adapter?.platform,
+      platform: adapter?.platform || (type === "game" ? [].concat(structured?.gamePlatform || []).join(", ") : undefined),
       available: type === "game" ? undefined : scanAvailable(),
       url: location.href,
       domain: location.hostname.replace(/^www\./, ""),
@@ -623,16 +628,23 @@
   setInterval(onNav, 1500);
 
   // Video lifecycle: report on play, autosave on pause / navigation away.
+  let lastVideoReport=0;
   const reportVideo = (video) => {
     if (!video || video.currentTime < 3) return;
     try {
-      chrome.runtime.sendMessage({ type: "VIDEO_PROGRESS", payload: { ...detect(), position: video.currentTime, duration: video.duration } });
+      chrome.runtime.sendMessage({ type: "VIDEO_PROGRESS", payload: { ...detect(), position: video.currentTime, duration: Number.isFinite(video.duration)?video.duration:0 } }, () => void chrome.runtime.lastError);
     } catch {
       /* noop */
     }
   };
   document.addEventListener("play", (e) => e.target instanceof HTMLVideoElement && send(), true);
   document.addEventListener("pause", (e) => e.target instanceof HTMLVideoElement && reportVideo(e.target), true);
+  document.addEventListener("timeupdate", e=>{
+    if(!(e.target instanceof HTMLVideoElement)||e.target.paused||Date.now()-lastVideoReport<15000)return;
+    lastVideoReport=Date.now();reportVideo(e.target);
+  },true);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")reportVideo(largestVideo());});
+  window.addEventListener("pagehide",()=>reportVideo(largestVideo()));
   window.addEventListener("beforeunload", () => reportVideo(largestVideo()));
 
   // Popup / background requests.

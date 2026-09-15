@@ -95,6 +95,8 @@ const en = {
   "status.planned": "Planned",
   "type.reading": "Reading",
   "type.watching": "Watching",
+  "type.game":"Game",
+  "categories.game":"Games",
   "unit.chapter": "Chapter {n}",
   "unit.volume": "Vol. {n}",
   "unit.season": "Season {n}",
@@ -346,8 +348,8 @@ const en = {
   "settings.ownerPlan": "Owner · all unlocked",
   "settings.managePlan": "Manage plan",
   "settings.data": "Your data",
-  "settings.reset": "Reset to demo data",
-  "settings.resetConfirm": "Reset the library to the demo content? Export a backup first if you want to keep your data.",
+  "settings.reset": "Clear the library",
+  "settings.resetConfirm": "Delete the works, lists, saved sites and notifications in this library? This deletion will also sync to your account. Export a backup first to keep a copy.",
   "settings.resetDone": "Library reset",
   "settings.email": "Email",
   "settings.password": "Password",
@@ -365,7 +367,7 @@ const en = {
   "toast.authFailed": "Sign-in failed. Check your details.",
   "toast.syncFailed": "Sync failed — you're still working locally.",
   "settings.privacy": "Privacy",
-  "settings.privacyNote": "Yomu stores your library locally and reads a page only when you open the extension. It never sends your browsing anywhere.",
+  "settings.privacyNote": "Yomu stores your library on this device. When signed in, your saved library and profile sync to your account. Catalog searches and translation contact external services.",
 } as const;
 
 export type StringKey = keyof typeof en;
@@ -452,6 +454,8 @@ const fr: Record<StringKey, string> = {
   "status.planned": "Prévu",
   "type.reading": "Lecture",
   "type.watching": "Visionnage",
+  "type.game":"Jeu",
+  "categories.game":"Jeux",
   "unit.chapter": "Chapitre {n}",
   "unit.volume": "Vol. {n}",
   "unit.season": "Saison {n}",
@@ -703,8 +707,8 @@ const fr: Record<StringKey, string> = {
   "settings.ownerPlan": "Propriétaire · tout débloqué",
   "settings.managePlan": "Gérer la formule",
   "settings.data": "Tes données",
-  "settings.reset": "Réinitialiser (données démo)",
-  "settings.resetConfirm": "Réinitialiser la bibliothèque avec le contenu de démo ? Exporte une sauvegarde d'abord si tu veux garder tes données.",
+  "settings.reset": "Vider la bibliothèque",
+  "settings.resetConfirm": "Supprimer les œuvres, listes, sites et notifications de cette bibliothèque ? Cette suppression sera aussi synchronisée avec ton compte. Exporte une sauvegarde pour conserver une copie.",
   "settings.resetDone": "Bibliothèque réinitialisée",
   "settings.email": "E-mail",
   "settings.password": "Mot de passe",
@@ -722,7 +726,7 @@ const fr: Record<StringKey, string> = {
   "toast.authFailed": "Échec de connexion. Vérifie tes informations.",
   "toast.syncFailed": "Échec de synchro — tu continues en local.",
   "settings.privacy": "Confidentialité",
-  "settings.privacyNote": "Yomu stocke ta bibliothèque localement et ne lit une page que lorsque tu ouvres l'extension. Rien de ta navigation n'est envoyé ailleurs.",
+  "settings.privacyNote": "Yomu conserve ta bibliothèque sur cet appareil. Après connexion, ta bibliothèque et ton profil sont synchronisés avec ton compte. Les recherches de catalogue et la traduction contactent des services externes.",
 };
 
 export const dictionaries: Record<Language, Record<StringKey, string>> = { en, fr };

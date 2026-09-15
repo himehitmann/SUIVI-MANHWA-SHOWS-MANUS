@@ -245,6 +245,10 @@
       .rank-row { gap:22px; padding:10px 2px 18px; }
       .rank-card { width:150px; flex:0 0 auto; display:flex; flex-direction:column; position:relative; }
       .rank-art { position:relative; width:150px; height:200px; border-radius:16px; overflow:hidden; display:grid; place-items:center; color:#fff; font-weight:800; font-size:30px; background:linear-gradient(140deg,#B7A2F2,#8AD3C0); box-shadow:var(--shadow); transition:transform .18s, box-shadow .18s; }
+      .rank-art img { width:100%; height:100%; object-fit:cover; }
+      .rank-art .cat-badge { position:absolute; top:8px; left:8px; z-index:2; font-size:8.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:3px 7px; border-radius:7px; color:#fff; background:rgba(20,14,35,.55); backdrop-filter:blur(3px); }
+      .rank-art .badge-soon { position:absolute; left:8px; bottom:8px; z-index:2; font-size:8.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:3px 7px; border-radius:7px; color:#fff; background:var(--game); max-width:78px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .rank-art .badge-price { position:absolute; right:8px; bottom:8px; z-index:2; font-size:10px; font-weight:800; padding:3px 7px; border-radius:7px; color:#fff; background:rgba(20,14,35,.62); backdrop-filter:blur(3px); white-space:nowrap; }
       .rank-card:hover .rank-art { transform:translateY(-5px); box-shadow:var(--shadow-lg); }
       .rank-num { position:absolute; left:5px; bottom:0; z-index:4; font-size:58px; line-height:.85; font-weight:900; font-style:italic; letter-spacing:-.05em; color:#fff; -webkit-text-stroke:2.5px var(--lav-ink); paint-order:stroke fill; text-shadow:0 4px 12px rgba(0,0,0,.45); pointer-events:none; }
       .rank-card .rank-meta { margin-top:10px; padding-left:2px; }
@@ -437,10 +441,77 @@
       .crop-view.circle { border-radius:50%; } .crop-view:active { cursor:grabbing; }
       .crop-view canvas { display:block; }
       #crop-zoom { width:100%; margin:16px 0 4px; accent-color:var(--lav-ink); }
-      .crop-actions { display:flex; align-items:center; gap:8px; margin-top:8px; }
+      .crop-actions { flex-wrap:wrap; display:flex; align-items:center; gap:8px; margin-top:8px; }
       .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#241F33; color:#fff; padding:11px 18px; border-radius:12px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:.25s; z-index:80; box-shadow:0 12px 30px rgba(0,0,0,.25); } .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
       input[type=file] { display:none; }
-    </style>
+
+      /* Media always stays inside its own frame, including search/list previews. */
+      :where(.sc,.cover,.li-cover,.li-card-cov,.rank-art,.art,.game-cover,.drawer-cover,.list-cover,.lc) { position:relative; overflow:hidden; isolation:isolate; }
+      img.cov { max-width:100%; max-height:100%; }
+      img.cov.landscape { object-fit:contain; background:var(--card); }
+      [hidden] { display:none !important; }
+      :focus-visible { outline:3px solid var(--lav-ink); outline-offset:3px; }
+      main { max-width:1480px; padding-inline:clamp(20px,4vw,60px); }
+      .sr-row { padding:14px; gap:18px; } .sr-row .sc { width:84px; height:112px; border:0; cursor:pointer; }
+      .sr-row .si b { font-size:18px; } .sr-row .si small { font-size:14px; line-height:1.5; }
+      .rank-card,.rank-art { width:180px; } .rank-art { height:260px; }
+      .rank-card h4 { font-size:15px; white-space:normal; min-height:38px; } .rank-card small { font-size:12px; }
+      .plan-grid.two { max-width:1100px; margin-inline:auto; } .plan li { font-size:15px; line-height:1.6; }
+      .disco-track { animation:none; transform:none; width:max-content; will-change:auto; }
+      .disco-wrap { overflow-x:auto; } .preview-meta { color:var(--muted); line-height:1.7; }
+      .preview-actions { display:grid; gap:12px; margin-top:24px; }
+      @media(max-width:680px) { header { flex-wrap:wrap; gap:12px; padding:12px 16px; } .search { order:3; width:100%; flex-basis:100%; } .top-right { margin-left:auto; } nav.tabs { order:4; width:100%; } nav.tabs button { flex:1; } .brand .shine { display:inline; } .pro-btn { height:42px; padding-inline:12px; } .sr-row { gap:10px; } .sr-row .sc { width:60px; height:82px; } .sr-row .si b { font-size:15px; } .sr-row .si small { font-size:12px; } .sr-row > .btn { padding:10px; } .plan-grid.two { grid-template-columns:1fr; } }
+    .avatar { padding:0; flex-shrink:0; }
+.avatar img,.avatar-lg img,.dash-av img {display:block; min-width:0; min-height:0; object-position:center; border-radius:inherit;}
+.cropper {width: min(520px,94vw); box-sizing:border-box; max-height:94vh; overflow:auto;}
+.crop-view {max-width:100%;}
+.crop-view canvas {width:100%!important;height:100%!important;}
+.list-bulk{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:14px;margin:12px 0;background:var(--card);border:1px solid var(--line);border-radius:14px;font-size:12px}.list-bulk label{display:flex;align-items:center;gap:6px}.list-bulk select{padding:8px;border:1px solid var(--line);border-radius:8px;max-width:100%;background:var(--card);color:var(--ink)}.list-bulk button:disabled{opacity:.45;cursor:default}.list-select{width:18px;height:18px;accent-color:var(--lav-ink);flex-shrink:0}.li-card{position:relative}.li-card>.list-select{position:absolute;top:8px;left:8px;z-index:2}.li-row.selected,.li-card.selected{outline:2px solid var(--lav-ink);outline-offset:2px}.list-bulk :focus-visible,.list-select:focus-visible{outline:2px solid var(--lav-ink);outline-offset:3px}
+.disco .art{display:block;width:100%;padding:0;border:0;background:var(--lav,#eee);cursor:pointer;color:inherit}
+.disco h4 .link-btn{padding:0;text-align:left;color:inherit;font:inherit;max-width:100%;white-space:normal}
+.disco-track:focus-within{animation-play-state:paused}
+#grid>p.sub{grid-column:1/-1}
+#preview-info details{margin:16px 0}
+#preview-info summary{cursor:pointer;font-weight:600}
+
+/* Full artwork and accessible horizontal navigation. */
+img.cov,img.cov.landscape,.disco .art img.cov,.poster .art img.cov,.drawer-cover img.cov,.game-cover img.cov,.cover img.cov {object-fit:contain;background:linear-gradient(145deg,#252139,#423851);object-position:center}
+.disco-game{width:240px}.disco-game .art{height:150px;aspect-ratio:16/10}
+.drawer-cover{background:linear-gradient(145deg,#252139,#423851)}
+.cast-card{flex:0 0 88px}.cast-av{width:80px;height:100px;border-radius:12px;flex-shrink:0}
+.cast-av img{object-fit:contain;object-position:center;background:#252139}
+.carousel-shell{position:relative;min-width:0}
+.carousel-shell>.scroll-x,.carousel-shell>.disco-wrap{overflow-x:auto;scrollbar-width:none;mask-image:none}
+.carousel-shell>.scroll-x::-webkit-scrollbar,.carousel-shell>.disco-wrap::-webkit-scrollbar{display:none}
+.disco-track{animation:none;transform:none}
+.disco-wrap::before,.disco-wrap::after{display:none}
+.carousel-arrow{position:absolute;top:35%;z-index:3;width:32px;height:48px;border:1px solid #ffffff40;border-radius:12px;background:#242036d9;color:white;font-size:32px;cursor:pointer;box-shadow:0 4px 14px #15112430}
+.carousel-arrow.prev{left:0}.carousel-arrow.next{right:0}
+.carousel-arrow:focus-visible{outline:3px solid var(--lav-ink);outline-offset:2px}
+.home-category-chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 20px}
+.detail-price{font-weight:700;font-size:20px;margin:12px 0}
+    .game-news { display:grid; gap:10px; margin-top:22px; }
+    .game-news .section-t { margin-bottom:0; }
+    .game-news-card { padding:14px 16px; border:1px solid rgba(118,95,190,.16); border-radius:16px; background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(247,244,255,.9)); box-shadow:0 10px 26px rgba(50,35,95,.06); }
+    .game-news-card h4 { margin:5px 0 7px; font-size:14px; line-height:1.35; }
+    .game-news-card .synopsis { margin:0; }
+    .game-news-meta { color:#7d7395; font-size:11px; font-weight:700; letter-spacing:.02em; text-transform:uppercase; }
+
+/* Artwork keeps its native proportions: no cropping or artificial bands. */
+.disco .art,.disco-game .art{height:auto;aspect-ratio:auto;background:transparent;box-shadow:none;border-radius:12px;min-height:0}
+.disco .art img.cov{position:relative;inset:auto;width:100%;height:auto;max-height:none;object-fit:contain;background:transparent;display:block}
+.disco .art img.cov.failed{display:none}
+.disco .art .cover-ph{position:absolute;inset:0;background:var(--lav);color:var(--lav-ink)}
+.disco .art:not(:has(img.cov:not(.failed))){min-height:150px}
+.disco .art:has(img.cov:not(.failed)) .cover-ph{visibility:hidden}
+.carousel-arrow{top:50%;transform:translateY(-50%);width:38px;height:38px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:var(--card,#fff);color:var(--text,#29243a);box-shadow:0 3px 16px #21183324;transition:background .15s,box-shadow .15s}
+.carousel-arrow:hover{background:var(--lav);box-shadow:0 4px 18px #21183338}
+.carousel-arrow[hidden]{display:none}
+.carousel-arrow.prev{left:-14px}.carousel-arrow.next{right:-14px}
+@media(max-width:600px){.carousel-arrow.prev{left:0}.carousel-arrow.next{right:0}}
+
+a.btn,a.btn-glass,.link-btn{text-decoration:none}
+</style>
   </head>
   <body>
     <header>
@@ -482,17 +553,19 @@
     <aside class="drawer" id="drawer"></aside>
 
     <div class="crop-scrim" id="crop-scrim"></div>
-    <div class="cropper" id="cropper" role="dialog" aria-modal="true">
+    <div class="cropper" id="cropper" role="dialog" aria-modal="true" aria-labelledby="crop-title">
       <h3 id="crop-title">Adjust image</h3>
       <p class="crop-hint" id="crop-hint">Drag to reposition · slide to zoom</p>
       <div class="crop-view" id="crop-view"><canvas id="crop-canvas" width="280" height="280"></canvas></div>
-      <input type="range" id="crop-zoom" min="1" max="3" step="0.01" value="1" />
+      <input type="range" id="crop-zoom" aria-label="Image zoom" min="1" max="3" step="0.01" value="1" />
       <div class="crop-actions">
         <button class="btn" id="crop-file">Choose image</button>
+        <button class="btn" id="crop-remove" hidden>Remove</button>
         <span style="flex:1"></span>
         <button class="btn" id="crop-cancel">Cancel</button>
         <button class="btn primary" id="crop-save">Save</button>
       </div>
+      <div id="crop-url-row" hidden style="margin-top:12px"><label for="crop-url">Image URL</label><div style="display:flex;gap:8px;margin-top:6px"><input class="field" id="crop-url" type="url" placeholder="https://…" style="min-width:0;flex:1"><button class="btn" id="crop-use-url">Use URL</button></div></div>
       <input id="crop-input" type="file" accept="image/*" />
     </div>
 

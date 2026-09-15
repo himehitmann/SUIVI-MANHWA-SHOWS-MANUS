@@ -49,12 +49,12 @@ describe("sync merge", () => {
     expect(merged.updatedAt).toBe(10);
   });
 
-  it("uses last-writer-wins for lists/plan by top-level updatedAt", () => {
+  it("unions independently created lists and uses latest plan", () => {
     const remote = base({ items: [], lists: [{ id: "L1" }], plan: "free", updatedAt: 1 });
     const incoming = base({ items: [], lists: [{ id: "L2" }], plan: "pro", updatedAt: 9 });
     const merged = mergeBlobs(remote, incoming);
     expect(merged.plan).toBe("pro");
-    expect(merged.lists).toEqual([{ id: "L2" }]);
+    expect(merged.lists).toEqual([{id:"L1"},{id:"L2"}]);
   });
 });
 

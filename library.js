@@ -1,4 +1,4 @@
-/* Yomu — tracker home. Vanilla, no build step. */
+/* Yomu · tracker home. Vanilla, no build step. */
 const api = globalThis.chrome;
 const UNLOCK_ALL = typeof DASI_UNLOCK_ALL !== "undefined" ? DASI_UNLOCK_ALL : true;
 
@@ -16,104 +16,104 @@ const planLabel = () => (UNLOCK_ALL || userPlan === "lifetime" ? "Lifetime" : us
 
 const NEW_WINDOW = 14 * 24 * 3600 * 1000;
 const SOON_WINDOW = 30 * 24 * 3600 * 1000;
-const DASI_STORE_URL = "https://chromewebstore.google.com/detail/dasi";
-const SHARE_TEXT = "Yomu — never lose your spot in any manga, webtoon, anime, series or game. Save & resume in one click.";
+const DASI_STORE_URL = "https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS";
+const SHARE_TEXT = "Yomu · never lose your spot in any manga, webtoon, anime, series or game. Save & resume in one click.";
 
 /* ---- i18n (en/fr full; others cover the visible shell, fall back to en) --- */
 const LANGS = {
   en: { name:"English", home:"Home", library:"Library", lists:"Lists", games:"Games", plans:"Plans", settings:"Settings",
-    search:"Search", librarySub:"Everything you saved, kept on this device.", listsSub:"Group your works your way — drag to reorder, pick a cover.",
+    search:"Search", librarySub:"Everything you saved, kept on this device.", listsSub:"Group your works your way · drag to reorder, pick a cover.",
     continue:"Jump back in", newWeek:"New this week", becauseYouLove:"Because you love {g}", yourGenres:"Your genres", recentlyAdded:"Recently added", sitesTitle:"Your sites",
-    resume:"Resume", details:"Details", addByName:"Add by name", welcomeTitle:"Welcome to Yomu", welcomeBody:"Yomu remembers where you stopped in anything you read or watch — manga, webtoons, anime, series, films and games. Open a page, hit save, and resume in one click from here.",
-    valSaveT:"Save anywhere", valSaveB:"One click on any site — no more lost bookmarks.", valAllT:"One library for everything", valAllB:"Manga, anime, series, films and games together.", valResumeT:"Resume in a click", valResumeB:"Pick up exactly where you left off, on any device.",
+    resume:"Resume", details:"Details", addByName:"Add by name", welcomeTitle:"Welcome to Yomu", welcomeBody:"Yomu remembers where you stopped in anything you read or watch · manga, webtoons, anime, series, films and games. Open a page, hit save, and resume in one click from here.",
+    valSaveT:"Save anywhere", valSaveB:"One click on any site · no more lost bookmarks.", valAllT:"One library for everything", valAllB:"Manga, anime, series, films and games together.", valResumeT:"Resume in a click", valResumeB:"Pick up exactly where you left off, on any device.",
     tracked:"Tracked", reading:"Reading", watching:"Watching", favorites:"Favorites", finished:"Finished",
-    all:"All", status:"Status", current:"In progress", planned:"Planned", completed:"Completed", on_hold:"On hold", dropped:"Dropped", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress", released:"Released", markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", editDetails:"Edit details", advanced:"Advanced", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
+    all:"All", status:"Status", current:"In progress", planned:"Planned", completed:"Completed", on_hold:"On hold", dropped:"Dropped", markFinished:"Mark finished", markUnfinished:"Mark unfinished", open:"Open", progress:"Progress",  markAll:"Mark all released as seen", unseenN:"{n} unseen", upToDate:"Up to date", rating:"Rating", tags:"Tags", synopsis:"Synopsis", manage:"Manage", editDetails:"Edit details", advanced:"Advanced", removeLib:"Remove from library", showMore:"Show more", showLess:"Show less",
     newList:"New list", cover:"Cover", rename:"Rename", delete:"Delete", inThisList:"In this list", addWorks:"Add works", allLists:"All lists", dragReorder:"drag to reorder",
     viewToggle:"Toggle layout", viewRows:"List", viewGrid:"Grid",
-    gamesSub:"Track awaited games — release dates, prices, trailers and pre-registrations.", addGame:"Add a game", title:"Title", platform:"Platform", releaseDate:"Release date", price:"Price", trailer:"Trailer", watchTrailer:"Watch trailer", preRegistered:"Pre-registered", released:"Released", comingSoon:"Coming soon", add:"Add", cancel:"Cancel", free:"Free",
-    editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", language:"Language", uiLanguage:"App language", translateLanguage:"Default translation language", account:"Account", email:"Email", changeEmail:"Change email", changePassword:"Change password", currentPassword:"Current password", newPassword:"New password", save:"Save", signedInAs:"Signed in as", notSignedIn:"Not signed in — sync is optional.", newAlerts:"New-episode alerts", integrations:"Integrations & keys", filmsSeries:"Films & series", keyHint:"Optional free API key —", imgTranslate:"Manga image translation", imgTranslateHint:"Optional — a manga-image-translator server URL. See", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", importFormats:"From Yomu, Trakt, TV Time, IMDb, Letterboxd, MyAnimeList — JSON, CSV, XML or ZIP. Pick one or several files.", importing:"Importing…", importedN:"Imported {n} titles", importNothing:"No titles found in that file.", importFailed:"Couldn't read that file.", cloudSync:"Cloud sync", cloudSyncSub:"Optional — sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Yomu.", spread:"Spread the word", enjoying:"Enjoying Yomu?",
-    plansTitle:"Choose your plan", plansSub:"Free forever for tracking. Go Pro for sync, alerts and more.", unlocked:"Owner edition — every Pro feature is unlocked.", mostPopular:"Most popular", getStarted:"Get started", goPro:"Go Pro", getLifetime:"Get Lifetime", currentPlan:"Current",
+    gamesSub:"Track awaited games · release dates, prices, trailers and pre-registrations.", addGame:"Add a game", title:"Title", platform:"Platform", releaseDate:"Release date", price:"Price", trailer:"Trailer", watchTrailer:"Watch trailer", preRegistered:"Pre-registered", released:"Released", comingSoon:"Coming soon", add:"Add", cancel:"Cancel", free:"Free",
+    editProfile:"Edit profile", displayName:"Display name", changePhoto:"Change photo", language:"Language", uiLanguage:"App language", translateLanguage:"Default translation language", account:"Account", email:"Email", changeEmail:"Change email", changePassword:"Change password", currentPassword:"Current password", newPassword:"New password", save:"Save", signedInAs:"Signed in as", notSignedIn:"Not signed in · sync is optional.", newAlerts:"New-episode alerts", integrations:"Integrations & keys", filmsSeries:"Films & series", keyHint:"Optional free API key —", imgTranslate:"Manga image translation", imgTranslateHint:"Optional · a manga-image-translator server URL. See", newAlertsSub:"Flag works with something released you haven't seen.", backup:"Backup", yourLibrary:"Your library", exportRestore:"Export a backup file, or restore one.", export:"Export", import:"Import", importFormats:"From Yomu, Trakt, TV Time, IMDb, Letterboxd, MyAnimeList · JSON, CSV, XML or ZIP. Pick one or several files.", importing:"Importing…", importedN:"Imported {n} titles", importNothing:"No titles found in that file.", importFailed:"Couldn't read that file.", cloudSync:"Cloud sync", cloudSyncSub:"Optional · sign in to sync across devices.", manageSync:"Manage", rateShare:"Rate & share", rateShareSub:"It helps others discover Yomu.", spread:"Spread the word", enjoying:"Enjoying Yomu?",
+    plansTitle:"Choose your plan", plansSub:"Free forever for tracking. Go Pro for sync, alerts and more.", unlocked:"Owner edition · every Pro feature is unlocked.", mostPopular:"Most popular", getStarted:"Get started", goPro:"Go Pro", getLifetime:"Get Lifetime", currentPlan:"Current",
     updatesNone:"Nothing new right now", updatesSome:"{n} with something new", updates:"Updates",
-    discover:"Discover", discoverSub:"Fresh picks — not in your library yet.", forYou:"Recommended for you", forYouSub:"Based on your tags", trendingManga:"Trending manga & manhwa", popularAnime:"Popular anime right now", newGames:"New game releases", upcomingGames:"Upcoming games", addToLib:"Add to library", refresh:"Refresh", loadingReco:"Finding fresh picks…",
-    imgTranslateSub:"Translate the speech bubbles inside manga/webtoon images too — just press Translate. It works automatically, nothing to install.", imgOn:"On", imgKeyLabel:"OCR key (optional)", imgKeyHint:"Free key from ocr.space for higher daily limits.", imgKeyPh:"ocr.space API key", imgServerHint:"Power users: your own image-translation server URL for best quality.", imgServerLabel:"Custom server (optional)", imgTest:"Test", imgTesting:"Testing…", imgOk:"Connected ✓", imgFail:"No response — check the URL.", imgSetup:"", imgCopy:"Copy", imgCopied:"Copied ✓",
+    discover:"Discover", discoverSub:"Fresh picks · not in your library yet.", forYou:"Recommended for you", forYouSub:"Based on your tags", trendingManga:"Trending manga & manhwa", popularAnime:"Popular anime right now", newGames:"New game releases", upcomingGames:"Upcoming games", addToLib:"Add to library", refresh:"Refresh", loadingReco:"Finding fresh picks…",
+    imgTranslateSub:"Translate the speech bubbles inside manga/webtoon images too · just press Translate. It works automatically, nothing to install.", imgOn:"On", imgKeyLabel:"OCR key (optional)", imgKeyHint:"Free key from ocr.space for higher daily limits.", imgKeyPh:"ocr.space API key", imgServerHint:"Power users: your own image-translation server URL for best quality.", imgServerLabel:"Custom server (optional)", imgTest:"Test", imgTesting:"Testing…", imgOk:"Connected ✓", imgFail:"No response · check the URL.", imgSetup:"", imgCopy:"Copy", imgCopied:"Copied ✓",
     searchPlaceholder:"Search or add by name…", work:"work", works:"works", upcoming:"Upcoming", discoverGames:"Discover games",
-    topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most anticipated games", hotGames:"Biggest games right now", openInNew:"Open", discoverMore:"Discover more",
+    topThisWeek:"Top 10 this week", trendingWebtoons:"Trending webtoons & manhwa", mostAnticipated:"Most wishlisted games on Steam", hotGames:"Steam top sellers", openInNew:"Open", discoverMore:"Discover more",
     catAll:"All", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Series", catGames:"Games",
     categories:"Categories", chooseCats:"Choose which categories show on Home", cast:"Cast",
     changeBanner:"Change banner", bioPh:"Write a short bio…",
-    searching:"Searching", searchTitle:"Search", noMatch:"No match — try another spelling or a different language.",
-    progHintWatch:"The episode you last watched.", progHintRead:"The chapter you last read.", totalReleased:"Latest available", totalHint:"The newest chapter/episode out — so Yomu can tell you when there's something new.",
-    planFreePer:"free forever", planProPer:"or $29.99/yr — 2 months free", planLifePer:"one-time · best value",
-    monthly:"Monthly", yearly:"Yearly", save2mo:"2 months free", perMonthNote:"billed monthly, cancel anytime", perYearNote:"billed yearly — about $2.50/mo",
+    searching:"Searching", searchTitle:"Search", noMatch:"No match · try another spelling or a different language.",
+    progHintWatch:"The episode you last watched.", progHintRead:"The chapter you last read.", totalReleased:"Latest available", totalHint:"The newest chapter/episode out · so Yomu can tell you when there's something new.",
+    planFreePer:"free forever", planProPer:"or $29.99/yr", planLifePer:"one-time · best value",
+    monthly:"Monthly", yearly:"Yearly", save2mo:"Annual plan", perMonthNote:"billed monthly, cancel anytime", perYearNote:"billed yearly · about $2.50/mo",
     planFoot:"Tracking is free forever. Paid tiers fund the optional sync, update alerts and translation engine.",
-    freeFeatures:["Unlimited tracking — manga, manhwa, webtoons, anime, series, films, games", "Auto-detect & one-click save, resume anywhere", "Lists, tags, ratings, synopsis, series grouping", "Episode / chapter seen tracking", "Import from MAL, CSV, JSON + backup", "Every UI language", "Page translation — up to 5 pages / day"],
-    proFeatures:["Everything in Free", "Encrypted multi-device sync — unlimited devices", "New-episode & game-release alerts (notifications)", "Unlimited page translation, every language, priority engine", "Full stats & insights — streaks, trends, forecasts", "Custom list covers & profile (upload, crop, reposition)", "Priority support & early features"],
+    freeFeatures:["Unlimited tracking · manga, manhwa, webtoons, anime, series, films, games", "Auto-detect & one-click save, resume anywhere", "Lists, tags, ratings, synopsis, series grouping", "Episode / chapter seen tracking", "Import from MAL, CSV, JSON + backup", "Every UI language", "Page translation · up to 5 pages / day"],
+    proFeatures:["Everything in Free", "Encrypted multi-device sync · unlimited devices", "New-episode & game-release alerts (notifications)", "Unlimited page translation, every language, priority engine", "Full stats & insights · streaks, trends, forecasts", "Custom list covers & profile (upload, crop, reposition)", "Priority support & early features"],
     lifeFeatures:["Everything in Pro, forever", "No subscription, ever", "Founder badge on your profile", "All future updates included", "Support an independent tool"] },
   fr: { name:"Français", home:"Accueil", library:"Bibliothèque", lists:"Listes", games:"Jeux", plans:"Abonnements", settings:"Paramètres",
-    search:"Rechercher", librarySub:"Tout ce que tu as enregistré, gardé sur cet appareil.", listsSub:"Classe tes œuvres à ta façon — glisse pour réordonner, choisis une couverture.",
+    search:"Rechercher", librarySub:"Tout ce que tu as enregistré, gardé sur cet appareil.", listsSub:"Classe tes œuvres à ta façon · glisse pour réordonner, choisis une couverture.",
     continue:"Reprendre", newWeek:"Nouveautés de la semaine", becauseYouLove:"Parce que tu aimes {g}", yourGenres:"Tes genres", recentlyAdded:"Ajoutés récemment", sitesTitle:"Tes sites",
-    resume:"Reprendre", details:"Détails", addByName:"Ajouter par nom", welcomeTitle:"Bienvenue sur Yomu", welcomeBody:"Yomu retient où tu t'es arrêté dans tout ce que tu lis ou regardes — manga, webtoons, anime, séries, films et jeux. Ouvre une page, clique sur enregistrer, et reprends d'un clic depuis ici.",
-    valSaveT:"Enregistre partout", valSaveB:"Un clic sur n'importe quel site — fini les favoris perdus.", valAllT:"Une seule bibliothèque", valAllB:"Manga, anime, séries, films et jeux réunis.", valResumeT:"Reprends d'un clic", valResumeB:"Reprends exactement où tu étais, sur tous tes appareils.",
+    resume:"Reprendre", details:"Détails", addByName:"Ajouter par nom", welcomeTitle:"Bienvenue sur Yomu", welcomeBody:"Yomu retient où tu t'es arrêté dans tout ce que tu lis ou regardes · manga, webtoons, anime, séries, films et jeux. Ouvre une page, clique sur enregistrer, et reprends d'un clic depuis ici.",
+    valSaveT:"Enregistre partout", valSaveB:"Un clic sur n'importe quel site · fini les favoris perdus.", valAllT:"Une seule bibliothèque", valAllB:"Manga, anime, séries, films et jeux réunis.", valResumeT:"Reprends d'un clic", valResumeB:"Reprends exactement où tu étais, sur tous tes appareils.",
     tracked:"Suivis", reading:"Lecture", watching:"Visionnage", favorites:"Favoris", finished:"Terminés",
-    all:"Tout", status:"Statut", current:"En cours", planned:"Prévu", completed:"Terminé", on_hold:"En pause", dropped:"Abandonné", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression", released:"Sortis", markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", editDetails:"Modifier la fiche", advanced:"Avancé", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
+    all:"Tout", status:"Statut", current:"En cours", planned:"Prévu", completed:"Terminé", on_hold:"En pause", dropped:"Abandonné", markFinished:"Marquer terminé", markUnfinished:"Marquer en cours", open:"Ouvrir", progress:"Progression",  markAll:"Tout marquer comme vu", unseenN:"{n} non vus", upToDate:"À jour", rating:"Note", tags:"Tags", synopsis:"Synopsis", manage:"Gérer", editDetails:"Modifier la fiche", advanced:"Avancé", removeLib:"Retirer de la bibliothèque", showMore:"Voir plus", showLess:"Voir moins",
     newList:"Nouvelle liste", cover:"Couverture", rename:"Renommer", delete:"Supprimer", inThisList:"Dans cette liste", addWorks:"Ajouter des œuvres", allLists:"Toutes les listes", dragReorder:"glisser pour réordonner",
     viewToggle:"Changer l'affichage", viewRows:"Liste", viewGrid:"Grille",
-    gamesSub:"Suis les jeux attendus — dates de sortie, prix, trailers et préinscriptions.", addGame:"Ajouter un jeu", title:"Titre", platform:"Plateforme", releaseDate:"Date de sortie", price:"Prix", trailer:"Trailer", watchTrailer:"Voir le trailer", preRegistered:"Préinscrit", released:"Sorti", comingSoon:"Bientôt", add:"Ajouter", cancel:"Annuler", free:"Gratuit",
-    editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", language:"Langue", uiLanguage:"Langue de l'appli", translateLanguage:"Langue de traduction par défaut", account:"Compte", email:"E-mail", changeEmail:"Changer l'e-mail", changePassword:"Changer le mot de passe", currentPassword:"Mot de passe actuel", newPassword:"Nouveau mot de passe", save:"Enregistrer", signedInAs:"Connecté en tant que", notSignedIn:"Non connecté — la sync est optionnelle.", newAlerts:"Alertes nouveaux épisodes", integrations:"Intégrations & clés", filmsSeries:"Films & séries", keyHint:"Clé API gratuite optionnelle —", imgTranslate:"Traduction d'images manga", imgTranslateHint:"Optionnel — URL d'un serveur manga-image-translator. Voir", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", importFormats:"Depuis Yomu, Trakt, TV Time, IMDb, Letterboxd, MyAnimeList — JSON, CSV, XML ou ZIP. Choisis un ou plusieurs fichiers.", importing:"Import en cours…", importedN:"{n} titres importés", importNothing:"Aucun titre trouvé dans ce fichier.", importFailed:"Impossible de lire ce fichier.", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel — connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Yomu.", spread:"Fais passer le mot", enjoying:"Tu aimes Yomu ?",
-    plansTitle:"Choisis ton abonnement", plansSub:"Gratuit à vie pour le suivi. Passe Pro pour la sync, les alertes et plus.", unlocked:"Édition propriétaire — toutes les fonctions Pro sont débloquées.", mostPopular:"Le plus populaire", getStarted:"Commencer", goPro:"Passer Pro", getLifetime:"À vie", currentPlan:"Actuel",
+    gamesSub:"Suis les jeux attendus · dates de sortie, prix, trailers et préinscriptions.", addGame:"Ajouter un jeu", title:"Titre", platform:"Plateforme", releaseDate:"Date de sortie", price:"Prix", trailer:"Trailer", watchTrailer:"Voir le trailer", preRegistered:"Préinscrit", released:"Sorti", comingSoon:"Bientôt", add:"Ajouter", cancel:"Annuler", free:"Gratuit",
+    editProfile:"Modifier le profil", displayName:"Nom affiché", changePhoto:"Changer la photo", language:"Langue", uiLanguage:"Langue de l'appli", translateLanguage:"Langue de traduction par défaut", account:"Compte", email:"E-mail", changeEmail:"Changer l'e-mail", changePassword:"Changer le mot de passe", currentPassword:"Mot de passe actuel", newPassword:"Nouveau mot de passe", save:"Enregistrer", signedInAs:"Connecté en tant que", notSignedIn:"Non connecté · la sync est optionnelle.", newAlerts:"Alertes nouveaux épisodes", integrations:"Intégrations & clés", filmsSeries:"Films & séries", keyHint:"Clé API gratuite optionnelle —", imgTranslate:"Traduction d'images manga", imgTranslateHint:"Optionnel · URL d'un serveur manga-image-translator. Voir", newAlertsSub:"Signale les œuvres avec du contenu sorti que tu n'as pas vu.", backup:"Sauvegarde", yourLibrary:"Ta bibliothèque", exportRestore:"Exporte une sauvegarde, ou restaure-la.", export:"Exporter", import:"Importer", importFormats:"Depuis Yomu, Trakt, TV Time, IMDb, Letterboxd, MyAnimeList · JSON, CSV, XML ou ZIP. Choisis un ou plusieurs fichiers.", importing:"Import en cours…", importedN:"{n} titres importés", importNothing:"Aucun titre trouvé dans ce fichier.", importFailed:"Impossible de lire ce fichier.", cloudSync:"Sync cloud", cloudSyncSub:"Optionnel · connecte-toi pour synchroniser tes appareils.", manageSync:"Gérer", rateShare:"Noter & partager", rateShareSub:"Ça aide les autres à découvrir Yomu.", spread:"Fais passer le mot", enjoying:"Tu aimes Yomu ?",
+    plansTitle:"Choisis ton abonnement", plansSub:"Gratuit à vie pour le suivi. Passe Pro pour la sync, les alertes et plus.", unlocked:"Édition propriétaire · toutes les fonctions Pro sont débloquées.", mostPopular:"Le plus populaire", getStarted:"Commencer", goPro:"Passer Pro", getLifetime:"À vie", currentPlan:"Actuel",
     updatesNone:"Rien de nouveau pour l'instant", updatesSome:"{n} avec du nouveau", updates:"Notifications",
-    discover:"Découvrir", discoverSub:"Nouveautés à découvrir — pas encore dans ta bibliothèque.", forYou:"Recommandé pour toi", forYouSub:"D'après tes tags", trendingManga:"Manga & manhwa tendances", popularAnime:"Anime populaires en ce moment", newGames:"Nouveaux jeux sortis", upcomingGames:"Jeux à venir", addToLib:"Ajouter à la bibliothèque", refresh:"Actualiser", loadingReco:"Recherche de nouveautés…",
-    imgTranslateSub:"Traduit aussi les bulles à l'intérieur des images de manga/webtoon — appuie simplement sur Traduire. Ça marche automatiquement, rien à installer.", imgOn:"Activé", imgKeyLabel:"Clé OCR (optionnel)", imgKeyHint:"Clé gratuite ocr.space pour des limites quotidiennes plus élevées.", imgKeyPh:"clé API ocr.space", imgServerHint:"Utilisateurs avancés : l'URL de ton propre serveur de traduction d'images pour une qualité optimale.", imgServerLabel:"Serveur personnalisé (optionnel)", imgTest:"Tester", imgTesting:"Test…", imgOk:"Connecté ✓", imgFail:"Aucune réponse — vérifie l'URL.", imgSetup:"", imgCopy:"Copier", imgCopied:"Copié ✓",
+    discover:"Découvrir", discoverSub:"Nouveautés à découvrir · pas encore dans ta bibliothèque.", forYou:"Recommandé pour toi", forYouSub:"D'après tes tags", trendingManga:"Manga & manhwa tendances", popularAnime:"Anime populaires en ce moment", newGames:"Nouveaux jeux sortis", upcomingGames:"Jeux à venir", addToLib:"Ajouter à la bibliothèque", refresh:"Actualiser", loadingReco:"Recherche de nouveautés…",
+    imgTranslateSub:"Traduit aussi les bulles à l'intérieur des images de manga/webtoon · appuie simplement sur Traduire. Ça marche automatiquement, rien à installer.", imgOn:"Activé", imgKeyLabel:"Clé OCR (optionnel)", imgKeyHint:"Clé gratuite ocr.space pour des limites quotidiennes plus élevées.", imgKeyPh:"clé API ocr.space", imgServerHint:"Utilisateurs avancés : l'URL de ton propre serveur de traduction d'images pour une qualité optimale.", imgServerLabel:"Serveur personnalisé (optionnel)", imgTest:"Tester", imgTesting:"Test…", imgOk:"Connecté ✓", imgFail:"Aucune réponse · vérifie l'URL.", imgSetup:"", imgCopy:"Copier", imgCopied:"Copié ✓",
     searchPlaceholder:"Rechercher ou ajouter par nom…", work:"œuvre", works:"œuvres", upcoming:"À venir", discoverGames:"Découvrir des jeux",
-    topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus attendus", hotGames:"Les plus gros jeux du moment", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
+    topThisWeek:"Top 10 de la semaine", trendingWebtoons:"Webtoons & manhwa tendances", mostAnticipated:"Jeux les plus souhaités sur Steam", hotGames:"Meilleures ventes Steam", openInNew:"Ouvrir", discoverMore:"Découvrir plus",
     catAll:"Tout", catManhwa:"Manhwa", catManga:"Manga", catManhua:"Manhua", catAnime:"Anime", catKdrama:"K-Drama", catCdrama:"C-Drama", catJdrama:"J-Drama", catSeries:"Séries", catGames:"Jeux",
     categories:"Catégories", chooseCats:"Choisis les catégories affichées sur l'accueil", cast:"Distribution",
     changeBanner:"Changer la bannière", bioPh:"Écris une petite bio…",
-    searching:"Recherche", searchTitle:"Recherche", noMatch:"Aucun résultat — essaie une autre orthographe ou une autre langue.",
-    progHintWatch:"Le dernier épisode que tu as regardé.", progHintRead:"Le dernier chapitre que tu as lu.", totalReleased:"Dernier disponible", totalHint:"Le dernier chapitre/épisode sorti — pour que Yomu te prévienne quand il y a du nouveau.",
-    planFreePer:"gratuit à vie", planProPer:"ou 29,99 $/an — 2 mois offerts", planLifePer:"paiement unique · meilleure offre",
-    monthly:"Mensuel", yearly:"Annuel", save2mo:"2 mois offerts", perMonthNote:"facturé au mois, résiliable à tout moment", perYearNote:"facturé à l'année — environ 2,50 $/mois",
+    searching:"Recherche", searchTitle:"Recherche", noMatch:"Aucun résultat · essaie une autre orthographe ou une autre langue.",
+    progHintWatch:"Le dernier épisode que tu as regardé.", progHintRead:"Le dernier chapitre que tu as lu.", totalReleased:"Dernier disponible", totalHint:"Le dernier chapitre/épisode sorti · pour que Yomu te prévienne quand il y a du nouveau.",
+    planFreePer:"gratuit à vie", planProPer:"ou 29,99 $/an", planLifePer:"paiement unique · meilleure offre",
+    monthly:"Mensuel", yearly:"Annuel", save2mo:"Offre annuelle", perMonthNote:"facturé au mois, résiliable à tout moment", perYearNote:"facturé à l'année · environ 2,50 $/mois",
     planFoot:"Le suivi est gratuit à vie. Les offres payantes financent la sync, les alertes de sortie et le moteur de traduction optionnels.",
-    freeFeatures:["Suivi illimité — manga, manhwa, webtoons, anime, séries, films, jeux", "Détection auto & enregistrement en un clic, reprise partout", "Listes, tags, notes, synopsis, regroupement de séries", "Suivi des épisodes / chapitres vus", "Import depuis MAL, CSV, JSON + sauvegarde", "Toutes les langues d'interface", "Traduction de page — jusqu'à 5 pages / jour"],
-    proFeatures:["Tout ce qu'il y a dans Free", "Sync multi-appareils chiffrée — appareils illimités", "Alertes nouveaux épisodes & sorties de jeux (notifications)", "Traduction de page illimitée, toutes langues, moteur prioritaire", "Stats & analyses complètes — séries, tendances, prévisions", "Couvertures de listes & profil personnalisés (upload, recadrage)", "Support prioritaire & fonctions en avant-première"],
+    freeFeatures:["Suivi illimité · manga, manhwa, webtoons, anime, séries, films, jeux", "Détection auto & enregistrement en un clic, reprise partout", "Listes, tags, notes, synopsis, regroupement de séries", "Suivi des épisodes / chapitres vus", "Import depuis MAL, CSV, JSON + sauvegarde", "Toutes les langues d'interface", "Traduction de page · jusqu'à 5 pages / jour"],
+    proFeatures:["Tout ce qu'il y a dans Free", "Sync multi-appareils chiffrée · appareils illimités", "Alertes nouveaux épisodes & sorties de jeux (notifications)", "Traduction de page illimitée, toutes langues, moteur prioritaire", "Stats & analyses complètes · séries, tendances, prévisions", "Couvertures de listes & profil personnalisés (upload, recadrage)", "Support prioritaire & fonctions en avant-première"],
     lifeFeatures:["Tout ce qu'il y a dans Pro, pour toujours", "Aucun abonnement, jamais", "Badge fondateur sur ton profil", "Toutes les futures mises à jour incluses", "Soutiens un outil indépendant"] },
   es: { name:"Español", home:"Inicio", library:"Biblioteca", lists:"Listas", games:"Juegos", plans:"Planes", settings:"Ajustes", search:"Buscar",
     continue:"Continuar", newWeek:"Novedades de la semana", becauseYouLove:"Porque te gusta {g}", yourGenres:"Tus géneros", recentlyAdded:"Añadidos recientemente",
     resume:"Reanudar", details:"Detalles", welcomeTitle:"Bienvenido a Yomu", tracked:"Seguidos", reading:"Lectura", watching:"Viendo", favorites:"Favoritos", finished:"Terminados", all:"Todo",
-    gamesSub:"Sigue juegos esperados — fechas, precios, tráilers y prerregistros.", addGame:"Añadir un juego", plansTitle:"Elige tu plan", plansSub:"Gratis para siempre para el seguimiento. Pro para sync, alertas y más.", mostPopular:"Más popular", goPro:"Hazte Pro", getLifetime:"De por vida", getStarted:"Empezar", currentPlan:"Actual", free:"Gratis", watchTrailer:"Ver tráiler", preRegistered:"Prerregistrado",
-    welcomeBody:"Abre cualquier manga, webtoon, anime, serie o juego y guarda en la ventana de Yomu. Aparece aquí.", comingSoon:"Próximamente", add:"Añadir", cancel:"Cancelar", open:"Abrir", markFinished:"Marcar terminado", markUnfinished:"Marcar en curso", released:"Publicados", markAll:"Marcar todo como visto", upToDate:"Al día", unseenN:"{n} sin ver", progress:"Progreso", rating:"Valoración", tags:"Etiquetas", synopsis:"Sinopsis", newList:"Nueva lista", delete:"Eliminar", allLists:"Todas las listas", editProfile:"Editar perfil", backup:"Copia de seguridad", export:"Exportar", import:"Importar", removeLib:"Quitar de la biblioteca", updatesNone:"Nada nuevo por ahora", updatesSome:"{n} con novedades", librarySub:"Todo lo que guardaste, en este dispositivo.", listsSub:"Organiza tus obras a tu manera — arrastra para reordenar, elige una portada.", status:"Estado", current:"En curso", planned:"Pendiente", completed:"Completado", on_hold:"En pausa", dropped:"Abandonado", manage:"Gestionar", showMore:"Ver más", showLess:"Ver menos", cover:"Portada", rename:"Renombrar", inThisList:"En esta lista", addWorks:"Añadir obras", dragReorder:"arrastra para reordenar", viewToggle:"Cambiar diseño", viewRows:"Lista", viewGrid:"Cuadrícula", title:"Título", platform:"Plataforma", releaseDate:"Fecha de lanzamiento", price:"Precio", trailer:"Tráiler", displayName:"Nombre visible", changePhoto:"Cambiar foto", language:"Idioma", uiLanguage:"Idioma de la app", translateLanguage:"Idioma de traducción por defecto", account:"Cuenta", email:"Correo", changeEmail:"Cambiar correo", changePassword:"Cambiar contraseña", currentPassword:"Contraseña actual", newPassword:"Nueva contraseña", save:"Guardar", signedInAs:"Conectado como", notSignedIn:"No conectado — la sync es opcional.", newAlerts:"Alertas de nuevos episodios", newAlertsSub:"Marca las obras con contenido publicado que no has visto.", yourLibrary:"Tu biblioteca", exportRestore:"Exporta una copia, o restáurala.", cloudSync:"Sync en la nube", cloudSyncSub:"Opcional — inicia sesión para sincronizar tus dispositivos.", manageSync:"Gestionar", rateShare:"Valorar y compartir", rateShareSub:"Ayuda a otros a descubrir Yomu.", spread:"Corre la voz", enjoying:"¿Disfrutas de Yomu?", unlocked:"Edición propietario — todas las funciones Pro están desbloqueadas.", updates:"Novedades", addByName:"Añadir por nombre", valSaveT:"Guarda en cualquier sitio", valSaveB:"Un clic en cualquier web — no más marcadores perdidos.", valAllT:"Una biblioteca para todo", valAllB:"Manga, anime, series, películas y juegos juntos.", valResumeT:"Reanuda en un clic", valResumeB:"Continúa justo donde lo dejaste, en cualquier dispositivo." },
+    gamesSub:"Sigue juegos esperados · fechas, precios, tráilers y prerregistros.", addGame:"Añadir un juego", plansTitle:"Elige tu plan", plansSub:"Gratis para siempre para el seguimiento. Pro para sync, alertas y más.", mostPopular:"Más popular", goPro:"Hazte Pro", getLifetime:"De por vida", getStarted:"Empezar", currentPlan:"Actual", free:"Gratis", watchTrailer:"Ver tráiler", preRegistered:"Prerregistrado",
+    welcomeBody:"Abre cualquier manga, webtoon, anime, serie o juego y guarda en la ventana de Yomu. Aparece aquí.", comingSoon:"Próximamente", add:"Añadir", cancel:"Cancelar", open:"Abrir", markFinished:"Marcar terminado", markUnfinished:"Marcar en curso", released:"Publicados", markAll:"Marcar todo como visto", upToDate:"Al día", unseenN:"{n} sin ver", progress:"Progreso", rating:"Valoración", tags:"Etiquetas", synopsis:"Sinopsis", newList:"Nueva lista", delete:"Eliminar", allLists:"Todas las listas", editProfile:"Editar perfil", backup:"Copia de seguridad", export:"Exportar", import:"Importar", removeLib:"Quitar de la biblioteca", updatesNone:"Nada nuevo por ahora", updatesSome:"{n} con novedades", librarySub:"Todo lo que guardaste, en este dispositivo.", listsSub:"Organiza tus obras a tu manera · arrastra para reordenar, elige una portada.", status:"Estado", current:"En curso", planned:"Pendiente", completed:"Completado", on_hold:"En pausa", dropped:"Abandonado", manage:"Gestionar", showMore:"Ver más", showLess:"Ver menos", cover:"Portada", rename:"Renombrar", inThisList:"En esta lista", addWorks:"Añadir obras", dragReorder:"arrastra para reordenar", viewToggle:"Cambiar diseño", viewRows:"Lista", viewGrid:"Cuadrícula", title:"Título", platform:"Plataforma", releaseDate:"Fecha de lanzamiento", price:"Precio", trailer:"Tráiler", displayName:"Nombre visible", changePhoto:"Cambiar foto", language:"Idioma", uiLanguage:"Idioma de la app", translateLanguage:"Idioma de traducción por defecto", account:"Cuenta", email:"Correo", changeEmail:"Cambiar correo", changePassword:"Cambiar contraseña", currentPassword:"Contraseña actual", newPassword:"Nueva contraseña", save:"Guardar", signedInAs:"Conectado como", notSignedIn:"No conectado · la sync es opcional.", newAlerts:"Alertas de nuevos episodios", newAlertsSub:"Marca las obras con contenido publicado que no has visto.", yourLibrary:"Tu biblioteca", exportRestore:"Exporta una copia, o restáurala.", cloudSync:"Sync en la nube", cloudSyncSub:"Opcional · inicia sesión para sincronizar tus dispositivos.", manageSync:"Gestionar", rateShare:"Valorar y compartir", rateShareSub:"Ayuda a otros a descubrir Yomu.", spread:"Corre la voz", enjoying:"¿Disfrutas de Yomu?", unlocked:"Edición propietario · todas las funciones Pro están desbloqueadas.", updates:"Novedades", addByName:"Añadir por nombre", valSaveT:"Guarda en cualquier sitio", valSaveB:"Un clic en cualquier web · no más marcadores perdidos.", valAllT:"Una biblioteca para todo", valAllB:"Manga, anime, series, películas y juegos juntos.", valResumeT:"Reanuda en un clic", valResumeB:"Continúa justo donde lo dejaste, en cualquier dispositivo." },
   de: { name:"Deutsch", home:"Start", library:"Bibliothek", lists:"Listen", games:"Spiele", plans:"Abos", settings:"Einstellungen", search:"Suchen",
     continue:"Weiterlesen", newWeek:"Neu diese Woche", becauseYouLove:"Weil du {g} magst", yourGenres:"Deine Genres", recentlyAdded:"Kürzlich hinzugefügt",
     resume:"Fortsetzen", details:"Details", welcomeTitle:"Willkommen bei Yomu", tracked:"Verfolgt", reading:"Lesen", watching:"Sehen", favorites:"Favoriten", finished:"Beendet", all:"Alle",
-    gamesSub:"Verfolge erwartete Spiele — Release, Preise, Trailer und Vorregistrierungen.", addGame:"Spiel hinzufügen", plansTitle:"Wähle deinen Plan", plansSub:"Für immer gratis fürs lokale Tracking. Pro für Sync, Hinweise und mehr.", mostPopular:"Am beliebtesten", goPro:"Pro werden", getLifetime:"Lebenslang", getStarted:"Loslegen", currentPlan:"Aktuell", free:"Gratis", watchTrailer:"Trailer ansehen", preRegistered:"Vorregistriert",
-    welcomeBody:"Öffne ein Manga, Webtoon, Anime, eine Serie oder ein Spiel und speichere im Yomu-Popup. Es landet hier.", comingSoon:"Demnächst", add:"Hinzufügen", cancel:"Abbrechen", open:"Öffnen", markFinished:"Als fertig markieren", markUnfinished:"Als offen markieren", released:"Erschienen", markAll:"Alles als gesehen markieren", upToDate:"Aktuell", unseenN:"{n} ungesehen", progress:"Fortschritt", rating:"Bewertung", tags:"Tags", synopsis:"Zusammenfassung", newList:"Neue Liste", delete:"Löschen", allLists:"Alle Listen", editProfile:"Profil bearbeiten", backup:"Backup", export:"Exportieren", import:"Importieren", removeLib:"Aus Bibliothek entfernen", updatesNone:"Nichts Neues gerade", updatesSome:"{n} mit Neuem", librarySub:"Alles, was du gespeichert hast — auf diesem Gerät.", listsSub:"Ordne deine Werke nach Belieben — zum Umsortieren ziehen, Cover wählen.", status:"Status", current:"Läuft", planned:"Geplant", completed:"Abgeschlossen", on_hold:"Pausiert", dropped:"Abgebrochen", manage:"Verwalten", showMore:"Mehr anzeigen", showLess:"Weniger anzeigen", cover:"Cover", rename:"Umbenennen", inThisList:"In dieser Liste", addWorks:"Werke hinzufügen", dragReorder:"zum Umsortieren ziehen", viewToggle:"Layout wechseln", viewRows:"Liste", viewGrid:"Raster", title:"Titel", platform:"Plattform", releaseDate:"Erscheinungsdatum", price:"Preis", trailer:"Trailer", displayName:"Anzeigename", changePhoto:"Foto ändern", language:"Sprache", uiLanguage:"App-Sprache", translateLanguage:"Standard-Übersetzungssprache", account:"Konto", email:"E-Mail", changeEmail:"E-Mail ändern", changePassword:"Passwort ändern", currentPassword:"Aktuelles Passwort", newPassword:"Neues Passwort", save:"Speichern", signedInAs:"Angemeldet als", notSignedIn:"Nicht angemeldet — Sync ist optional.", newAlerts:"Benachrichtigungen zu neuen Folgen", newAlertsSub:"Markiert Werke mit Veröffentlichtem, das du noch nicht gesehen hast.", yourLibrary:"Deine Bibliothek", exportRestore:"Exportiere ein Backup oder stelle eines wieder her.", cloudSync:"Cloud-Sync", cloudSyncSub:"Optional — melde dich an, um Geräte zu synchronisieren.", manageSync:"Verwalten", rateShare:"Bewerten & teilen", rateShareSub:"Hilf anderen, Yomu zu entdecken.", spread:"Erzähl es weiter", enjoying:"Gefällt dir Yomu?", unlocked:"Besitzer-Edition — alle Pro-Funktionen sind freigeschaltet.", updates:"Neuigkeiten", addByName:"Nach Namen hinzufügen", valSaveT:"Überall speichern", valSaveB:"Ein Klick auf jeder Seite — keine verlorenen Lesezeichen.", valAllT:"Eine Bibliothek für alles", valAllB:"Manga, Anime, Serien, Filme und Spiele zusammen.", valResumeT:"Mit einem Klick fortsetzen", valResumeB:"Genau da weiter, wo du aufgehört hast — auf jedem Gerät." },
+    gamesSub:"Verfolge erwartete Spiele · Release, Preise, Trailer und Vorregistrierungen.", addGame:"Spiel hinzufügen", plansTitle:"Wähle deinen Plan", plansSub:"Für immer gratis fürs lokale Tracking. Pro für Sync, Hinweise und mehr.", mostPopular:"Am beliebtesten", goPro:"Pro werden", getLifetime:"Lebenslang", getStarted:"Loslegen", currentPlan:"Aktuell", free:"Gratis", watchTrailer:"Trailer ansehen", preRegistered:"Vorregistriert",
+    welcomeBody:"Öffne ein Manga, Webtoon, Anime, eine Serie oder ein Spiel und speichere im Yomu-Popup. Es landet hier.", comingSoon:"Demnächst", add:"Hinzufügen", cancel:"Abbrechen", open:"Öffnen", markFinished:"Als fertig markieren", markUnfinished:"Als offen markieren", released:"Erschienen", markAll:"Alles als gesehen markieren", upToDate:"Aktuell", unseenN:"{n} ungesehen", progress:"Fortschritt", rating:"Bewertung", tags:"Tags", synopsis:"Zusammenfassung", newList:"Neue Liste", delete:"Löschen", allLists:"Alle Listen", editProfile:"Profil bearbeiten", backup:"Backup", export:"Exportieren", import:"Importieren", removeLib:"Aus Bibliothek entfernen", updatesNone:"Nichts Neues gerade", updatesSome:"{n} mit Neuem", librarySub:"Alles, was du gespeichert hast · auf diesem Gerät.", listsSub:"Ordne deine Werke nach Belieben · zum Umsortieren ziehen, Cover wählen.", status:"Status", current:"Läuft", planned:"Geplant", completed:"Abgeschlossen", on_hold:"Pausiert", dropped:"Abgebrochen", manage:"Verwalten", showMore:"Mehr anzeigen", showLess:"Weniger anzeigen", cover:"Cover", rename:"Umbenennen", inThisList:"In dieser Liste", addWorks:"Werke hinzufügen", dragReorder:"zum Umsortieren ziehen", viewToggle:"Layout wechseln", viewRows:"Liste", viewGrid:"Raster", title:"Titel", platform:"Plattform", releaseDate:"Erscheinungsdatum", price:"Preis", trailer:"Trailer", displayName:"Anzeigename", changePhoto:"Foto ändern", language:"Sprache", uiLanguage:"App-Sprache", translateLanguage:"Standard-Übersetzungssprache", account:"Konto", email:"E-Mail", changeEmail:"E-Mail ändern", changePassword:"Passwort ändern", currentPassword:"Aktuelles Passwort", newPassword:"Neues Passwort", save:"Speichern", signedInAs:"Angemeldet als", notSignedIn:"Nicht angemeldet · Sync ist optional.", newAlerts:"Benachrichtigungen zu neuen Folgen", newAlertsSub:"Markiert Werke mit Veröffentlichtem, das du noch nicht gesehen hast.", yourLibrary:"Deine Bibliothek", exportRestore:"Exportiere ein Backup oder stelle eines wieder her.", cloudSync:"Cloud-Sync", cloudSyncSub:"Optional · melde dich an, um Geräte zu synchronisieren.", manageSync:"Verwalten", rateShare:"Bewerten & teilen", rateShareSub:"Hilf anderen, Yomu zu entdecken.", spread:"Erzähl es weiter", enjoying:"Gefällt dir Yomu?", unlocked:"Besitzer-Edition · alle Pro-Funktionen sind freigeschaltet.", updates:"Neuigkeiten", addByName:"Nach Namen hinzufügen", valSaveT:"Überall speichern", valSaveB:"Ein Klick auf jeder Seite · keine verlorenen Lesezeichen.", valAllT:"Eine Bibliothek für alles", valAllB:"Manga, Anime, Serien, Filme und Spiele zusammen.", valResumeT:"Mit einem Klick fortsetzen", valResumeB:"Genau da weiter, wo du aufgehört hast · auf jedem Gerät." },
   ja: { name:"日本語", home:"ホーム", library:"ライブラリ", lists:"リスト", games:"ゲーム", plans:"プラン", settings:"設定", search:"検索",
     continue:"続きから", newWeek:"今週の新着", becauseYouLove:"{g}が好きだから", yourGenres:"あなたのジャンル", recentlyAdded:"最近追加",
     resume:"再開", details:"詳細", welcomeTitle:"Yomuへようこそ", tracked:"追跡中", reading:"読書", watching:"視聴", favorites:"お気に入り", finished:"完了", all:"すべて",
-    gamesSub:"気になるゲームを追跡 — 発売日・価格・トレーラー・事前登録。", addGame:"ゲームを追加", plansTitle:"プランを選択", plansSub:"ローカル管理は永久無料。同期・通知などはProで。", mostPopular:"人気", goPro:"Proにする", getLifetime:"買い切り", getStarted:"はじめる", currentPlan:"現在", free:"無料", watchTrailer:"トレーラー", preRegistered:"事前登録済み",
-    welcomeBody:"マンガ・ウェブトゥーン・アニメ・ドラマ・ゲームを開いてYomuのポップアップで保存すると、ここに表示されます。", comingSoon:"近日", add:"追加", cancel:"キャンセル", open:"開く", markFinished:"完了にする", markUnfinished:"未完了にする", released:"配信済み", markAll:"すべて視聴済みにする", upToDate:"最新", unseenN:"未視聴 {n}", progress:"進捗", rating:"評価", tags:"タグ", synopsis:"あらすじ", newList:"新規リスト", delete:"削除", allLists:"すべてのリスト", editProfile:"プロフィール編集", backup:"バックアップ", export:"エクスポート", import:"インポート", removeLib:"ライブラリから削除", updatesNone:"今は新着なし", updatesSome:"新着 {n} 件", librarySub:"保存したものはすべてこの端末に。", listsSub:"自分好みに整理 — ドラッグで並べ替え、カバーを選択。", status:"ステータス", current:"進行中", planned:"予定", completed:"完了", on_hold:"保留", dropped:"中断", manage:"管理", showMore:"もっと見る", showLess:"閉じる", cover:"カバー", rename:"名前を変更", inThisList:"このリスト内", addWorks:"作品を追加", dragReorder:"ドラッグで並べ替え", viewToggle:"表示を切替", viewRows:"リスト", viewGrid:"グリッド", title:"タイトル", platform:"プラットフォーム", releaseDate:"発売日", price:"価格", trailer:"トレーラー", displayName:"表示名", changePhoto:"写真を変更", language:"言語", uiLanguage:"アプリの言語", translateLanguage:"デフォルトの翻訳言語", account:"アカウント", email:"メール", changeEmail:"メールを変更", changePassword:"パスワードを変更", currentPassword:"現在のパスワード", newPassword:"新しいパスワード", save:"保存", signedInAs:"ログイン中", notSignedIn:"未ログイン — 同期は任意です。", newAlerts:"新エピソード通知", newAlertsSub:"未視聴の配信済みがある作品を知らせます。", yourLibrary:"あなたのライブラリ", exportRestore:"バックアップを書き出し、または復元。", cloudSync:"クラウド同期", cloudSyncSub:"任意 — ログインして端末間で同期。", manageSync:"管理", rateShare:"評価と共有", rateShareSub:"Yomuを広めるのに役立ちます。", spread:"広めよう", enjoying:"Yomuは気に入りましたか？", unlocked:"オーナー版 — すべてのPro機能が解放されています。", updates:"お知らせ", addByName:"名前で追加", valSaveT:"どこでも保存", valSaveB:"どのサイトでもワンクリック — ブックマークをもう失わない。", valAllT:"すべてを1つのライブラリに", valAllB:"マンガ・アニメ・ドラマ・映画・ゲームをまとめて。", valResumeT:"ワンクリックで再開", valResumeB:"どの端末でも、続きから正確に。" },
+    gamesSub:"気になるゲームを追跡 · 発売日・価格・トレーラー・事前登録。", addGame:"ゲームを追加", plansTitle:"プランを選択", plansSub:"ローカル管理は永久無料。同期・通知などはProで。", mostPopular:"人気", goPro:"Proにする", getLifetime:"買い切り", getStarted:"はじめる", currentPlan:"現在", free:"無料", watchTrailer:"トレーラー", preRegistered:"事前登録済み",
+    welcomeBody:"マンガ・ウェブトゥーン・アニメ・ドラマ・ゲームを開いてYomuのポップアップで保存すると、ここに表示されます。", comingSoon:"近日", add:"追加", cancel:"キャンセル", open:"開く", markFinished:"完了にする", markUnfinished:"未完了にする", released:"配信済み", markAll:"すべて視聴済みにする", upToDate:"最新", unseenN:"未視聴 {n}", progress:"進捗", rating:"評価", tags:"タグ", synopsis:"あらすじ", newList:"新規リスト", delete:"削除", allLists:"すべてのリスト", editProfile:"プロフィール編集", backup:"バックアップ", export:"エクスポート", import:"インポート", removeLib:"ライブラリから削除", updatesNone:"今は新着なし", updatesSome:"新着 {n} 件", librarySub:"保存したものはすべてこの端末に。", listsSub:"自分好みに整理 · ドラッグで並べ替え、カバーを選択。", status:"ステータス", current:"進行中", planned:"予定", completed:"完了", on_hold:"保留", dropped:"中断", manage:"管理", showMore:"もっと見る", showLess:"閉じる", cover:"カバー", rename:"名前を変更", inThisList:"このリスト内", addWorks:"作品を追加", dragReorder:"ドラッグで並べ替え", viewToggle:"表示を切替", viewRows:"リスト", viewGrid:"グリッド", title:"タイトル", platform:"プラットフォーム", releaseDate:"発売日", price:"価格", trailer:"トレーラー", displayName:"表示名", changePhoto:"写真を変更", language:"言語", uiLanguage:"アプリの言語", translateLanguage:"デフォルトの翻訳言語", account:"アカウント", email:"メール", changeEmail:"メールを変更", changePassword:"パスワードを変更", currentPassword:"現在のパスワード", newPassword:"新しいパスワード", save:"保存", signedInAs:"ログイン中", notSignedIn:"未ログイン · 同期は任意です。", newAlerts:"新エピソード通知", newAlertsSub:"未視聴の配信済みがある作品を知らせます。", yourLibrary:"あなたのライブラリ", exportRestore:"バックアップを書き出し、または復元。", cloudSync:"クラウド同期", cloudSyncSub:"任意 · ログインして端末間で同期。", manageSync:"管理", rateShare:"評価と共有", rateShareSub:"Yomuを広めるのに役立ちます。", spread:"広めよう", enjoying:"Yomuは気に入りましたか？", unlocked:"オーナー版 · すべてのPro機能が解放されています。", updates:"お知らせ", addByName:"名前で追加", valSaveT:"どこでも保存", valSaveB:"どのサイトでもワンクリック · ブックマークをもう失わない。", valAllT:"すべてを1つのライブラリに", valAllB:"マンガ・アニメ・ドラマ・映画・ゲームをまとめて。", valResumeT:"ワンクリックで再開", valResumeB:"どの端末でも、続きから正確に。" },
   ko: { name:"한국어", home:"홈", library:"라이브러리", lists:"리스트", games:"게임", plans:"플랜", settings:"설정", search:"검색",
     continue:"이어보기", newWeek:"이번 주 신규", becauseYouLove:"{g}을(를) 좋아해서", yourGenres:"내 장르", recentlyAdded:"최근 추가",
     resume:"계속", details:"상세", welcomeTitle:"Yomu에 오신 걸 환영합니다", tracked:"추적", reading:"읽기", watching:"시청", favorites:"즐겨찾기", finished:"완료", all:"전체",
-    gamesSub:"기대되는 게임 추적 — 출시일·가격·트레일러·사전예약.", addGame:"게임 추가", plansTitle:"플랜 선택", plansSub:"로컬 추적은 평생 무료. 동기화·알림 등은 Pro로.", mostPopular:"인기", goPro:"Pro 시작", getLifetime:"평생", getStarted:"시작하기", currentPlan:"현재", free:"무료", watchTrailer:"트레일러", preRegistered:"사전예약됨",
-    welcomeBody:"만화·웹툰·애니·드라마·게임을 열고 Yomu 팝업에서 저장하면 여기에 표시됩니다.", comingSoon:"출시 예정", add:"추가", cancel:"취소", open:"열기", markFinished:"완료로 표시", markUnfinished:"미완료로 표시", released:"공개됨", markAll:"모두 봤음으로 표시", upToDate:"최신", unseenN:"미시청 {n}", progress:"진행", rating:"평점", tags:"태그", synopsis:"줄거리", newList:"새 리스트", delete:"삭제", allLists:"모든 리스트", editProfile:"프로필 편집", backup:"백업", export:"내보내기", import:"가져오기", removeLib:"라이브러리에서 제거", updatesNone:"지금은 새 소식 없음", updatesSome:"새 소식 {n}개", librarySub:"저장한 모든 것을 이 기기에 보관.", listsSub:"원하는 대로 정리 — 드래그로 순서 변경, 커버 선택.", status:"상태", current:"진행 중", planned:"예정", completed:"완료", on_hold:"보류", dropped:"중단", manage:"관리", showMore:"더 보기", showLess:"접기", cover:"커버", rename:"이름 변경", inThisList:"이 리스트에", addWorks:"작품 추가", dragReorder:"드래그로 순서 변경", viewToggle:"레이아웃 전환", viewRows:"리스트", viewGrid:"그리드", title:"제목", platform:"플랫폼", releaseDate:"출시일", price:"가격", trailer:"트레일러", displayName:"표시 이름", changePhoto:"사진 변경", language:"언어", uiLanguage:"앱 언어", translateLanguage:"기본 번역 언어", account:"계정", email:"이메일", changeEmail:"이메일 변경", changePassword:"비밀번호 변경", currentPassword:"현재 비밀번호", newPassword:"새 비밀번호", save:"저장", signedInAs:"로그인 계정", notSignedIn:"로그인 안 됨 — 동기화는 선택 사항입니다.", newAlerts:"새 에피소드 알림", newAlertsSub:"안 본 공개분이 있는 작품을 표시합니다.", yourLibrary:"내 라이브러리", exportRestore:"백업을 내보내거나 복원하세요.", cloudSync:"클라우드 동기화", cloudSyncSub:"선택 — 로그인하면 기기 간 동기화.", manageSync:"관리", rateShare:"평가 및 공유", rateShareSub:"다른 사람이 Yomu를 발견하도록 도와줍니다.", spread:"널리 알리기", enjoying:"Yomu가 마음에 드나요?", unlocked:"오너 에디션 — 모든 Pro 기능이 잠금 해제됨.", updates:"알림", addByName:"이름으로 추가", valSaveT:"어디서나 저장", valSaveB:"어떤 사이트에서도 한 번에 — 북마크를 잃지 마세요.", valAllT:"모든 것을 한 라이브러리에", valAllB:"만화·애니·드라마·영화·게임을 한곳에.", valResumeT:"한 번에 이어보기", valResumeB:"어떤 기기에서도 멈춘 곳에서 바로." },
+    gamesSub:"기대되는 게임 추적 · 출시일·가격·트레일러·사전예약.", addGame:"게임 추가", plansTitle:"플랜 선택", plansSub:"로컬 추적은 평생 무료. 동기화·알림 등은 Pro로.", mostPopular:"인기", goPro:"Pro 시작", getLifetime:"평생", getStarted:"시작하기", currentPlan:"현재", free:"무료", watchTrailer:"트레일러", preRegistered:"사전예약됨",
+    welcomeBody:"만화·웹툰·애니·드라마·게임을 열고 Yomu 팝업에서 저장하면 여기에 표시됩니다.", comingSoon:"출시 예정", add:"추가", cancel:"취소", open:"열기", markFinished:"완료로 표시", markUnfinished:"미완료로 표시", released:"공개됨", markAll:"모두 봤음으로 표시", upToDate:"최신", unseenN:"미시청 {n}", progress:"진행", rating:"평점", tags:"태그", synopsis:"줄거리", newList:"새 리스트", delete:"삭제", allLists:"모든 리스트", editProfile:"프로필 편집", backup:"백업", export:"내보내기", import:"가져오기", removeLib:"라이브러리에서 제거", updatesNone:"지금은 새 소식 없음", updatesSome:"새 소식 {n}개", librarySub:"저장한 모든 것을 이 기기에 보관.", listsSub:"원하는 대로 정리 · 드래그로 순서 변경, 커버 선택.", status:"상태", current:"진행 중", planned:"예정", completed:"완료", on_hold:"보류", dropped:"중단", manage:"관리", showMore:"더 보기", showLess:"접기", cover:"커버", rename:"이름 변경", inThisList:"이 리스트에", addWorks:"작품 추가", dragReorder:"드래그로 순서 변경", viewToggle:"레이아웃 전환", viewRows:"리스트", viewGrid:"그리드", title:"제목", platform:"플랫폼", releaseDate:"출시일", price:"가격", trailer:"트레일러", displayName:"표시 이름", changePhoto:"사진 변경", language:"언어", uiLanguage:"앱 언어", translateLanguage:"기본 번역 언어", account:"계정", email:"이메일", changeEmail:"이메일 변경", changePassword:"비밀번호 변경", currentPassword:"현재 비밀번호", newPassword:"새 비밀번호", save:"저장", signedInAs:"로그인 계정", notSignedIn:"로그인 안 됨 · 동기화는 선택 사항입니다.", newAlerts:"새 에피소드 알림", newAlertsSub:"안 본 공개분이 있는 작품을 표시합니다.", yourLibrary:"내 라이브러리", exportRestore:"백업을 내보내거나 복원하세요.", cloudSync:"클라우드 동기화", cloudSyncSub:"선택 · 로그인하면 기기 간 동기화.", manageSync:"관리", rateShare:"평가 및 공유", rateShareSub:"다른 사람이 Yomu를 발견하도록 도와줍니다.", spread:"널리 알리기", enjoying:"Yomu가 마음에 드나요?", unlocked:"오너 에디션 · 모든 Pro 기능이 잠금 해제됨.", updates:"알림", addByName:"이름으로 추가", valSaveT:"어디서나 저장", valSaveB:"어떤 사이트에서도 한 번에 · 북마크를 잃지 마세요.", valAllT:"모든 것을 한 라이브러리에", valAllB:"만화·애니·드라마·영화·게임을 한곳에.", valResumeT:"한 번에 이어보기", valResumeB:"어떤 기기에서도 멈춘 곳에서 바로." },
   pt: { name:"Português", home:"Início", library:"Biblioteca", lists:"Listas", games:"Jogos", plans:"Planos", settings:"Definições", search:"Pesquisar",
     continue:"Continuar", newWeek:"Novidades da semana", becauseYouLove:"Porque gostas de {g}", yourGenres:"Os teus géneros", recentlyAdded:"Adicionados recentemente",
     resume:"Retomar", details:"Detalhes", welcomeTitle:"Bem-vindo ao Yomu", tracked:"Seguidos", reading:"Leitura", watching:"A ver", favorites:"Favoritos", finished:"Terminados", all:"Tudo",
-    gamesSub:"Segue jogos esperados — lançamentos, preços, trailers e pré-registos.", addGame:"Adicionar jogo", plansTitle:"Escolhe o teu plano", plansSub:"Grátis para sempre no seguimento. Pro para sync, alertas e mais.", mostPopular:"Mais popular", goPro:"Ser Pro", getLifetime:"Vitalício", getStarted:"Começar", currentPlan:"Atual", free:"Grátis", watchTrailer:"Ver trailer", preRegistered:"Pré-registado",
-    welcomeBody:"Abre um manga, webtoon, anime, série ou jogo e guarda na janela do Yomu. Aparece aqui.", comingSoon:"Em breve", add:"Adicionar", cancel:"Cancelar", open:"Abrir", markFinished:"Marcar terminado", markUnfinished:"Marcar em curso", released:"Lançados", markAll:"Marcar tudo como visto", upToDate:"Em dia", unseenN:"{n} por ver", progress:"Progresso", rating:"Avaliação", tags:"Etiquetas", synopsis:"Sinopse", newList:"Nova lista", delete:"Eliminar", allLists:"Todas as listas", editProfile:"Editar perfil", backup:"Cópia de segurança", export:"Exportar", import:"Importar", removeLib:"Remover da biblioteca", updatesNone:"Nada de novo por agora", updatesSome:"{n} com novidades", librarySub:"Tudo o que guardaste, neste dispositivo.", listsSub:"Organiza as tuas obras à tua maneira — arrasta para reordenar, escolhe uma capa.", status:"Estado", current:"Em curso", planned:"Planeado", completed:"Concluído", on_hold:"Em pausa", dropped:"Abandonado", manage:"Gerir", showMore:"Ver mais", showLess:"Ver menos", cover:"Capa", rename:"Renomear", inThisList:"Nesta lista", addWorks:"Adicionar obras", dragReorder:"arrasta para reordenar", viewToggle:"Mudar disposição", viewRows:"Lista", viewGrid:"Grelha", title:"Título", platform:"Plataforma", releaseDate:"Data de lançamento", price:"Preço", trailer:"Trailer", displayName:"Nome apresentado", changePhoto:"Mudar foto", language:"Idioma", uiLanguage:"Idioma da app", translateLanguage:"Idioma de tradução padrão", account:"Conta", email:"E-mail", changeEmail:"Mudar e-mail", changePassword:"Mudar palavra-passe", currentPassword:"Palavra-passe atual", newPassword:"Nova palavra-passe", save:"Guardar", signedInAs:"Sessão iniciada como", notSignedIn:"Sem sessão — a sync é opcional.", newAlerts:"Alertas de novos episódios", newAlertsSub:"Assinala obras com conteúdo lançado que não viste.", yourLibrary:"A tua biblioteca", exportRestore:"Exporta uma cópia, ou restaura-a.", cloudSync:"Sync na nuvem", cloudSyncSub:"Opcional — inicia sessão para sincronizar dispositivos.", manageSync:"Gerir", rateShare:"Avaliar e partilhar", rateShareSub:"Ajuda outros a descobrir o Yomu.", spread:"Espalha a palavra", enjoying:"A gostar do Yomu?", unlocked:"Edição de proprietário — todas as funções Pro desbloqueadas.", updates:"Novidades", addByName:"Adicionar por nome", valSaveT:"Guarda em qualquer lado", valSaveB:"Um clique em qualquer site — sem marcadores perdidos.", valAllT:"Uma biblioteca para tudo", valAllB:"Manga, anime, séries, filmes e jogos juntos.", valResumeT:"Retoma num clique", valResumeB:"Continua exatamente onde paraste, em qualquer dispositivo." },
-  "zh-CN": { name:"中文（简体）", home:"首页", library:"资料库", lists:"清单", games:"游戏", plans:"订阅", settings:"设置", search:"搜索", librarySub:"你保存的一切，都在此设备上。", listsSub:"按你的方式整理作品 — 拖动排序，选择封面。", continue:"继续观看", newWeek:"本周新增", becauseYouLove:"因为你喜欢 {g}", yourGenres:"你的类型", recentlyAdded:"最近添加", resume:"继续", details:"详情", addByName:"按名称添加", welcomeTitle:"欢迎使用 Yomu", welcomeBody:"Yomu 会记住你在任何阅读或观看内容中停下的位置 — 漫画、条漫、动画、剧集、电影和游戏。打开页面、点击保存，然后从这里一键继续。", valSaveT:"随处保存", valSaveB:"在任意网站一键保存 — 不再丢失书签。", valAllT:"一个资料库容纳一切", valAllB:"漫画、动画、剧集、电影和游戏集于一处。", valResumeT:"一键继续", valResumeB:"在任何设备上精确接着上次的进度。", tracked:"追踪中", reading:"阅读", watching:"观看", favorites:"收藏", finished:"已完成", all:"全部", status:"状态", current:"进行中", planned:"计划中", completed:"已完成", on_hold:"暂停", dropped:"已弃", markFinished:"标记为完成", markUnfinished:"标记为未完成", open:"打开", progress:"进度", released:"已发布", markAll:"全部标记为已看", unseenN:"{n} 个未看", upToDate:"已是最新", rating:"评分", tags:"标签", synopsis:"简介", manage:"管理", removeLib:"从资料库移除", showMore:"展开", showLess:"收起", newList:"新建清单", cover:"封面", rename:"重命名", delete:"删除", inThisList:"在此清单中", addWorks:"添加作品", allLists:"所有清单", dragReorder:"拖动排序", viewToggle:"切换布局", viewRows:"列表", viewGrid:"网格", gamesSub:"追踪期待的游戏 — 发售日期、价格、预告片和预注册。", addGame:"添加游戏", title:"标题", platform:"平台", releaseDate:"发售日期", price:"价格", trailer:"预告片", watchTrailer:"观看预告片", preRegistered:"已预注册", comingSoon:"即将推出", add:"添加", cancel:"取消", free:"免费", editProfile:"编辑资料", displayName:"显示名称", changePhoto:"更换头像", language:"语言", uiLanguage:"应用语言", translateLanguage:"默认翻译语言", account:"账户", email:"邮箱", changeEmail:"更改邮箱", changePassword:"更改密码", currentPassword:"当前密码", newPassword:"新密码", save:"保存", signedInAs:"已登录为", notSignedIn:"未登录 — 同步为可选。", newAlerts:"新剧集提醒", newAlertsSub:"标出有你尚未观看的已发布内容的作品。", backup:"备份", yourLibrary:"你的资料库", exportRestore:"导出备份文件，或恢复备份。", export:"导出", import:"导入", cloudSync:"云同步", cloudSyncSub:"可选 — 登录以在设备间同步。", manageSync:"管理", rateShare:"评分与分享", rateShareSub:"帮助更多人发现 Yomu。", spread:"广而告之", enjoying:"喜欢 Yomu 吗？", plansTitle:"选择你的方案", plansSub:"本地追踪永久免费。升级 Pro 获得同步、提醒等。", unlocked:"所有者版本 — 所有 Pro 功能已解锁。", mostPopular:"最受欢迎", getStarted:"开始使用", goPro:"升级 Pro", getLifetime:"购买终身版", currentPlan:"当前", updatesNone:"暂无新内容", updatesSome:"{n} 项有新内容", updates:"通知" },
+    gamesSub:"Segue jogos esperados · lançamentos, preços, trailers e pré-registos.", addGame:"Adicionar jogo", plansTitle:"Escolhe o teu plano", plansSub:"Grátis para sempre no seguimento. Pro para sync, alertas e mais.", mostPopular:"Mais popular", goPro:"Ser Pro", getLifetime:"Vitalício", getStarted:"Começar", currentPlan:"Atual", free:"Grátis", watchTrailer:"Ver trailer", preRegistered:"Pré-registado",
+    welcomeBody:"Abre um manga, webtoon, anime, série ou jogo e guarda na janela do Yomu. Aparece aqui.", comingSoon:"Em breve", add:"Adicionar", cancel:"Cancelar", open:"Abrir", markFinished:"Marcar terminado", markUnfinished:"Marcar em curso", released:"Lançados", markAll:"Marcar tudo como visto", upToDate:"Em dia", unseenN:"{n} por ver", progress:"Progresso", rating:"Avaliação", tags:"Etiquetas", synopsis:"Sinopse", newList:"Nova lista", delete:"Eliminar", allLists:"Todas as listas", editProfile:"Editar perfil", backup:"Cópia de segurança", export:"Exportar", import:"Importar", removeLib:"Remover da biblioteca", updatesNone:"Nada de novo por agora", updatesSome:"{n} com novidades", librarySub:"Tudo o que guardaste, neste dispositivo.", listsSub:"Organiza as tuas obras à tua maneira · arrasta para reordenar, escolhe uma capa.", status:"Estado", current:"Em curso", planned:"Planeado", completed:"Concluído", on_hold:"Em pausa", dropped:"Abandonado", manage:"Gerir", showMore:"Ver mais", showLess:"Ver menos", cover:"Capa", rename:"Renomear", inThisList:"Nesta lista", addWorks:"Adicionar obras", dragReorder:"arrasta para reordenar", viewToggle:"Mudar disposição", viewRows:"Lista", viewGrid:"Grelha", title:"Título", platform:"Plataforma", releaseDate:"Data de lançamento", price:"Preço", trailer:"Trailer", displayName:"Nome apresentado", changePhoto:"Mudar foto", language:"Idioma", uiLanguage:"Idioma da app", translateLanguage:"Idioma de tradução padrão", account:"Conta", email:"E-mail", changeEmail:"Mudar e-mail", changePassword:"Mudar palavra-passe", currentPassword:"Palavra-passe atual", newPassword:"Nova palavra-passe", save:"Guardar", signedInAs:"Sessão iniciada como", notSignedIn:"Sem sessão · a sync é opcional.", newAlerts:"Alertas de novos episódios", newAlertsSub:"Assinala obras com conteúdo lançado que não viste.", yourLibrary:"A tua biblioteca", exportRestore:"Exporta uma cópia, ou restaura-a.", cloudSync:"Sync na nuvem", cloudSyncSub:"Opcional · inicia sessão para sincronizar dispositivos.", manageSync:"Gerir", rateShare:"Avaliar e partilhar", rateShareSub:"Ajuda outros a descobrir o Yomu.", spread:"Espalha a palavra", enjoying:"A gostar do Yomu?", unlocked:"Edição de proprietário · todas as funções Pro desbloqueadas.", updates:"Novidades", addByName:"Adicionar por nome", valSaveT:"Guarda em qualquer lado", valSaveB:"Um clique em qualquer site · sem marcadores perdidos.", valAllT:"Uma biblioteca para tudo", valAllB:"Manga, anime, séries, filmes e jogos juntos.", valResumeT:"Retoma num clique", valResumeB:"Continua exatamente onde paraste, em qualquer dispositivo." },
+  "zh-CN": { name:"中文（简体）", home:"首页", library:"资料库", lists:"清单", games:"游戏", plans:"订阅", settings:"设置", search:"搜索", librarySub:"你保存的一切，都在此设备上。", listsSub:"按你的方式整理作品 · 拖动排序，选择封面。", continue:"继续观看", newWeek:"本周新增", becauseYouLove:"因为你喜欢 {g}", yourGenres:"你的类型", recentlyAdded:"最近添加", resume:"继续", details:"详情", addByName:"按名称添加", welcomeTitle:"欢迎使用 Yomu", welcomeBody:"Yomu 会记住你在任何阅读或观看内容中停下的位置 · 漫画、条漫、动画、剧集、电影和游戏。打开页面、点击保存，然后从这里一键继续。", valSaveT:"随处保存", valSaveB:"在任意网站一键保存 · 不再丢失书签。", valAllT:"一个资料库容纳一切", valAllB:"漫画、动画、剧集、电影和游戏集于一处。", valResumeT:"一键继续", valResumeB:"在任何设备上精确接着上次的进度。", tracked:"追踪中", reading:"阅读", watching:"观看", favorites:"收藏", finished:"已完成", all:"全部", status:"状态", current:"进行中", planned:"计划中", completed:"已完成", on_hold:"暂停", dropped:"已弃", markFinished:"标记为完成", markUnfinished:"标记为未完成", open:"打开", progress:"进度", released:"已发布", markAll:"全部标记为已看", unseenN:"{n} 个未看", upToDate:"已是最新", rating:"评分", tags:"标签", synopsis:"简介", manage:"管理", removeLib:"从资料库移除", showMore:"展开", showLess:"收起", newList:"新建清单", cover:"封面", rename:"重命名", delete:"删除", inThisList:"在此清单中", addWorks:"添加作品", allLists:"所有清单", dragReorder:"拖动排序", viewToggle:"切换布局", viewRows:"列表", viewGrid:"网格", gamesSub:"追踪期待的游戏 · 发售日期、价格、预告片和预注册。", addGame:"添加游戏", title:"标题", platform:"平台", releaseDate:"发售日期", price:"价格", trailer:"预告片", watchTrailer:"观看预告片", preRegistered:"已预注册", comingSoon:"即将推出", add:"添加", cancel:"取消", free:"免费", editProfile:"编辑资料", displayName:"显示名称", changePhoto:"更换头像", language:"语言", uiLanguage:"应用语言", translateLanguage:"默认翻译语言", account:"账户", email:"邮箱", changeEmail:"更改邮箱", changePassword:"更改密码", currentPassword:"当前密码", newPassword:"新密码", save:"保存", signedInAs:"已登录为", notSignedIn:"未登录 · 同步为可选。", newAlerts:"新剧集提醒", newAlertsSub:"标出有你尚未观看的已发布内容的作品。", backup:"备份", yourLibrary:"你的资料库", exportRestore:"导出备份文件，或恢复备份。", export:"导出", import:"导入", cloudSync:"云同步", cloudSyncSub:"可选 · 登录以在设备间同步。", manageSync:"管理", rateShare:"评分与分享", rateShareSub:"帮助更多人发现 Yomu。", spread:"广而告之", enjoying:"喜欢 Yomu 吗？", plansTitle:"选择你的方案", plansSub:"本地追踪永久免费。升级 Pro 获得同步、提醒等。", unlocked:"所有者版本 · 所有 Pro 功能已解锁。", mostPopular:"最受欢迎", getStarted:"开始使用", goPro:"升级 Pro", getLifetime:"购买终身版", currentPlan:"当前", updatesNone:"暂无新内容", updatesSome:"{n} 项有新内容", updates:"通知" },
 };
 // Complete translations for the newer UI sections (discover, plans, drawer,
 // OCR settings) in the remaining languages, so nothing falls back to English.
 // Merged non-destructively: only keys still missing on a language are filled.
 const LANG_EXTRA = {
-  es: { discover:"Descubrir", forYou:"Recomendado para ti", forYouSub:"Según tus etiquetas", trendingManga:"Manga y manhwa en tendencia", popularAnime:"Anime popular ahora", newGames:"Nuevos lanzamientos", upcomingGames:"Próximos juegos", addToLib:"Añadir a la biblioteca", refresh:"Actualizar", loadingReco:"Buscando novedades…", imgTranslate:"Traducción de imágenes manga", imgTranslateSub:"Traduce los bocadillos dentro de imágenes de manga/webtoon (OCR). Las páginas con texto ya se traducen con un clic; los escaneos en imagen necesitan un pequeño servidor de traducción gratuito — ejecútalo una vez, pega su URL y funciona en todos los lectores.", imgServerLabel:"URL del servidor", imgTest:"Probar", imgTesting:"Probando…", imgOk:"Conectado ✓", imgFail:"Sin respuesta — comprueba la URL y que el servidor esté activo.", imgSetup:"Cómo ejecutar el servidor (gratis, ~2 min)", imgCopy:"Copiar", imgCopied:"Copiado ✓", searchPlaceholder:"Busca o añade por nombre…", work:"obra", works:"obras", upcoming:"Próximamente", discoverGames:"Descubrir juegos", topThisWeek:"Top 10 de la semana", trendingWebtoons:"Webtoons y manhwa en tendencia", mostAnticipated:"Juegos más esperados", hotGames:"Los juegos más grandes ahora", openInNew:"Abrir", discoverMore:"Descubrir más", progHintWatch:"El último episodio que viste.", progHintRead:"El último capítulo que leíste.", totalReleased:"Último disponible", totalHint:"El capítulo/episodio más reciente publicado — para que Yomu te avise cuando haya algo nuevo.", planFreePer:"para siempre", planProPer:"o 29,99 $/año — 2 meses gratis", planLifePer:"pago único · mejor valor", planFoot:"El seguimiento es gratis para siempre. Los planes de pago financian la sync, las alertas y el motor de traducción opcionales.", freeFeatures:["Seguimiento ilimitado — manga, manhwa, webtoons, anime, series, películas, juegos","Detección automática y guardado en un clic, reanuda donde sea","Listas, etiquetas, valoraciones, sinopsis, agrupación de series","Seguimiento de episodios/capítulos vistos","Importa desde MAL, CSV, JSON + copia","Todos los idiomas de la interfaz","Traducción de página — hasta 5 páginas/día"], proFeatures:["Todo lo de Free","Sync cifrada multi-dispositivo — dispositivos ilimitados","Alertas de nuevos episodios y lanzamientos (notificaciones)","Traducción de página ilimitada, todos los idiomas, motor prioritario","Estadísticas completas — rachas, tendencias, previsiones","Portadas de listas y perfil personalizados (subir, recortar)","Soporte prioritario y funciones anticipadas"], lifeFeatures:["Todo lo de Pro, para siempre","Sin suscripción, nunca","Insignia de fundador en tu perfil","Todas las futuras actualizaciones incluidas","Apoya una herramienta independiente"] },
-  de: { discover:"Entdecken", forYou:"Für dich empfohlen", forYouSub:"Basierend auf deinen Tags", trendingManga:"Angesagte Manga & Manhwa", popularAnime:"Beliebte Anime gerade", newGames:"Neue Spiele", upcomingGames:"Kommende Spiele", addToLib:"Zur Bibliothek", refresh:"Aktualisieren", loadingReco:"Suche Neues…", imgTranslate:"Manga-Bildübersetzung", imgTranslateSub:"Übersetzt Sprechblasen in Manga-/Webtoon-Bildern (OCR). Text-Seiten werden schon mit einem Klick übersetzt; Bild-Scanlations brauchen einen kleinen kostenlosen Übersetzungsserver — einmal starten, URL einfügen, und es funktioniert in jedem Reader.", imgServerLabel:"Server-URL", imgTest:"Testen", imgTesting:"Test…", imgOk:"Verbunden ✓", imgFail:"Keine Antwort — prüfe die URL und ob der Server läuft.", imgSetup:"So startest du den Server (gratis, ~2 Min.)", imgCopy:"Kopieren", imgCopied:"Kopiert ✓", searchPlaceholder:"Suchen oder per Name hinzufügen…", work:"Werk", works:"Werke", upcoming:"Demnächst", discoverGames:"Spiele entdecken", topThisWeek:"Top 10 diese Woche", trendingWebtoons:"Angesagte Webtoons & Manhwa", mostAnticipated:"Meisterwartete Spiele", hotGames:"Die größten Spiele gerade", openInNew:"Öffnen", discoverMore:"Mehr entdecken", progHintWatch:"Die zuletzt gesehene Folge.", progHintRead:"Das zuletzt gelesene Kapitel.", totalReleased:"Neuestes verfügbar", totalHint:"Das neueste erschienene Kapitel/Folge — damit Yomu dich bei Neuem benachrichtigt.", planFreePer:"für immer", planProPer:"oder 29,99 $/Jahr — 2 Monate gratis", planLifePer:"einmalig · bester Wert", planFoot:"Lokales Tracking ist für immer gratis und hängt nie von unseren Servern ab. Bezahlpläne finanzieren die optionale Sync, Hinweise und die Übersetzungs-Engine.", freeFeatures:["Unbegrenztes Tracking — Manga, Manhwa, Webtoons, Anime, Serien, Filme, Spiele","Auto-Erkennung & Speichern mit einem Klick, überall fortsetzen","Listen, Tags, Bewertungen, Zusammenfassung, Serien-Gruppierung","Verfolgung gesehener Folgen/Kapitel","Import aus MAL, CSV, JSON + lokales Backup","Alle UI-Sprachen","Seitenübersetzung — bis zu 5 Seiten/Tag"], proFeatures:["Alles aus Free","Verschlüsselte Multi-Geräte-Sync — unbegrenzte Geräte","Hinweise zu neuen Folgen & Spiele-Releases (Benachrichtigungen)","Unbegrenzte Seitenübersetzung, alle Sprachen, Prioritäts-Engine","Volle Statistiken — Serien, Trends, Prognosen","Eigene Listen-Cover & Profil (Hochladen, Zuschneiden)","Prioritäts-Support & frühe Funktionen"], lifeFeatures:["Alles aus Pro, für immer","Nie ein Abo","Gründer-Abzeichen im Profil","Alle künftigen Updates inklusive","Unterstütze ein unabhängiges Tool"] },
-  ja: { discover:"見つける", forYou:"あなたへのおすすめ", forYouSub:"あなたのタグに基づく", trendingManga:"急上昇の漫画・マンファ", popularAnime:"人気のアニメ", newGames:"新作ゲーム", upcomingGames:"発売予定のゲーム", addToLib:"ライブラリに追加", refresh:"更新", loadingReco:"新着を探しています…", imgTranslate:"漫画画像の翻訳", imgTranslateSub:"漫画・ウェブトゥーン画像内の吹き出しを翻訳（OCR）。テキストのページはワンクリックで翻訳できます。画像スキャンには無料の小さな翻訳サーバーが必要です — 一度起動してURLを貼れば、どのビューアでも動作します。", imgServerLabel:"サーバーURL", imgTest:"テスト", imgTesting:"テスト中…", imgOk:"接続済み ✓", imgFail:"応答なし — URLとサーバーの起動を確認してください。", imgSetup:"サーバーの起動方法（無料・約2分）", imgCopy:"コピー", imgCopied:"コピー済み ✓", searchPlaceholder:"名前で検索または追加…", work:"作品", works:"作品", upcoming:"近日", discoverGames:"ゲームを見つける", topThisWeek:"今週のトップ10", trendingWebtoons:"急上昇のウェブトゥーン・マンファ", mostAnticipated:"最も期待されるゲーム", hotGames:"今最も大きいゲーム", openInNew:"開く", discoverMore:"もっと見つける", progHintWatch:"最後に見た話数。", progHintRead:"最後に読んだ話数。", totalReleased:"最新の公開分", totalHint:"公開された最新の話数 — 新着があればYomuが知らせます。", planFreePer:"永久 · ローカルファースト", planProPer:"または $29.99/年 — 2か月無料", planLifePer:"買い切り · 最もお得", planFoot:"ローカル管理は永久無料で、当社サーバーに依存しません。有料プランは任意の同期・通知・翻訳エンジンを支えます。", freeFeatures:["無制限の管理 — 漫画・マンファ・ウェブトゥーン・アニメ・ドラマ・映画・ゲーム","自動検出とワンクリック保存、どこでも再開","リスト・タグ・評価・あらすじ・シリーズまとめ","視聴/既読の話数管理","MAL・CSV・JSONからのインポート＋ローカルバックアップ","すべてのUI言語","ページ翻訳 — 1日5ページまで"], proFeatures:["Freeのすべて","暗号化マルチデバイス同期 — 端末無制限","新エピソード・ゲーム発売の通知","無制限のページ翻訳、全言語、優先エンジン","詳細な統計 — 連続記録・傾向・予測","カスタムのリストカバーとプロフィール（アップロード・トリミング）","優先サポートと先行機能"], lifeFeatures:["Proのすべて、永久に","サブスクなし","プロフィールに創設者バッジ","今後のすべての更新を含む","独立系・ローカルファーストのツールを支援"] },
-  ko: { discover:"탐색", forYou:"맞춤 추천", forYouSub:"내 태그 기반", trendingManga:"인기 만화·웹툰", popularAnime:"지금 인기 애니", newGames:"신작 게임", upcomingGames:"출시 예정 게임", addToLib:"라이브러리에 추가", refresh:"새로고침", loadingReco:"새 추천을 찾는 중…", imgTranslate:"만화 이미지 번역", imgTranslateSub:"만화/웹툰 이미지 속 말풍선을 번역합니다(OCR). 텍스트 페이지는 이미 한 번에 번역됩니다. 이미지 스캔은 작은 무료 번역 서버가 필요합니다 — 한 번 실행하고 URL을 붙여넣으면 모든 뷰어에서 작동합니다.", imgServerLabel:"서버 URL", imgTest:"테스트", imgTesting:"테스트 중…", imgOk:"연결됨 ✓", imgFail:"응답 없음 — URL과 서버 실행 여부를 확인하세요.", imgSetup:"서버 실행 방법(무료, 약 2분)", imgCopy:"복사", imgCopied:"복사됨 ✓", searchPlaceholder:"이름으로 검색하거나 추가…", work:"작품", works:"작품", upcoming:"출시 예정", discoverGames:"게임 탐색", topThisWeek:"이번 주 톱 10", trendingWebtoons:"인기 웹툰·만화", mostAnticipated:"가장 기대되는 게임", hotGames:"지금 가장 큰 게임", openInNew:"열기", discoverMore:"더 탐색", progHintWatch:"마지막으로 본 에피소드.", progHintRead:"마지막으로 읽은 화.", totalReleased:"최신 공개분", totalHint:"공개된 최신 화/에피소드 — 새 소식이 있으면 Yomu가 알려줍니다.", planFreePer:"영원히 · 로컬 우선", planProPer:"또는 연 $29.99 — 2개월 무료", planLifePer:"1회 결제 · 최고의 가치", planFoot:"로컬 추적은 영원히 무료이며 서버에 의존하지 않습니다. 유료 요금제는 선택적 동기화·알림·번역 엔진을 지원합니다.", freeFeatures:["무제한 추적 — 만화·웹툰·애니·드라마·영화·게임","자동 감지 및 원클릭 저장, 어디서나 이어보기","리스트·태그·평점·줄거리·시리즈 묶기","시청/읽은 화 추적","MAL·CSV·JSON 가져오기 + 로컬 백업","모든 UI 언어","페이지 번역 — 하루 5페이지까지"], proFeatures:["Free의 모든 기능","암호화 멀티기기 동기화 — 무제한 기기","새 에피소드·게임 출시 알림","무제한 페이지 번역, 모든 언어, 우선 엔진","전체 통계 — 연속 기록·추세·예측","맞춤 리스트 커버 및 프로필(업로드·자르기)","우선 지원 및 신기능 우선 제공"], lifeFeatures:["Pro의 모든 기능, 영원히","구독 없음","프로필에 창립자 배지","향후 모든 업데이트 포함","독립적이고 로컬 우선인 도구를 후원"] },
-  pt: { discover:"Descobrir", forYou:"Recomendado para ti", forYouSub:"Com base nas tuas etiquetas", trendingManga:"Manga e manhwa em alta", popularAnime:"Anime popular agora", newGames:"Novos lançamentos", upcomingGames:"Próximos jogos", addToLib:"Adicionar à biblioteca", refresh:"Atualizar", loadingReco:"A procurar novidades…", imgTranslate:"Tradução de imagens de manga", imgTranslateSub:"Traduz os balões dentro de imagens de manga/webtoon (OCR). As páginas com texto já se traduzem com um clique; os scans em imagem precisam de um pequeno servidor de tradução gratuito — executa-o uma vez, cola o URL e funciona em qualquer leitor.", imgServerLabel:"URL do servidor", imgTest:"Testar", imgTesting:"A testar…", imgOk:"Ligado ✓", imgFail:"Sem resposta — verifica o URL e se o servidor está a correr.", imgSetup:"Como executar o servidor (grátis, ~2 min)", imgCopy:"Copiar", imgCopied:"Copiado ✓", searchPlaceholder:"Pesquisa ou adiciona por nome…", work:"obra", works:"obras", upcoming:"Em breve", discoverGames:"Descobrir jogos", topThisWeek:"Top 10 da semana", trendingWebtoons:"Webtoons e manhwa em alta", mostAnticipated:"Jogos mais aguardados", hotGames:"Os maiores jogos do momento", openInNew:"Abrir", discoverMore:"Descobrir mais", progHintWatch:"O último episódio que viste.", progHintRead:"O último capítulo que leste.", totalReleased:"Último disponível", totalHint:"O capítulo/episódio mais recente lançado — para o Yomu te avisar quando há novidades.", planFreePer:"para sempre", planProPer:"ou 29,99 $/ano — 2 meses grátis", planLifePer:"pagamento único · melhor valor", planFoot:"O seguimento é grátis para sempre. Os planos pagos financiam a sync, os alertas e o motor de tradução opcionais.", freeFeatures:["Seguimento ilimitado — manga, manhwa, webtoons, anime, séries, filmes, jogos","Deteção automática e guardar num clique, retoma em qualquer lado","Listas, etiquetas, avaliações, sinopse, agrupar séries","Seguimento de episódios/capítulos vistos","Importa de MAL, CSV, JSON + cópia","Todos os idiomas da interface","Tradução de página — até 5 páginas/dia"], proFeatures:["Tudo do Free","Sync encriptada multi-dispositivo — dispositivos ilimitados","Alertas de novos episódios e lançamentos (notificações)","Tradução de página ilimitada, todos os idiomas, motor prioritário","Estatísticas completas — sequências, tendências, previsões","Capas de listas e perfil personalizados (carregar, recortar)","Suporte prioritário e funções antecipadas"], lifeFeatures:["Tudo do Pro, para sempre","Sem subscrição, nunca","Distintivo de fundador no teu perfil","Todas as futuras atualizações incluídas","Apoia uma ferramenta independente"] },
-  "zh-CN": { discover:"发现", forYou:"为你推荐", forYouSub:"根据你的标签", trendingManga:"热门漫画和韩漫", popularAnime:"当下热门动画", newGames:"新游戏", upcomingGames:"即将推出的游戏", addToLib:"加入资料库", refresh:"刷新", loadingReco:"正在寻找新内容…", imgTranslate:"漫画图片翻译", imgTranslateSub:"翻译漫画/条漫图片内的对话气泡（OCR）。文字页面已可一键翻译；图片扫描需要一个小型免费翻译服务器 — 运行一次，粘贴其网址，即可在所有阅读器上使用。", imgServerLabel:"服务器网址", imgTest:"测试", imgTesting:"测试中…", imgOk:"已连接 ✓", imgFail:"无响应 — 请检查网址及服务器是否运行。", imgSetup:"如何运行服务器（免费，约2分钟）", imgCopy:"复制", imgCopied:"已复制 ✓", searchPlaceholder:"按名称搜索或添加…", work:"作品", works:"作品", upcoming:"即将推出", discoverGames:"发现游戏", topThisWeek:"本周前 10", trendingWebtoons:"热门条漫和韩漫", mostAnticipated:"最受期待的游戏", hotGames:"当下最大的游戏", openInNew:"打开", discoverMore:"发现更多", progHintWatch:"你最后观看的一集。", progHintRead:"你最后阅读的一话。", totalReleased:"最新可用", totalHint:"已发布的最新话/集 — 以便 Yomu 在有新内容时通知你。", planFreePer:"永久 · 本地优先", planProPer:"或 $29.99/年 — 免费 2 个月", planLifePer:"一次性 · 最超值", planFoot:"本地追踪永久免费，且从不依赖我们的服务器。付费方案用于支持可选的同步、提醒和翻译引擎。", freeFeatures:["无限追踪 — 漫画、韩漫、条漫、动画、剧集、电影、游戏","自动识别、一键保存，随处继续","清单、标签、评分、简介、系列归组","已看/已读话数追踪","从 MAL、CSV、JSON 导入 + 本地备份","所有界面语言","页面翻译 — 每天最多 5 页"], proFeatures:["包含 Free 的全部","加密多设备同步 — 设备无限","新剧集和游戏发售提醒（通知）","无限页面翻译、所有语言、优先引擎","完整统计 — 连续天数、趋势、预测","自定义清单封面和资料（上传、裁剪）","优先支持和抢先体验"], lifeFeatures:["永久包含 Pro 全部","永不订阅","个人资料上的创始人徽章","包含所有未来更新","支持一个独立、本地优先的工具"] },
+  es: { discover:"Descubrir", forYou:"Recomendado para ti", forYouSub:"Según tus etiquetas", trendingManga:"Manga y manhwa en tendencia", popularAnime:"Anime popular ahora", newGames:"Nuevos lanzamientos", upcomingGames:"Próximos juegos", addToLib:"Añadir a la biblioteca", refresh:"Actualizar", loadingReco:"Buscando novedades…", imgTranslate:"Traducción de imágenes manga", imgTranslateSub:"Traduce los bocadillos dentro de imágenes de manga/webtoon (OCR). Las páginas con texto ya se traducen con un clic; los escaneos en imagen necesitan un pequeño servidor de traducción gratuito · ejecútalo una vez, pega su URL y funciona en todos los lectores.", imgServerLabel:"URL del servidor", imgTest:"Probar", imgTesting:"Probando…", imgOk:"Conectado ✓", imgFail:"Sin respuesta · comprueba la URL y que el servidor esté activo.", imgSetup:"Cómo ejecutar el servidor (gratis, ~2 min)", imgCopy:"Copiar", imgCopied:"Copiado ✓", searchPlaceholder:"Busca o añade por nombre…", work:"obra", works:"obras", upcoming:"Próximamente", discoverGames:"Descubrir juegos", topThisWeek:"Top 10 de la semana", trendingWebtoons:"Webtoons y manhwa en tendencia", mostAnticipated:"Juegos más esperados", hotGames:"Los juegos más grandes ahora", openInNew:"Abrir", discoverMore:"Descubrir más", progHintWatch:"El último episodio que viste.", progHintRead:"El último capítulo que leíste.", totalReleased:"Último disponible", totalHint:"El capítulo/episodio más reciente publicado · para que Yomu te avise cuando haya algo nuevo.", planFreePer:"para siempre", planProPer:"o 29,99 $/año · 2 meses gratis", planLifePer:"pago único · mejor valor", planFoot:"El seguimiento es gratis para siempre. Los planes de pago financian la sync, las alertas y el motor de traducción opcionales.", freeFeatures:["Seguimiento ilimitado · manga, manhwa, webtoons, anime, series, películas, juegos","Detección automática y guardado en un clic, reanuda donde sea","Listas, etiquetas, valoraciones, sinopsis, agrupación de series","Seguimiento de episodios/capítulos vistos","Importa desde MAL, CSV, JSON + copia","Todos los idiomas de la interfaz","Traducción de página · hasta 5 páginas/día"], proFeatures:["Todo lo de Free","Sync cifrada multi-dispositivo · dispositivos ilimitados","Alertas de nuevos episodios y lanzamientos (notificaciones)","Traducción de página ilimitada, todos los idiomas, motor prioritario","Estadísticas completas · rachas, tendencias, previsiones","Portadas de listas y perfil personalizados (subir, recortar)","Soporte prioritario y funciones anticipadas"], lifeFeatures:["Todo lo de Pro, para siempre","Sin suscripción, nunca","Insignia de fundador en tu perfil","Todas las futuras actualizaciones incluidas","Apoya una herramienta independiente"] },
+  de: { discover:"Entdecken", forYou:"Für dich empfohlen", forYouSub:"Basierend auf deinen Tags", trendingManga:"Angesagte Manga & Manhwa", popularAnime:"Beliebte Anime gerade", newGames:"Neue Spiele", upcomingGames:"Kommende Spiele", addToLib:"Zur Bibliothek", refresh:"Aktualisieren", loadingReco:"Suche Neues…", imgTranslate:"Manga-Bildübersetzung", imgTranslateSub:"Übersetzt Sprechblasen in Manga-/Webtoon-Bildern (OCR). Text-Seiten werden schon mit einem Klick übersetzt; Bild-Scanlations brauchen einen kleinen kostenlosen Übersetzungsserver · einmal starten, URL einfügen, und es funktioniert in jedem Reader.", imgServerLabel:"Server-URL", imgTest:"Testen", imgTesting:"Test…", imgOk:"Verbunden ✓", imgFail:"Keine Antwort · prüfe die URL und ob der Server läuft.", imgSetup:"So startest du den Server (gratis, ~2 Min.)", imgCopy:"Kopieren", imgCopied:"Kopiert ✓", searchPlaceholder:"Suchen oder per Name hinzufügen…", work:"Werk", works:"Werke", upcoming:"Demnächst", discoverGames:"Spiele entdecken", topThisWeek:"Top 10 diese Woche", trendingWebtoons:"Angesagte Webtoons & Manhwa", mostAnticipated:"Meisterwartete Spiele", hotGames:"Die größten Spiele gerade", openInNew:"Öffnen", discoverMore:"Mehr entdecken", progHintWatch:"Die zuletzt gesehene Folge.", progHintRead:"Das zuletzt gelesene Kapitel.", totalReleased:"Neuestes verfügbar", totalHint:"Das neueste erschienene Kapitel/Folge · damit Yomu dich bei Neuem benachrichtigt.", planFreePer:"für immer", planProPer:"oder 29,99 $/Jahr · 2 Monate gratis", planLifePer:"einmalig · bester Wert", planFoot:"Lokales Tracking ist für immer gratis und hängt nie von unseren Servern ab. Bezahlpläne finanzieren die optionale Sync, Hinweise und die Übersetzungs-Engine.", freeFeatures:["Unbegrenztes Tracking · Manga, Manhwa, Webtoons, Anime, Serien, Filme, Spiele","Auto-Erkennung & Speichern mit einem Klick, überall fortsetzen","Listen, Tags, Bewertungen, Zusammenfassung, Serien-Gruppierung","Verfolgung gesehener Folgen/Kapitel","Import aus MAL, CSV, JSON + lokales Backup","Alle UI-Sprachen","Seitenübersetzung · bis zu 5 Seiten/Tag"], proFeatures:["Alles aus Free","Verschlüsselte Multi-Geräte-Sync · unbegrenzte Geräte","Hinweise zu neuen Folgen & Spiele-Releases (Benachrichtigungen)","Unbegrenzte Seitenübersetzung, alle Sprachen, Prioritäts-Engine","Volle Statistiken · Serien, Trends, Prognosen","Eigene Listen-Cover & Profil (Hochladen, Zuschneiden)","Prioritäts-Support & frühe Funktionen"], lifeFeatures:["Alles aus Pro, für immer","Nie ein Abo","Gründer-Abzeichen im Profil","Alle künftigen Updates inklusive","Unterstütze ein unabhängiges Tool"] },
+  ja: { discover:"見つける", forYou:"あなたへのおすすめ", forYouSub:"あなたのタグに基づく", trendingManga:"急上昇の漫画・マンファ", popularAnime:"人気のアニメ", newGames:"新作ゲーム", upcomingGames:"発売予定のゲーム", addToLib:"ライブラリに追加", refresh:"更新", loadingReco:"新着を探しています…", imgTranslate:"漫画画像の翻訳", imgTranslateSub:"漫画・ウェブトゥーン画像内の吹き出しを翻訳（OCR）。テキストのページはワンクリックで翻訳できます。画像スキャンには無料の小さな翻訳サーバーが必要です · 一度起動してURLを貼れば、どのビューアでも動作します。", imgServerLabel:"サーバーURL", imgTest:"テスト", imgTesting:"テスト中…", imgOk:"接続済み ✓", imgFail:"応答なし · URLとサーバーの起動を確認してください。", imgSetup:"サーバーの起動方法（無料・約2分）", imgCopy:"コピー", imgCopied:"コピー済み ✓", searchPlaceholder:"名前で検索または追加…", work:"作品", works:"作品", upcoming:"近日", discoverGames:"ゲームを見つける", topThisWeek:"今週のトップ10", trendingWebtoons:"急上昇のウェブトゥーン・マンファ", mostAnticipated:"最も期待されるゲーム", hotGames:"今最も大きいゲーム", openInNew:"開く", discoverMore:"もっと見つける", progHintWatch:"最後に見た話数。", progHintRead:"最後に読んだ話数。", totalReleased:"最新の公開分", totalHint:"公開された最新の話数 · 新着があればYomuが知らせます。", planFreePer:"永久 · ローカルファースト", planProPer:"または $29.99/年 · 2か月無料", planLifePer:"買い切り · 最もお得", planFoot:"ローカル管理は永久無料で、当社サーバーに依存しません。有料プランは任意の同期・通知・翻訳エンジンを支えます。", freeFeatures:["無制限の管理 · 漫画・マンファ・ウェブトゥーン・アニメ・ドラマ・映画・ゲーム","自動検出とワンクリック保存、どこでも再開","リスト・タグ・評価・あらすじ・シリーズまとめ","視聴/既読の話数管理","MAL・CSV・JSONからのインポート＋ローカルバックアップ","すべてのUI言語","ページ翻訳 · 1日5ページまで"], proFeatures:["Freeのすべて","暗号化マルチデバイス同期 · 端末無制限","新エピソード・ゲーム発売の通知","無制限のページ翻訳、全言語、優先エンジン","詳細な統計 · 連続記録・傾向・予測","カスタムのリストカバーとプロフィール（アップロード・トリミング）","優先サポートと先行機能"], lifeFeatures:["Proのすべて、永久に","サブスクなし","プロフィールに創設者バッジ","今後のすべての更新を含む","独立系・ローカルファーストのツールを支援"] },
+  ko: { discover:"탐색", forYou:"맞춤 추천", forYouSub:"내 태그 기반", trendingManga:"인기 만화·웹툰", popularAnime:"지금 인기 애니", newGames:"신작 게임", upcomingGames:"출시 예정 게임", addToLib:"라이브러리에 추가", refresh:"새로고침", loadingReco:"새 추천을 찾는 중…", imgTranslate:"만화 이미지 번역", imgTranslateSub:"만화/웹툰 이미지 속 말풍선을 번역합니다(OCR). 텍스트 페이지는 이미 한 번에 번역됩니다. 이미지 스캔은 작은 무료 번역 서버가 필요합니다 · 한 번 실행하고 URL을 붙여넣으면 모든 뷰어에서 작동합니다.", imgServerLabel:"서버 URL", imgTest:"테스트", imgTesting:"테스트 중…", imgOk:"연결됨 ✓", imgFail:"응답 없음 · URL과 서버 실행 여부를 확인하세요.", imgSetup:"서버 실행 방법(무료, 약 2분)", imgCopy:"복사", imgCopied:"복사됨 ✓", searchPlaceholder:"이름으로 검색하거나 추가…", work:"작품", works:"작품", upcoming:"출시 예정", discoverGames:"게임 탐색", topThisWeek:"이번 주 톱 10", trendingWebtoons:"인기 웹툰·만화", mostAnticipated:"가장 기대되는 게임", hotGames:"지금 가장 큰 게임", openInNew:"열기", discoverMore:"더 탐색", progHintWatch:"마지막으로 본 에피소드.", progHintRead:"마지막으로 읽은 화.", totalReleased:"최신 공개분", totalHint:"공개된 최신 화/에피소드 · 새 소식이 있으면 Yomu가 알려줍니다.", planFreePer:"영원히 · 로컬 우선", planProPer:"또는 연 $29.99 · 2개월 무료", planLifePer:"1회 결제 · 최고의 가치", planFoot:"로컬 추적은 영원히 무료이며 서버에 의존하지 않습니다. 유료 요금제는 선택적 동기화·알림·번역 엔진을 지원합니다.", freeFeatures:["무제한 추적 · 만화·웹툰·애니·드라마·영화·게임","자동 감지 및 원클릭 저장, 어디서나 이어보기","리스트·태그·평점·줄거리·시리즈 묶기","시청/읽은 화 추적","MAL·CSV·JSON 가져오기 + 로컬 백업","모든 UI 언어","페이지 번역 · 하루 5페이지까지"], proFeatures:["Free의 모든 기능","암호화 멀티기기 동기화 · 무제한 기기","새 에피소드·게임 출시 알림","무제한 페이지 번역, 모든 언어, 우선 엔진","전체 통계 · 연속 기록·추세·예측","맞춤 리스트 커버 및 프로필(업로드·자르기)","우선 지원 및 신기능 우선 제공"], lifeFeatures:["Pro의 모든 기능, 영원히","구독 없음","프로필에 창립자 배지","향후 모든 업데이트 포함","독립적이고 로컬 우선인 도구를 후원"] },
+  pt: { discover:"Descobrir", forYou:"Recomendado para ti", forYouSub:"Com base nas tuas etiquetas", trendingManga:"Manga e manhwa em alta", popularAnime:"Anime popular agora", newGames:"Novos lançamentos", upcomingGames:"Próximos jogos", addToLib:"Adicionar à biblioteca", refresh:"Atualizar", loadingReco:"A procurar novidades…", imgTranslate:"Tradução de imagens de manga", imgTranslateSub:"Traduz os balões dentro de imagens de manga/webtoon (OCR). As páginas com texto já se traduzem com um clique; os scans em imagem precisam de um pequeno servidor de tradução gratuito · executa-o uma vez, cola o URL e funciona em qualquer leitor.", imgServerLabel:"URL do servidor", imgTest:"Testar", imgTesting:"A testar…", imgOk:"Ligado ✓", imgFail:"Sem resposta · verifica o URL e se o servidor está a correr.", imgSetup:"Como executar o servidor (grátis, ~2 min)", imgCopy:"Copiar", imgCopied:"Copiado ✓", searchPlaceholder:"Pesquisa ou adiciona por nome…", work:"obra", works:"obras", upcoming:"Em breve", discoverGames:"Descobrir jogos", topThisWeek:"Top 10 da semana", trendingWebtoons:"Webtoons e manhwa em alta", mostAnticipated:"Jogos mais aguardados", hotGames:"Os maiores jogos do momento", openInNew:"Abrir", discoverMore:"Descobrir mais", progHintWatch:"O último episódio que viste.", progHintRead:"O último capítulo que leste.", totalReleased:"Último disponível", totalHint:"O capítulo/episódio mais recente lançado · para o Yomu te avisar quando há novidades.", planFreePer:"para sempre", planProPer:"ou 29,99 $/ano · 2 meses grátis", planLifePer:"pagamento único · melhor valor", planFoot:"O seguimento é grátis para sempre. Os planos pagos financiam a sync, os alertas e o motor de tradução opcionais.", freeFeatures:["Seguimento ilimitado · manga, manhwa, webtoons, anime, séries, filmes, jogos","Deteção automática e guardar num clique, retoma em qualquer lado","Listas, etiquetas, avaliações, sinopse, agrupar séries","Seguimento de episódios/capítulos vistos","Importa de MAL, CSV, JSON + cópia","Todos os idiomas da interface","Tradução de página · até 5 páginas/dia"], proFeatures:["Tudo do Free","Sync encriptada multi-dispositivo · dispositivos ilimitados","Alertas de novos episódios e lançamentos (notificações)","Tradução de página ilimitada, todos os idiomas, motor prioritário","Estatísticas completas · sequências, tendências, previsões","Capas de listas e perfil personalizados (carregar, recortar)","Suporte prioritário e funções antecipadas"], lifeFeatures:["Tudo do Pro, para sempre","Sem subscrição, nunca","Distintivo de fundador no teu perfil","Todas as futuras atualizações incluídas","Apoia uma ferramenta independente"] },
+  "zh-CN": { discover:"发现", forYou:"为你推荐", forYouSub:"根据你的标签", trendingManga:"热门漫画和韩漫", popularAnime:"当下热门动画", newGames:"新游戏", upcomingGames:"即将推出的游戏", addToLib:"加入资料库", refresh:"刷新", loadingReco:"正在寻找新内容…", imgTranslate:"漫画图片翻译", imgTranslateSub:"翻译漫画/条漫图片内的对话气泡（OCR）。文字页面已可一键翻译；图片扫描需要一个小型免费翻译服务器 · 运行一次，粘贴其网址，即可在所有阅读器上使用。", imgServerLabel:"服务器网址", imgTest:"测试", imgTesting:"测试中…", imgOk:"已连接 ✓", imgFail:"无响应 · 请检查网址及服务器是否运行。", imgSetup:"如何运行服务器（免费，约2分钟）", imgCopy:"复制", imgCopied:"已复制 ✓", searchPlaceholder:"按名称搜索或添加…", work:"作品", works:"作品", upcoming:"即将推出", discoverGames:"发现游戏", topThisWeek:"本周前 10", trendingWebtoons:"热门条漫和韩漫", mostAnticipated:"最受期待的游戏", hotGames:"当下最大的游戏", openInNew:"打开", discoverMore:"发现更多", progHintWatch:"你最后观看的一集。", progHintRead:"你最后阅读的一话。", totalReleased:"最新可用", totalHint:"已发布的最新话/集 · 以便 Yomu 在有新内容时通知你。", planFreePer:"永久 · 本地优先", planProPer:"或 $29.99/年 · 免费 2 个月", planLifePer:"一次性 · 最超值", planFoot:"本地追踪永久免费，且从不依赖我们的服务器。付费方案用于支持可选的同步、提醒和翻译引擎。", freeFeatures:["无限追踪 · 漫画、韩漫、条漫、动画、剧集、电影、游戏","自动识别、一键保存，随处继续","清单、标签、评分、简介、系列归组","已看/已读话数追踪","从 MAL、CSV、JSON 导入 + 本地备份","所有界面语言","页面翻译 · 每天最多 5 页"], proFeatures:["包含 Free 的全部","加密多设备同步 · 设备无限","新剧集和游戏发售提醒（通知）","无限页面翻译、所有语言、优先引擎","完整统计 · 连续天数、趋势、预测","自定义清单封面和资料（上传、裁剪）","优先支持和抢先体验"], lifeFeatures:["永久包含 Pro 全部","永不订阅","个人资料上的创始人徽章","包含所有未来更新","支持一个独立、本地优先的工具"] },
 };
 for (const code in LANG_EXTRA) { const L = LANGS[code]; if (!L) continue; for (const k in LANG_EXTRA[code]) if (L[k] === undefined) L[k] = LANG_EXTRA[code][k]; }
 const t = (k, p) => { let s = (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || k; if (p) for (const key in p) s = s.replace(`{${key}}`, p[key]); return s; };
@@ -159,6 +159,7 @@ const accentFor = (i) => (i.type === "watching" ? "#7E9BE6" : i.type === "game" 
 function catLabel(i) {
   const f = String(i.format || "").toUpperCase();
   if (i.type === "game" || f === "GAME") return "Game";
+  if (f === "WEBTOON") return "Webtoon";
   if (f === "MANHWA") return "Manhwa";
   if (f === "MANHUA") return "Manhua";
   if (f === "MANGA") return "Manga";
@@ -173,13 +174,13 @@ function catLabel(i) {
   return i.type === "reading" ? "Comic" : i.type === "watching" ? "Video" : "Game";
 }
 const coverUrl = (i) => i.coverOverride || i.cover || "";
-// Current position and how many entries are released — the basis for "unseen".
+// Current position and how many entries are released · the basis for "unseen".
 const currentNum = (i) => (i.type === "watching" ? i.episode || 0 : i.chapter || 0);
 const STATUSES = ["current", "planned", "completed", "on_hold", "dropped"];
 const itemState = (i) => i.state || ((i.progress || 0) >= 100 ? "completed" : "current");
-const unseen = (i) => (i.type === "game" ? 0 : Math.max(0, (i.total || 0) - currentNum(i)));
+const unseen = (i) => (i.type === "game" ? 0 : Math.max(0, (i.type==="watching" && i.releaseSeason===(Number(i.season)||1) && Number.isFinite(i.releasedTotal) ? i.releasedTotal : i.total || 0) - currentNum(i)));
 // "New for you": you have unseen released entries, OR it changed recently.
-const isNew = (i) => i.type !== "game" && (i.progress || 0) < 100 && (unseen(i) > 0 || Date.now() - (i.updatedAt || 0) < NEW_WINDOW);
+const isNew = (i) => i.type !== "game" && itemState(i) !== "dropped" && ((i.recentEpisodes||[]).some(ep=>Date.now()-ep.at<NEW_WINDOW && ep.at<=Date.now() && (ep.season>(i.season||1)||(ep.season===(i.season||1)&&ep.episode>(i.episode||0)))) || (unseen(i)>0 && Number(i.lastReleaseAt)>0 && Date.now()-Number(i.lastReleaseAt)<NEW_WINDOW));
 const parseDate = (s) => { if (!s) return null; const d = Date.parse(s); return Number.isFinite(d) ? d : null; };
 const isSoon = (i) => { const d = parseDate(i.releaseDate); return d && d > Date.now() && d - Date.now() < SOON_WINDOW; };
 const isReleased = (i) => { const d = parseDate(i.releaseDate); return i.released || (d && d <= Date.now()); };
@@ -187,10 +188,14 @@ const isUpcoming = (i) => { const d = parseDate(i.releaseDate); return d && d > 
 
 function marker(i) {
   if (i.type === "game") return i.platform || (i.releaseDate ? i.releaseDate : "Game");
-  const parts = i.type === "watching"
-    ? [i.season && `${t("watching") ? "" : ""}Season ${i.season}`, i.episode && `Episode ${i.episode}`]
-    : [i.volume && `Vol. ${i.volume}`, i.chapter && `Chapter ${i.chapter}`, i.page && `Page ${i.page}`];
-  return parts.filter(Boolean).join(" · ") || i.domain || "";
+  if (i.type === "watching") {
+    const watched = Number(i.episode) || 0, total = Number(i.total) || 0;
+    const progress = total ? watched + "/" + total + " episodes" : watched ? "Episode " + watched : "";
+    return [i.season && "Season " + i.season, progress].filter(Boolean).join(" · ") || i.domain || "";
+  }
+  const read = Number(i.chapter) || 0, total = Number(i.total) || 0;
+  const progress = total ? read + "/" + total + " chapters" : read ? "Chapter " + read : "";
+  return [i.volume && "Vol. " + i.volume, progress, i.page && "Page " + i.page].filter(Boolean).join(" · ") || i.domain || "";
 }
 function relative(ts) {
   if (!ts) return "";
@@ -204,13 +209,13 @@ function initials(s) { return (s || "?").trim().split(/\s+/).slice(0, 2).map((w)
 // A cover image with a guaranteed graceful fallback. The placeholder letter is
 // ALWAYS rendered underneath; the image overlays it and fades in when it loads.
 // If it fails (dead host, hotlink block, offline) a global handler hides the
-// image so the placeholder shows — never a broken-image icon. No inline
+// image so the placeholder shows · never a broken-image icon. No inline
 // handlers, so it works under the MV3 extension CSP (script-src 'self').
 function covImg(url, fallback) { return url ? `<img class="cov" src="${esc(url)}"${fallback ? ` data-fallback="${esc(fallback)}"` : ""} referrerpolicy="no-referrer" loading="lazy" decoding="async" alt="">` : ""; }
 // Inline on* handlers are blocked by the MV3 extension CSP (script-src 'self'),
 // so we catch image failures with a single capture-phase listener instead: try a
 // fallback source once (e.g. Steam header when the portrait capsule is missing),
-// then hide the image so its placeholder shows — never a broken-image icon.
+// then hide the image so its placeholder shows · never a broken-image icon.
 document.addEventListener("error", (e) => {
   const el = e.target;
   if (!el || el.tagName !== "IMG") return;
@@ -231,17 +236,31 @@ function flagLabel(i) { const u = unseen(i); if (u > 0) return `+${u}`; if (isNe
 let toastT;
 function toast(m) { const el = document.getElementById("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 1800); }
 
+function saveProfilePatch(patch) {
+  const profile={...(settings.profile||{}),...patch};
+  return new Promise(resolve=>api.runtime.sendMessage({type:"SET_SETTINGS",patch:{profile}},r=>{
+    if(api.runtime.lastError || r?.ok===false || !r?.settings){toast(settings.lang==="fr"?"Profil non enregistré. Réessaie.":"Profile could not be saved. Try again.");resolve(false);return;}
+    settings=r.settings;paintAvatar();renderProfileMenu();resolve(true);
+  }));
+}
+function refreshOpenItem(id) {
+  const drawer=document.getElementById("drawer");
+  if(drawer.classList.contains("open") && drawer.dataset.itemId===id)openDrawer(id);
+}
 function update(id, patch) {
-  const it = items.find((x) => x.id === id);
-  if (it) Object.assign(it, patch);
-  renderAll();
-  api.runtime.sendMessage({ type: "UPDATE_ITEM", id, patch }, (r) => { if (r?.items) { items = r.items; renderAll(); } });
+  return new Promise(resolve => api.runtime.sendMessage({type:"UPDATE_ITEM",id,patch}, r => {
+    if (api.runtime.lastError || r?.ok === false || !Array.isArray(r?.items)) {
+      toast(settings.lang === "fr" ? "Enregistrement impossible. Réessaie." : "Could not save. Try again.");
+      refreshOpenItem(id); resolve(false); return;
+    }
+    items = r.items; renderAll(); refreshOpenItem(id); resolve(true);
+  }));
 }
 
 /* ================= HOME ================= */
-function topGenres() {
+function topGenres(source=items) {
   const count = {};
-  for (const i of items) for (const g of i.tags || []) count[g] = (count[g] || 0) + 1;
+  for (const i of source) for (const g of i.tags || []) count[g] = (count[g] || 0) + 1;
   return Object.entries(count).sort((a, b) => b[1] - a[1]);
 }
 function posterHtml(i) {
@@ -265,48 +284,41 @@ function normTitle(s) {
 }
 function libTitleSet() { return new Set(items.map((i) => normTitle(i.title)).filter(Boolean)); }
 // Weight each genre the user actually collects; recent/among-favorites count more.
-function tasteWeights() {
-  const w = {};
-  for (const g of topGenres()) w[String(g[0]).toLowerCase()] = g[1];
-  return w;
+function tasteTerms(text) {
+  const stop=new Set("about after again also avec dans cette comme pour plus leur leurs mais tout une des les est sont elle elles avec his her the and that this from with into when where which their they them then than have been will were story series manga anime".split(" "));
+  return [...new Set(String(text||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").split(/[^\p{L}\p{N}]+/u).filter(w=>w.length>3&&!stop.has(w)))].slice(0,100);
 }
-function scoreTaste(m, w) {
-  let s = 0;
-  for (const g of m.genres || []) s += (w[String(g).toLowerCase()] || 0);
-  return s;
+function tasteWeights() {
+  const weights={};
+  for(const item of items) {
+    if(itemState(item)==="dropped"||(item.rating&&item.rating<=2))continue;
+    if(!item.favorite&&!item.rating&&!currentNum(item))continue;
+    const age=(Date.now()-(item.activityAt||item.updatedAt||0))/86400000;
+    const strength=(item.favorite?3:1)+(Number(item.rating)||0)/2;
+    const factor=strength/(1+Math.max(0,age)/90);
+    for(const genre of item.tags||[]) {const key="genre:"+String(genre).toLowerCase();weights[key]=(weights[key]||0)+factor*3;}
+    for(const term of tasteTerms(item.synopsis))weights[term]=(weights[term]||0)+factor;
+  }
+  return weights;
+}
+function scoreTaste(m,weights) {
+  let score=0;
+  for(const genre of m.genres||[])score+=weights["genre:"+String(genre).toLowerCase()]||0;
+  const terms=tasteTerms(m.synopsis);
+  for(const term of terms)score+=(weights[term]||0)/Math.sqrt(Math.max(1,terms.length));
+  return score;
 }
 let discoItems = []; // flat candidate list; cards reference indices into this
 function discoBadges(m, opts) {
   const soon = opts.soon ? `<span class="badge-soon">${esc(m.releaseDate || t("comingSoon"))}</span>` : "";
-  const price = m.price ? `<span class="badge-price">${esc(m.price)}</span>` : (m.type === "game" && !opts.soon ? `<span class="badge-price">${t("free")}</span>` : "");
+  const price = m.price ? `<span class="badge-price">${esc(m.price)}</span>` : "";
   return { soon, price };
 }
 function discoCard(m, idx, opts = {}) {
-  const { soon, price } = discoBadges(m, opts);
-  const cover = `<span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}`;
-  const sub = m.genres && m.genres.length ? m.genres.slice(0, 2).join(" · ") : (m.season ? String(m.season) : catLabel(m));
-  return `<div class="disco">
-    <div class="art" data-open-url="${esc(m.url || "")}">${cover}<span class="cat-badge">${esc(catLabel(m))}</span>${soon}${price}
-      <button class="disco-add" data-add-disco="${idx}" data-tip="${t("addToLib")}" aria-label="${t("addToLib")}">${I.plus}</button>
-      <span class="art-open">${I.open}</span>
-    </div>
-    <h4>${esc(m.title || "Untitled")}</h4><small>${esc(sub)}</small>
-  </div>`;
+  const sub=(m.genres||[]).slice(0,2).join(" · ")||catLabel(m);
+  return `<article class="disco ${m.type==="game"?"disco-game":""}"><button class="art" data-preview-disco="${idx}" aria-label="${esc(t("details")+": "+m.title)}"><span class="cover-ph">${esc((m.title||"?")[0])}</span>${covImg(m.cover,m.coverFallback)}</button><h4><button class="link-btn" data-preview-disco="${idx}">${esc(m.title)}</button></h4><small>${esc(sub)}</small>${opts.soon?`<small>${esc(m.releaseDate||t("comingSoon"))}</small>`:""}</article>`;
 }
-// Webtoon-style ranked card: a big number next to a clickable poster.
-function rankCard(m, idx, rank, opts = {}) {
-  const { soon, price } = discoBadges(m, opts);
-  const cover = `<span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}`;
-  const sub = m.genres && m.genres.length ? m.genres.slice(0, 2).join(" · ") : catLabel(m);
-  return `<div class="rank-card">
-    <div class="rank-art" data-open-url="${esc(m.url || "")}">${cover}<span class="cat-badge">${esc(catLabel(m))}</span>${soon}${price}
-      <span class="rank-num r${rank}">${rank}</span>
-      <button class="disco-add" data-add-disco="${idx}" data-tip="${t("addToLib")}" aria-label="${t("addToLib")}">${I.plus}</button>
-      <span class="art-open">${I.open}</span>
-    </div>
-    <div class="rank-meta"><h4>${esc(m.title || "Untitled")}</h4><small>${esc(sub)}</small></div>
-  </div>`;
-}
+function rankCard(m, idx, rank, opts = {}) { return discoCard(m,idx,opts); }
 function rankRow(titleText, list, opts = {}) {
   if (!list.length) return "";
   const base = discoItems.length;
@@ -325,16 +337,16 @@ function discoRow(titleText, list, opts = {}) {
   const cards = list.map((m, i) => discoCard(m, base + i, opts)).join("");
   const dur = Math.max(28, Math.min(90, list.length * 6));
   const head = `<div class="section-h"><h2>${esc(titleText)}${opts.forYou ? ` <span class="reco-tag">${I.spark}</span>` : ""}</h2>${opts.sub ? `<span>${esc(opts.sub)}</span>` : ""}</div>`;
-  return `${head}<div class="disco-wrap"><div class="disco-track${opts.rev ? " rev" : ""}" style="--dur:${dur}s">${cards}${cards}</div></div>`;
+  return `${head}<div class="disco-wrap"><div class="disco-track${opts.rev ? " rev" : ""}" style="--dur:${dur}s">${cards}</div></div>`;
 }
 // Build the ordered list of discovery categories that actually have content.
 // Order matches the user's ask: manga/manhwa/manhua, anime, then dramas &
-// series, and games LAST — no duplicated rows on the same subject.
+// series, and games LAST · no duplicated rows on the same subject.
 function discoPools() {
   const lib = libTitleSet();
   const fresh = (arr) => (arr || []).filter((m) => m && m.title && m.cover && !lib.has(normTitle(m.title)));
   const pools = [];
-  const add = (key, list) => { const l = fresh(list); if (l.length >= 3) pools.push({ key, label: t("cat" + key[0].toUpperCase() + key.slice(1)), list: l, game: key === "games" }); };
+  const add = (key, list) => { const l = fresh(list); if (l.length > 0) pools.push({ key, label: t("cat" + key[0].toUpperCase() + key.slice(1)), list: l, game: key === "games" }); };
   add("manhwa", discover.manhwa);
   add("manga", discover.manga);
   add("manhua", discover.manhua);
@@ -345,55 +357,42 @@ function discoPools() {
   add("series", discover.series);
   add("games", discover.gamesHot && discover.gamesHot.length ? discover.gamesHot : discover.gamesNew);
   // User can hide categories from Home (settings.homeCats = allowed keys). An
-  // empty/absent list means "show everything". Never hide all — if the filter
+  // empty/absent list means "show everything". Never hide all · if the filter
   // would empty Home, fall back to the full set.
   const allow = Array.isArray(settings.homeCats) ? settings.homeCats : null;
-  if (allow && allow.length) {
-    const filtered = pools.filter((p) => allow.includes(p.key));
-    if (filtered.length) return filtered;
-  }
+  if (allow) return pools.filter(p=>allow.includes(p.key));
   return pools;
 }
 // The full ordered catalogue of Home categories (for the picker), regardless of
 // what currently has content.
 const HOME_CAT_KEYS = ["manhwa", "manga", "manhua", "anime", "kdrama", "cdrama", "jdrama", "series", "games"];
-function homeCatAllowed(key) { const a = settings.homeCats; return !Array.isArray(a) || !a.length || a.includes(key); }
+function homeCatAllowed(key) { const a = settings.homeCats; return !Array.isArray(a) || a.includes(key); }
 function renderDiscover() {
-  if (!discover) return discoverTried ? "" : `<div class="section-h discover-h"><h2>${I.compass} ${t("discover")}</h2><span>${t("loadingReco")}</span></div>`;
-  discoItems = [];
-  const pools = discoPools();
-  if (!pools.length) return "";
-  // "All" = round-robin the top of every non-game pool so it feels curated.
-  const nonGame = pools.filter((p) => !p.game);
-  const allList = [];
-  const maxLen = Math.max(0, ...nonGame.map((p) => p.list.length));
-  for (let i = 0; i < maxLen; i++) for (const p of nonGame) if (p.list[i]) allList.push(p.list[i]);
-  const cats = [{ key: "all", label: t("catAll"), list: allList.length ? allList : pools[0].list }, ...pools];
-  if (!cats.find((c) => c.key === discoCat)) discoCat = "all";
-  const active = cats.find((c) => c.key === discoCat) || cats[0];
-  const gameCat = active.game;
-
-  let out = `<div class="section-h discover-h"><h2>${I.compass} ${t("discover")}</h2><div class="disco-h-actions"><button class="refresh-btn" id="disco-cats" title="${t("chooseCats")}">${I.sliders}${t("categories")}</button><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div></div>`;
-  out += `<div class="disco-tabs">${cats.map((c) => `<button class="disco-tab ${c.key === discoCat ? "active" : ""}" data-cat="${esc(c.key)}">${esc(c.label)}</button>`).join("")}</div>`;
-  // One classy numbered Top-10 ranking for the selected category.
-  out += rankRow(active.label, active.list, { noHead: true, soon: false });
-  // Personalized picks stay as a secondary carousel (not for games tab).
-  if (!gameCat) {
-    const w = tasteWeights();
-    if (Object.keys(w).length) {
-      const pool = nonGame.flatMap((p) => p.list).map((m) => ({ m, s: scoreTaste(m, w) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).map((x) => x.m);
-      const seen = new Set();
-      const forYou = pool.filter((m) => { const k = normTitle(m.title); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 12);
-      if (forYou.length >= 4) out += discoRow(t("forYou"), forYou, { forYou: true, sub: t("forYouSub") });
-    }
+  if(!discover)return `<div class="section-h"><h2>${settings.lang==="fr"?"Découvrir":"Discover"}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div><p class="sub" role="status">${discoverTried?(settings.lang==="fr"?"Les tendances sont momentanément indisponibles. Réessaie ou utilise la recherche.":"Trends are temporarily unavailable. Retry or use search."):t("loadingReco")}</p>`;
+  discoItems=[];
+  const pools=discoPools();
+  let out=`<div class="section-h discover-h"><h2>${settings.lang==="fr"?"À découvrir maintenant":"Discover now"}</h2><div class="disco-h-actions"><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div></div>`;
+  out+='<div class="home-category-chips">'+HOME_CAT_KEYS.map(key=>'<button class="chip-toggle '+(homeCatAllowed(key)?'on':'')+'" data-home-category="'+key+'" aria-pressed="'+homeCatAllowed(key)+'">'+esc(t("cat"+key[0].toUpperCase()+key.slice(1)))+'</button>').join("")+'</div>';
+  if(!pools.length)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Aucune tendance disponible pour cette sélection.":"No trends available for this selection.")+'</p>';
+  const weights=tasteWeights();
+  if(Object.keys(weights).length) {
+    const seen=new Set();
+    const picks=pools.filter(p=>!p.game).flatMap(p=>p.list).map(m=>({m,score:scoreTaste(m,weights)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).filter(x=>{const key=normTitle(x.m.title);if(seen.has(key))return false;seen.add(key);return true;}).slice(0,14).map(x=>x.m);
+    if(picks.length)out+=discoRow(t("forYou"),picks,{forYou:true});
   }
+  for(const pool of pools.slice(0,homeShowAll?9:3))out+=discoRow(pool.label,pool.list.slice(0,14),{sub:pool.game?"Steam":pool.key==="series"||pool.key.endsWith("drama")?(settings.lang==="fr"?"Diffusions récentes":"Recently airing"):(settings.lang==="fr"?"Tendances du moment":"Trending now")});
+  if(pools.length>3)out+='<button class="btn" id="home-more">'+(settings.lang==="fr"?(homeShowAll?"Réduire les catégories":"Voir les autres catégories"):(homeShowAll?"Show fewer categories":"Show more categories"))+'</button>';
   return out;
 }
+let homeShowAll=false;
 function loadDiscover(force) {
   api.runtime.sendMessage({ type: "DISCOVER", force: !!force }, (r) => {
     void api.runtime.lastError;
     discoverTried = true;
-    if (r && r.ok && r.data) discover = r.data;
+    if (r && r.ok && r.data) {
+      discover = r.data;
+
+    }
     if (view === "home") renderHome();
     else if (view === "games") renderGames();
   });
@@ -412,7 +411,40 @@ function renderGamesDiscover() {
   out += discoRow(t("hotGames"), hot, { rev: true, sub: "Steam" });
   return out;
 }
+function enhanceCarousels(root) {
+  document.querySelectorAll(root+" .scroll-x,"+root+" .disco-wrap").forEach(track=>{
+    if(track.parentElement.classList.contains("carousel-shell"))return;
+    const shell=document.createElement("div");shell.className="carousel-shell";
+    track.before(shell);shell.append(track);
+    const buttons=[];
+    for(const direction of [-1,1]) {
+      const button=document.createElement("button");button.className="carousel-arrow "+(direction<0?"prev":"next");
+      button.type="button";button.hidden=true;
+      button.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(direction<0?'M15 5l-7 7 7 7':'M9 5l7 7-7 7')+'"/></svg>';
+      button.setAttribute("aria-label",settings.lang==="fr"?(direction<0?"Précédent":"Suivant"):(direction<0?"Previous":"Next"));
+      button.onclick=()=>track.scrollBy({left:direction*Math.max(160,track.clientWidth*.85),behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
+      shell.append(button);buttons.push(button);
+    }
+    const refresh=()=>{const max=track.scrollWidth-track.clientWidth;buttons[0].hidden=max<=2||track.scrollLeft<=2;buttons[1].hidden=max<=2||track.scrollLeft>=max-2;};
+    shell.refreshCarousel=refresh;
+    track.addEventListener("scroll",refresh,{passive:true});
+    track.addEventListener("load",refresh,true);
+    requestAnimationFrame(refresh);
+  });
+}
+window.addEventListener("resize",()=>document.querySelectorAll(".carousel-shell").forEach(shell=>shell.refreshCarousel?.()),{passive:true});
 function bindDisco(root = "#view-home") {
+  enhanceCarousels(root);
+  const more=document.querySelector(root+" #home-more");
+  if(more)more.onclick=()=>{homeShowAll=!homeShowAll;renderHome();};
+  document.querySelectorAll(root+" [data-home-category]").forEach(button=>button.onclick=()=>{
+    const current=HOME_CAT_KEYS.filter(homeCatAllowed),key=button.dataset.homeCategory;
+    const homeCats=current.includes(key)?current.filter(x=>x!==key):[...current,key];
+    api.runtime.sendMessage({type:"SET_SETTINGS",patch:{homeCats}},r=>{
+      if(api.runtime.lastError||!r?.settings){toast(settings.lang==="fr"?"Filtre non enregistré.":"Filter could not be saved.");return;}
+      settings=r.settings;renderHome();
+    });
+  });
   const rf = document.querySelector(`${root} #disco-refresh`);
   if (rf) rf.onclick = () => { rf.classList.add("spin"); loadDiscover(true); };
   const cb = document.querySelector(`${root} #disco-cats`);
@@ -422,21 +454,10 @@ function bindDisco(root = "#view-home") {
     discoCat = b.dataset.cat;
     if (view === "home") renderHome(); else if (view === "games") renderGames();
   }));
-  document.querySelectorAll(`${root} [data-add-disco]`).forEach((b) => (b.onclick = (e) => {
-    e.stopPropagation();
-    const m = discoItems[Number(b.dataset.addDisco)];
-    if (!m || b.classList.contains("done")) return;
-    document.querySelectorAll(`${root} [data-add-disco="${b.dataset.addDisco}"]`).forEach((x) => { x.classList.add("done"); x.innerHTML = I.check; });
-    addFromCatalog(m, null);
-  }));
-  // Clicking a discovery cover opens the work's page (AniList / Steam / …).
-  document.querySelectorAll(`${root} [data-open-url]`).forEach((el) => (el.onclick = (e) => {
-    if (e.target.closest("[data-add-disco]")) return;
-    const u = el.dataset.openUrl;
-    if (u) api.tabs ? api.tabs.create({ url: u }) : window.open(u, "_blank", "noreferrer");
-  }));
+  document.querySelectorAll(`${root} [data-preview-disco]`).forEach(el=>{const item=discoItems[Number(el.dataset.previewDisco)];el.onclick=()=>openCatalogPreview(item);});
+
 }
-// Home category picker — check which categories appear on Home. Persisted to
+// Home category picker · check which categories appear on Home. Persisted to
 // settings.homeCats (empty/absent = all). Anchored to its button, closes on
 // outside click.
 let homeCatsMenuEl = null;
@@ -480,6 +501,7 @@ function valueStrip() {
   return `<div class="value-strip">${cards.map(([ic, a, b]) => `<div class="value-card"><span class="vc-ic">${ic}</span><div><b>${esc(a)}</b><small>${esc(b)}</small></div></div>`).join("")}</div>`;
 }
 function renderHome() {
+  const homeItems=items.filter(i=>!i.homeHidden);
   const el = document.getElementById("view-home");
   if (!items.length) {
     el.innerHTML = `<div class="onboard"><div class="big"><i></i></div><h2>${t("welcomeTitle")}</h2><p>${t("welcomeBody")}</p>
@@ -487,25 +509,26 @@ function renderHome() {
     bindHome();
     bindDisco();
     const ob = document.getElementById("onb-search");
-    if (ob) ob.onclick = () => { switchView("library"); document.getElementById("q").focus(); };
+    if (ob) ob.onclick = () => { document.getElementById("q").focus(); };
     return;
   }
   // Each work appears in at most ONE row (no duplicates across the home).
   const used = new Set();
   const take = (list, n) => { const out = []; for (const i of list) { if (out.length >= n) break; if (!used.has(i.id)) { used.add(i.id); out.push(i); } } return out; };
 
-  const inProgress = items.filter((i) => i.type !== "game" && itemState(i) === "current" && (i.progress || 0) < 100).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-  const newsAll = items.filter(isNew).sort((a, b) => unseen(b) - unseen(a) || (b.updatedAt || 0) - (a.updatedAt || 0));
-  const soon = items.filter((i) => i.type === "game" && isSoon(i));
-  const genres = topGenres();
+  const inProgress = homeItems.filter((i) => i.type !== "game" && itemState(i) === "current" && (i.progress || 0) < 100).sort((a, b) => (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0));
+  const newsAll = homeItems.filter(isNew).sort((a, b) => unseen(b) - unseen(a) || (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0));
+  const soon = homeItems.filter((i) => i.type === "game" && isSoon(i));
+  const genres = topGenres(homeItems);
   const topG = genres[0] && genres[0][1] >= 2 ? genres[0][0] : null;
-  const recoAll = topG ? items.filter((i) => (i.tags || []).includes(topG)).sort((a, b) => (b.rating || 0) - (a.rating || 0)) : [];
-  const recentAll = [...items].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const recoAll = topG ? homeItems.filter((i) => (i.tags || []).includes(topG)).sort((a, b) => (b.rating || 0) - (a.rating || 0)) : [];
+  const recentAll = [...homeItems].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   spotItems = [...newsAll, ...soon, ...inProgress].filter((v, idx, arr) => arr.findIndex((x) => x.id === v.id) === idx).slice(0, 6);
   if (!spotItems.length) spotItems = recentAll.slice(0, 4);
 
   const rNew = take(newsAll, 14);        // actionable: something you haven't seen
+  const rCatchUp = take(homeItems.filter(i=>unseen(i)>0&&itemState(i)!=="dropped"&&currentNum(i)>0),14);
   const rContinue = take(inProgress, 14); // in progress, not already shown as new
   const rReco = topG ? take(recoAll, 14) : [];
   const rRecent = take(recentAll, 14);
@@ -514,11 +537,12 @@ function renderHome() {
     <div id="spot-wrap">${spotHtml(spotItems[spotIdx % Math.max(1, spotItems.length)])}${spotItems.length > 1 ? `<div class="dots" id="dots">${spotItems.map((_, i) => `<i class="${i === spotIdx % spotItems.length ? "on" : ""}" data-dot="${i}"></i>`).join("")}</div>` : ""}</div>
     ${row(t("continue"), rContinue)}
     ${row(t("newWeek"), rNew)}
+    ${row(settings.lang==="fr"?"À rattraper":"Catch up",rCatchUp)}
     ${renderDiscover()}
     ${rReco.length ? row(t("becauseYouLove", { g: topG }), rReco) : ""}
     ${genres.length ? `<div class="section-h"><h2>${t("yourGenres")}</h2></div><div class="genres">${genres.slice(0, 10).map(([g, n]) => `<span class="genre" data-genre="${esc(g)}">${esc(g)} <b>${n}</b></span>`).join("")}</div>` : ""}
     ${row(t("recentlyAdded"), rRecent)}
-    ${items.length < 4 ? valueStrip() : ""}
+    ${homeItems.length < 4 ? valueStrip() : ""}
   `;
   bindHome();
   bindDisco();
@@ -558,6 +582,7 @@ function refreshSpot() {
   bindHome();
 }
 function bindHome() {
+  enhanceCarousels("#view-home");
   document.querySelectorAll("#view-home [data-open]").forEach((n) => (n.onclick = (e) => { if (!e.target.closest("[data-stop],[data-details]")) openDrawer(n.dataset.open); }));
   document.querySelectorAll("#view-home [data-details]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); openDrawer(b.dataset.details); }));
   document.querySelectorAll("#view-home [data-dot]").forEach((d) => (d.onclick = (e) => { e.stopPropagation(); spotIdx = Number(d.dataset.dot); refreshSpot(); }));
@@ -582,11 +607,11 @@ function renderLibHeader() {
       </div>
     </div>
   </div>`;
-  const saveP = (patch) => { settings.profile = { ...(settings.profile || {}), ...patch }; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { profile: settings.profile } }, (r) => { if (r?.settings) settings = r.settings; paintAvatar(); renderProfileMenu(); }); };
+  const saveP = patch => saveProfilePatch(patch).then(saved=>{renderLibHeader();return saved;});
   const av = document.getElementById("dash-av");
-  if (av) av.onclick = () => openCropper({ shape: "circle", title: t("changePhoto"), onSave: (data) => { saveP({ avatar: data }); renderLibHeader(); } });
+  if (av) av.onclick = () => openCropper({ shape: "circle", title: t("changePhoto"), initial:p.avatar, onSave: data => saveP({avatar:data}) });
   const eb = document.getElementById("dash-edit-banner");
-  if (eb) eb.onclick = () => openCropper({ shape: "banner", title: t("changeBanner"), onSave: (data) => { saveP({ banner: data }); renderLibHeader(); } });
+  if (eb) eb.onclick = () => openCropper({ shape: "banner", title: t("changeBanner"), initial:p.banner, onSave: data => saveP({banner:data}) });
   // Click the name itself to rename it inline (Enter or click-away saves).
   const nameEl = document.getElementById("dash-name");
   if (nameEl) nameEl.onclick = () => {
@@ -615,7 +640,7 @@ function renderStats() {
     [items.filter((i) => i.type === "reading").length, t("reading")],
     [items.filter((i) => i.type === "watching").length, t("watching")],
     [items.filter((i) => i.favorite).length, t("favorites")],
-    [items.filter((i) => (i.progress || 0) >= 100).length, t("finished")],
+    [items.filter((i) => itemState(i) === "completed").length, t("finished")],
   ];
   document.getElementById("stats").innerHTML = s.map(([n, l]) => `<div class="chip"><b>${n}</b><span>${l}</span></div>`).join("");
 }
@@ -632,25 +657,52 @@ function cardHtml(i) {
     <div class="card-body">
       <h3>${esc(i.title || "Untitled")}</h3><p>${esc(marker(i))}${itemState(i) !== "current" ? ` · <b style="color:var(--lav-ink)">${t(itemState(i))}</b>` : ""}</p>
       ${(i.progress || 0) > 0 ? `<div class="bar"><i style="width:${Math.min(100, i.progress)}%;background:${accentFor(i)}"></i></div>` : ""}
-      <small>${relative(i.updatedAt)}</small>
+      <small>${relative(i.activityAt||i.updatedAt)}</small>
       <div class="rate">${[1,2,3,4,5].map((n) => `<span data-rate="${i.id}" data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= rating ? "on" : ""}"`)}</span>`).join("")}</div>
       ${tags ? `<div class="tags">${tags}</div>` : ""}
     </div>
-    <button class="quick-add" data-quickadd="${i.id}" title="${t("addWorks")}">${I.plus}</button>
+
   </article>`;
+}
+let libraryFormat="all",libraryUnlisted=false;
+function libraryCompare(a,b) {
+  const title=()=>String(a.title||"").localeCompare(String(b.title||""),settings.lang||"en",{numeric:true,sensitivity:"base"});
+  switch(settings.librarySort) {
+    case "title":return title();
+    case "rating":return (Number(b.rating)||0)-(Number(a.rating)||0)||title();
+    case "remaining":return unseen(b)-unseen(a)||title();
+    case "added":return (Number(b.createdAt)||0)-(Number(a.createdAt)||0)||title();
+    default:return (b.activityAt||b.updatedAt||0)-(a.activityAt||a.updatedAt||0)||title();
+  }
 }
 function renderGrid() {
   const grid = document.getElementById("grid");
   const q = query.toLowerCase();
+  const listed=new Set(lists.filter(l=>!l.archived).flatMap(l=>l.itemIds||[]));
   const list = items.filter((i) => {
     if (i.type === "game") return false;
+    if(libraryFormat!=="all"&&String(i.format||"").toUpperCase()!==libraryFormat)return false;
+    if(libraryUnlisted&&listed.has(i.id))return false;
     if (filter === "favorites" && !i.favorite) return false;
     if ((filter === "reading" || filter === "watching") && i.type !== filter) return false;
     if (STATUSES.includes(filter) && itemState(i) !== filter) return false;
     if (!q) return true;
-    return `${i.title} ${marker(i)} ${(i.tags || []).join(" ")}`.toLowerCase().includes(q);
+    return `${i.title} ${(i.alternativeTitles || []).join(" ")} ${(i.authors || []).join(" ")} ${marker(i)} ${(i.tags || []).join(" ")}`.toLowerCase().includes(q);
   });
-  grid.innerHTML = list.length ? [...list].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(cardHtml).join("") : `<p class="empty">${t("welcomeBody")}</p>`;
+  const total=items.filter(i=>i.type!=="game").length;
+  const count='<p class="sub" role="status">'+list.length+' / '+total+' '+t("tracked")+(list.length<total?' <button class="link-btn" id="reset-library-filters">'+(settings.lang==="fr"?"Tout afficher":"Show all")+'</button>':'')+'</p>';
+  const fr=settings.lang==="fr";
+  const formats=[...new Set(items.filter(i=>i.type!=="game").map(i=>String(i.format||"").toUpperCase()).filter(Boolean))].sort();
+  const controls='<div style="grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'+
+    '<label>'+ (fr?"Trier par":"Sort by")+' <select class="field" id="library-sort">'+
+    [["recent",fr?"Activité récente":"Recent activity"],["title",fr?"Titre":"Title"],["rating",fr?"Ma note":"My rating"],["remaining",fr?"À rattraper":"Remaining"],["added",fr?"Ajout récent":"Recently added"]].map(([v,label])=>'<option value="'+v+'"'+((settings.librarySort||"recent")===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>'+
+    '<label>'+ (fr?"Format":"Format")+' <select class="field" id="library-format"><option value="all">'+(fr?"Tous":"All")+'</option>'+formats.map(v=>'<option value="'+esc(v)+'"'+(libraryFormat===v?' selected':'')+'>'+esc(v)+'</option>').join("")+'</select></label>'+
+    '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="library-unlisted"'+(libraryUnlisted?' checked':'')+'>'+ (fr?"Sans liste active":"Without an active list")+'</label></div>';
+  grid.innerHTML = controls + count + (list.length ? [...list].sort(libraryCompare).map(cardHtml).join("") : `<p class="empty">${t("welcomeBody")}</p>`);
+  document.getElementById("library-sort").onchange=e=>{settings.librarySort=e.target.value;api.runtime.sendMessage({type:"SET_SETTINGS",patch:{librarySort:settings.librarySort}});renderGrid();document.getElementById("library-sort").focus();};
+  document.getElementById("library-format").onchange=e=>{libraryFormat=e.target.value;renderGrid();document.getElementById("library-format").focus();};
+  document.getElementById("library-unlisted").onchange=e=>{libraryUnlisted=e.target.checked;renderGrid();document.getElementById("library-unlisted").focus();};
+  const reset=document.getElementById("reset-library-filters");if(reset)reset.onclick=()=>{query="";filter="all";libraryFormat="all";libraryUnlisted=false;document.getElementById("q").value="";clearSearchResults();renderFilters();renderGrid();};
 }
 
 /* ================= GAMES ================= */
@@ -677,10 +729,10 @@ function gameCardHtml(i) {
       <div class="game-meta">
         ${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}
         ${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}${soon ? " · " + t("comingSoon") : released ? " · " + t("released") : isUpcoming(i) ? " · " + t("upcoming") : ""}</span>` : ""}
-        ${i.price ? `<span class="meta-pill price">${esc(i.price)}</span>` : ""}
+        
       </div>
       <div class="game-actions">
-        ${i.trailer ? `<a class="btn" href="${esc(i.trailer)}" target="_blank" rel="noreferrer">${I.play} ${t("watchTrailer")}</a>` : ""}
+        ${embeddedTrailer(i.trailer)}
         <a class="btn" href="${esc(gameLink(i))}" target="_blank" rel="noreferrer">${I.open} ${esc(gameLinkLabel(i))}</a>
         <label class="prereg ${i.preregistered ? "on" : ""}" data-prereg="${i.id}"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label>
         <button class="btn danger" data-rmgame="${i.id}">${I.trash}</button>
@@ -775,13 +827,33 @@ function renderPlans() {
 /* ================= LISTS ================= */
 function listCover(l) { return l.cover && /^https?:|^data:/.test(l.cover) ? `background-image:url('${esc(l.cover)}')` : `background:${esc(l.cover || "#EDE6FF")}`; }
 function isImg(v) { return v && /^https?:|^data:/.test(v); }
+let showArchivedLists=false;
 function renderLists() {
   const strip = document.getElementById("list-strip");
   if (!strip) return;
-  strip.innerHTML = lists.map((l) => { const n = (l.itemIds || []).length; return `<div class="strip-list" data-list="${l.id}">
-      <div class="lc" style="${listCover(l)}">${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
+  strip.innerHTML = lists.filter(l=>Boolean(l.archived)===showArchivedLists).map((l) => { const n = (l.itemIds || []).length; return `<div class="strip-list" data-list="${l.id}">
+      <div class="lc" style="position:relative;${listCover(l)}"><button class="icon-btn" data-delete-list="${esc(l.id)}" aria-label="${esc(t("delete")+" "+l.name)}" style="position:absolute;right:6px;top:6px;z-index:2;background:var(--card)">${I.trash}</button>${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
       <b>${esc(l.name)}</b><small>${n} ${n === 1 ? t("work") : t("works")}</small>
-    </div>`; }).join("") + `<button class="strip-new" id="new-list">${I.plus}</button>`;
+    </div>`; }).join("") + `<button class="strip-new" id="new-list">${I.plus}</button><button class="btn" id="toggle-archived">${showArchivedLists?(settings.lang==='fr'?'Actives':'Active'):(settings.lang==='fr'?'Archivées':'Archived')}</button>`;
+  strip.querySelectorAll("[data-delete-list]").forEach(button=>button.onclick=e=>{
+    e.stopPropagation();document.getElementById("list-delete-confirm")?.remove();
+    const list=lists.find(l=>l.id===button.dataset.deleteList);if(!list)return;
+    const popup=document.createElement("div");popup.id="list-delete-confirm";popup.className="panel";popup.setAttribute("role","alertdialog");
+    popup.setAttribute("aria-label",settings.lang==="fr"?"Supprimer la liste":"Delete list");
+    popup.style.cssText="position:fixed;z-index:1000;padding:18px;width:min(320px,calc(100vw - 32px));left:50%;top:35%;transform:translateX(-50%);box-shadow:0 12px 48px #25213940";
+    popup.innerHTML='<b>'+esc(list.name)+'</b><p>'+(settings.lang==="fr"?"Supprimer cette liste ? Les œuvres restent dans ta bibliothèque.":"Delete this list? Its works stay in your library.")+'</p><div style="display:flex;gap:8px"><button class="btn" id="list-delete-cancel">'+t("cancel")+'</button><button class="btn danger" id="list-delete-yes">'+t("delete")+'</button></div>';
+    const close=()=>{popup.remove();if(button.isConnected)button.focus();};
+    popup.onclick=e=>e.stopPropagation();popup.onkeydown=e=>{if(e.key==="Escape"){e.preventDefault();close();}};
+    document.body.append(popup);
+    document.getElementById("list-delete-cancel").onclick=close;
+    document.getElementById("list-delete-yes").onclick=async e=>{
+      e.currentTarget.disabled=true;
+      const ok=await listMsg("LIST_DELETE",{id:list.id},()=>{if(currentListId===list.id)backToLists();else renderLists();renderGrid();});
+      if(ok)close();else if(popup.isConnected)e.target.disabled=false;
+    };
+    document.getElementById("list-delete-cancel").focus();
+  });
+  document.getElementById("toggle-archived").onclick=()=>{showArchivedLists=!showArchivedLists;renderLists();};
 }
 /* Quick add-to-list menu anchored to a card's + button. */
 let qaMenuEl = null;
@@ -802,11 +874,12 @@ function openQuickAdd(itemId, anchor) {
   m.style.left = `${Math.min(window.innerWidth - m.offsetWidth - 8, r.left - m.offsetWidth + r.width)}px`;
   const rewire = () => { m.innerHTML = build(); wire(); };
   const wire = () => {
-    m.querySelectorAll("[data-ql]").forEach((b) => (b.onclick = (e) => {
+    m.querySelectorAll("[data-ql]").forEach((b) => (b.onclick = async (e) => {
       e.stopPropagation();
       const l = lists.find((x) => x.id === b.dataset.ql); if (!l) return;
       const has = (l.itemIds || []).includes(itemId);
-      setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== itemId) : [...(l.itemIds || []), itemId]);
+      b.disabled=true;
+      await setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== itemId) : [...(l.itemIds || []), itemId]);
       rewire();
     }));
     const nb = m.querySelector("[data-ql-new]");
@@ -846,6 +919,7 @@ function renderListDetail() {
       </div>
       <button class="btn" id="list-view-btn" title="${t("viewToggle")}">${grid ? I.rows : I.grid} ${grid ? t("viewRows") : t("viewGrid")}</button>
       <button class="btn" id="list-cover-btn">${I.image} ${t("cover")}</button>
+      <button class="btn" id="list-duplicate">${settings.lang==='fr'?'Dupliquer':'Duplicate'}</button><button class="btn" id="list-archive">${l.archived?(settings.lang==='fr'?'Restaurer':'Restore'):(settings.lang==='fr'?'Archiver':'Archive')}</button>
       <button class="btn danger" id="list-del">${I.trash} ${t("delete")}</button>
     </div>
     <div class="section-t">${t("inThisList")}</div>
@@ -863,14 +937,73 @@ function renderListDetail() {
 }
 function wireListDetail(l) {
   document.getElementById("back-lists").onclick = backToLists;
+  document.getElementById("list-duplicate").onclick=()=>listMsg("LIST_DUPLICATE",{id:l.id},()=>{renderLists();openList(lists[lists.length-1].id);});
+  document.getElementById("list-archive").onclick=()=>listMsg("LIST_UPDATE",{id:l.id,patch:{archived:!l.archived}},()=>{renderLists();backToLists();});
   const name = document.getElementById("list-name");
   name.onchange = () => listMsg("LIST_UPDATE", { id: l.id, patch: { name: name.value.trim() || "Untitled" } });
-  document.getElementById("list-view-btn").onclick = () => { l.view = l.view === "grid" ? "rows" : "grid"; listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view } }); };
+  document.getElementById("list-view-btn").onclick = () => { listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view === "grid" ? "rows" : "grid" } }); };
   document.getElementById("list-cover-btn").onclick = () => changeCover((v) => listMsg("LIST_UPDATE", { id: l.id, patch: { cover: v } }), "square");
   document.getElementById("list-del").onclick = () => { if (confirm(`${t("delete")} "${l.name}"?`)) listMsg("LIST_DELETE", { id: l.id }, backToLists); };
   document.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => setListItems(l.id, [...(l.itemIds || []), b.dataset.add])));
   document.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => setListItems(l.id, (l.itemIds || []).filter((x) => x !== b.dataset.remove))));
+  wireListBulk(l);
   enableDrag(l);
+}
+function wireListBulk(list) {
+  const container=document.getElementById("list-items"), selected=new Set();
+  const fr=settings.lang==="fr", destinations=lists.filter(l=>l.id!==list.id&&!l.archived);
+  const toolbar=document.createElement("div");toolbar.className="list-bulk";
+  toolbar.innerHTML=`<label><input type="checkbox" id="bulk-all"> ${fr?"Tout sélectionner":"Select all"}</label><span id="bulk-count" role="status"></span><select id="bulk-destination" aria-label="${fr?"Liste de destination":"Destination list"}"><option value="">${fr?"Choisir une liste…":"Choose a list…"}</option>${destinations.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("")}</select><button class="btn" id="bulk-copy">${fr?"Copier":"Copy"}</button><button class="btn" id="bulk-move">${fr?"Déplacer":"Move"}</button><button class="btn" id="bulk-remove">${fr?"Retirer de la liste":"Remove from list"}</button><button class="btn" id="bulk-up" aria-label="${fr?"Monter la sélection":"Move selection up"}">↑</button><button class="btn" id="bulk-down" aria-label="${fr?"Descendre la sélection":"Move selection down"}">↓</button>`;
+  container.before(toolbar);
+  const rows=[...container.querySelectorAll("[data-id]")];let busy=false;
+  const refresh=()=>{
+    container.inert=busy;
+    const all=toolbar.querySelector("#bulk-all");all.checked=rows.length>0&&selected.size===rows.length;all.indeterminate=selected.size>0&&selected.size<rows.length;all.disabled=busy||!rows.length;
+    toolbar.querySelector("#bulk-count").textContent=fr?selected.size+" sélectionnée(s)":selected.size+" selected";
+    for(const id of ["copy","move"])toolbar.querySelector("#bulk-"+id).disabled=busy||!selected.size||!toolbar.querySelector("#bulk-destination").value;
+    toolbar.querySelector("#bulk-remove").disabled=busy||!selected.size;
+    const index=(list.itemIds||[]).indexOf([...selected][0]);
+    toolbar.querySelector("#bulk-up").disabled=busy||selected.size!==1||index<=0;
+    toolbar.querySelector("#bulk-down").disabled=busy||selected.size!==1||index<0||index>=(list.itemIds||[]).length-1;
+    toolbar.querySelector("#bulk-destination").disabled=busy||!destinations.length;
+    rows.forEach(row=>{const input=row.querySelector(".list-select");input.checked=selected.has(row.dataset.id);input.disabled=busy;row.classList.toggle("selected",input.checked);});
+  };
+  rows.forEach(row=>{
+    const input=document.createElement("input");input.type="checkbox";input.className="list-select";
+    const title=items.find(i=>i.id===row.dataset.id)?.title||"";
+    input.setAttribute("aria-label",(fr?"Sélectionner ":"Select ")+title);
+    input.onclick=e=>e.stopPropagation();input.onchange=()=>{if(input.checked)selected.add(row.dataset.id);else selected.delete(row.dataset.id);refresh();};row.prepend(input);
+  });
+  toolbar.querySelector("#bulk-all").onchange=e=>{selected.clear();if(e.target.checked)rows.forEach(r=>selected.add(r.dataset.id));refresh();};
+  toolbar.querySelector("#bulk-destination").onchange=refresh;
+  const act=async action=>{
+    if(busy||!selected.size)return;busy=true;refresh();
+    const ids=[...selected], source=lists.find(l=>l.id===list.id);
+    const destination=lists.find(l=>l.id===toolbar.querySelector("#bulk-destination").value);
+    let ok=false;
+    if(action==="copy"||action==="move"){
+      if(!destination){busy=false;refresh();return;}
+      ok=await listMsg("LIST_SET_ITEMS",{id:destination.id,itemIds:[...new Set([...(destination.itemIds||[]),...ids])]},()=>{});
+      if(!ok){busy=false;refresh();return;}
+    }
+    if(action==="remove"||action==="move"){
+      if(!source){busy=false;refresh();return;}
+      ok=await listMsg("LIST_SET_ITEMS",{id:source.id,itemIds:(source.itemIds||[]).filter(id=>!selected.has(id))},()=>{});
+      if(!ok){if(action==="move")toast(fr?"Copie enregistrée. Retrait de la liste source échoué : les œuvres sont conservées.":"Copy saved. Removal from the source list failed; your works are retained.");busy=false;refresh();return;}
+    }
+    if(ok){renderListDetail();toast(fr?"Liste mise à jour":"List updated");}else{busy=false;refresh();}
+  };
+  for(const action of ["copy","move","remove"])toolbar.querySelector("#bulk-"+action).onclick=()=>act(action);
+  const reorder=async direction=>{
+    if(busy||selected.size!==1)return;
+    const id=[...selected][0],order=[...(lists.find(l=>l.id===list.id)?.itemIds||[])],index=order.indexOf(id),next=index+direction;
+    if(index<0||next<0||next>=order.length)return;
+    busy=true;refresh();[order[index],order[next]]=[order[next],order[index]];
+    const ok=await listMsg("LIST_SET_ITEMS",{id:list.id,itemIds:order},()=>{});
+    if(ok){renderListDetail();const row=[...document.querySelectorAll("#list-items [data-id]")].find(r=>r.dataset.id===id);const checkbox=row?.querySelector(".list-select");if(checkbox){checkbox.click();checkbox.focus();}}else{busy=false;refresh();}
+  };
+  toolbar.querySelector("#bulk-up").onclick=()=>reorder(-1);toolbar.querySelector("#bulk-down").onclick=()=>reorder(1);
+  refresh();
 }
 function enableDrag(l) {
   const c = document.getElementById("list-items");
@@ -889,16 +1022,22 @@ function enableDrag(l) {
     });
   });
 }
-function setListItems(id, itemIds, silent) {
-  const l = lists.find((x) => x.id === id); if (l) l.itemIds = itemIds;
-  api.runtime.sendMessage({ type: "LIST_SET_ITEMS", id, itemIds }, (r) => { if (r?.lists) lists = r.lists; if (!silent) renderListDetail(); });
-  if (!silent) renderListDetail();
+async function setListItems(id,itemIds,silent) {const saved=await listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{if(!silent)renderListDetail();});if(!saved&&currentListId===id)renderListDetail();return saved;}
+function listMsg(type, payload, done) {
+  return new Promise(resolve => api.runtime.sendMessage({type,...payload},r=>{
+    if(api.runtime.lastError || r?.ok===false || !Array.isArray(r?.lists)){
+      toast(settings.lang==="fr"?"La liste n’a pas été enregistrée. Réessaie.":"The list could not be saved. Try again."); resolve(false); return;
+    }
+    lists=r.lists;
+    if(done)done();else {renderLists();if(currentListId)renderListDetail();}
+    resolve(true);
+  }));
 }
-function listMsg(type, payload, done) { api.runtime.sendMessage({ type, ...payload }, (r) => { if (r?.lists) lists = r.lists; if (done) done(); else { renderLists(); if (currentListId) renderListDetail(); } }); }
 function backToLists() { currentListId = null; document.getElementById("list-detail").hidden = true; document.getElementById("lib-main").hidden = false; renderLists(); }
 
 /* ================= DRAWER ================= */
 function openDrawer(id) {
+  document.getElementById("drawer").dataset.itemId=id;
   const i = items.find((x) => x.id === id); if (!i) return;
   const d = document.getElementById("drawer");
   const isWatch = i.type === "watching", isGame = i.type === "game";
@@ -910,15 +1049,18 @@ function openDrawer(id) {
       <button class="icon-btn drawer-close" id="dr-close">${I.close}</button>
       <div class="drawer-cover" style="background:${i.accent || accentFor(i)}">${coverInner(i, 40)}<button class="change-cover" id="dr-cover">${I.image}</button></div>
       <h2 class="drawer-title">${esc(i.title || "Untitled")}</h2>
-      <p class="drawer-marker">${esc(marker(i))}${isGame ? "" : " · " + relative(i.updatedAt)}</p>
+      <p class="drawer-marker">${esc(marker(i))}${isGame ? "" : " · " + relative(i.activityAt||i.updatedAt)}</p>
     </div>
     <div class="drawer-body">
+      ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${settings.lang==="fr"?"Auteurs":"Creators"}</div><p class="synopsis">${i.authors.filter(x=>typeof x==="string").map(esc).join(" · ")}</p>` : ""}
+      ${Array.isArray(i.alternativeTitles)&&i.alternativeTitles.length ? `<div class="section-t">${settings.lang==="fr"?"Autres titres":"Alternative titles"}</div><ul class="synopsis">${i.alternativeTitles.filter(x=>typeof x==="string").map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="dr-refresh-info">${I.refresh} ${settings.lang==="fr"?"Actualiser la fiche":"Refresh details"}</button><button class="btn" id="dr-home-toggle" aria-pressed="${!!i.homeHidden}">${settings.lang==="fr"?(i.homeHidden?"Réafficher sur l’accueil":"Masquer de l’accueil"):(i.homeHidden?"Show on Home":"Hide from Home")}</button></div><p class="field-hint" id="dr-refresh-status" role="status"></p><div id="dr-extra-info"></div>
       ${i.synopsis ? `<div class="section-t">${t("synopsis")}</div><p class="synopsis clamp" id="dr-syn">${esc(i.synopsis)}</p><button class="link-btn" id="dr-syn-toggle">${t("showMore")}</button>` : ""}
-      ${!isGame && Array.isArray(i.cast) && i.cast.length ? `<div class="section-t">${t("cast")}</div><div class="cast-strip scroll-x">${i.cast.map((c) => `<div class="cast-card"><div class="cast-av"><span class="cast-ph">${esc((c.name || "?")[0].toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : ""}</div><b>${esc(c.name)}</b>${c.role && c.role !== "MAIN" ? `<small>${esc(c.role.toLowerCase())}</small>` : ""}</div>`).join("")}</div>` : ""}
+      ${!isGame && Array.isArray(i.cast) && i.cast.length ? `<div class="section-t">${t("cast")}</div><div class="cast-strip scroll-x">${i.cast.map((c) => `<div class="cast-card"><div class="cast-av"><span class="cast-ph">${esc((c.name || "?")[0].toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : ""}</div><b>${esc(c.name)}</b>${c.character ? `<small>${esc(c.character)}</small>` : ""}${c.role && c.role !== "MAIN" ? `<small>${esc(c.role.toLowerCase())}</small>` : ""}</div>`).join("")}</div>` : ""}
       ${isGame ? `
         <div class="section-t">${t("games")}</div>
         <div class="game-meta">${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}</span>` : ""}${i.price ? `<span class="meta-pill price">${esc(i.price)}</span>` : ""}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${i.trailer ? `<a class="btn" href="${esc(i.trailer)}" target="_blank" rel="noreferrer">${I.play} ${t("watchTrailer")}</a>` : ""}<a class="btn" href="${esc(gameLink(i))}" target="_blank" rel="noreferrer">${I.open} ${esc(gameLinkLabel(i))}</a><label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${embeddedTrailer(i.trailer||i.trailerUrl)}<a class="btn" href="${esc(gameLink(i))}" target="_blank" rel="noreferrer">${I.open} ${esc(gameLinkLabel(i))}</a><label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
       : `
         <div class="section-t">${t("progress")}</div>
         <p class="field-hint">${isWatch ? t("progHintWatch") : t("progHintRead")}</p>
@@ -929,7 +1071,7 @@ function openDrawer(id) {
         ${episodeGrid(i)}
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
           ${i.total && unseen(i) > 0 ? `<button class="btn primary" id="dr-markall">${I.check} ${t("markAll")}</button>` : ""}
-          ${i.trailerUrl ? `<a class="btn" href="${esc(i.trailerUrl)}" target="_blank" rel="noreferrer">${I.play} ${t("watchTrailer")}</a>` : ""}
+          ${embeddedTrailer(i.trailerUrl)}
           ${i.url ? `<a class="btn" href="${esc(i.url)}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>` : ""}
         </div>`}
       ${isGame ? "" : `<div class="section-t">${t("status")}</div>
@@ -949,11 +1091,12 @@ function openDrawer(id) {
         </select>
         ${!isGame ? `<input class="field" id="dr-season" type="number" min="0" value="${i.season || ""}" placeholder="${isWatch ? "Season" : "Vol."}" />` : ""}
       </div>
-      <div class="section-t">${t("manage")}</div><button class="btn danger" id="dr-remove">${I.trash} ${t("removeLib")}</button>
+      <div class="section-t">${t("manage")}</div><div class="notification-preferences"><label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input id="dr-notify" type="checkbox" ${i.notifyUpdates!==false?"checked":""}>${settings.lang==="fr"?"Notifications de nouvelles sorties":"New release notifications"}</label>${isGame?`<div class="panel" style="padding:10px 12px"><small>${settings.lang==="fr"?"Choisis précisément les alertes reçues pour ce jeu.":"Choose exactly which alerts you receive for this game."}</small><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-updates" type="checkbox" ${i.notifyGameUpdates!==false?"checked":""}>${settings.lang==="fr"?"Mises à jour et patch notes":"Updates and patch notes"}</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-events" type="checkbox" ${i.notifyGameEvents!==false?"checked":""}>${settings.lang==="fr"?"Événements et annonces":"Events and announcements"}</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-rewards" type="checkbox" ${i.notifyGameRewards!==false?"checked":""}>${settings.lang==="fr"?"Codes et récompenses":"Codes and rewards"}</label></div>`:""}</div><button class="btn danger" id="dr-remove">${I.trash} ${t("removeLib")}</button>
     </div>`;
   document.getElementById("scrim").classList.add("open");
   d.classList.add("open");
   wireDrawer(i, isWatch, isGame);
+  enhanceCarousels("#drawer");
   // Games arrive from Steam search/discovery without genres; pull them (and a
   // description) the first time the fiche opens, then re-render in place.
   if (isGame && !i.gameEnrichedAt && !(i.tags && i.tags.length) && /store\.steampowered\.com\/app\//.test(i.url || "")) {
@@ -980,43 +1123,72 @@ function episodeGrid(i) {
 }
 function wireDrawer(i, isWatch, isGame) {
   document.getElementById("dr-close").onclick = closeDrawer;
+    document.getElementById("dr-notify").onchange=e=>update(i.id,{notifyUpdates:e.target.checked});
+  if(isGame){
+    document.getElementById("dr-notify-game-updates").onchange=e=>update(i.id,{notifyGameUpdates:e.target.checked});
+    document.getElementById("dr-notify-game-events").onchange=e=>update(i.id,{notifyGameEvents:e.target.checked});
+    document.getElementById("dr-notify-game-rewards").onchange=e=>update(i.id,{notifyGameRewards:e.target.checked});
+  }
+  document.getElementById("dr-home-toggle").onclick=()=>update(i.id,{homeHidden:!i.homeHidden});
+  document.getElementById("dr-refresh-info").onclick=async e=>{
+    const button=e.currentTarget,status=document.getElementById("dr-refresh-status");
+    button.disabled=true;status.textContent=settings.lang==="fr"?"Recherche des informations…":"Looking up details…";
+    api.runtime.sendMessage({type:isGame?"GAME_ENRICH":"COMPLETE_ITEM_METADATA",id:i.id,force:true},r=>{
+      const failed=api.runtime.lastError||!r?.ok;
+      if(document.getElementById("drawer").dataset.itemId!==i.id||!button.isConnected)return;
+      button.disabled=false;
+      if(failed||!r.item||(!isGame&&!r.matched)){status.textContent=settings.lang==="fr"?"Aucune mise à jour disponible. Réessaie plus tard.":"No update available. Try again later.";return;}
+      const removed=new Set(r.mergedIds||[]);
+      items=items.filter(x=>!removed.has(x.id)).map(x=>x.id===r.item.id?r.item:x);
+      if(r.lists)lists=r.lists;
+      renderAll();openDrawer(r.item.id);
+      document.getElementById("dr-refresh-status").textContent=settings.lang==="fr"?"Fiche actualisée.":"Details updated.";
+    });
+  };
   const syn = document.getElementById("dr-syn"), synT = document.getElementById("dr-syn-toggle");
   if (synT) synT.onclick = () => { syn.classList.toggle("clamp"); synT.textContent = syn.classList.contains("clamp") ? t("showMore") : t("showLess"); };
   if (!isGame) {
     const num = document.getElementById("dr-num");
     const key = isWatch ? "episode" : "chapter", latestKey = isWatch ? "latestEpisode" : "latestChapter";
-    if (i.total) num.max = i.total; // real limit — can't go past what exists
+    if (i.total) num.max = i.total; // real limit · can't go past what exists
     const setNum = (v) => { let n = Math.max(0, Math.round(Number(v) || 0)); if (i.total && n > i.total) n = i.total; num.value = n; const p = { [key]: n || undefined }; p[latestKey] = Math.max(i[latestKey] || 0, n) || undefined; update(i.id, p); };
-    document.getElementById("dr-minus").onclick = () => { setNum((Number(num.value) || 0) - 1); setTimeout(() => openDrawer(i.id), 30); };
-    document.getElementById("dr-plus").onclick = () => { setNum((Number(num.value) || 0) + 1); setTimeout(() => openDrawer(i.id), 30); };
-    num.onchange = () => { setNum(num.value); setTimeout(() => openDrawer(i.id), 30); };
+    document.getElementById("dr-minus").onclick = () => { setNum((Number(num.value) || 0) - 1); };
+    document.getElementById("dr-plus").onclick = () => { setNum((Number(num.value) || 0) + 1); };
+    num.onchange = () => { setNum(num.value); };
     const total = document.getElementById("dr-total");
-    if (total) total.onchange = () => { update(i.id, { total: Math.max(0, Math.round(Number(total.value) || 0)) || undefined }); setTimeout(() => openDrawer(i.id), 30); };
+    if (total) total.onchange = () => { update(i.id, { total: Math.max(0, Math.round(Number(total.value) || 0)) || undefined }); };
     const eps = document.getElementById("dr-eps");
-    if (eps) eps.querySelectorAll("[data-ep]").forEach((c) => (c.onclick = () => { setNum(Number(c.dataset.ep)); setTimeout(() => openDrawer(i.id), 30); }));
+    if (eps) eps.querySelectorAll("[data-ep]").forEach((c) => (c.onclick = () => { setNum(Number(c.dataset.ep)); }));
     const markall = document.getElementById("dr-markall");
-    if (markall) markall.onclick = () => { setNum(i.total || currentNum(i)); setTimeout(() => openDrawer(i.id), 30); };
+    if (markall) markall.onclick = () => { setNum(i.total || currentNum(i)); };
   } else {
-    document.getElementById("dr-prereg").onclick = () => { update(i.id, { preregistered: !i.preregistered }); setTimeout(() => openDrawer(i.id), 30); };
+    document.getElementById("dr-prereg").onclick = () => { update(i.id, { preregistered: !i.preregistered }); };
   }
-  document.getElementById("dr-cover").onclick = () => changeCover((v) => { update(i.id, { coverOverride: v }); setTimeout(() => openDrawer(i.id), 30); });
-  document.querySelectorAll("#dr-rate span").forEach((s) => (s.onclick = () => { const v = Number(s.dataset.v); update(i.id, { rating: i.rating === v ? 0 : v }); setTimeout(() => openDrawer(i.id), 30); }));
+  document.getElementById("dr-cover").onclick = () => changeCover(async (v) => { const saved=await update(i.id, { coverOverride: v }); if(saved)openDrawer(i.id); return saved; });
+  document.querySelectorAll("#dr-rate span").forEach((s) => (s.onclick = () => { const v = Number(s.dataset.v); update(i.id, { rating: i.rating === v ? 0 : v }); }));
   document.querySelectorAll("#dr-status [data-status]").forEach((b) => (b.onclick = () => {
     const s = b.dataset.status; const patch = { state: s };
     if (s === "completed") { patch.progress = 100; patch.status = "completed"; }
     else if (s === "planned") { patch.progress = 0; patch.status = "in_progress"; }
     else patch.status = "in_progress";
-    update(i.id, patch); setTimeout(() => openDrawer(i.id), 30);
+    update(i.id, patch);
   }));
+  if(!i.cast?.length && (i.anilistId||i.externalIds?.anilist||i.externalIds?.tvmaze)) {
+    api.runtime.sendMessage({type:"CATALOG_DETAIL",item:i},response=>{
+      if(api.runtime.lastError||!response?.ok||document.getElementById("drawer").dataset.itemId!==i.id)return;
+      const extra=document.getElementById("dr-extra-info");
+      if(extra)extra.innerHTML=catalogInformation({...response.item,synopsis:undefined,authors:[],alternativeTitles:[]});
+    });
+  }
   renderDrawerTags(i);
-  document.querySelectorAll("#dr-lists [data-list]").forEach((b) => (b.onclick = () => { const l = lists.find((x) => x.id === b.dataset.list); if (!l) return; const has = (l.itemIds || []).includes(i.id); setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== i.id) : [...(l.itemIds || []), i.id]); setTimeout(() => openDrawer(i.id), 30); }));
+  document.querySelectorAll("#dr-lists [data-list]").forEach((b) => (b.onclick = () => { const l = lists.find((x) => x.id === b.dataset.list); if (!l) return; const has = (l.itemIds || []).includes(i.id); setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== i.id) : [...(l.itemIds || []), i.id]); }));
   const titleEl = document.getElementById("dr-title");
-  if (titleEl) titleEl.onchange = () => { const v = titleEl.value.trim(); if (v && v !== i.title) { update(i.id, { title: v }); setTimeout(() => openDrawer(i.id), 30); } };
+  if (titleEl) titleEl.onchange = () => { const v = titleEl.value.trim(); if (v && v !== i.title) { update(i.id, { title: v }); } };
   const typeEl = document.getElementById("dr-type");
-  if (typeEl) typeEl.onchange = () => { update(i.id, { type: typeEl.value }); setTimeout(() => openDrawer(i.id), 30); };
+  if (typeEl) typeEl.onchange = () => { update(i.id, { type: typeEl.value }); };
   const seasonEl = document.getElementById("dr-season");
-  if (seasonEl) seasonEl.onchange = () => { const v = Math.max(0, Math.round(Number(seasonEl.value) || 0)); update(i.id, isWatch ? { season: v || undefined } : { volume: v || undefined }); setTimeout(() => openDrawer(i.id), 30); };
-  document.getElementById("dr-remove").onclick = () => { if (!confirm(`${t("removeLib")}?`)) return; api.runtime.sendMessage({ type: "REMOVE_ITEM", id: i.id }, (r) => { items = r?.items || items.filter((x) => x.id !== i.id); closeDrawer(); renderAll(); }); };
+  if (seasonEl) seasonEl.onchange = () => { const v = Math.max(0, Math.round(Number(seasonEl.value) || 0)); update(i.id, isWatch ? { season: v || undefined } : { volume: v || undefined }); };
+  document.getElementById("dr-remove").onclick = () => { if (!confirm(`${t("removeLib")}?`)) return; api.runtime.sendMessage({ type: "REMOVE_ITEM", id: i.id }, (r) => { if(api.runtime.lastError || r?.ok===false || !Array.isArray(r?.items)){toast(settings.lang==="fr"?"Suppression impossible. Réessaie.":"Could not remove. Try again.");return;} items = r.items; closeDrawer(); renderAll(); }); };
 }
 function renderDrawerTags(i) {
   const wrap = document.getElementById("dr-tags");
@@ -1024,27 +1196,31 @@ function renderDrawerTags(i) {
   wrap.querySelectorAll("[data-rm]").forEach((s) => (s.onclick = () => update(i.id, { tags: (i.tags || []).filter((x) => x !== s.dataset.rm) })));
   document.getElementById("dr-addtag").onclick = () => { const tg = (prompt(t("tags")) || "").trim(); if (tg) update(i.id, { tags: [...new Set([...(i.tags || []), tg])] }); };
 }
-function setListItemsSilent(id, itemIds) { const l = lists.find((x) => x.id === id); if (l) l.itemIds = itemIds; api.runtime.sendMessage({ type: "LIST_SET_ITEMS", id, itemIds }, (r) => { if (r?.lists) lists = r.lists; }); }
-function closeDrawer() { document.getElementById("scrim").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); }
+function setListItemsSilent(id,itemIds) {return listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{const itemId=document.getElementById("drawer").dataset.itemId;if(itemId)refreshOpenItem(itemId);});}
+function closeDrawer() { previewRequest++; document.querySelectorAll("#drawer iframe").forEach(el=>el.remove()); document.querySelectorAll("#drawer video").forEach(el=>el.pause()); document.getElementById("scrim").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); }
 /* ---- image cropper (upload · zoom · reposition), Discord-style ---- */
 // Aspect-aware cropper. The view IS the output shape, so the user sees exactly
 // what will be visible (YouTube-style for the wide banner).
 let CV_W = 280, CV_H = 280, CT_W = 512, CT_H = 512;
 let cropState = null; // { img, zoom, ox, oy, onSave, shape }
-function openCropper({ shape = "square", onSave, initial, title }) {
+function openCropper({ shape = "square", onSave, initial, title, allowClear = false }) {
   cropState = { img: null, zoom: 1, ox: 0, oy: 0, onSave, shape };
-  if (shape === "banner") { CV_W = 460; CV_H = 154; CT_W = 1200; CT_H = 400; }
-  else { CV_W = 280; CV_H = 280; CT_W = 512; CT_H = 512; }
+  if (shape === "banner") { CV_W = Math.min(460, Math.floor(innerWidth * .94 - 44)); CV_H = Math.round(CV_W / 3); CT_W = 1200; CT_H = 400; }
+  else { CV_W = Math.min(280, Math.floor(innerWidth * .94 - 44)); CV_H = CV_W; CT_W = 512; CT_H = 512; }
   const view = document.getElementById("crop-view");
   view.classList.toggle("circle", shape === "circle");
   view.style.width = CV_W + "px"; view.style.height = CV_H + "px";
   const canvas = document.getElementById("crop-canvas");
   canvas.width = CV_W; canvas.height = CV_H; canvas.style.width = CV_W + "px"; canvas.style.height = CV_H + "px";
   document.getElementById("crop-title").textContent = title || "Adjust image";
-  document.getElementById("crop-hint").textContent = shape === "banner" ? "Drag & zoom — this is exactly what will show" : "Drag to reposition · slide to zoom";
+  document.getElementById("crop-hint").textContent = "Drag to reposition · scroll or use the slider to zoom";
   document.getElementById("crop-zoom").value = 1;
   document.getElementById("crop-scrim").classList.add("open");
   document.getElementById("cropper").classList.add("open");
+  document.getElementById("crop-save").disabled = true;
+  document.getElementById("crop-remove").hidden = !allowClear;
+  document.getElementById("crop-url-row").hidden = !allowClear;
+  document.getElementById("crop-url").value = "";
   clearCanvas();
   if (initial) loadCropImage(initial); else document.getElementById("crop-input").click();
 }
@@ -1058,8 +1234,12 @@ function clearCanvas() {
   x.clearRect(0, 0, CV_W, CV_H); x.fillStyle = "#F0EEF6"; x.fillRect(0, 0, CV_W, CV_H);
 }
 function loadCropImage(src) {
+  const state = cropState;
+  if (!state) return;
   const img = new Image();
   img.onload = () => {
+    if (cropState !== state) return;
+    document.getElementById("crop-save").disabled = false;
     const cover = Math.max(CT_W / img.naturalWidth, CT_H / img.naturalHeight);
     cropState.img = img; cropState.cover = cover; cropState.zoom = 1;
     const dw = img.naturalWidth * cover, dh = img.naturalHeight * cover;
@@ -1067,6 +1247,7 @@ function loadCropImage(src) {
     document.getElementById("crop-zoom").value = 1;
     drawCrop();
   };
+  img.onerror = () => { if(cropState === state) document.getElementById("crop-hint").textContent = "This image could not be loaded. Choose another file."; };
   img.src = src;
 }
 function cropDims() { const s = cropState.cover * cropState.zoom; return { dw: cropState.img.naturalWidth * s, dh: cropState.img.naturalHeight * s }; }
@@ -1092,33 +1273,63 @@ function exportCrop() {
   const down = (e) => { if (!cropState || !cropState.img) return; const pt = e.touches ? e.touches[0] : e; drag = { x: pt.clientX, y: pt.clientY }; };
   const move = (e) => {
     if (!drag || !cropState || !cropState.img) return;
-    const pt = e.touches ? e.touches[0] : e; const rx = CT_W / CV_W, ry = CT_H / CV_H;
+    const pt = e.touches ? e.touches[0] : e; const bounds = view.getBoundingClientRect(); const rx = CT_W / bounds.width, ry = CT_H / bounds.height;
     cropState.ox += (pt.clientX - drag.x) * rx; cropState.oy += (pt.clientY - drag.y) * ry;
     drag = { x: pt.clientX, y: pt.clientY }; drawCrop(); if (e.cancelable) e.preventDefault();
   };
   const up = () => (drag = null);
   view.addEventListener("mousedown", down); window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
   view.addEventListener("touchstart", down, { passive: true }); view.addEventListener("touchmove", move, { passive: false }); view.addEventListener("touchend", up);
-  document.getElementById("crop-zoom").addEventListener("input", (e) => {
-    if (!cropState || !cropState.img) return;
-    const before = cropDims(); const fx = (CT_W / 2 - cropState.ox) / before.dw, fy = (CT_H / 2 - cropState.oy) / before.dh;
-    cropState.zoom = Number(e.target.value); const after = cropDims();
-    cropState.ox = CT_W / 2 - fx * after.dw; cropState.oy = CT_H / 2 - fy * after.dh; drawCrop();
-  });
+  const zoomAt = (value, x = CT_W / 2, y = CT_H / 2) => {
+    if (!cropState?.img) return;
+    const before = cropDims(), fx = (x - cropState.ox) / before.dw, fy = (y - cropState.oy) / before.dh;
+    cropState.zoom = Math.min(3, Math.max(1, value));
+    const after = cropDims();
+    cropState.ox = x - fx * after.dw; cropState.oy = y - fy * after.dh;
+    document.getElementById("crop-zoom").value = cropState.zoom;
+    drawCrop();
+  };
+  document.getElementById("crop-zoom").addEventListener("input", e => zoomAt(Number(e.target.value)));
+  view.addEventListener("wheel", e => {
+    if (!cropState?.img) return;
+    e.preventDefault();
+    const r = view.getBoundingClientRect();
+    const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? r.height : 1);
+    zoomAt(cropState.zoom * Math.exp(-Math.max(-200,Math.min(200,delta)) * .002), (e.clientX-r.left)/r.width*CT_W, (e.clientY-r.top)/r.height*CT_H);
+  }, {passive:false});
   document.getElementById("crop-file").onclick = () => document.getElementById("crop-input").click();
   document.getElementById("crop-input").addEventListener("change", (e) => {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
     if (!f) return; const rd = new FileReader(); rd.onload = () => loadCropImage(String(rd.result)); rd.readAsDataURL(f);
   });
   document.getElementById("crop-cancel").onclick = closeCropper;
-  document.getElementById("crop-save").onclick = () => { if (cropState && cropState.img && cropState.onSave) cropState.onSave(exportCrop()); closeCropper(); };
+  const commitCrop = async (clear, imageUrl) => {
+    const state=cropState;
+    if(!state?.onSave || (!clear && !imageUrl && !state.img))return;
+    const button=document.getElementById("crop-save");button.disabled=true;
+    try {
+      const saved=await state.onSave(imageUrl || (clear?"":exportCrop()));
+      if(cropState!==state)return;
+      if(saved===false){button.disabled=!state.img;return;}
+      closeCropper();
+    }catch{
+      if(cropState!==state)return;
+      document.getElementById("crop-hint").textContent="Could not save this image. Try another image.";
+      button.disabled=!state.img;
+    }
+  };
+  document.getElementById("crop-save").onclick=()=>commitCrop(false);
+  document.getElementById("crop-remove").onclick=()=>commitCrop(true);
+  document.getElementById("crop-use-url").onclick=()=>{
+    const input=document.getElementById("crop-url");
+    try {const url=new URL(input.value.trim());if(!["https:","http:"].includes(url.protocol))throw Error();input.setCustomValidity("");commitCrop(false,url.href);}
+    catch{input.setCustomValidity("Enter a valid https:// image URL.");input.reportValidity();}
+  };
+  document.getElementById("crop-url").oninput=e=>e.target.setCustomValidity("");
 })();
 
 function changeCover(apply, shape) {
-  const c = prompt("Cover — paste an image URL, type 'upload' to pick & crop a file, or leave blank to clear:", "");
-  if (c === null) return;
-  if (c.trim().toLowerCase() === "upload") { openCropper({ shape: shape || "square", title: t("cover"), onSave: apply }); return; }
-  apply(c.trim());
+  openCropper({shape:shape||"square",title:t("cover"),onSave:apply,allowClear:true});
 }
 
 /* ================= SETTINGS ================= */
@@ -1144,10 +1355,12 @@ function renderSettings() {
     </div>
     <div class="section-t">${t("newAlerts")}</div>
     <div class="panel"><div class="row"><div class="grow"><b>${t("newAlerts")}</b><small>${t("newAlertsSub")}</small></div><button class="switch ${settings.notifyNew ? "on" : ""}" id="sw-notify"></button></div></div>
+    <div class="panel"><div class="row"><div class="grow"><b>${settings.lang==='fr'?'Suivi automatique des vidéos enregistrées':'Automatically track saved videos'}</b><small>${settings.lang==='fr'?'Après ouverture de Yomu sur le lecteur, conserve la progression pendant la lecture.':'After opening Yomu on the player, keep progress updated while watching.'}</small></div><input id="set-autotrack" type="checkbox" aria-label="${settings.lang==='fr'?'Suivi automatique':'Automatic tracking'}" ${settings.autoTrack!==false?'checked':''}></div></div>
     <div class="section-t">${t("backup")}</div>
     <div class="panel">
       <div class="row"><div class="grow"><b>${t("yourLibrary")}</b><small>${t("exportRestore")}</small></div><button class="btn" id="export">${I.image} ${t("export")}</button><button class="btn" id="import">${t("import")}</button><input id="file" type="file" accept=".json,.csv,.xml,.zip,.tsv,application/json,application/zip" multiple hidden aria-label="${t("import")}" /></div>
       <p class="field-hint" style="margin:-2px 2px 0">${t("importFormats")}</p>
+      <div class="row"><div class="grow"><b>${settings.lang === "fr" ? "Compléter les fiches" : "Complete missing details"}</b><small id="metadata-status" role="status">${settings.lang === "fr" ? "Rechercher les affiches et descriptions manquantes et regrouper les doublons confirmés." : "Find missing artwork and descriptions and combine confirmed duplicates."}</small></div><button class="btn" id="complete-metadata">${I.refresh} ${settings.lang === "fr" ? "Rechercher" : "Search"}</button></div>
       <div class="row"><div class="grow"><b>${t("cloudSync")}</b><small id="sync-state">${t("cloudSyncSub")}</small></div><button class="btn" id="sync-link">${t("manageSync")}</button></div>
     </div>
     <div class="section-t">${t("enjoying")}</div>
@@ -1163,24 +1376,33 @@ function renderSettings() {
 }
 function wireSettings() {
   const nameEl = document.getElementById("set-name");
-  const saveProfile = (patch) => { settings.profile = { ...(settings.profile || {}), ...patch }; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { profile: settings.profile } }, (r) => { if (r?.settings) settings = r.settings; paintAvatar(); renderProfileMenu(); }); };
+  const saveProfile = patch => saveProfilePatch(patch).then(saved=>{renderSettings();return saved;});
   nameEl.onchange = () => saveProfile({ name: nameEl.value.trim() });
-  const pickPhoto = () => openCropper({ shape: "circle", title: t("changePhoto"), onSave: (data) => { saveProfile({ avatar: data }); renderSettings(); } });
+  const pickPhoto = () => openCropper({ shape: "circle", title: t("changePhoto"), initial:settings.profile?.avatar, onSave: data => saveProfile({avatar:data}) });
   document.getElementById("set-photo").onclick = pickPhoto;
   document.getElementById("set-avatar").onclick = pickPhoto;
   document.getElementById("sw-notify").onclick = () => { settings.notifyNew = !settings.notifyNew; document.getElementById("sw-notify").classList.toggle("on", settings.notifyNew); api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { notifyNew: settings.notifyNew } }, (r) => { if (r?.settings) settings = r.settings; }); };
+  document.getElementById("set-autotrack").onchange=e=>{
+    const input=e.currentTarget;input.disabled=true;
+    api.runtime.sendMessage({type:"SET_SETTINGS",patch:{autoTrack:input.checked}},r=>{
+      if(api.runtime.lastError||!r?.settings||r.ok===false){input.checked=settings.autoTrack!==false;toast(settings.lang==="fr"?"Réglage non enregistré":"Setting could not be saved");}
+      else settings=r.settings;
+      input.disabled=false;
+    });
+  };
   const uilang = document.getElementById("set-uilang");
   uilang.onchange = () => applyLanguage(uilang.value);
   const trlang = document.getElementById("set-trlang");
   trlang.onchange = () => { settings.translateLang = trlang.value; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: settings.translateLang } }, (r) => { if (r?.settings) settings = r.settings; }); };
   renderAccountPanel();
+  document.getElementById("complete-metadata").onclick = completeMissingMetadata;
   document.getElementById("export").onclick = doExport;
   document.getElementById("import").onclick = () => document.getElementById("file").click();
   document.getElementById("file").addEventListener("change", doImport);
   document.getElementById("sync-link").onclick = () => api.runtime.openOptionsPage();
   buildShare(document.getElementById("share"));
   buildRateStore(document.getElementById("rate-store"));
-  api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => { void api.runtime.lastError; userPlan = (s && s.plan) || null; const el = document.getElementById("sync-state"); if (s && s.configured && el) el.textContent = s.meta && s.meta.lastError ? "Signed in — sync needs attention" : `Synced as ${s.email || "you"}`; });
+  api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => { void api.runtime.lastError; userPlan = (s && s.plan) || null; const el = document.getElementById("sync-state"); if (s && s.configured && el) el.textContent = s.meta && s.meta.lastError ? "Signed in · sync needs attention" : `Synced as ${s.email || "you"}`; });
 }
 function renderAccountPanel() {
   const el = document.getElementById("account-panel");
@@ -1195,13 +1417,21 @@ function renderAccountPanel() {
     }
     el.innerHTML = `
       <div class="row"><div class="grow"><b>${esc(s.email || "")}</b><small>${t("signedInAs")} · ${esc(s.plan || "free")}</small></div><button class="btn" id="acc-manage">${t("manageSync")}</button></div>
-      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changeEmail")}</b></div><input class="field" id="acc-email" type="email" placeholder="new@email.com" style="max-width:200px" /><button class="btn" id="acc-email-btn">${t("save")}</button></div>
-      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changePassword")}</b></div><input class="field" id="acc-pw-cur" type="password" placeholder="${t("currentPassword")}" style="max-width:150px" /><input class="field" id="acc-pw-new" type="password" placeholder="${t("newPassword")}" style="max-width:150px" /><button class="btn" id="acc-pw-btn">${t("save")}</button></div>`;
+      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changeEmail")}</b></div><input class="field" id="acc-email" type="email" placeholder="new@email.com" style="max-width:200px" /><input class="field" id="acc-email-current" type="password" autocomplete="current-password" placeholder="${t("currentPassword")}" style="max-width:150px" /><button class="btn" id="acc-email-btn">${t("save")}</button></div>
+      <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changePassword")}</b></div><input class="field" id="acc-pw-cur" type="password" placeholder="${t("currentPassword")}" style="max-width:150px" /><input class="field" id="acc-pw-new" type="password" placeholder="${t("newPassword")}" style="max-width:150px" /><button class="btn" id="acc-pw-btn">${t("save")}</button></div>
+      <div class="row"><button class="btn" id="acc-logout-all">${settings.lang==='fr'?'Déconnecter tous les appareils':'Sign out all devices'}</button><button class="btn" id="acc-delete">${settings.lang==='fr'?'Supprimer mon compte':'Delete my account'}</button></div>`;
+    document.getElementById('acc-logout-all').onclick=()=>api.runtime.sendMessage({type:'SYNC_LOGOUT_ALL'},r=>{if(r?.ok){api.runtime.sendMessage({type:'GET_STATE'},hydrate);renderAccountPanel();}else toast(r?.error||'Try again');});
+    document.getElementById('acc-delete').onclick=()=>{
+      const current=document.getElementById('acc-pw-cur').value;
+      if(!current){toast(t('currentPassword'));return;}
+      if(!confirm(settings.lang==='fr'?'Supprimer définitivement ce compte et ses données synchronisées ? Une copie locale sera conservée.':'Permanently delete this account and its synced data? A local copy will be retained.'))return;
+      api.runtime.sendMessage({type:'SYNC_DELETE_ACCOUNT',current},r=>{if(r?.ok){api.runtime.sendMessage({type:'GET_STATE'},hydrate);renderAccountPanel();}else toast(r?.error||'Try again');});
+    };
     document.getElementById("acc-manage").onclick = () => api.runtime.openOptionsPage();
     document.getElementById("acc-email-btn").onclick = () => {
       const v = document.getElementById("acc-email").value.trim();
       if (!v) return;
-      api.runtime.sendMessage({ type: "SYNC_CHANGE_EMAIL", email: v }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changeEmail") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) renderAccountPanel(); });
+      api.runtime.sendMessage({ type: "SYNC_CHANGE_EMAIL", email: v,current:document.getElementById("acc-email-current").value }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changeEmail") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) renderAccountPanel(); });
     };
     document.getElementById("acc-pw-btn").onclick = () => {
       const cur = document.getElementById("acc-pw-cur").value, nw = document.getElementById("acc-pw-new").value;
@@ -1212,7 +1442,7 @@ function renderAccountPanel() {
 }
 function doExport() {
   const blob = new Blob([JSON.stringify({ version: 2, items, sites, notifications, lists, settings }, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `dasi-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);
+  const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `yomu-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);
 }
 // Universal import: accepts one or many files (JSON, CSV, XML, ZIP) from Yomu
 // or other trackers (Trakt, TV Time, IMDb, Letterboxd, MyAnimeList). Parses
@@ -1224,23 +1454,12 @@ async function doImport(e) {
     if (!window.YomuImport) { toast(t("importFailed")); return; }
     toast(t("importing"));
     const res = await window.YomuImport.parseFiles(files);
-    // A full Yomu backup (has sites/lists/settings) restores everything;
-    // anything else is an additive merge of works.
-    const isFullBackup = res.formats.includes("Yomu") && (res.sites || res.lists);
-    if (isFullBackup) {
-      api.runtime.sendMessage({ type: "IMPORT_STATE", payload: { items: res.items, sites: res.sites, lists: res.lists, settings: res.settings } }, () => {
-        api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
-        toast(t("importedN", { n: res.items.length }));
-      });
-      return;
-    }
-    if (!res.count) { toast(t("importNothing")); return; }
-    api.runtime.sendMessage({ type: "IMPORT_MERGE", items: res.items }, (r) => {
-      void api.runtime.lastError;
-      api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
-      const n = (r && (r.added + r.updated)) || res.count;
-      const src = res.formats.length ? " (" + res.formats.join(", ") + ")" : "";
-      toast(t("importedN", { n }) + src);
+    if(res.warnings.length)toast(res.warnings.join(' · '));
+    if (!res.count && !res.lists?.length && !res.sites?.length) { toast(t("importNothing")); return; }
+    api.runtime.sendMessage({type:"IMPORT_MERGE",payload:res}, r=>{
+      if(api.runtime.lastError || !r?.ok){toast(t("importFailed"));return;}
+      api.runtime.sendMessage({type:"GET_STATE"},hydrate);
+      toast(t("importedN",{n:r.added+r.updated})+(res.warnings.length?' · '+res.warnings.join(' · '):''));
     });
   } catch (err) {
     toast(t("importFailed"));
@@ -1259,16 +1478,11 @@ function buildShare(el) {
   sf.onclick = () => openUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(DASI_STORE_URL)}`);
   sw.onclick = () => openUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(SHARE_TEXT + " " + DASI_STORE_URL)}`);
   sr.onclick = () => openUrl(`https://www.reddit.com/submit?url=${encodeURIComponent(DASI_STORE_URL)}&title=${encodeURIComponent(SHARE_TEXT)}`);
-  sc.onclick = () => { try { navigator.clipboard?.writeText(DASI_STORE_URL); } catch {} toast("Link copied"); };
+  sc.onclick = async () => { try { await navigator.clipboard.writeText(DASI_STORE_URL);toast(settings.lang==='fr'?'Lien copié':'Link copied'); } catch {toast(settings.lang==='fr'?'Copie impossible. Réessaie.':'Could not copy. Try again.');} };
 }
 function buildRateStore(el) {
-  if (!el) return;
-  el.innerHTML = [1,2,3,4,5].map((n) => `<span data-v="${n}">${I.star}</span>`).join("");
-  const stars = [...el.querySelectorAll("span")];
-  const paint = (n) => stars.forEach((s, idx) => s.querySelector(".ic").classList.toggle("on", idx < n));
-  stars.forEach((s) => (s.onmouseenter = () => paint(Number(s.dataset.v))));
-  el.onmouseleave = () => paint(0);
-  el.onclick = () => { paint(5); setTimeout(() => openUrl(DASI_STORE_URL), 350); };
+  if(!el)return;
+  el.innerHTML=`<a class="btn" href="${DASI_STORE_URL}" target="_blank" rel="noopener noreferrer">${settings.lang==='fr'?'Voir le projet Yomu':'Open the Yomu project'}</a>`;
 }
 
 /* ================= chrome (header, nav, menus) ================= */
@@ -1342,7 +1556,7 @@ function switchView(v) {
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${v}`));
   document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.v === v));
   if (v === "home") { renderHome(); } else clearInterval(spotTimer);
-  if (v === "library") { if (!currentListId) { document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true; } renderLists(); renderSites(); }
+  if (v === "library") { currentListId = null; if (!currentListId) { document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true; } renderLists(); renderSites(); renderGrid(); }
   if (v === "games") renderGames();
   if (v === "plans") renderPlans();
   if (v === "settings") renderSettings();
@@ -1379,21 +1593,39 @@ document.getElementById("bell").onclick = (e) => {
     if ((notifications || []).some((n) => !n.read)) api.runtime.sendMessage({ type: "NOTIF_READ_ALL" }, (r) => { notifications = r?.notifications || notifications.map((n) => ({ ...n, read: true })); renderBell(); });
   }
 };
-document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("profile-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
+document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); closeMenus(); switchView("settings"); };
 document.getElementById("lang-btn").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("lang-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
 document.getElementById("go-pro").onclick = () => { clearSearchResults(); switchView("plans"); };
 document.addEventListener("click", (e) => { if (!e.target.closest(".top-right")) closeMenus(); if (!e.target.closest(".qa-menu") && !e.target.closest(".quick-add")) closeQuickAdd(); });
-document.getElementById("q").addEventListener("input", (e) => { query = e.target.value; if (view !== "library") switchView("library"); renderGrid(); if (!query) clearSearchResults(); });
+document.getElementById("q").addEventListener("input", (e) => {
+  clearSearchResults(); query = e.target.value; currentListId = null;
+  if (view !== "library") switchView("library");
+  document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true;
+  renderGrid(); const q = query.trim();
+  if (q.length >= 2) {
+    document.getElementById("lib-main").classList.add("searching");
+    document.getElementById("search-results").innerHTML = '<div class="sr-wrap" role="status"><span class="spinner"></span> '+t("searching")+'…</div>';
+    searchTimer = setTimeout(() => catalogSearch(q), 300);
+  }
+});
 document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library") switchView("library"); catalogSearch(query.trim()); } });
 
-function clearSearchResults() { const el = document.getElementById("search-results"); if (el) el.innerHTML = ""; const m = document.getElementById("lib-main"); if (m) m.classList.remove("searching"); }
+let searchVersion = 0, searchTimer = null;
+function clearSearchResults() { searchVersion++; clearTimeout(searchTimer); lastResults = []; const el = document.getElementById("search-results"); if (el) el.innerHTML = ""; const m = document.getElementById("lib-main"); if (m) m.classList.remove("searching"); }
 let srCountry = "all";
 function catalogSearch(q) {
+  clearTimeout(searchTimer);
+  const version = ++searchVersion;
   const el = document.getElementById("search-results");
   const main = document.getElementById("lib-main"); if (main) main.classList.add("searching"); // become a search page
   el.innerHTML = `<div class="sr-wrap"><div class="sr-head"><span class="spinner"></span> ${t("searching")} “${esc(q)}”…</div></div>`;
   api.runtime.sendMessage({ type: "CATALOG_SEARCH", query: q }, (r) => {
-    void api.runtime.lastError;
+    const networkError = api.runtime.lastError;
+    if (version !== searchVersion || view !== "library" || query.trim() !== q) return;
+    if (networkError || !r || !r.ok) {
+      el.innerHTML = `<div class="sr-wrap" role="status"><div class="sr-head">${t("searchTitle")} · “${esc(q)}”</div><p>${settings.lang === "fr" ? "Les catalogues ne répondent pas. Réessaie dans un instant." : "The catalogs could not be reached. Please try again."}</p><button class="btn" id="search-retry">${t("refresh")}</button></div>`;
+      document.getElementById("search-retry").onclick = () => catalogSearch(q); return;
+    }
     if (!r || !r.ok || !r.results || !r.results.length) {
       el.innerHTML = `<div class="sr-wrap"><div class="sr-head">${t("searchTitle")} · “${esc(q)}”</div><p class="sr-empty">${t("noMatch")}</p></div>`;
       return;
@@ -1406,45 +1638,162 @@ function catalogSearch(q) {
 let lastResults = [];
 let srFilter = "all";
 const COUNTRY_LABEL = { JP: "Japan", KR: "Korea", CN: "China", TW: "Taiwan", HK: "Hong Kong", US: "USA", GB: "UK", FR: "France" };
+let searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};
+function resultKind(m) {
+  if(m.type==="game")return "GAME";
+  const format=String(m.format||"").toUpperCase();
+  if(format==="SERIES"&&m.country==="US")return "US_SERIES";
+  return format||String(m.type||"").toUpperCase();
+}
+function publicationState(m) {
+  const status=String(m.releaseStatus||"").toUpperCase();
+  if(["FINISHED","ENDED","FINISHED AIRING","FINISHED PUBLISHING"].includes(status))return "finished";
+  if(["RELEASING","RUNNING","CURRENTLY AIRING","PUBLISHING"].includes(status))return "ongoing";
+  if(["NOT_YET_RELEASED","NOT YET AIRED","NOT YET PUBLISHED","UPCOMING","TO BE ANNOUNCED"].includes(status))return "upcoming";
+  return "unknown";
+}
+function resultYear(m) {
+  const value=m.year||m.seasonYear||m.releaseDate||m.season;
+  const year=String(value||"").match(/(?:19|20|21)\d{2}/);
+  return year?year[0]:"";
+}
+function gamePrice(m) {
+  if(m.isFree===true||/^(free(?: to play)?|gratuit)$/i.test(String(m.price||"").trim()))return 0;
+  if(Number.isFinite(m.priceAmount)&&m.priceCurrency==="USD")return m.priceAmount;
+  const price=String(m.price||"").trim();
+  if(!/^\$[\d,.]+$/.test(price))return null;
+  const value=Number(price.slice(1).replace(/,/g,""));return Number.isFinite(value)?value:null;
+}
+function matchesSearchFacets(m) {
+  const f=searchFacets;
+  if(f.kind!=="all"&&resultKind(m)!==f.kind)return false;
+  if(f.genre!=="all"&&!(m.genres||[]).includes(f.genre))return false;
+  if(f.year&&resultYear(m)!==f.year)return false;
+  if(f.release!=="all"&&publicationState(m)!==f.release)return false;
+  if(f.kind==="GAME"&&f.price<200){const price=gamePrice(m);if(price===null||price>f.price)return false;}
+  return true;
+}
 function renderSearchResults(q) {
-  const el = document.getElementById("search-results");
-  const cats = ["all", ...[...new Set(lastResults.map((m) => catLabel(m)))]];
-  const countries = ["all", ...[...new Set(lastResults.map((m) => m.country).filter(Boolean))]];
-  const shown = lastResults.filter((m) => (srFilter === "all" || catLabel(m) === srFilter) && (srCountry === "all" || m.country === srCountry));
-  el.innerHTML = `<div class="sr-wrap">
-    <div class="sr-head"><b>${t("searchTitle")}</b> · “${esc(q)}” · ${shown.length}/${lastResults.length}</div>
-    <div class="sr-filters">${cats.map((c) => `<button data-srf="${esc(c)}" class="${srFilter === c ? "active" : ""}">${c === "all" ? t("all") : esc(c)}</button>`).join("")}</div>
-    ${countries.length > 1 ? `<div class="sr-filters">${countries.map((c) => `<button data-src="${esc(c)}" class="${srCountry === c ? "active" : ""}">${c === "all" ? t("all") : esc(COUNTRY_LABEL[c] || c)}</button>`).join("")}</div>` : ""}
-    ${shown.length ? shown.map((m) => srRow(m, lastResults.indexOf(m))).join("") : `<p class="sr-empty">${t("noMatch")}</p>`}</div>`;
-  el.querySelectorAll("[data-srf]").forEach((b) => (b.onclick = () => { srFilter = b.dataset.srf; renderSearchResults(q); }));
-  el.querySelectorAll("[data-src]").forEach((b) => (b.onclick = () => { srCountry = b.dataset.src; renderSearchResults(q); }));
-  shown.forEach((m) => { const idx = lastResults.indexOf(m); const btn = el.querySelector(`[data-add-cat="${idx}"]`); if (btn) btn.onclick = () => addFromCatalog(m, btn); });
+  const el=document.getElementById("search-results"),fr=settings.lang==="fr",f=searchFacets;
+  const kinds=[...new Set(lastResults.map(resultKind))].sort();
+  const genres=[...new Set(lastResults.flatMap(m=>m.genres||[]))].sort();
+  const labels={GAME:fr?"Jeux":"Games",MOVIE:fr?"Films":"Films",ANIME:"Anime",MANGA:"Manga",MANHWA:"Manhwa",MANHUA:"Manhua",KDRAMA:"K-drama",CDRAMA:"C-drama",JDRAMA:"J-drama",SERIES:fr?"Séries":"Series",US_SERIES:fr?"Séries américaines":"US series",NOVEL:fr?"Romans":"Novels"};
+  const select=(id,label,values,value)=>'<label>'+label+'<select class="field" id="'+id+'"><option value="all">'+t("all")+'</option>'+values.map(([key,name])=>'<option value="'+esc(key)+'"'+(value===key?' selected':'')+'>'+esc(name)+'</option>').join("")+'</select></label>';
+  const shown=lastResults.filter(matchesSearchFacets);
+  el.innerHTML='<div class="sr-wrap"><div class="sr-head"><b>'+t("searchTitle")+'</b> · '+esc(q)+' · '+shown.length+'/'+lastResults.length+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0">'+
+    select("sf-kind",fr?"Type d’œuvre":"Media type",kinds.map(k=>[k,labels[k]||k]),f.kind)+
+    select("sf-genre",fr?"Genre":"Genre",genres.map(g=>[g,g]),f.genre)+
+    '<label>'+(fr?"Année de sortie":"Release year")+'<input class="field" id="sf-year" type="number" min="1900" max="2199" placeholder="2028" value="'+esc(f.year)+'"></label>'+
+    select("sf-release",fr?"Publication / diffusion":"Publication / airing",[["finished",fr?"Terminée":"Finished"],["ongoing",fr?"En cours":"Ongoing"],["upcoming",fr?"À venir":"Upcoming"],["unknown",fr?"Non renseignée":"Unknown"]],f.release)+
+    '</div>'+(f.kind==="GAME"?'<label>'+(fr?"Prix maximum (USD)":"Maximum price (USD)")+' <output id="sf-price-label">'+(f.price===200?t("all"):f.price===0?(fr?"Gratuit":"Free"):"$"+f.price)+'</output><input id="sf-price" type="range" min="0" max="200" step="5" value="'+f.price+'" style="width:100%"></label>':"")+
+    '<p class="sub">'+(fr?"Filtres appliqués aux résultats reçus. Les dates et états inconnus restent non renseignés.":"Filters apply to the returned results. Unknown dates and publication states remain unspecified.")+'</p><button class="btn" id="sf-reset">'+(fr?"Réinitialiser":"Reset")+'</button>'+
+    (shown.length?shown.map(m=>srRow(m,lastResults.indexOf(m))).join(""):'<p class="sr-empty">'+t("noMatch")+'</p>')+'</div>';
+  for(const [id,key] of [["sf-kind","kind"],["sf-genre","genre"],["sf-year","year"],["sf-release","release"],["sf-price","price"]]){
+    const field=document.getElementById(id);if(!field)continue;
+    field.onchange=()=>{f[key]=key==="price"?Number(field.value):field.value;renderSearchResults(q);document.getElementById(id)?.focus();};
+    if(key==="price")field.oninput=()=>{document.getElementById("sf-price-label").textContent=field.value==="0"?(fr?"Gratuit":"Free"):field.value==="200"?t("all"):"$"+field.value;};
+  }
+  document.getElementById("sf-reset").onclick=()=>{searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};renderSearchResults(q);};
+  el.querySelectorAll("[data-preview]").forEach(button=>button.onclick=()=>openCatalogPreview(lastResults[Number(button.dataset.preview)]));
 }
 function srRow(m, idx) {
   const tags = (m.genres || []).slice(0, 3).map((g) => `<span class="tag">${esc(g)}</span>`).join("");
-  const meta = [m.season, m.price].filter(Boolean).join(" · ");
+  const meta = [resultYear(m)].filter(Boolean).join(" · ");
   return `<div class="sr-row">
-    <div class="sc"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}</div>
-    <div class="si"><b>${esc(m.title)}<span class="cat">${esc(catLabel(m))}</span></b><small>${esc(meta)}${m.synopsis ? (meta ? " — " : "") + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
-    <button class="btn primary" data-add-cat="${idx}">${I.plus} ${t("add")}</button>
+    <button class="sc" data-preview="${idx}" aria-label="${esc(t("details") + ": " + m.title)}"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}</button>
+    <div class="si"><b><button class="link-btn" data-preview="${idx}">${esc(m.title)}</button><span class="cat">${esc(catLabel(m))}</span></b><small>${esc(meta)}${m.synopsis ? (meta ? " · " : "") + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
+    <button class="btn" data-preview="${idx}">${catalogSavedItem(m) ? (settings.lang==="fr"?"Dans la bibliothèque":"In library") : t("details")}</button>
   </div>`;
+}
+function catalogSavedItem(m) {
+  const ids=m.externalIds||{};
+  const compatible=i=>i.type===(m.type||"reading")&&(!i.format||!m.format||String(i.format).toUpperCase()===String(m.format).toUpperCase());
+  const identified=items.filter(i=>compatible(i)&&Object.keys(ids).some(k=>i.externalIds?.[k]&&String(ids[k])===String(i.externalIds[k]))&&!Object.keys(ids).some(k=>i.externalIds?.[k]&&String(ids[k])!==String(i.externalIds[k])));
+  if(identified.length)return identified.length===1?identified[0]:null;
+  const titles=[m.title,...(m.alternativeTitles||[])].map(normTitle);
+  const matches=items.filter(i=>compatible(i)&&[i.title,...(i.alternativeTitles||[])].some(name=>titles.includes(normTitle(name))));
+  return matches.length===1?matches[0]:null;
+}
+function embeddedTrailer(url) {
+  if(!url)return "";
+  try {
+    const parsed=new URL(url);
+    let id="";
+    if(["www.youtube.com","youtube.com","m.youtube.com"].includes(parsed.hostname))id=parsed.searchParams.get("v")||parsed.pathname.split("/").pop();
+    if(parsed.hostname==="youtu.be")id=parsed.pathname.slice(1);
+    if(/^[\w-]{11}$/.test(id))return '<iframe title="'+esc(t("watchTrailer"))+'" style="width:100%;aspect-ratio:16/9;border:0;border-radius:12px" src="https://www.youtube-nocookie.com/embed/'+id+'" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe>';
+    if(parsed.protocol==="https:"&&/\.(mp4|webm)(\?|$)/i.test(url))return '<video controls playsinline preload="metadata" style="width:100%;border-radius:12px" src="'+esc(url)+'"></video>';
+  }catch{}
+  return "";
+}
+function safeStoreLink(value) {
+  try {const url=new URL(value);return url.protocol==="https:"&&["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com"].includes(url.hostname)&&!url.username&&!url.password?url.href:"";}catch{return "";}
+}
+function catalogInformation(m) {
+  const fr=settings.lang==="fr";
+  const tags=[...new Set([...(m.genres||[]),...(m.tags||[])])].filter(x=>typeof x==="string");
+  const store=m.type==="game"?safeStoreLink(m.url):"";
+  const news=Array.isArray(m.news)?m.news.slice(0,8):[];
+  const newsHtml=news.length?'<section class="game-news"><div class="section-t">'+(fr?"Actualités et mises à jour":"News and updates")+'</div>'+news.map(entry=>{
+    const time=Number(entry.publishedAt);
+    const date=Number.isFinite(time)&&time>0?new Date(time).toLocaleDateString(fr?"fr-FR":"en-US",{day:"numeric",month:"short",year:"numeric"}):"";
+    return '<article class="game-news-card"><div class="game-news-meta">'+[entry.category,date].filter(Boolean).map(esc).join(" · ")+'</div><h4>'+esc(entry.title||"")+'</h4>'+(entry.summary?'<p class="synopsis">'+esc(entry.summary)+'</p>':"")+'</article>';
+  }).join("")+'</section>':"";
+  return (tags.length?'<div class="tags">'+tags.map(x=>'<span class="tag">'+esc(x)+'</span>').join("")+'</div>':"")+
+    (m.type==="game"&&m.price?'<p class="detail-price">'+esc(m.price)+'</p>':"")+
+    (store?'<a class="btn" href="'+esc(store)+'" target="_blank" rel="noopener noreferrer">'+esc(gameLinkLabel(m))+' '+I.open+'</a>':"")+
+    (m.synopsis?'<div class="section-t">'+t("synopsis")+'</div><p class="synopsis">'+esc(m.synopsis)+'</p>':"")+
+    ((m.authors||[]).length?'<div class="section-t">'+(fr?"Auteurs":"Creators")+'</div><p>'+m.authors.map(esc).join(" · ")+'</p>':"")+
+    ((m.alternativeTitles||[]).length?'<div class="section-t">'+(fr?"Autres titres":"Alternative titles")+'</div><ul class="synopsis">'+m.alternativeTitles.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>':"")+
+    ((m.cast||[]).length?'<div class="section-t">'+(fr?"Distribution et personnages":"Cast and characters")+'</div><div class="cast-strip scroll-x">'+m.cast.map(c=>'<div class="cast-card"><div class="cast-av">'+(c.image?'<img src="'+esc(c.image)+'" alt="" loading="lazy">':'')+'</div><b>'+esc(c.name)+'</b><small>'+esc(c.character||c.role||"")+'</small></div>').join("")+'</div>':"")+
+    embeddedTrailer(m.trailerUrl||m.trailer)+newsHtml;
+}
+let previewRequest=0;
+function openCatalogPreview(m) {
+  if(!m)return;
+  const saved=catalogSavedItem(m);
+  if(saved){openDrawer(saved.id);return;}
+  const token=++previewRequest;
+  const drawer=document.getElementById("drawer");  delete drawer.dataset.itemId;
+  const fr=settings.lang==="fr";
+  drawer.innerHTML='<div class="drawer-hero"><button id="preview-close" class="icon-btn drawer-close" aria-label="'+esc(t("close")||"Close")+'">'+I.close+'</button><div class="drawer-cover"><span class="cover-ph">'+esc((m.title||"?")[0])+'</span>'+covImg(m.cover,m.coverFallback)+'</div><h2 class="drawer-title">'+esc(m.title)+'</h2><p>'+esc([catLabel(m),m.country,m.year||m.season].filter(Boolean).join(" · "))+'</p></div><div class="drawer-body"><div id="preview-info">'+catalogInformation(m)+'</div><p class="sub" id="preview-status" role="status">'+(fr?"Chargement de la fiche":"Loading details")+'</p><div class="preview-actions"><label for="preview-list">'+(fr?"Choisir une liste":"Choose a list")+'</label><select id="preview-list" class="field"><option value="">'+(fr?"Sélectionner une liste":"Select a list")+'</option>'+lists.filter(l=>!l.archived).map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join("")+'<option value="__new">'+(fr?"Créer une liste":"Create a list")+'</option></select><input id="preview-list-name" class="field" hidden placeholder="'+(fr?"Nom de la liste":"List name")+'"><button class="btn primary" id="preview-add" disabled>'+(fr?"Ajouter à cette liste":"Add to this list")+'</button></div></div>';
+  drawer.setAttribute("role","dialog");drawer.setAttribute("aria-modal","true");drawer.setAttribute("aria-label",m.title);
+  drawer.classList.add("open");document.getElementById("scrim").classList.add("open");
+  document.getElementById("preview-close").onclick=closeDrawer;
+  const select=document.getElementById("preview-list"),name=document.getElementById("preview-list-name"),button=document.getElementById("preview-add");
+  const selection=()=>{name.hidden=select.value!=="__new";button.disabled=!select.value||(select.value==="__new"&&!name.value.trim());};
+  select.onchange=selection;name.oninput=selection;
+  button.onclick=()=>addFromCatalog({...m,listId:select.value==="__new"?undefined:select.value,listName:select.value==="__new"?name.value.trim():undefined},button);
+  document.getElementById("preview-close").focus();
+  api.runtime.sendMessage({type:"CATALOG_DETAIL",item:m},r=>{
+    if(token!==previewRequest||!drawer.classList.contains("open")||drawer.dataset.itemId)return;
+    const status=document.getElementById("preview-status");
+    if(api.runtime.lastError||!r?.ok){if(status)status.textContent=fr?"Les informations supplémentaires sont indisponibles pour le moment.":"Additional details are unavailable at the moment.";return;}
+    if(r.item)Object.assign(m,r.item);
+    document.getElementById("preview-info").innerHTML=catalogInformation(m);
+    enhanceCarousels("#preview-info");
+    if(status)status.textContent="";
+  });
 }
 function addFromCatalog(m, btn) {
   const payload = {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, coverFallback: m.coverFallback || undefined, synopsis: m.synopsis || undefined,
-    genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? m.season : undefined,
+    trailerUrl:m.trailerUrl, trailer:m.trailer, cast:m.cast, genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds, alternativeTitles:m.alternativeTitles, authors:m.authors, anilistId:m.anilistId,
     format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
   };
   if (btn) { btn.disabled = true; btn.innerHTML = I.check; }
-  api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload }, () => {
+  api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload, listId: m.listId || undefined, listName:m.listName || undefined }, (saved) => {
+    if (api.runtime.lastError || !saved || saved.ok === false) { if(btn){btn.disabled=false;btn.innerHTML=I.plus+" "+t("add");} toast(settings.lang === "fr" ? "Sauvegarde impossible. Réessaie." : "Could not save. Try again."); return; }
     api.runtime.sendMessage({ type: "GET_STATE" }, (s) => {
+      query="";filter="all";document.getElementById("q").value="";clearSearchResults();
       hydrate(s);
+      switchView(m.type==="game"?"games":"library");
       toast(m.title + " ✓");
       // Open the work's card so the user sees it was added and can set progress
       // and pick a list right away (no "added into the void").
       const key = normTitle(m.title);
-      const it = items.find((x) => normTitle(x.title) === key);
+      const it = items.find((x) => x.id === saved.item?.id) || items.find((x) => normTitle(x.title) === key);
       if (it) openDrawer(it.id);
     });
   });
@@ -1475,3 +1824,64 @@ function hydrate(state) {
   if (!discoverTried) loadDiscover(false);
 }
 api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
+// Background metadata lookups finish after an import. Refresh the open library
+// as storage changes so covers and episode totals appear without a page reload.
+let storageRefresh = 0;
+api.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !changes["dasi.items"]) return;
+  const change = changes["dasi.items"];
+  const before = new Map((change.oldValue || []).map(item => [item.id, [item.enrichedAt,item.releaseCheckedAt].join(":")]));
+  if (!(change.newValue || []).some(item => (item.enrichedAt||item.releaseCheckedAt) && before.get(item.id) !== [item.enrichedAt,item.releaseCheckedAt].join(":"))) return;
+  clearTimeout(storageRefresh);
+  storageRefresh = setTimeout(() => api.runtime.sendMessage({ type: "GET_STATE" }, state => {
+    if (api.runtime.lastError || !Array.isArray(state?.items)) return;
+    items = state.items;
+    if (Array.isArray(state.lists)) lists = state.lists;
+    // Preserve selected list rows, open editors, profile and navigation state.
+    renderGrid();
+    renderStats();
+    if (view === "home" && !currentListId) renderHome();
+    if (view === "games" && !document.querySelector("#game-form input")) renderGames();
+  }), 120);
+});
+
+document.addEventListener("load", (event) => { const im=event.target; if(im instanceof HTMLImageElement && im.matches("img.cov")) im.classList.toggle("landscape", im.naturalWidth > im.naturalHeight * 1.2); }, true);
+
+let completingMetadata = false;
+async function completeMissingMetadata() {
+  if (completingMetadata) return;
+  completingMetadata = true;
+  const button = document.getElementById("complete-metadata");
+  const label = document.getElementById("metadata-status");
+  const fr = settings.lang === "fr";
+  const candidates = items.filter(item => !coverUrl(item) || !item.synopsis || ["reading","watching"].includes(item.type));
+  let checked = 0, matched = 0, merged = 0;
+  const mergedIds = new Set();
+  if (button) button.disabled = true;
+  try {
+    for (const item of candidates) {
+      if (!button?.isConnected) break;
+      if (mergedIds.has(item.id)) {checked++;continue;}
+      if (label) label.textContent = (fr ? "Recherche " : "Checking ") + (checked + 1) + "/" + candidates.length;
+      const response = await new Promise((resolve, reject) => api.runtime.sendMessage({type:"COMPLETE_ITEM_METADATA",id:item.id}, result => {
+        if (api.runtime.lastError || !result?.ok) reject(new Error(result?.error || "metadata_unavailable"));
+        else resolve(result);
+      }));
+      checked++;
+      if (response.matched) matched++;
+      for (const id of response.mergedIds || []) mergedIds.add(id);
+      merged += (response.mergedIds || []).length;
+      if (response.item) items = items.filter(saved => !mergedIds.has(saved.id)).map(saved => saved.id === response.item.id ? response.item : saved);
+      if (response.lists) lists = response.lists;
+    }
+    if (label) label.textContent = fr ? checked + " fiches vérifiées · " + matched + " complétées · " + merged + " doublons regroupés. Les correspondances incertaines restent inchangées." : checked + " checked · " + matched + " completed · " + merged + " duplicates combined. Uncertain matches are left unchanged.";
+  } catch {
+    if (label) label.textContent = fr ? "Recherche interrompue. Les résultats enregistrés sont conservés ; tu peux réessayer." : "Search interrupted. Saved results are retained; you can retry.";
+  } finally {
+    completingMetadata = false;
+    if (button) button.disabled = false;
+  }
+}
+
+// Refresh visible discovery as its provider cache expires.
+setInterval(()=>{if(document.visibilityState==="visible"&&(view==="home"||view==="games"))loadDiscover(false);},30*60*1000);
