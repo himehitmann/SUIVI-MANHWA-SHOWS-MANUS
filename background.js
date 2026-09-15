@@ -959,7 +959,8 @@ async function steamDiscover() {
   const hot = hotR.status === "fulfilled" ? steamGames(hotR.value, false) : [];
   return { soon, hot };
 }
-// Live-action drama/series discovery (keyless, via TVMaze). Split by country soasync function tvmazeTrending() {
+// Live-action drama/series discovery (keyless, via TVMaze). Split by country sources.
+async function tvmazeTrending() {
   const dates=[0,1,2,3,4,5,6].map(n=>new Date(Date.now()-n*86400000).toISOString().slice(0,10));
   const pages=await Promise.allSettled(dates.flatMap(date=>["https://api.tvmaze.com/schedule?country=US&date=","https://api.tvmaze.com/schedule/web?date="].map(base=>fetchRemote(base+date).then(r=>r.ok?r.json():[]))));
   const shows=new Map();
