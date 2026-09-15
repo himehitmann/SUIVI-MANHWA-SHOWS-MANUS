@@ -142,6 +142,28 @@ try {
   page.on("pageerror", e => errors.push(e.message));
   await page.goto(base + "library.html");
   await page.locator("#avatar").waitFor();
+  // Home cards must open their own details, preserve artwork ratios and hide idle arrows.
+  await worker.evaluate(cover=>{
+    getDiscover=async()=>({manga:[{title:"Home fixture",type:"reading",format:"MANGA",cover,genres:["Adventure"],synopsis:"Home preview"}],anime:[],manhwa:[],manhua:[],series:[],gamesHot:[],gamesSoon:[]});
+    catalogDetail=async item=>item;
+  },dataUrl);
+  await page.evaluate(()=>loadDiscover(true));
+  await page.locator('#view-home [data-preview-disco]').first().waitFor();
+  await page.waitForFunction(()=>{const im=document.querySelector('#view-home .disco img.cov');return im&&im.complete&&im.naturalWidth>0;});
+  const artRatio=await page.locator('#view-home .disco img.cov').first().evaluate(im=>({rendered:im.clientWidth/im.clientHeight,native:im.naturalWidth/im.naturalHeight,frameHeight:im.parentElement.clientHeight,height:im.clientHeight}));
+  assert(Math.abs(artRatio.rendered-artRatio.native)<0.02,"Discovery artwork distorted");
+  assert(Math.abs(artRatio.frameHeight-artRatio.height)<2,"Artificial bands around discovery artwork");
+  assert.equal(await page.locator('#view-home .carousel-arrow:visible').count(),0,"Arrows shown without overflowing content");
+  await page.locator('#view-home [data-preview-disco]').first().click();
+  await page.locator('#preview-close').waitFor();
+  assert.equal(await page.locator('#drawer .drawer-title').innerText(),"Home fixture");
+  await page.locator('#preview-close').click();
+  await page.locator('[data-home-category="manga"]').click();
+  await page.waitForFunction(()=>!document.querySelector('#view-home .disco'));
+  await page.locator('[data-home-category="manga"]').click();
+  await page.locator('#view-home .disco').waitFor();
+  await page.screenshot({path:path.join(artifactDir,"home-discovery.png")});
+
   await page.locator("#q").fill("old");
   await page.waitForTimeout(350);
   await page.locator("#q").fill("Aniimo");
