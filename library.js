@@ -1720,6 +1720,12 @@ function catalogInformation(m) {
   const fr=settings.lang==="fr";
   const tags=[...new Set([...(m.genres||[]),...(m.tags||[])])].filter(x=>typeof x==="string");
   const store=m.type==="game"?safeStoreLink(m.url):"";
+  const news=Array.isArray(m.news)?m.news.slice(0,8):[];
+  const newsHtml=news.length?'<section class="game-news"><div class="section-t">'+(fr?"Actualités et mises à jour":"News and updates")+'</div>'+news.map(entry=>{
+    const time=Number(entry.publishedAt);
+    const date=Number.isFinite(time)&&time>0?new Date(time).toLocaleDateString(fr?"fr-FR":"en-US",{day:"numeric",month:"short",year:"numeric"}):"";
+    return '<article class="game-news-card"><div class="game-news-meta">'+[entry.category,date].filter(Boolean).map(esc).join(" · ")+'</div><h4>'+esc(entry.title||"")+'</h4>'+(entry.summary?'<p class="synopsis">'+esc(entry.summary)+'</p>':"")+'</article>';
+  }).join("")+'</section>':"";
   return (tags.length?'<div class="tags">'+tags.map(x=>'<span class="tag">'+esc(x)+'</span>').join("")+'</div>':"")+
     (m.type==="game"&&m.price?'<p class="detail-price">'+esc(m.price)+'</p>':"")+
     (store?'<a class="btn" href="'+esc(store)+'" target="_blank" rel="noopener noreferrer">'+esc(gameLinkLabel(m))+' '+I.open+'</a>':"")+
@@ -1727,7 +1733,7 @@ function catalogInformation(m) {
     ((m.authors||[]).length?'<div class="section-t">'+(fr?"Auteurs":"Creators")+'</div><p>'+m.authors.map(esc).join(" · ")+'</p>':"")+
     ((m.alternativeTitles||[]).length?'<div class="section-t">'+(fr?"Autres titres":"Alternative titles")+'</div><ul class="synopsis">'+m.alternativeTitles.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>':"")+
     ((m.cast||[]).length?'<div class="section-t">'+(fr?"Distribution et personnages":"Cast and characters")+'</div><div class="cast-strip scroll-x">'+m.cast.map(c=>'<div class="cast-card"><div class="cast-av">'+(c.image?'<img src="'+esc(c.image)+'" alt="" loading="lazy">':'')+'</div><b>'+esc(c.name)+'</b><small>'+esc(c.character||c.role||"")+'</small></div>').join("")+'</div>':"")+
-    embeddedTrailer(m.trailerUrl||m.trailer);
+    embeddedTrailer(m.trailerUrl||m.trailer)+newsHtml;
 }
 let previewRequest=0;
 function openCatalogPreview(m) {
@@ -1735,8 +1741,7 @@ function openCatalogPreview(m) {
   const saved=catalogSavedItem(m);
   if(saved){openDrawer(saved.id);return;}
   const token=++previewRequest;
-  const drawer=document.getElementById("drawer");
-  delete drawer.dataset.itemId;
+  const drawer=document.getElementById("drawer");  delete drawer.dataset.itemId;
   const fr=settings.lang==="fr";
   drawer.innerHTML='<div class="drawer-hero"><button id="preview-close" class="icon-btn drawer-close" aria-label="'+esc(t("close")||"Close")+'">'+I.close+'</button><div class="drawer-cover"><span class="cover-ph">'+esc((m.title||"?")[0])+'</span>'+covImg(m.cover,m.coverFallback)+'</div><h2 class="drawer-title">'+esc(m.title)+'</h2><p>'+esc([catLabel(m),m.country,m.year||m.season].filter(Boolean).join(" · "))+'</p></div><div class="drawer-body"><div id="preview-info">'+catalogInformation(m)+'</div><p class="sub" id="preview-status" role="status">'+(fr?"Chargement de la fiche":"Loading details")+'</p><div class="preview-actions"><label for="preview-list">'+(fr?"Choisir une liste":"Choose a list")+'</label><select id="preview-list" class="field"><option value="">'+(fr?"Sélectionner une liste":"Select a list")+'</option>'+lists.filter(l=>!l.archived).map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join("")+'<option value="__new">'+(fr?"Créer une liste":"Create a list")+'</option></select><input id="preview-list-name" class="field" hidden placeholder="'+(fr?"Nom de la liste":"List name")+'"><button class="btn primary" id="preview-add" disabled>'+(fr?"Ajouter à cette liste":"Add to this list")+'</button></div></div>';
   drawer.setAttribute("role","dialog");drawer.setAttribute("aria-modal","true");drawer.setAttribute("aria-label",m.title);

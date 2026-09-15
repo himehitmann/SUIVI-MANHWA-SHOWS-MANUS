@@ -919,9 +919,26 @@ function steamGames(list, soon) {
 // Genres/tags + a proper description for one Steam app (lazy: only when a game
 // fiche is opened without tags). Keyless appdetails endpoint.
 function steamAppId(url) { const m = String(url || "").match(/\/app\/(\d+)/); return m ? m[1] : ""; }
+async function steamNews(appid) {
+  const url = `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appid}&count=8&maxlength=500&format=json`;
+  const res = await fetchRemote(url);
+  if (!res.ok) throw new Error(`steam_news_${res.status}`);
+  const data = await res.json();
+  return (data?.appnews?.newsitems || []).filter((entry) => entry?.title).slice(0, 8).map((entry) => ({
+    id: String(entry.gid || entry.url || entry.title),
+    title: String(entry.title).trim(),
+    author: String(entry.author || "").trim(),
+    summary: stripHtml(entry.contents || "").slice(0, 500),
+    publishedAt: Number(entry.date || 0) * 1000 || undefined,
+    category: String(entry.feedlabel || "").trim(),
+  }));
+}
 async function steamAppDetails(appid) {
   const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&filters=basic,genres,release_date,movies`;
-  const res = await fetchRemote(url);
+  const [res, news] = await Promise.all([
+    fetchRemote(url),
+    steamNews(appid).catch(() => []),
+  ]);
   if (!res.ok) throw new Error(`steam_details_${res.status}`);
   const data = await res.json();
   const d = data && data[appid] && data[appid].success && data[appid].data;
@@ -933,6 +950,7 @@ async function steamAppDetails(appid) {
     cover:d.header_image||undefined,
     trailer: d.movies?.find(m=>m.mp4?.max||m.webm?.max)?.mp4?.max || d.movies?.find(m=>m.webm?.max)?.webm?.max,
     comingSoon: typeof d.release_date?.coming_soon === "boolean" ? d.release_date.coming_soon : undefined,
+    news,
   };
 }
 async function steamDiscover() {
@@ -941,9 +959,7 @@ async function steamDiscover() {
   const hot = hotR.status === "fulfilled" ? steamGames(hotR.value, false) : [];
   return { soon, hot };
 }
-// Live-action drama/series discovery (keyless, via TVMaze). Split by country so
-// the Home can offer K-Drama / C-Drama / J-Drama / Series tabs like Webtoon.
-async function tvmazeTrending() {
+// Live-action drama/series discovery (keyless, via TVMaze). Split by country soasync function tvmazeTrending() {
   const dates=[0,1,2,3,4,5,6].map(n=>new Date(Date.now()-n*86400000).toISOString().slice(0,10));
   const pages=await Promise.allSettled(dates.flatMap(date=>["https://api.tvmaze.com/schedule?country=US&date=","https://api.tvmaze.com/schedule/web?date="].map(base=>fetchRemote(base+date).then(r=>r.ok?r.json():[]))));
   const shows=new Map();
