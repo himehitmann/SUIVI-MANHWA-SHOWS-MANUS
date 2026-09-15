@@ -765,3 +765,42 @@ describe("independent manga catalog fallback",()=>{
     expect(item.chapter).toBeUndefined();
   });
 });
+
+describe("game news notifications",()=>{
+  const now=1700000000000;
+  const news=[{id:"patch",title:"Patch 2.0",publishedAt:now-1000},{id:"event",title:"Summer festival",publishedAt:now-2000},{id:"reward",title:"Twitch drops rewards",publishedAt:now-3000}];
+  it("establishes a silent baseline and respects global and per-game mute",()=>{
+    const w=worker();w.ctx.news=news;w.ctx.now=now;
+    expect(w.run("freshGameNews({},news,{},now)")).toEqual([]);
+    expect(w.run("freshGameNews({gameNewsCheckedAt:now-5000,notifyUpdates:false},news,{},now)")).toEqual([]);
+    expect(w.run("freshGameNews({gameNewsCheckedAt:now-5000},news,{notifyNew:false},now)")).toEqual([]);
+  });
+  it("honors each category independently",()=>{
+    const w=worker();w.ctx.news=news;w.ctx.now=now;
+    expect(w.run("freshGameNews({gameNewsCheckedAt:now-5000,notifyGameUpdates:false,notifyGameRewards:false},news,{},now).map(n=>n.id)")).toEqual(["event"]);
+    expect(w.run("freshGameNews({gameNewsCheckedAt:now-5000,notifyGameEvents:false},news,{},now).map(n=>n.id)")).toEqual(["patch","reward"]);
+  });
+  it("rejects duplicates, historical posts, future dates and invalid dates",()=>{
+    const w=worker();w.ctx.now=now;
+    w.ctx.news=[...news,news[0],{id:"old",publishedAt:now-8*86400000},{id:"future",publishedAt:now+1},{id:"invalid",publishedAt:"bad"}];
+    expect(w.run("freshGameNews({gameNewsCheckedAt:now-9*86400000,gameNewsSeenIds:['event']},news,{},now).map(n=>n.id)")).toEqual(["patch","reward"]);
+  });
+  it("persists a notification and the seen state together and does not repeat it",async()=>{
+    const checked=Date.now()-7*3600000;
+    const w=worker({"dasi.items":[{id:"game",title:"Game",type:"game",released:true,url:"https://store.steampowered.com/app/123/",gameNewsCheckedAt:checked}],"dasi.settings":{notifyNew:true}});
+    w.ctx.news=[{id:"new",title:"Patch 2",publishedAt:Date.now()-1000}];
+    w.run("steamNews=async()=>news");
+    await w.run("checkGameNewsOnce()");
+    expect(w.data["dasi.notifications"]).toHaveLength(1);
+    expect(w.data["dasi.items"][0].gameNewsSeenIds).toContain("new");
+    await w.run("checkGameNewsOnce()");
+    expect(w.data["dasi.notifications"]).toHaveLength(1);
+  });
+  it("does not advance the baseline when Steam fails",async()=>{
+    const w=worker({"dasi.items":[{id:"game",title:"Game",type:"game",released:true,url:"https://store.steampowered.com/app/123/"}]});
+    w.run("steamNews=async()=>{throw Error('offline')}");
+    await w.run("checkGameNewsOnce()");
+    expect(w.data["dasi.items"][0].gameNewsCheckedAt).toBeUndefined();
+    expect(w.data["dasi.notifications"]).toBeUndefined();
+  });
+});
