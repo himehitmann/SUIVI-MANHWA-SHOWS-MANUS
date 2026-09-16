@@ -10,6 +10,7 @@ const required = [
   "content.js",
   "edition.js",
   "translate.js",
+  "auto-translation.js",
   "popup.html",
   "popup.js",
   "options.html",
