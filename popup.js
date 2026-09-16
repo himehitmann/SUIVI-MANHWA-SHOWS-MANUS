@@ -246,8 +246,7 @@ $("#sh-cp").onclick = () => {
 /*
  * One-click page translation. Pick a target language and Yomu translates the
  * current page's text in place (optional, best-effort; revert from the on-page
- * pill). Free plan is metered to 5 pages/day; Pro/Lifetime and the owner build
- * are unlimited.
+ * pill). Provider quotas and configured account access apply.
  */
 const TR_LANGS = [
   ["en", "English"], ["fr", "Français"], ["es", "Español"], ["de", "Deutsch"], ["it", "Italiano"],
@@ -267,7 +266,7 @@ TR_LANGS.forEach(([code, name]) => { const o = document.createElement("option");
 
 // Source language for image (OCR) translation. "Auto" guesses from the site.
 const trSrc = $("#tr-src");
-const SRC_LANGS = [["", "Auto"], ["kor", "Korean"], ["jpn", "Japanese"], ["chs", "Chinese"], ["eng", "English"]];
+const SRC_LANGS = [["", "Auto"], ["kor", "Korean"], ["jpn", "Japanese"], ["chi_sim", "Chinese"], ["eng", "English"], ["fra", "French"]];
 SRC_LANGS.forEach(([code, name]) => { const o = document.createElement("option"); o.value = code; o.textContent = name; trSrc.appendChild(o); });
 trSrc.onchange = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateSrc: trSrc.value } }, () => void api.runtime.lastError);
 
@@ -280,6 +279,23 @@ api.runtime.sendMessage({ type: "GET_STATE" }, (state) => {
   renderLists();
 });
 
+
+let translationPageUrl='',translationOrigins=[],autoRule=null;
+const trAuto=$('#tr-auto');
+api.tabs.query({active:true,currentWindow:true}).then(async tabs=>{
+ const tab=tabs[0];if(!tab?.id||!/^https:///.test(tab.url||''))return;
+ translationPageUrl=tab.url;translationOrigins=[new URL(tab.url).origin+'/*'];
+ try{const result=await api.scripting.executeScript({target:{tabId:tab.id},func:()=>[...new Set([...document.images].filter(im=>{const r=im.getBoundingClientRect();return r.width>=180&&(r.height>=200||im.naturalHeight>=260);}).map(im=>{try{return new URL(im.currentSrc||im.src).origin;}catch{return '';}}))].slice(0,12)});for(const origin of result[0]?.result||[])if(/^https://[a-z0-9.-]+$/i.test(origin)&&!translationOrigins.includes(origin+'/*'))translationOrigins.push(origin+'/*');}catch{}
+ api.runtime.sendMessage({type:'GET_TRANSLATION_RULE',url:translationPageUrl},r=>{void api.runtime.lastError;if(!r?.ok)return;autoRule=r.rule;trAuto.disabled=false;trAuto.checked=!!r.rule.enabled;if(r.rule.enabled){trSel.value=r.rule.target;trSrc.value=r.rule.source;}if(r.status==='permission_required')$('#tr-status').textContent='Automatic translation is paused. Allow access to this site to resume.';});
+}).catch(()=>{});
+function saveTranslationRule(enabled){
+ const send=()=>api.runtime.sendMessage({type:'SET_TRANSLATION_RULE',url:translationPageUrl,enabled,target:trSel.value,source:trSrc.value},r=>{void api.runtime.lastError;trAuto.disabled=false;if(!r?.ok){trAuto.checked=!!autoRule?.enabled;$('#tr-status').textContent='Could not save automatic translation. Check site permission and retry.';return;}autoRule={enabled,target:trSel.value,source:trSrc.value};trAuto.checked=enabled;$('#tr-status').textContent=r.unconfirmed||r.status==='saved_application_unconfirmed'?'Setting saved. Reload the page if its translation state has not changed.':enabled?'Automatic translation is on for this site.':'Automatic translation is off for this site.';});
+ trAuto.disabled=true;if(!enabled){send();return;}api.permissions.request({origins:translationOrigins},granted=>{const failed=api.runtime.lastError;if(granted&&!failed)send();else{trAuto.disabled=false;trAuto.checked=!!autoRule?.enabled;$('#tr-status').textContent='Access was not granted. Automatic translation remains unchanged.';}});
+}
+trAuto.addEventListener('change',()=>saveTranslationRule(trAuto.checked));
+for(const select of [trSel,trSrc])select.addEventListener('change',()=>{if(trAuto.checked)saveTranslationRule(true);});
+$('#tr-stop').onclick=()=>api.runtime.sendMessage({type:'STOP_TRANSLATION'},r=>{void api.runtime.lastError;$('#tr-status').textContent=r?.ok?'Original page restored. Turn off the site switch to stop on future pages.':'Nothing to restore, or this page is no longer accessible.';});
+
 trSel.onchange = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: trSel.value } }, () => void api.runtime.lastError);
 
 $("#tr-go").onclick = () => {
@@ -290,14 +306,14 @@ $("#tr-go").onclick = () => {
   // Manga/webtoon panels are images; translating them (OCR) needs to fetch the
   // panel from its site. Ask once for that access — text pages don't need it,
   // so denying still lets text translation work.
-  const go = (imagesAllowed = true) => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang, src: "" }, (r) => {
+  const go = (imagesAllowed = true) => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang, src: trSrc.value }, (r) => {
     void api.runtime.lastError;
     $("#tr-go").disabled = false;
     if (r && r.ok) { $("#tr-status").textContent = imagesAllowed ? "Translation started — follow progress on the page." : "Page translation started. Image access was denied; allow it to translate speech bubbles."; }
     else $("#tr-status").textContent = r && r.error === "restricted_page" ? "Can't translate this page." : "Translation unavailable here.";
   });
   try {
-    api.permissions.request({ origins: ["<all_urls>"] }, granted => { const error = api.runtime.lastError; go(!!granted && !error); });
+    api.permissions.request({ origins: translationOrigins }, granted => { const error = api.runtime.lastError; go(!!granted && !error); });
   } catch {
     go(false);
   }
