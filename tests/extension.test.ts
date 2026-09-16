@@ -882,3 +882,107 @@ describe("series episode guide",()=>{
   });
 });
 
+
+describe("consistent catalog identities and automatic progress",()=>{
+  it("accepts confirmed catalog identity despite release-year and comic subtype drift",async()=>{
+    const w=worker({"dasi.items":[{...book("Titre français"),id:"original",format:"MANGA",year:2020,chapter:6,externalIds:{anilist:"123"}}]});
+    const r=await w.save(book("English title",{format:"MANHWA",year:2021,chapter:7,externalIds:{anilist:"123"}}));
+    expect(w.data["dasi.items"]).toHaveLength(1);expect(r.item.id).toBe("original");expect(r.item.chapter).toBe(7);
+  });
+  it("rejects bridges and conflicting provider mappings before alias fallback",()=>{
+    const w=worker();
+    expect(w.run('findIdentity([{id:"a",title:"A",type:"reading",externalIds:{anilist:"1",mal:"10"}},{id:"b",title:"B",type:"reading",externalIds:{anilist:"2",mal:"20"}}],{title:"A",type:"reading",externalIds:{anilist:"1",mal:"20"}})')).toBeNull();
+    expect(w.run('sameIdentity({title:"A",type:"reading",externalIds:{anilist:"1",mal:"10"}},{title:"A",type:"reading",externalIds:{anilist:"2",mal:"10"}})')).toBe(false);
+  });
+  it("keeps movie and series adaptations separate despite a malformed shared ID",()=>{
+    const w=worker();
+    expect(w.run('sameIdentity({title:"Same",type:"watching",format:"MOVIE",externalIds:{tmdb:"1"}},{title:"Same",type:"watching",format:"SERIES",externalIds:{tmdb:"1"}})')).toBe(false);
+  });
+  it("requires creator corroboration for fuzzy titles and never matches by author alone",()=>{
+    const w=worker();
+    expect(w.run('findIdentity([{id:"a",title:"The Long Adventure",type:"reading"}],{title:"The Long Adventur",type:"reading"})')).toBeNull();
+    expect(w.run('findIdentity([{id:"a",title:"The Long Adventure",type:"reading",authors:["Émile Auteur"]}],{title:"The Long Adventur",type:"reading",authors:["Emile Auteur"]}).id')).toBe("a");
+    expect(w.run('findIdentity([{id:"a",title:"One Story",type:"reading",authors:["Creator"]}],{title:"Another World",type:"reading",authors:["Creator"]})')).toBeNull();
+  });
+  it("keeps numbered parts separate when no catalog identity confirms a match",()=>{
+    const w=worker();
+    expect(w.run('sameIdentity({title:"Adventure Part 1",type:"reading"},{title:"Adventure Part 2",type:"reading"})')).toBe(false);
+    expect(w.run('sameIdentity({title:"Adventure",type:"reading"},{title:"Adventure Part 2",type:"reading"})')).toBe(false);
+  });
+  it("corroborates ambiguous aliases with a matching creator",()=>{
+    const w=worker();
+    expect(w.run('findIdentity([{id:"a",title:"One",alternativeTitles:["Shared"],authors:["First"],type:"reading"},{id:"b",title:"Two",alternativeTitles:["Shared"],authors:["Second"],type:"reading"}],{title:"Shared",type:"reading",authors:["Second"]}).id')).toBe("b");
+  });
+  it("preserves the full viewing context when an overview contains zero progress",async()=>{
+    const existing={...book("Series"),id:"series",type:"watching",season:3,episode:8,position:120,duration:900,total:12,progress:13,activityAt:10,state:"on_hold",status:"in_progress",url:"https://reader.example/s3/e8"};
+    const w=worker({"dasi.items":[existing]});
+    const r=await w.save(book("Series",{type:"watching",season:1,episode:0,total:6,url:"https://catalog.example/series",synopsis:"Added summary"}));
+    expect(r.conflict).toBe(false);
+    expect(r.item).toMatchObject({season:3,episode:8,position:120,duration:900,total:12,progress:13,activityAt:10,state:"on_hold",url:existing.url,synopsis:"Added summary"});
+    expect(r.item.sourceUrls).toEqual(expect.arrayContaining([existing.url,"https://catalog.example/series"]));
+  });
+  it("preserves decimal chapter progress and allows an explicit manual reset",async()=>{
+    const w=worker();await w.save(book("Chapter fractions",{chapter:12.5,page:8}));
+    await w.save(book("Chapter fractions",{chapter:0}));expect(w.data["dasi.items"][0]).toMatchObject({chapter:12.5,page:8});
+    await w.save(book("Chapter fractions",{chapter:12.75}));expect(w.data["dasi.items"][0].chapter).toBe(12.75);expect(w.data["dasi.items"][0].page).toBeUndefined();
+    await w.call({type:"UPDATE_ITEM",id:"chapter-fractions",patch:{chapter:0,page:0}});expect(w.data["dasi.items"][0].chapter).toBe(0);
+  });
+  it("updates translated automatic playback without a network lookup or duplicate",async()=>{
+    const w=worker({"dasi.items":[{...book("Titre français"),id:"saved",type:"watching",alternativeTitles:["English title"],season:3,episode:8,position:120,duration:900,total:12}]});
+    const r=await w.call({type:"VIDEO_PROGRESS",payload:{title:"English title",type:"watching",position:180,duration:900,confidence:.95}});
+    expect(r.item).toMatchObject({id:"saved",season:3,episode:8,position:180,total:12});expect(w.data["dasi.items"]).toHaveLength(1);
+  });
+  it("advances an episode without retaining the previous playback position",async()=>{
+    const w=worker({"dasi.items":[{...book("Series"),id:"series",type:"watching",season:3,episode:8,position:700,duration:900,total:12,progress:78}]});
+    const r=await w.save(book("Series",{type:"watching",episode:9}));
+    expect(r.item).toMatchObject({season:3,episode:9,total:12,progress:0});expect(r.item.position).toBeUndefined();expect(r.item.duration).toBeUndefined();
+  });
+  it("advances seasons without carrying the old episode total or timestamp",async()=>{
+    const w=worker({"dasi.items":[{...book("Series"),id:"series",type:"watching",season:3,episode:8,position:700,duration:900,total:12}]});
+    const r=await w.save(book("Series",{type:"watching",season:4,episode:1}));
+    expect(r.item).toMatchObject({season:4,episode:1});expect(r.item.total).toBeUndefined();expect(r.item.position).toBeUndefined();
+  });
+  it("keeps historical progress when a metadata total is lower",async()=>{
+    const w=worker({"dasi.items":[{...book("Manga"),id:"manga",chapter:8,total:12}]});
+    const r=await w.save(book("Manga",{chapter:0,total:6}));expect(r.item).toMatchObject({chapter:8,total:12});
+  });
+  it("does not automatically track ambiguous or conflicting identities",async()=>{
+    const w=worker({"dasi.items":[{...book("One"),id:"a",type:"watching",alternativeTitles:["Shared"],episode:3},{...book("Two"),id:"b",type:"watching",alternativeTitles:["Shared"],episode:7}]});
+    const r=await w.call({type:"VIDEO_PROGRESS",payload:{title:"Shared",type:"watching",episode:8,position:180,duration:900,confidence:.95}});
+    expect(r.skipped).toBe("not_tracked_or_ambiguous");expect(w.data["dasi.items"].map((i:any)=>i.episode)).toEqual([3,7]);
+  });
+  it("returns the same batch and single identities for search labels and previews",async()=>{
+    const w=worker({"dasi.items":[{...book("French"),id:"a",year:2020,externalIds:{anilist:"1"}}]});
+    const payload=book("English",{year:2021,externalIds:{anilist:"1"}});
+    const batch=await w.call({type:"CHECK_EXISTING_BATCH",items:[payload,book("Unrelated")]});
+    const single=await w.call({type:"CHECK_EXISTING",payload});expect(batch.matches).toEqual([single.existing.id,null]);
+  });
+});
+
+
+describe("ambiguous saves and placeholder progress",()=>{
+  it("does not insert another record when catalog mappings conflict",async()=>{
+    const w=worker({"dasi.items":[{...book("A"),id:"a",externalIds:{anilist:"1",mal:"10"}},{...book("B"),id:"b",externalIds:{anilist:"2",mal:"20"}}]});
+    await expect(w.save(book("A",{externalIds:{anilist:"1",mal:"20"}}))).rejects.toThrow("ambiguous_identity");
+    expect(w.data["dasi.items"]).toHaveLength(2);
+  });
+  it("keeps zero placeholders from erasing the episode during real playback",async()=>{
+    const w=worker({"dasi.items":[{...book("Series"),id:"series",type:"watching",season:3,episode:8,position:120,duration:900,total:12}]});
+    const r=await w.save(book("Series",{type:"watching",episode:0,position:180,duration:900}));
+    expect(r.item).toMatchObject({season:3,episode:8,position:180});
+  });
+  it("ignores a smaller reported total on an actual episode advance",async()=>{
+    const w=worker({"dasi.items":[{...book("Series"),id:"series",type:"watching",season:3,episode:8,total:12}]});
+    const r=await w.save(book("Series",{type:"watching",episode:9,total:6}));expect(r.item).toMatchObject({episode:9,total:12});
+  });
+  it("rejects late video and reading-page regressions",async()=>{
+    const w=worker({"dasi.items":[{...book("Series"),id:"series",type:"watching",episode:8,position:180,duration:900},{...book("Manga"),id:"manga",chapter:12.5,page:8}]});
+    const video=await w.save(book("Series",{type:"watching",episode:8,position:90,duration:900}));expect(video.conflict).toBe(true);expect(video.item.position).toBe(180);
+    const page=await w.save(book("Manga",{chapter:0,page:3}));expect(page.conflict).toBe(true);expect(page.item).toMatchObject({chapter:12.5,page:8});
+  });
+  it("does not let a film ID veto a separate matching series identity",()=>{
+    const w=worker();
+    expect(w.run('findIdentity([{id:"film",title:"Film",type:"watching",format:"MOVIE",externalIds:{tmdb:"1"}},{id:"series",title:"Show",type:"watching",format:"SERIES",externalIds:{tmdb:"1"}}],{title:"Show",type:"watching",format:"SERIES",externalIds:{tmdb:"1"}}).id')).toBe("series");
+  });
+});
+
