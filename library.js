@@ -1387,8 +1387,14 @@ function renderAccountPanel() {
     };
   });
 }
+function backupSettings(value={}) {
+  const result={};
+  for(const key of ["notifyNew","lang","autoTrack","translateLang","homeCats","librarySort"])if(Object.hasOwn(value,key))result[key]=value[key];
+  if(value.profile&&typeof value.profile==="object")result.profile=Object.fromEntries(["name","bio","avatar","banner","updatedAt"].filter(key=>Object.hasOwn(value.profile,key)).map(key=>[key,value.profile[key]]));
+  return result;
+}
 function doExport() {
-  const blob = new Blob([JSON.stringify({ version: 2, items, sites, notifications, lists, settings }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ version: 2, items, sites, notifications, lists, settings: backupSettings(settings) }, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `yomu-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);
 }
 // Universal import: accepts one or many files (JSON, CSV, XML, ZIP) from Yomu
