@@ -1615,26 +1615,33 @@ function clearSearchResults() { searchVersion++; clearTimeout(searchTimer); last
 let srCountry = "all";
 function catalogSearch(q) {
   clearTimeout(searchTimer);
-  const version = ++searchVersion;
-  const el = document.getElementById("search-results");
-  const main = document.getElementById("lib-main"); if (main) main.classList.add("searching"); // become a search page
-  el.innerHTML = `<div class="sr-wrap"><div class="sr-head"><span class="spinner"></span> ${t("searching")} “${esc(q)}”…</div></div>`;
-  api.runtime.sendMessage({ type: "CATALOG_SEARCH", query: q }, (r) => {
-    const networkError = api.runtime.lastError;
-    if (version !== searchVersion || view !== "library" || query.trim() !== q) return;
-    if (networkError || !r || !r.ok) {
-      el.innerHTML = `<div class="sr-wrap" role="status"><div class="sr-head">${t("searchTitle")} · “${esc(q)}”</div><p>${settings.lang === "fr" ? "Les catalogues ne répondent pas. Réessaie dans un instant." : "The catalogs could not be reached. Please try again."}</p><button class="btn" id="search-retry">${t("refresh")}</button></div>`;
-      document.getElementById("search-retry").onclick = () => catalogSearch(q); return;
-    }
-    if (!r || !r.ok || !r.results || !r.results.length) {
-      el.innerHTML = `<div class="sr-wrap"><div class="sr-head">${t("searchTitle")} · “${esc(q)}”</div><p class="sr-empty">${t("noMatch")}</p></div>`;
+  const version=++searchVersion;
+  const el=document.getElementById("search-results"),main=document.getElementById("lib-main");
+  if(main)main.classList.add("searching");
+  el.innerHTML='<div class="sr-wrap" role="status">'+t("searching")+' “'+esc(q)+'”…</div>';
+  srFilter="all";srCountry="all";
+  let previous="",attempts=0;
+  const poll=()=>{if(version!==searchVersion||view!=="library"||query.trim()!==q)return;api.runtime.sendMessage({type:"CATALOG_SEARCH",query:q,progressive:true},r=>{
+    const error=api.runtime.lastError;
+    if(version!==searchVersion||view!=="library"||query.trim()!==q)return;
+    if(error||!r?.ok) {
+      if(previous){const status=document.getElementById("search-progress");if(status)status.textContent=settings.lang==="fr"?"Résultats partiels. Relance la recherche pour réessayer.":"Partial results. Search again to retry.";}
+      if(!previous)el.innerHTML='<div class="sr-wrap" role="status"><p>'+(settings.lang==="fr"?"Recherche indisponible. Réessaie.":"Search unavailable. Please retry.")+'</p><button class="btn" id="search-retry">'+t("refresh")+'</button></div>';
+      const retry=document.getElementById("search-retry");if(retry)retry.onclick=()=>catalogSearch(q);
       return;
     }
-    lastResults = r.results;
-    srFilter = "all"; srCountry = "all";
-    renderSearchResults(q);
-  });
+    const results=Array.isArray(r.results)?r.results:[],signature=JSON.stringify(results);
+    if(results.length&&signature!==previous){previous=signature;lastResults=results;renderSearchResults(q);}
+    let status=document.getElementById("search-progress");
+    if(!status){status=document.createElement("p");status.id="search-progress";status.className="sub";status.setAttribute("role","status");el.append(status);}
+    status.textContent=r.pending?(settings.lang==="fr"?"Recherche dans les autres catalogues…":"Searching other catalogs…"):"";
+    if(r.pending&&++attempts<90){setTimeout(poll,500);return;}
+    if(r.pending){status.textContent=settings.lang==="fr"?"Certains catalogues répondent lentement. Relance la recherche pour compléter les résultats.":"Some catalogs are responding slowly. Search again to complete the results.";return;}
+    if(!results.length)el.innerHTML='<div class="sr-wrap"><p class="sr-empty">'+t("noMatch")+'</p></div>';
+  });};
+  poll();
 }
+
 let lastResults = [];
 let srFilter = "all";
 const COUNTRY_LABEL = { JP: "Japan", KR: "Korea", CN: "China", TW: "Taiwan", HK: "Hong Kong", US: "USA", GB: "UK", FR: "France" };
