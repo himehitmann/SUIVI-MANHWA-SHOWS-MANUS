@@ -1410,10 +1410,23 @@ async function enrichWork(id,force=false,lease=null) {
  *     for the translation mask, then composite mask over the original here.
  * Best-effort: any failure returns {ok:false} and the page is left untouched.
  */
+function safePanelSource(value) {
+  if(typeof value!=="string")throw Error("invalid_image_url");
+  if(/^data:image\/(?:png|jpe?g|webp|gif|bmp|avif);base64,[a-z0-9+/=\s]+$/i.test(value)) {
+    if(value.length>35*1024*1024)throw Error("image_too_large");return value;
+  }
+  let url;try{url=new URL(value);}catch{throw Error("invalid_image_url");}
+  const host=url.hostname.toLowerCase().replace(/\.$/,"");
+  if(!["https:","http:"].includes(url.protocol)||url.username||url.password||!host.includes(".")||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.startsWith("[")||/^(?:0|10|127)\./.test(host)||/^169\.254\./.test(host)||/^192\.168\./.test(host)||/^172\.(?:1[6-9]|2\d|3[01])\./.test(host))throw Error("invalid_image_url");
+  return url.href;
+}
 async function fetchBlob(url) {
-  const r = await fetchRemote(url);
+  const r = await fetchRemote(safePanelSource(url),{credentials:"omit",redirect:"error"});
   if (!r.ok) throw new Error(`img_${r.status}`);
-  return await r.blob();
+  const length=Number(r.headers.get("content-length"));if(length>25*1024*1024)throw Error("image_too_large");
+  const blob=await r.blob();if(blob.size>25*1024*1024)throw Error("image_too_large");
+  if(!/^image\/(?:png|jpe?g|webp|gif|bmp|avif)$/i.test(blob.type))throw Error("invalid_image_type");
+  return blob;
 }
 async function blobToDataUrl(blob) {
   const buf = new Uint8Array(await blob.arrayBuffer());
@@ -1624,6 +1637,7 @@ async function testImgServer(url) {
   }
 }
 async function translateImage(imageUrl, code, target, src) {
+  imageUrl=safePanelSource(imageUrl);
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
   // Advanced (best quality): a self-hosted manga-image-translator server.
   if (s && s.imgServer) return selfHostImage(s.imgServer, imageUrl, code);
