@@ -980,6 +980,7 @@ function backToLists() { currentListId = null; document.getElementById("list-det
 
 /* ================= DRAWER ================= */
 function openDrawer(id) {
+  ++previewRequest;
   document.getElementById("drawer").dataset.itemId=id;
   const i = items.find((x) => x.id === id); if (!i) return;
   const d = document.getElementById("drawer");
@@ -1496,6 +1497,7 @@ function applyLanguage(code) {
   else if (view === "home") renderHome();
 }
 function switchView(v) {
+  ++previewRequest;
   view = v; closeMenus();
   if (v !== "library") { query = ""; const qb = document.getElementById("q"); if (qb) qb.value = ""; clearSearchResults(); }
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${v}`));
