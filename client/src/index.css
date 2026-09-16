@@ -511,3 +511,18 @@ a.profile{display:grid;place-items:center;text-decoration:none}
 .dasi-app input::placeholder,.dasi-app textarea::placeholder{color:#686474;opacity:1}
 @media(prefers-reduced-motion:reduce){.dasi-app *,.dasi-app *::before,.dasi-app *::after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
 
+/* Compact, keyboard-operable onboarding. The examples are illustrations, not account data. */
+.quick-tour{padding-block:36px;scroll-margin-top:80px;}
+.quick-tour>div:first-child{max-width:680px;}
+.tour-steps{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0;}
+.tour-steps button,.tour-navigation button,.tour-navigation a{padding:10px 14px;border:0;border-radius:8px;background:#eeeaf3;color:#38303f;font:inherit;cursor:pointer;text-decoration:none;}
+.tour-steps button[aria-current=step]{background:#493654;color:#fff;}
+.tour-content{display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:32px;align-items:center;}
+.tour-preview{display:grid;gap:14px;padding:24px;background:#f1eee8;color:#302a32;border-radius:16px;}
+.tour-preview>strong{font-size:22px;}.tour-example,.tour-count{font-size:12px;color:#655a66;}
+.tour-value{padding:14px;background:#fff;border-radius:8px;font-size:18px;overflow-wrap:anywhere;}
+.tour-control{padding:10px;text-align:center;border-radius:8px;background:#493654;color:#fff;}
+.tour-navigation{display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap;}
+.tour-navigation button:disabled{opacity:.45;cursor:default;}
+@media(max-width:600px){.tour-content{grid-template-columns:1fr;gap:20px;}.tour-steps{display:grid;grid-template-columns:1fr 1fr;}.tour-steps button{text-align:left;font-size:13px;}.tour-preview{padding:18px;}.quick-tour{padding-block:24px;}}
+
