@@ -165,6 +165,36 @@ try {
   await page.screenshot({path:path.join(artifactDir,"home-discovery.png")});
 
 
+
+  // Empty accounts start with discoveries, not a large instruction screen.
+  const homeState=await page.evaluate(()=>({items,discover,settings}));
+  await page.evaluate(()=>{items=[];renderHome();});
+  await page.locator(".home-feature").waitFor();
+  assert.equal(await page.locator("#view-home .onboard, #view-home .value-strip").count(),0);
+  await page.locator("[data-feature-details]").first().click();
+  assert.equal(await page.locator("#drawer .drawer-title").innerText(),"Home fixture");
+  await page.locator("#preview-close").click();
+  await page.evaluate(()=>{
+    items=[{id:"resume-fixture",title:"Continue fixture",type:"reading",chapter:3,total:10,state:"current",status:"in_progress",updatedAt:Date.now(),synopsis:"Continue the story"}];
+    renderHome();
+  });
+  await page.locator("[data-feature-step='1']").click();
+  assert.equal(await page.locator(".home-feature h2").innerText(),"Home fixture");
+  await page.locator("#feature-pause").click();
+  assert.equal(await page.locator("#feature-pause").getAttribute("aria-pressed"),"true");
+  await page.locator("[data-feature-details]").first().click();
+  assert.equal(await page.locator("#drawer .drawer-title").innerText(),"Home fixture");
+  await page.locator("#preview-close").click();
+  const catchUpCards=await page.locator(".home-personal [data-open='resume-fixture']").count();
+  assert.equal(catchUpCards,1,"A work must not repeat across personal rows");
+  await page.evaluate(()=>{items[0].chapter=10;items[0].progress=100;items[0].state="completed";renderHome();});
+  assert.equal(await page.locator(".home-personal [data-open='resume-fixture']").count(),0,"Caught-up work should leave the catch-up row");
+  await page.evaluate(state=>{items=state.items;discover=state.discover;settings=state.settings;spotIdx=0;spotPaused=false;renderHome();},homeState);
+  await page.setViewportSize({width:390,height:844});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Home should fit a narrow viewport");
+  await page.screenshot({path:path.join(artifactDir,"home-mobile.png")});
+  await page.setViewportSize({width:1440,height:1000});
+
   // A delayed response for the previous season must never overwrite the selected one.
   await worker.evaluate(()=>{
     catalogEpisodeGuide=async(item,seasonId)=>{
