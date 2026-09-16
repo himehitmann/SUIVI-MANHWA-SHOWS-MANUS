@@ -32,6 +32,8 @@ export async function ensureSchema(client: SqlClient): Promise<void> {
     id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at BIGINT NOT NULL,expires_at BIGINT NOT NULL
   )`);
+  await client.query("CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id)");
+  await client.query("CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at)");
   await client.query(`
     CREATE TABLE IF NOT EXISTS sync (
       user_id    TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
