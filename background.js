@@ -1,4 +1,4 @@
-importScripts("sync-core.js");
+importScripts("sync-core.js", "auto-translation.js");
 async function fetchRemote(input, init = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -1998,6 +1998,12 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     // Inject the in-page translator into the active tab and run it.
+    case "GET_TRANSLATION_RULE":
+      YomuAutoTranslation.getRule(message.url).then(sendResponse);return true;
+    case "SET_TRANSLATION_RULE":
+      YomuAutoTranslation.setRule(message.url,{enabled:message.enabled,target:message.target,source:message.source}).then(sendResponse);return true;
+    case "STOP_TRANSLATION":
+      api.tabs.query({active:true,currentWindow:true}).then(tabs=>tabs[0]?.id?YomuAutoTranslation.stop(tabs[0].id):{ok:false,status:"no_tab"}).then(sendResponse);return true;
     case "TRANSLATE_PAGE":
       api.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
         const tab = tabs[0];
