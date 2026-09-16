@@ -986,3 +986,107 @@ describe("ambiguous saves and placeholder progress",()=>{
   });
 });
 
+
+describe("durable metadata outcomes",()=>{
+  const pending=(attempts=0)=>({jobId:"job",attempts,nextAttemptAt:0});
+  it("uses a known Steam identity directly and completes the persisted job",async()=>{
+    const w=worker({"dasi.items":[{id:"game",title:"Translated game",type:"game",externalIds:{steam:"620"},metadataPending:pending()}]});
+    w.run('var requested=[];steamSearch=async()=>{throw Error("title search forbidden")};steamAppDetails=async id=>{requested.push(id);return {cover:"art",synopsis:"summary",genres:["Puzzle"],comingSoon:false}}');
+    await w.run("runImportEnrichment()");
+    expect(w.run("requested")).toEqual(["620"]);
+    expect(w.data["dasi.items"][0]).toMatchObject({externalIds:{steam:"620"},cover:"art",synopsis:"summary",tags:["Puzzle"],metadataStatus:{state:"matched",attempts:1}});
+    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+  });
+  it("never chooses a namesake when an exact Steam lookup fails",async()=>{
+    const w=worker({"dasi.items":[{id:"game",title:"Portal",type:"game",url:"https://store.steampowered.com/app/620",metadataPending:pending(4)}]});
+    w.run('var searched=0;steamSearch=async()=>{searched++;return [{title:"Portal",type:"game",externalIds:{steam:"400"}}]};steamAppDetails=async()=>{throw Error("offline")}');
+    await w.run("runImportEnrichment()");
+    expect(w.run("searched")).toBe(0);
+    expect(w.data["dasi.items"][0]).toMatchObject({metadataStatus:{state:"failed",attempts:5}});
+    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+    expect(w.data["dasi.items"][0].externalIds).toBeUndefined();
+  });
+  it("retains a visible unmatched outcome after the third empty result",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Unknown",type:"reading",chapter:7,metadataPending:pending(2)}]});
+    w.run('catalogSearchAll=async()=>[]');await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"][0]).toMatchObject({chapter:7,metadataStatus:{state:"not_found",attempts:3}});
+    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+  });
+  it("records partial metadata instead of reporting a complete work",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Partial",type:"reading",metadataPending:pending()}]});
+    w.run('catalogSearchAll=async()=>[{title:"Partial",type:"reading",synopsis:"Summary without artwork"}]');await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"][0].metadataStatus.state).toBe("partial");
+    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+  });
+  it("stops ambiguous matches without selecting one at random",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Homonym",type:"watching",metadataPending:pending()}]});
+    w.run('catalogSearchAll=async()=>[{title:"Homonym",type:"watching",year:2000},{title:"Homonym",type:"watching",year:2020}]');await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"][0].metadataStatus.state).toBe("ambiguous");
+    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+  });
+  it("preserves edits made during a lookup while filling untouched fields",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Concurrent",type:"reading",chapter:3,metadataPending:pending()}]});
+    w.run('catalogSearchAll=async()=>{const {"dasi.items":items}=await chrome.storage.local.get("dasi.items");items[0]={...items[0],chapter:9,cover:"manual",coverOverride:"manual",synopsis:"My summary",updatedAt:99};await chrome.storage.local.set({"dasi.items":items});return [{title:"Concurrent",type:"reading",cover:"remote",synopsis:"Remote summary",externalIds:{mal:"7"},genres:["Adventure"]}]}');
+    await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"][0]).toMatchObject({chapter:9,cover:"manual",synopsis:"My summary",tags:["Adventure"],externalIds:{mal:"7"},metadataStatus:{state:"matched"}});
+  });
+  it("ignores an old success after replacement by a new job with the same attempt count",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Reimport",type:"reading",metadataPending:pending()}]});
+    w.run('catalogSearchAll=async()=>{const {"dasi.items":items}=await chrome.storage.local.get("dasi.items");items[0].metadataPending={jobId:"new-job",attemptId:"new-attempt",attempts:1,state:"running",nextAttemptAt:Date.now()+120000};items[0].metadataStatus={state:"running",attempts:1};await chrome.storage.local.set({"dasi.items":items});return [{title:"Reimport",type:"reading",cover:"obsolete",synopsis:"obsolete"}]}');
+    await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"][0].cover).toBeUndefined();
+    expect(w.data["dasi.items"][0].metadataPending).toMatchObject({jobId:"new-job",attemptId:"new-attempt",attempts:1});
+    expect(w.data["dasi.items"][0].metadataStatus.state).toBe("running");
+  });
+  it("ignores a late failure after another job already completed",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Reimport",type:"reading",metadataPending:pending(4)}]});
+    w.run('catalogSearchAll=async()=>{await chrome.storage.local.set({"dasi.items":[{id:"work",title:"Reimport",type:"reading",cover:"new",synopsis:"new",metadataStatus:{state:"matched",attempts:1}}]});throw Error("old request failed")}');
+    await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"][0]).toMatchObject({cover:"new",metadataStatus:{state:"matched",attempts:1}});
+    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+  });
+  it("rejects a stale attempt of the same job",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Restart",type:"reading",metadataPending:pending()}]});
+    w.run('catalogSearchAll=async()=>{const {"dasi.items":items}=await chrome.storage.local.get("dasi.items");items[0].metadataPending={...items[0].metadataPending,attemptId:"restart-attempt",attempts:2,nextAttemptAt:Date.now()+120000};await chrome.storage.local.set({"dasi.items":items});return [{title:"Restart",type:"reading",cover:"old",synopsis:"old"}]}');
+    await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"][0].cover).toBeUndefined();
+    expect(w.data["dasi.items"][0].metadataPending).toMatchObject({attemptId:"restart-attempt",attempts:2});
+  });
+  it("lets another work finish when a provider fails and retries with backoff",async()=>{
+    const w=worker({"dasi.items":[{id:"bad",title:"Offline",type:"reading",metadataPending:pending()},{id:"good",title:"Available",type:"reading",metadataPending:{...pending(),jobId:"other"}}]});
+    w.run('catalogSearchAll=async title=>{if(title==="Offline")throw Error("offline");return [{title,type:"reading",cover:"art",synopsis:"summary"}]}');
+    await w.run("runImportEnrichment()");
+    expect(w.data["dasi.items"][0].metadataStatus.state).toBe("retrying");
+    expect(w.data["dasi.items"][0].metadataPending.nextAttemptAt).toBeGreaterThan(Date.now()+50000);
+    expect(w.data["dasi.items"][1].metadataStatus.state).toBe("matched");
+  });
+  it("reclaims an expired attempt after worker restart",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Restart",type:"reading",metadataPending:{...pending(1),attemptId:"old",state:"running"}}]});
+    w.run('var claim;catalogSearchAll=async()=>{claim=(await read(ITEMS_KEY,[]))[0].metadataPending;return [{title:"Restart",type:"reading",cover:"art",synopsis:"summary"}]}');await w.run("runImportEnrichment()");
+    expect(w.run("claim.attemptId")).not.toBe("old");expect(w.run("claim.jobId")).toBe("job");expect(w.run("claim.attempts")).toBe(2);
+    expect(w.data["dasi.items"][0].metadataStatus).toMatchObject({state:"matched",attempts:2});
+  });
+  it("persists manual retries with a new token without duplicating active jobs",async()=>{
+    const w=worker({"dasi.items":[{id:"retry",title:"Retry",type:"reading",metadataStatus:{state:"failed"}},{id:"active",title:"Active",type:"reading",metadataPending:pending()}]});
+    w.run('runImportEnrichment=async()=>{}');
+    const result=await w.call({type:"QUEUE_MISSING_METADATA"});
+    expect(result).toMatchObject({ok:true,queued:1});expect(result.items[0].metadataPending.jobId).toBeTruthy();expect(result.items[1].metadataPending.jobId).toBe("job");
+    expect(w.data["dasi.items"][0].metadataStatus.state).toBe("queued");
+  });
+});
+
+describe("catalog resilience and aggregation",()=>{
+  it("tries the secondary manga catalog after an empty primary response",async()=>{
+    const w=worker();w.run('anilistSearch=async()=>[];jikanSearch=async()=>[{title:"Secondary result",type:"reading"}]');
+    expect((await w.run('mangaSearchResilient("query")'))[0].title).toBe("Secondary result");
+  });
+  it("keeps remakes and conflicting provider identities in the results",()=>{
+    const w=worker();w.ctx.catalog=[{title:"Remake",type:"watching",season:1999},{title:"Remake",type:"watching",season:2024},{title:"Portal",type:"game",externalIds:{steam:"400"}},{title:"Portal",type:"game",externalIds:{steam:"620"}}];
+    const result=w.run("mergeCatalogResults(catalog)");expect(result).toHaveLength(4);expect(result[0].year).toBe(1999);
+  });
+  it("combines complementary metadata only for the same identity",()=>{
+    const w=worker();w.ctx.catalog=[{title:"Français",type:"reading",externalIds:{mal:"7"},source:"anilist",genres:["Action"],cover:"art"},{title:"English",type:"reading",externalIds:{mal:"7"},source:"jikan",genres:["Mystery"],synopsis:"Summary"}];
+    const result=w.run("mergeCatalogResults(catalog)");expect(result).toHaveLength(1);expect(result[0]).toMatchObject({cover:"art",synopsis:"Summary",genres:["Action","Mystery"],catalogSources:["anilist","jikan"]});expect(result[0].alternativeTitles).toContain("English");
+  });
+});
+
