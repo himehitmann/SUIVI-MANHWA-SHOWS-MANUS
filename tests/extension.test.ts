@@ -5,7 +5,9 @@ function worker(seed: Record<string, any> = {}) {
   const data: Record<string, any> = structuredClone(seed),
     listeners: any[] = [],
     installed: any[] = [];
+  const synced:Record<string,any>={},accessLevels:string[]=[];
   const local = {
+    async setAccessLevel({accessLevel}:{accessLevel:string}){accessLevels.push("local:"+accessLevel);},
     async get(key: string) {
       await new Promise(r => setTimeout(r, 1));
       return { [key]: structuredClone(data[key]) };
@@ -38,10 +40,12 @@ function worker(seed: Record<string, any> = {}) {
           async get() {
             return {};
           },
-          async set() {},
+          async set(values:any) {Object.assign(synced,structuredClone(values));},
+          async setAccessLevel({accessLevel}:{accessLevel:string}){accessLevels.push("sync:"+accessLevel);},
         },
       },
       runtime: {
+        id:"test",
         onMessage: { addListener: (fn: any) => listeners.push(fn) },
         onInstalled: { addListener: (fn: any) => installed.push(fn) },
         getURL: (p: string) => "chrome-extension://test/" + p,
@@ -60,10 +64,11 @@ function worker(seed: Record<string, any> = {}) {
   );
   return {
     data,
+    synced,accessLevels,
     ctx,
     installed,
-    call: (input: any) =>
-      new Promise<any>(resolve => listeners[0](input, {}, resolve)),
+    call: (input: any, sender:any={id:"test",url:"chrome-extension://test/library.html"}) =>
+      new Promise<any>(resolve => listeners[0](input, sender, resolve)),
     save: (input: any) => {
       ctx.input = input;
       return vm.runInContext("writeItem(input)", ctx);
@@ -1103,6 +1108,70 @@ describe("metadata completion across serialization",()=>{
     const merged=w.run("YomuSync.mergeBlobs(remote,incoming)");
     expect(merged.items[0].metadataPending).toBeNull();
     expect(merged.items[0].metadataStatus.state).toBe("matched");
+  });
+});
+
+
+describe("extension trust boundary",()=>{
+  const page={id:"test",url:"https://reader.example/episode-1",tab:{id:12}};
+  it("refuses page access to accounts, settings, backups and library mutations",async()=>{
+    const w=worker({"dasi.items":[{id:"private",...book("Private")}],"dasi.settings":{ocrKey:"test-private-key"}});
+    for(const type of ["GET_STATE","SET_SETTINGS","SYNC_STATUS","SYNC_SIGN_IN","IMPORT_MERGE","REMOVE_ITEM","LIST_DELETE","TEST_IMG_SERVER"]){
+      const result=await w.call({type,id:"private",patch:{ocrKey:"replaced"}},page);
+      expect(result).toEqual({ok:false,error:"forbidden_message"});
+    }
+    expect(w.data["dasi.items"][0].id).toBe("private");
+    expect(w.data["dasi.settings"].ocrKey).toBe("test-private-key");
+  });
+  it("fails closed for absent senders and lookalike extension origins",async()=>{
+    const w=worker();
+    for(const sender of [{},{id:"other",url:"chrome-extension://test/library.html"},{id:"test",url:"https://test/library.html"},{id:"test",url:"chrome-extension://test.evil/library.html"}])expect((await w.call({type:"GET_STATE"},sender)).error).toBe("forbidden_message");
+    expect((await w.call(null)).error).toBe("invalid_message");
+    expect((await w.call({type:"GET_STATE"})).items).toEqual([]);
+  });
+  it("limits browser storage to trusted extension contexts",async()=>{
+    const w=worker();await w.run("storageProtection");
+    expect(w.accessLevels).toEqual(["local:TRUSTED_CONTEXTS","sync:TRUSTED_CONTEXTS"]);
+  });
+  it("binds detections to their sender and ignores privileged fields",async()=>{
+    const w=worker();
+    expect((await w.call({type:"DETECTION_UPDATED",payload:{title:"Show",type:"watching",url:"https://attacker.example",id:"private",metadataPending:{},episode:4}},page)).ok).toBe(true);
+    expect(w.data["dasi.currentDetection"]).toMatchObject({url:page.url,domain:"reader.example",tabId:12,episode:4});
+    expect(w.data["dasi.currentDetection"].id).toBeUndefined();
+    expect(w.data["dasi.currentDetection"].metadataPending).toBeUndefined();
+    expect((await w.call({type:"DETECTION_UPDATED",payload:{title:[],type:"watching"}},page)).error).toBe("invalid_detection");
+  });
+  it("saves normal video progress without returning private library fields to a page",async()=>{
+    const w=worker({"dasi.items":[{id:"show",...book("Show",{type:"watching",episode:1,position:5,synopsis:"Private note"})}]});
+    const result=await w.call({type:"VIDEO_PROGRESS",payload:{title:"Show",type:"watching",episode:1,position:30,duration:100,confidence:.9}},page);
+    expect(result.ok).toBe(true);expect(result.item).toBeUndefined();expect(w.data["dasi.items"][0].position).toBe(30);
+  });
+  it("rejects malformed and oversized page translation requests before fetch",async()=>{
+    const w=worker();
+    for(const texts of ["not-an-array",[{}],Array(401).fill("a"),["a".repeat(10001)]])expect((await w.call({type:"DASI_MT",texts},page)).error).toBe("invalid_translation");
+  });
+  it("keeps API keys device-local when settings are mirrored",async()=>{
+    const w=worker();await w.call({type:"SET_SETTINGS",patch:{lang:"fr",ocrKey:"private-ocr",tmdbKey:"private-tmdb",rawgKey:"private-rawg",imgServer:"https://service.example?token=secret",profile:{name:"Reader"}}});
+    expect(w.data["dasi.settings"].ocrKey).toBe("private-ocr");
+    expect(w.synced["dasi.settings"]).toMatchObject({lang:"fr",profile:{name:"Reader"}});
+    for(const key of ["ocrKey","tmdbKey","rawgKey","imgServer"])expect(w.synced["dasi.settings"][key]).toBeUndefined();
+  });
+  it("does not activate service credentials or endpoints from an imported backup",async()=>{
+    const w=worker();await w.call({type:"IMPORT_STATE",payload:{settings:{lang:"fr",ocrKey:"untrusted",imgServer:"https://attacker.example",unknownSecret:"hidden"}}});
+    expect(w.data["dasi.settings"].lang).toBe("fr");expect(w.data["dasi.settings"].ocrKey).toBe("");expect(w.data["dasi.settings"].imgServer).toBe("");expect(w.data["dasi.settings"].unknownSecret).toBeUndefined();
+  });
+  it("rejects insecure account endpoints before transmitting credentials",async()=>{
+    const w=worker();let calls=0;w.ctx.fetch=async()=>{calls++;throw Error("unexpected_network");};
+    for(const url of ["http://sync.example/api","https://name:password@sync.example/api","https://sync.example/api?token=secret","file:///tmp/data"]) {
+      w.ctx.endpoint=url;await expect(w.run('syncAuth("/auth/login",endpoint,"user@example.test","private")')).rejects.toThrow();
+    }
+    expect(calls).toBe(0);expect(w.run('syncEndpoint("http://127.0.0.1:3000/api/")')).toBe("http://127.0.0.1:3000/api");
+    expect(w.run('syncEndpoint("https://sync.example/api/")')).toBe("https://sync.example/api");
+  });
+  it("forbids redirects and ambient cookies on authenticated requests",async()=>{
+    const w=worker();let options:any;w.ctx.fetch=async(_url:any,init:any)=>{options=init;return {ok:true};};
+    await w.run('apiCall({apiUrl:"https://sync.example/api",token:"test-token"},"/sync")');
+    expect(options.redirect).toBe("error");expect(options.credentials).toBe("omit");expect(options.headers.Authorization).toBe("Bearer test-token");
   });
 });
 
