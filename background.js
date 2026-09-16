@@ -21,6 +21,57 @@ const NOTIF_KEY = "dasi.notifications";
 const LISTS_KEY = "dasi.lists";
 const SETTINGS_KEY = "dasi.settings";
 const TOMBSTONES_KEY="yomu.tombstones.v1";
+
+// Only extension documents may read accounts, edit the library or configure services.
+const PAGE_MESSAGES = new Set(["DETECTION_UPDATED","VIDEO_PROGRESS","DASI_MT","TRANSLATE_IMAGE_TEXT"]);
+function trustedExtensionSender(sender) {
+  if(sender?.id!==api.runtime.id || typeof sender.url!=="string")return false;
+  try {const url=new URL(sender.url);return url.protocol==="chrome-extension:"&&url.host===api.runtime.id;}catch{return false;}
+}
+function pageSender(sender) {
+  if(sender?.id!==api.runtime.id || !Number.isInteger(sender.tab?.id))return false;
+  try {return ["http:","https:"].includes(new URL(sender.url).protocol);}catch{return false;}
+}
+function pageDetection(payload,sender) {
+  if(!payload || typeof payload.title!=="string" || !payload.title.trim() || payload.title.length>500 || !["reading","watching","game"].includes(payload.type))throw Error("invalid_detection");
+  const clean={title:payload.title,type:payload.type,url:sender.url,domain:new URL(sender.url).hostname};
+  for(const key of ["chapter","episode","season","page","position","duration","confidence","total","year"])if(Number.isFinite(payload[key])&&payload[key]>=0&&payload[key]<=1e9)clean[key]=payload[key];
+  for(const key of ["format","cover","synopsis","episodeTitle","releaseDate","platform","price","trailer"])if(typeof payload[key]==="string")clean[key]=payload[key].slice(0,key==="synopsis"?20000:2048);
+  for(const key of ["alternativeTitles","authors","tags"])if(Array.isArray(payload[key]))clean[key]=payload[key].filter(x=>typeof x==="string").slice(0,100).map(x=>x.slice(0,500));
+  clean.externalIds=identityIds(payload);
+  return clean;
+}
+function sharedSettings(value={}) {
+  const result={};
+  for(const key of ["notifyNew","lang","autoTrack","translateLang","homeCats","librarySort"])if(Object.hasOwn(value,key))result[key]=value[key];
+  if(value.profile&&typeof value.profile==="object")result.profile=Object.fromEntries(["name","bio","avatar","banner","updatedAt"].filter(key=>Object.hasOwn(value.profile,key)).map(key=>[key,value.profile[key]]));
+  return result;
+}
+async function protectExtensionStorage() {
+  for(const area of [api.storage.local,api.storage.sync])if(area.setAccessLevel)await area.setAccessLevel({accessLevel:"TRUSTED_CONTEXTS"});
+}
+const storageProtection=protectExtensionStorage();
+storageProtection.catch(()=>{});
+async function scrubLegacySyncedSettings() {
+  await storageProtection;
+  return serializeLibrary(async()=>{
+    const synced=(await api.storage.sync.get(SETTINGS_KEY))[SETTINGS_KEY];
+    if(!synced)return;
+    const safe=sharedSettings(synced);
+    if(JSON.stringify(safe)===JSON.stringify(synced))return;
+    const local=(await api.storage.local.get(SETTINGS_KEY))[SETTINGS_KEY];
+    // Preserve a pre-upgrade user's own keys locally before removing the synced copy.
+    await api.storage.local.set({[SETTINGS_KEY]:{...synced,...local}});
+    await api.storage.sync.set({[SETTINGS_KEY]:safe});
+  });
+}
+function syncEndpoint(value) {
+  let url;try {url=new URL(value);}catch{throw Error("invalid_sync_url");}
+  const loopback=["localhost","127.0.0.1","[::1]"].includes(url.hostname);
+  if((url.protocol!=="https:"&&!(url.protocol==="http:"&&loopback))||url.username||url.password||url.search||url.hash)throw Error("secure_sync_url_required");
+  return url.href.replace(/\/+$/,"");
+}
+
 const DEFAULT_SETTINGS = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" }, tmdbKey: "", rawgKey: "", imgServer: "", ocrKey: "", ocrSrc: "" };
 
 // Canonical work id + fuzzy matching — MUST mirror the web app's item.ts
@@ -179,6 +230,7 @@ const percent = (p) => {
  * Transient values (current detection, last conflict) stay local-only.
  */
 const read = async (key, fallback) => {
+  await storageProtection;
   const local = (await api.storage.local.get(key))[key];
   if (local !== undefined) return local;
   try {
@@ -209,7 +261,9 @@ const writeData = async (obj, downloaded=false) => {
   await api.storage.local.set(obj);
   if((await getSyncConfig())?.token)return;
   try {
-    await api.storage.sync.set(obj);
+    const shared={...obj};
+    if(shared[SETTINGS_KEY])shared[SETTINGS_KEY]=sharedSettings(shared[SETTINGS_KEY]);
+    await api.storage.sync.set(shared);
   } catch {
     /* over quota or unavailable: local-only is fine */
   }
@@ -263,8 +317,9 @@ const setSyncMeta = async (meta) => {
 };
 
 async function apiCall(cfg, path, init = {}) {
-  return fetchRemote(apiBase(cfg.apiUrl) + path, {
+  return fetchRemote(syncEndpoint(cfg.apiUrl) + path, {
     ...init,
+    redirect: "error", credentials: "omit",
     headers: {
       "Content-Type": "application/json",
       ...(cfg.token ? { Authorization: `Bearer ${cfg.token}` } : {}),
@@ -288,7 +343,8 @@ async function switchSyncAccount(nextConfig){
 
 /** Sign in / sign up against the backend and persist the resulting config. */
 async function syncAuth(path, apiUrl, email, password) {
-  const res = await fetchRemote(apiBase(apiUrl) + path, {
+  const res = await fetchRemote(syncEndpoint(apiUrl) + path, {
+    redirect: "error", credentials: "omit",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -1704,7 +1760,7 @@ async function mergeImport(payload) {
   }
   if(Array.isArray(payload.sites))patch[SITES_KEY]=mergeById(payload.sites,await read(SITES_KEY,[]));
   if(Array.isArray(payload.notifications))patch[NOTIF_KEY]=mergeById(payload.notifications.map(n=>({...n,itemId:ids.get(n.itemId)||n.itemId})),await read(NOTIF_KEY,[]));
-  if(payload.settings)patch[SETTINGS_KEY]={...DEFAULT_SETTINGS,...payload.settings,...await read(SETTINGS_KEY,{})};
+  if(payload.settings)patch[SETTINGS_KEY]={...DEFAULT_SETTINGS,...sharedSettings(payload.settings),...await read(SETTINGS_KEY,{})};
   await writeData(patch);
   // Queue state was saved atomically with the imported works. The periodic
   // alarm resumes remaining records even after Chrome suspends this worker.
@@ -1713,10 +1769,20 @@ async function mergeImport(payload) {
 }
 
 api.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if(!message || typeof message!=="object" || typeof message.type!=="string") {sendResponse({ok:false,error:"invalid_message"});return false;}
+  const trusted=trustedExtensionSender(sender);
+  if(!trusted) {
+    if(!pageSender(sender)||!PAGE_MESSAGES.has(message.type)){sendResponse({ok:false,error:"forbidden_message"});return false;}
+    try {
+      if(["DETECTION_UPDATED","VIDEO_PROGRESS"].includes(message.type))message={...message,payload:pageDetection(message.payload,sender)};
+      if(message.type==="DASI_MT"&&(!Array.isArray(message.texts)||message.texts.length>400||message.texts.some(x=>typeof x!=="string"||x.length>10000)||message.texts.join("").length>60000))throw Error("invalid_translation");
+      if(message.type==="TRANSLATE_IMAGE_TEXT"&&(typeof message.url!=="string"||message.url.length>35*1024*1024))throw Error("invalid_image");
+    }catch(error){sendResponse({ok:false,error:error.message});return false;}
+  }
   switch (message.type) {
     case "DETECTION_UPDATED":
-      api.storage.local.set({ "dasi.currentDetection": { ...message.payload, tabId: sender.tab?.id } });
-      return;
+      api.storage.local.set({ "dasi.currentDetection": { ...message.payload, tabId: sender.tab?.id } }).then(()=>sendResponse({ok:true}),()=>sendResponse({ok:false,error:"storage_unavailable"}));
+      return true;
 
     case "VIDEO_PROGRESS":
       serializeLibrary(async()=>{
@@ -1728,7 +1794,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const existing=findIdentity(saved,p);
         if(!existing)return {ok:true,skipped:"not_tracked_or_ambiguous"};
         return writeItemUnlocked(p);
-      }).then(r=>{sendResponse(r);if(r.item)autoSync();},e=>sendResponse({ok:false,error:String(e.message)}));
+      }).then(r=>{sendResponse(trusted?r:{ok:r.ok!==false,skipped:r.skipped});if(r.item)autoSync();},e=>sendResponse({ok:false,error:String(e.message)}));
       return true;
     case "SAVE_PROGRESS":
       {const epoch=accountEpoch;
@@ -2227,3 +2293,5 @@ api.commands.onCommand.addListener(async (command) => {
     }
   }
 });
+void scrubLegacySyncedSettings().catch(()=>{});
+
