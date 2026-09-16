@@ -833,8 +833,10 @@ describe("progressive catalog search",()=>{
     w.run('catalogSearchAll=async()=>{throw Error("offline");}');
     await w.call({type:"CATALOG_SEARCH",query:"retry",progressive:true});
     await w.run('Array.from(catalogJobs.values())[0].task');
+    const failed=await w.call({type:"CATALOG_SEARCH",query:"retry",progressive:true});
+    expect(failed.ok).toBe(false);
     w.run('catalogSearchAll=async()=>[{title:"Recovered",type:"reading"}]');
-    await w.call({type:"CATALOG_SEARCH",query:"retry",progressive:true});
+    await w.call({type:"CATALOG_SEARCH",query:"retry",progressive:true,retry:true});
     await w.run('Array.from(catalogJobs.values())[0].task');
     const result=await w.call({type:"CATALOG_SEARCH",query:"retry",progressive:true});
     expect(result.ok).toBe(true);
