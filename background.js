@@ -643,6 +643,45 @@ async function jikanDetail(item) {
   return jikanMedia(result.data,item.type);
 }
 
+
+// Public episode metadata is fetched only when a detail panel requests it.
+const episodeGuideCache=new Map();
+async function guideResource(path) {
+  const cached=episodeGuideCache.get(path);
+  if(cached&&Date.now()-cached.at<600000)return cached.task;
+  const entry={at:Date.now(),task:null};
+  entry.task=fetchRemote("https://api.tvmaze.com"+path).then(async response=>{
+    if(!response.ok)throw Error("episode_guide_unavailable");
+    const data=await response.json();
+    if(!Array.isArray(data))throw Error("invalid_episode_guide");
+    return data;
+  }).catch(error=>{if(episodeGuideCache.get(path)===entry)episodeGuideCache.delete(path);throw error;});
+  episodeGuideCache.set(path,entry);
+  if(episodeGuideCache.size>40)episodeGuideCache.delete(episodeGuideCache.keys().next().value);
+  return entry.task;
+}
+async function catalogEpisodeGuide(item,seasonId) {
+  const showId=identityIds(item).tvmaze;
+  if(item.type!=="watching"||! /^[1-9]\d*$/.test(showId||""))return {supported:false,seasons:[]};
+  const raw=await guideResource("/shows/"+showId+"/seasons");
+  const seasons=raw.filter(s=>s&&Number.isSafeInteger(s.id)&&s.id>0&&Number.isInteger(s.number)&&s.number>=0).map(s=>({
+    id:String(s.id),number:s.number,name:typeof s.name==="string"?s.name.slice(0,300):"",
+    episodeCount:Number.isInteger(s.episodeOrder)&&s.episodeOrder>=0?s.episodeOrder:null,
+    premiereDate:typeof s.premiereDate==="string"?s.premiereDate:""
+  })).sort((a,b)=>a.number-b.number);
+  if(seasonId===undefined||seasonId===null)return {supported:true,seasons};
+  const season=seasons.find(s=>s.id===String(seasonId));
+  if(!season)throw Error("season_not_in_show");
+  const episodes=(await guideResource("/seasons/"+season.id+"/episodes")).filter(e=>e&&e.season===season.number&&Number.isSafeInteger(e.id)&&e.id>0).map(e=>({
+    id:String(e.id),number:Number.isInteger(e.number)&&e.number>0?e.number:null,
+    name:typeof e.name==="string"?e.name.slice(0,300):"",
+    airdate:typeof e.airdate==="string"?e.airdate:"",
+    runtime:Number.isFinite(e.runtime)&&e.runtime>0?e.runtime:null,
+    special:e.type!=="regular"&&e.type!==undefined
+  }));
+  return {supported:true,seasons,season,episodes};
+}
+
 async function catalogDetail(item) {
   const ids=identityIds(item);
   if(/^\d+$/.test(ids.anilist||"")) {
@@ -1715,6 +1754,8 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     // Online search-to-add (AniList): returns catalog results for a title.
+    case "CATALOG_EPISODE_GUIDE":
+      catalogEpisodeGuide(message.item||{},message.seasonId).then(data=>sendResponse({ok:true,...data}),()=>sendResponse({ok:false,error:"episode_guide_unavailable"}));return true;
     case "CATALOG_DETAIL":
       catalogDetail(message.item||{}).then(item=>sendResponse({ok:true,item}),()=>sendResponse({ok:false,error:"details_unavailable"}));return true;
     case "CATALOG_SEARCH":
