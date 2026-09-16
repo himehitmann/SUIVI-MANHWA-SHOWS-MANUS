@@ -501,3 +501,13 @@ a.profile{display:grid;place-items:center;text-decoration:none}
 .list-card-foot{flex-wrap:wrap;gap:10px}.list-card-foot button{padding:6px 8px;border-radius:8px;background:#f0ebf7;font-size:12px}.list-detail-title label{display:grid;gap:5px;font-size:12px;margin:8px 0}.list-detail-title input,.list-detail-title textarea{padding:8px;border:1px solid #ded9e9;border-radius:8px;background:var(--card,#fff);color:inherit}.list-detail-title textarea{min-width:220px}.catalog-filters button{padding:8px 12px;border:1px solid #ded9e9;border-radius:8px}.catalog-filters button:disabled{opacity:.45}
 .profile-banner{display:block;width:100%;height:clamp(120px,20vw,280px);object-fit:cover;border-radius:18px;margin-bottom:20px}.profile-photo{width:90px;height:90px;object-fit:cover;border-radius:50%}.profile-editor{margin-bottom:24px}.profile-fields{display:grid;gap:16px;margin-bottom:20px}.profile-fields label{display:grid;gap:6px}.profile-fields input,.profile-fields textarea{padding:10px;border:1px solid #ded9e9;border-radius:10px;background:var(--card,#fff);color:inherit}.profile-editor input[type=file]{max-width:220px}
 .account-card label{display:grid;gap:6px;margin:10px 0}.account-card label input{width:100%;padding:10px;border:1px solid #ded9e9;border-radius:10px}.profile-editor .settings-actions{display:flex;flex-wrap:wrap;gap:16px}.profile-editor .settings-actions>div{display:flex;align-items:center;gap:8px}
+/* Readable secondary text and visible keyboard navigation on the light web UI. */
+:root{--dasi-muted:#686474}
+.dasi-app :is(.eyebrow,.header-search,.header-icon,.cover-info p,.cover-info small,.row-type,.dasi-row-main p,.row-progress small,.row-source,.local-note,.mini-tabs button,.rail-title button){color:#686474}
+.dasi-app .pastel-label{color:#65509E}
+.dasi-app .primary-cta{color:#173C2C}
+.dasi-app .primary-cta:hover{color:#102B21}
+.dasi-app :is(a,button,input,select,textarea,summary):focus-visible{outline:3px solid #65509E;outline-offset:3px}
+.dasi-app input::placeholder,.dasi-app textarea::placeholder{color:#686474;opacity:1}
+@media(prefers-reduced-motion:reduce){.dasi-app *,.dasi-app *::before,.dasi-app *::after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
+
