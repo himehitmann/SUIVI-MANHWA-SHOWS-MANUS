@@ -814,7 +814,23 @@ async function rawgSearch(query, key) {
 /** Unified catalog search across AniList (anime/manga), Steam & RAWG (games),
  * OpenLibrary (books) and TMDB (films/TV). Keyless sources always run; TMDB and
  * RAWG run only when a key is configured. Each source is best-effort. */
-async function catalogSearchAll(query) {
+
+const catalogJobs=new Map();
+async function catalogSearchProgress(query) {
+  const text=String(query||"").trim().slice(0,200);
+  if(!text)return {ok:true,results:[],pending:false};
+  const key=accountEpoch+":"+text.toLowerCase();
+  let job=catalogJobs.get(key);
+  if(!job||job.error||(!job.pending&&Date.now()-job.started>60000)) {
+    job={started:Date.now(),results:[],pending:true,error:null};
+    catalogJobs.set(key,job);
+    if(catalogJobs.size>20)catalogJobs.delete(catalogJobs.keys().next().value);
+    job.task=catalogSearchAll(text,results=>{job.results=results;}).then(results=>{job.results=results;},()=>{job.error="catalog_unavailable";}).finally(()=>{job.pending=false;});
+  }
+  return {ok:!job.error,results:job.results,pending:job.pending,error:job.error};
+}
+
+async function catalogSearchAll(query,onProgress) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
   const tasks = [mangaSearchResilient(query), steamSearch(query), openLibrarySearch(query), tvmazeSearch(query), wikipediaSearch(query, "en")];
   // Also query the user's own-language Wikipedia so local titles (e.g. a French
@@ -823,10 +839,12 @@ async function catalogSearchAll(query) {
   if (wl && wl !== "en") tasks.push(wikipediaSearch(query, wl));
   if (s && s.tmdbKey) tasks.push(tmdbSearch(query, s.tmdbKey));
   if (s && s.rawgKey) tasks.push(rawgSearch(query, s.rawgKey));
-  const settled = await Promise.allSettled(tasks);
-  if (settled.every(r => r.status === "rejected")) throw new Error("catalog_unavailable");
-  const out = [];
-  for (const r of settled) if (r.status === "fulfilled") out.push(...r.value);
+  const out=[];
+  const settled=await Promise.allSettled(tasks.map(task=>Promise.resolve(task).then(results=>{out.push(...results);if(onProgress)onProgress(mergeCatalogResults(out));return results;})));
+  if(settled.every(r=>r.status==="rejected"))throw new Error("catalog_unavailable");
+  return mergeCatalogResults(out);
+}
+function mergeCatalogResults(out) {
   // De-dup by normalized title+type. Prefer the entry that has a cover, and
   // prefer a structured source (AniList/Steam/TVMaze) over a Wikipedia stub.
   const seen = new Map();
@@ -1700,6 +1718,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "CATALOG_DETAIL":
       catalogDetail(message.item||{}).then(item=>sendResponse({ok:true,item}),()=>sendResponse({ok:false,error:"details_unavailable"}));return true;
     case "CATALOG_SEARCH":
+      if(message.progressive===true){catalogSearchProgress(message.query).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));return true;}
       catalogSearchAll(message.query || "")
         .then((results) => sendResponse({ ok: true, results }))
         .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
