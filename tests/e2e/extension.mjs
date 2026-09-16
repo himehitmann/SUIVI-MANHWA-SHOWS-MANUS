@@ -164,6 +164,27 @@ try {
   await page.locator('#view-home .disco').waitFor();
   await page.screenshot({path:path.join(artifactDir,"home-discovery.png")});
 
+
+  // A delayed response for the previous season must never overwrite the selected one.
+  await worker.evaluate(()=>{
+    catalogEpisodeGuide=async(item,seasonId)=>{
+      const seasons=[{id:"10",number:1,name:"Origins",episodeCount:2},{id:"20",number:2,name:"Return",episodeCount:1}];
+      if(seasonId===undefined)return {supported:true,seasons};
+      await new Promise(resolve=>setTimeout(resolve,seasonId==="10"?900:20));
+      return {supported:true,seasons,season:seasons.find(s=>s.id===seasonId),episodes:[{id:"100",number:1,name:seasonId==="10"?"Old season episode":"New season episode",airdate:"2028-01-01",runtime:42,special:false}]};
+    };
+  });
+  await page.evaluate(()=>openCatalogPreview({title:"Series guide fixture",type:"watching",format:"SERIES",externalIds:{tvmaze:"7"}}));
+  await page.locator("#guide-season").waitFor();
+  assert((await page.locator("#guide-season").innerText()).includes("Origins"));
+  await page.locator("#guide-season").selectOption("20");
+  await page.getByText("New season episode",{exact:true}).waitFor();
+  await page.waitForTimeout(1000);
+  assert(!(await page.locator("#episode-guide").innerText()).includes("Old season episode"));
+  assert((await page.locator("#episode-guide").innerText()).includes("2028-01-01"));
+  await page.screenshot({path:path.join(artifactDir,"series-episode-guide.png")});
+  await page.locator("#preview-close").click();
+
   await page.locator("#q").fill("old");
   await page.waitForTimeout(350);
   await page.locator("#q").fill("Aniimo");
