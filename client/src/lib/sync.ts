@@ -14,6 +14,7 @@ export interface SyncSession {
   userId: string;
   email: string;
   plan?: string;
+  role?: "owner"|"admin"|"member";
 }
 
 export type SyncStatus =
@@ -28,6 +29,7 @@ export interface SyncProvider {
   signOut(): Promise<void>;
   push(state: DasiState): Promise<void>;
   pull(): Promise<DasiState | null>;
+  adminRequest(path: "me"|"lookup"|"access"|"audit", data?: Record<string,unknown>): Promise<any>;
   accountAction(
     action: "password" | "email" | "logout-all" | "delete",
     data?: Record<string, string>
@@ -43,6 +45,7 @@ export function createLocalProvider(): SyncProvider {
     isConfigured: () => false,
     getSession: () => null,
     accountAction: notAvailable,
+    adminRequest: notAvailable,
     signUp: notAvailable,
     signIn: notAvailable,
     async signOut() {},
@@ -58,7 +61,9 @@ const SESSION_KEY = "dasi.sync.session";
 
 /** Real provider backed by the Express API in server/. */
 export function createHttpProvider(baseUrl: string): SyncProvider {
-  const base = baseUrl.replace(/\/+$/, "");
+  const parsedBase=new URL(baseUrl,typeof location!=="undefined"?location.href:"https://invalid.local/");
+  if(parsedBase.username||parsedBase.password||parsedBase.search||parsedBase.hash||!(parsedBase.protocol==="https:"||(parsedBase.protocol==="http:"&&["localhost","127.0.0.1","[::1]"].includes(parsedBase.hostname))))throw new Error("secure_api_required");
+  const base = parsedBase.href.replace(/\/+$/, "");
   const tokenKey = TOKEN_KEY + ":" + encodeURIComponent(base),
     sessionKey = SESSION_KEY + ":" + encodeURIComponent(base);
   let token: string | null = null;
@@ -85,6 +90,8 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
   const authFetch = (path: string, init: RequestInit = {}) =>
     fetch(base + path, {
       signal: AbortSignal.timeout(15000),
+      credentials: "omit",
+      redirect: "error",
       ...init,
       headers: {
         "Content-Type": "application/json",
@@ -110,13 +117,14 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
     }
     const data = (await res.json()) as {
       token: string;
-      user: { id: string; email: string; plan: string };
+      user: { id: string; email: string; plan: string; role?: "owner"|"admin"|"member" };
     };
     token = data.token;
     session = {
       userId: data.user.id,
       email: data.user.email,
       plan: data.user.plan,
+      role: data.user.role,
     };
     persist();
     return session;
@@ -128,6 +136,14 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
     getSession: () => session,
     signUp: (email, password) => authenticate("/auth/signup", email, password),
     signIn: (email, password) => authenticate("/auth/login", email, password),
+    async adminRequest(path, data) {
+      if(!token)throw new Error("unauthorized");
+      if(!["me","lookup","access","audit"].includes(path))throw new Error("invalid_admin_route");
+      const response=await authFetch("/admin/"+path,{method:data===undefined?"GET":"POST",body:data===undefined?undefined:JSON.stringify(data)});
+      const out=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(out.error||"admin_request_failed");
+      return out;
+    },
     async accountAction(action, data = {}) {
       const res = await authFetch("/auth/" + action, {
         method: "POST",
