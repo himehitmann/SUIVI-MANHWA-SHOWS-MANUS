@@ -56,5 +56,21 @@ try{
  for(const sample of contrast)assert(sample.ratio>=4.5,JSON.stringify(sample));
  await page.locator('.primary-cta').first().focus();assert.equal(await page.locator('.primary-cta').first().evaluate(el=>getComputedStyle(el).outlineStyle),'solid');
  assert.deepEqual(errors,[]);
+
+ // UI contract fixture; real authorization and transaction checks live in admin-api and PostgreSQL tests.
+ let adminChanges=[];
+ await page.route('**/api/admin/**',async route=>{
+  const name=new URL(route.request().url()).pathname.split('/').pop();
+  if(name==='me')return route.fulfill({json:{user:{id:'owner-fixture',email:'owner@example.test',role:'owner',plan:'pro',giftUntil:0,accessVersion:0}}});
+  if(name==='lookup')return route.fulfill({json:{user:{id:'reader-fixture',email:'reader@example.test',role:'member',plan:'free',giftUntil:0,accessVersion:0}}});
+  if(name==='access'){adminChanges.push(route.request().postDataJSON());return route.fulfill({json:{ok:true}});}
+  return route.fulfill({json:{events:[]}});
+ });
+ await page.goto(base+'/admin');await page.getByLabel('Exact email address',{exact:true}).fill('reader@example.test');await page.getByRole('button',{name:'Find account',exact:true}).click();await page.getByRole('heading',{name:'reader@example.test',exact:true}).waitFor();
+ await page.getByLabel('Days (0 to remove)',{exact:true}).fill('14');await page.getByLabel('Reason for the audit log',{exact:true}).fill('Browser gift fixture');await page.getByLabel('Your current password',{exact:true}).fill('synthetic-fixture-password');
+ page.once('dialog',d=>d.dismiss());await page.getByRole('button',{name:'Review and confirm',exact:true}).click();assert.equal(adminChanges.length,0);
+ page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Review and confirm',exact:true}).click();await page.getByRole('status').filter({hasText:'Change saved'}).waitFor();assert.equal(adminChanges.length,1);assert.equal(adminChanges[0].days,14);assert.equal(adminChanges[0].targetId,'reader-fixture');assert.match(adminChanges[0].requestId,/^[0-9a-f-]{36}$/);
+ await page.setViewportSize({width:375,height:900});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'test-results/admin-mobile.png',fullPage:true});assert.deepEqual(errors,[]);
+
  console.log('Web browser journeys passed: account creation, extension backup import, bounded progress, notes, real API sync, sign-out isolation, sign-in restoration, mobile game detail.');
 }finally{if(browser)await browser.close();server.kill();await new Promise(r=>server.exitCode!==null?r():server.once('exit',r));await fs.rm(temp,{recursive:true,force:true});}
