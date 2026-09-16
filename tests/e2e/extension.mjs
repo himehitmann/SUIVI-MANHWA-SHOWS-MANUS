@@ -215,6 +215,29 @@ try {
   await page.screenshot({path:path.join(artifactDir,"series-episode-guide.png")});
   await page.locator("#preview-close").click();
 
+
+  // Search labels and previews must use the same identity decisions as saves.
+  const identitySavedState=await worker.evaluate(()=>chrome.storage.local.get('dasi.items'));
+  await worker.evaluate(()=>chrome.storage.local.set({'dasi.items':[{id:'identity-saved',title:'Titre conservé',type:'reading',format:'MANGA',year:2020,chapter:12.5,enrichedAt:1,externalIds:{anilist:'987654'},alternativeTitles:['English fixture']}]}));
+  await page.evaluate(()=>{
+    switchView('library');
+    lastResults=[{title:'English fixture',type:'reading',format:'MANGA',year:2021,externalIds:{anilist:'987654'}},{title:'English fixture',type:'reading',format:'MANGA',year:2021,externalIds:{anilist:'987655'}}];
+    renderSearchResults('identity fixture');
+  });
+  await page.waitForFunction(()=>document.querySelector('[data-saved-label="0"]')?.textContent==='Dans la bibliothèque');
+  assert.equal(await page.locator('[data-saved-label="1"]').innerText(),await page.evaluate(()=>t('details')));
+  await page.locator('[data-saved-label="0"]').click();
+  await page.locator('#dr-close').waitFor();
+  assert.equal(await page.locator('#drawer .drawer-title').innerText(),'Titre conservé');
+  await page.locator('#dr-close').click();
+  await page.locator('[data-saved-label="1"]').click();
+  await page.locator('#preview-add').waitFor();
+  assert.equal(await page.locator('#drawer .drawer-title').innerText(),'English fixture');
+  assert.equal(await page.locator('#preview-add').isDisabled(),true);
+  await page.locator('#preview-close').click();
+  await worker.evaluate(state=>chrome.storage.local.set(state),identitySavedState);
+  await page.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:'GET_STATE'},state=>{hydrate(state);resolve();})));
+
   await page.locator("#q").fill("old");
   await page.waitForTimeout(350);
   await page.locator("#q").fill("Aniimo");
