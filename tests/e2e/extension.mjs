@@ -238,6 +238,35 @@ try {
   assert(saved["dasi.items"].some(i => i.title === "Aniimo"));
   assert(saved["dasi.lists"][0].itemIds.includes("aniimo"));
   await page.locator("#dr-close").click();
+
+  // Games remain scannable; manual entry must never save before explicit list selection.
+  await page.locator('[data-v="games"]').click();
+  assert.equal(await page.locator('#add-game').count(),0);
+  assert.equal(await page.locator('#view-games .game-card iframe, #view-games .game-card video, #view-games .game-card a').count(),0);
+  await page.locator('#search-games').click();
+  await page.locator('#q').fill('Unlisted game fixture');
+  await page.locator('#manual-game').waitFor();
+  await page.locator('#manual-game').click();
+  assert.equal(await page.locator('#g-title').inputValue(),'Unlisted game fixture');
+  await page.locator('#g-url').fill('https://example.com/not-a-store');
+  await page.locator('#manual-game-form button[type=submit]').click();
+  assert((await page.locator('#manual-error').innerText()).includes('HTTPS'));
+  assert.equal(await page.locator('#preview-add').count(),0);
+  await page.locator('#g-url').fill('https://store.steampowered.com/app/1234/');
+  await page.locator('#manual-game-form button[type=submit]').click();
+  assert.equal(await page.locator('#preview-add').isDisabled(),true);
+  assert.equal(await page.locator('#preview-status').innerText(),'');
+  const manualBeforeChoice=await worker.evaluate(()=>chrome.storage.local.get('dasi.items'));
+  assert(!manualBeforeChoice['dasi.items'].some(i=>i.title==='Unlisted game fixture'));
+  await page.locator('#preview-list').selectOption('favorites');
+  assert.equal(await page.locator('#preview-add').isEnabled(),true);
+  await page.locator('#preview-close').click();
+  await page.locator('[data-v="games"]').click();
+  await page.setViewportSize({width:390,height:844});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Games should fit a narrow viewport');
+  await page.screenshot({path:path.join(artifactDir,'games-mobile.png')});
+  await page.setViewportSize({width:1440,height:1000});
+
   await page.locator('[data-v="home"]').click();
   await page.locator('[data-v="library"]').click();
   assert.equal(await page.locator("#search-results").innerText(), "");
