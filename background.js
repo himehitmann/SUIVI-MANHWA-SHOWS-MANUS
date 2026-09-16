@@ -702,7 +702,8 @@ async function jikanSearch(query) {
   return settled.flatMap(r=>r.status==="fulfilled"?r.value:[]);
 }
 async function mangaSearchResilient(query) {
-  try {return await anilistSearch(query);}catch{return jikanSearch(query);}
+  try {const results=await anilistSearch(query);if(results.length)return results;}catch{}
+  return jikanSearch(query);
 }
 async function jikanDetail(item) {
   const id=identityIds(item).mal;
@@ -952,18 +953,27 @@ async function catalogSearchAll(query,onProgress) {
   if(settled.every(r=>r.status==="rejected"))throw new Error("catalog_unavailable");
   return mergeCatalogResults(out);
 }
+function combineCatalogEntries(a,b) {
+  const preferred=(!a.cover&&b.cover)||(a.source==="wikipedia"&&b.source!=="wikipedia")?b:a;
+  const other=preferred===a?b:a,out={...other,...preferred,...identityMetadata(a,b)};
+  for(const field of ["cover","coverFallback","synopsis","trailer","trailerUrl","releaseDate","price","platform","format","country","year","total"])if(!out[field]&&other[field])out[field]=other[field];
+  for(const field of ["genres","tags"])out[field]=[...new Set([...(a[field]||[]),...(b[field]||[])])];
+  if(!out.cast?.length&&other.cast?.length)out.cast=other.cast;
+  out.catalogSources=[...new Set([...(a.catalogSources||[]),a.source,...(b.catalogSources||[]),b.source].filter(Boolean))];
+  return out;
+}
 function mergeCatalogResults(out) {
-  // De-dup by normalized title+type. Prefer the entry that has a cover, and
-  // prefer a structured source (AniList/Steam/TVMaze) over a Wikipedia stub.
-  const seen = new Map();
-  for (const r of out) {
-    const k = normalizeTitle(r.title) + "|" + r.type;
-    const prev = seen.get(k);
-    if (!prev) { seen.set(k, r); continue; }
-    const better = (!prev.cover && r.cover) || (prev.source === "wikipedia" && r.source !== "wikipedia" && r.cover);
-    if (better) seen.set(k, r);
+  const merged=[];
+  for(const raw of out) {
+    if(!raw||typeof raw.title!=="string"||!raw.title.trim())continue;
+    // Older providers used season for the release year, never a viewing season.
+    const year=raw.year||(Number(raw.season)>=1900?Number(raw.season):undefined);
+    const r={...raw,...(year?{year}:{} )};
+    const previous=findIdentity(merged,r);
+    if(!previous){merged.push(r);continue;}
+    merged[merged.indexOf(previous)]=combineCatalogEntries(previous,r);
   }
-  return [...seen.values()].slice(0, 120);
+  return merged.slice(0,120);
 }
 
 /*
@@ -1145,36 +1155,55 @@ async function getDiscover(force) {
 }
 
 /** Enrich one imported game with Steam artwork, price, store link and synopsis. */
-async function enrichGame(id) {
-  const epoch=accountEpoch;
-  const items=await read(ITEMS_KEY,[]);
-  const it=items.find(x=>x.id===id);
-  if(!it || it.type!=="game" || (it.enrichedAt && it.cover && it.synopsis && it.identityVersion===1)) return;
-  let match;
-  try { match=(await steamSearch(it.title)).find(r=>sameWork(r.title,it.title)); } catch { return; }
-  if (!match) return;
-  const patch={enrichedAt:Date.now(),format:it.format||"Game"};
-  if(match) {
-    if(!it.coverOverride && match.cover) patch.cover=match.cover;
-    if(!it.coverFallback && match.coverFallback) patch.coverFallback=match.coverFallback;
-    if(!it.price && match.price) patch.price=match.price;
-    if(!it.platform && match.platform) patch.platform=match.platform;
-    if(!it.url && match.url) patch.url=match.url;
-    const appid=steamAppId(match.url || it.url);
-    if(appid) try {
-      const d=await steamAppDetails(appid);
-      if(d) {
-        if(!it.synopsis && d.synopsis) patch.synopsis=d.synopsis;
-        if((!it.tags || !it.tags.length) && d.genres?.length) patch.tags=d.genres;
-        if(!it.releaseDate && d.releaseDate) patch.releaseDate=d.releaseDate;
-        if(d.comingSoon!==undefined && it.released===undefined) patch.released=!d.comingSoon;
-      }
-    } catch {}
+function metadataLeaseValid(item,lease) {
+  return !lease||(item?.metadataPending?.jobId===lease.jobId&&item?.metadataPending?.attemptId===lease.attemptId);
+}
+function metadataIdentityUnchanged(live,before) {
+  return live&&live.title===before.title&&live.type===before.type&&JSON.stringify(identityIds(live))===JSON.stringify(identityIds(before));
+}
+function applyMetadataPatch(live,before,patch) {
+  const safe={...live};
+  for(const [key,value] of Object.entries(patch)) {
+    if(key==="cover"&&live.coverOverride)continue;
+    if(["alternativeTitles","authors"].includes(key)){safe[key]=[...new Set([...(live[key]||[]),...(value||[])])];continue;}
+    if(["enrichedAt","identityVersion","gameEnrichedAt"].includes(key)||JSON.stringify(live[key])===JSON.stringify(before[key]))safe[key]=value;
   }
-  await serializeLibrary(async()=>{
-    if(epoch!==accountEpoch)return;
-    const current=await read(ITEMS_KEY,[]);
-    await writeData({[ITEMS_KEY]:current.map(x=>x.id===id?boundedProgress({...x,...patch}):x)});
+  return boundedProgress(safe);
+}
+function newMetadataJob() {return {jobId:crypto.randomUUID(),attempts:0,nextAttemptAt:0,state:"queued"};}
+
+async function enrichGame(id,force=false,lease=null) {
+  const epoch=accountEpoch,items=await read(ITEMS_KEY,[]),it=items.find(x=>x.id===id);
+  if(!it||it.type!=="game"||!metadataLeaseValid(it,lease))return {status:"stale"};
+  if(!force&&it.enrichedAt&&it.cover&&it.synopsis&&it.identityVersion===1)return {status:"matched",item:it};
+  const known=identityIds(it).steam||steamAppId(it.url);
+  let match,detail,appid=known;
+  try {
+    if(!appid) {
+      const candidates=(await steamSearch(it.title)).filter(r=>sameIdentity(r,it));
+      if(candidates.length!==1)return {status:candidates.length?"ambiguous":"not_found"};
+      match=candidates[0];appid=identityIds(match).steam||steamAppId(match.url);
+    }
+    if(!appid)return {status:"not_found"};
+    detail=await steamAppDetails(appid);
+    if(!detail)return {status:"retryable_error",error:"details_unavailable"};
+  }catch{return {status:"retryable_error",error:"source_unavailable"};}
+  const patch={enrichedAt:Date.now(),gameEnrichedAt:Date.now(),identityVersion:1,externalIds:{...identityIds(it),steam:String(appid)},format:it.format||"Game"};
+  const data={...match,...detail};
+  for(const field of ["synopsis","price","platform","releaseDate","coverFallback","trailer","trailerUrl"])if(data[field]&&!it[field])patch[field]=data[field];
+  if(data.cover&&!it.coverOverride)patch.cover=data.cover;
+  if(!it.url)patch.url=match?.url||"https://store.steampowered.com/app/"+appid;
+  if(!it.platform)patch.platform="Steam";
+  if(!it.tags?.length&&data.genres?.length)patch.tags=data.genres;
+  if(data.news?.length)patch.news=data.news;
+  if(data.comingSoon!==undefined&&it.released===undefined)patch.released=!data.comingSoon;
+  return serializeLibrary(async()=>{
+    if(epoch!==accountEpoch)return {status:"stale"};
+    const current=await read(ITEMS_KEY,[]),live=current.find(x=>x.id===id);
+    if(!metadataIdentityUnchanged(live,it)||!metadataLeaseValid(live,lease)||steamAppId(live.url)!==steamAppId(it.url))return {status:"stale"};
+    const item=applyMetadataPatch(live,it,patch);
+    await writeData({[ITEMS_KEY]:current.map(x=>x.id===id?item:x)});
+    return {status:item.cover&&item.synopsis?"matched":"partial",item};
   });
 }
 
@@ -1238,17 +1267,20 @@ async function consolidateReadingIdentity(items,id) {
   return {items:next,item:merged,mergedIds,lists,notifications};
 }
 
-async function enrichWork(id,force=false) {
+async function enrichWork(id,force=false,lease=null) {
   const epoch=accountEpoch;
   const items = await read(ITEMS_KEY, []);
   const it = items.find((x) => x.id === id);
-  if (!it || it.type === "game") return;
+  if (!it || it.type === "game" || !metadataLeaseValid(it,lease)) return {status:"stale"};
   if(!force && it.enrichedAt && it.cover && it.synopsis && it.identityVersion===1) {
     return serializeLibrary(async()=>{
-      if(epoch!==accountEpoch)return;
-      const result=await consolidateReadingIdentity(await read(ITEMS_KEY,[]),id);
+      if(epoch!==accountEpoch)return {status:"stale"};
+      const current=await read(ITEMS_KEY,[]),live=current.find(i=>i.id===id);
+      if(!metadataIdentityUnchanged(live,it)||!metadataLeaseValid(live,lease))return {status:"stale"};
+      const result=await consolidateReadingIdentity(current,id);
+      if(lease&&result.item)result.item.metadataPending=live.metadataPending;
       if(result.mergedIds.length)await writeData({[ITEMS_KEY]:result.items,[LISTS_KEY]:result.lists,[NOTIF_KEY]:result.notifications});
-      return result;
+      return {...result,status:"matched"};
     });
   }
   let match;
@@ -1259,15 +1291,15 @@ async function enrichWork(id,force=false) {
     // A failed exact lookup must not silently select another similarly named work.
     try {
       const detail=await catalogDetail(it);
-      if(!detail||!sharedCatalogIdentity(it,detail))return;
+      if(!detail||!sharedCatalogIdentity(it,detail))return {status:"ambiguous"};
       match=detail;
-    } catch {return;}
+    } catch {return {status:"retryable_error",error:"source_unavailable"};}
   } else {
     let results;
-    try {results=await catalogSearchAll(it.title);} catch {return;}
+    try {results=await catalogSearchAll(it.title);} catch {return {status:"retryable_error",error:"source_unavailable"};}
     const candidates=results.filter(r=>sameIdentity(r,it)&&
       (!it.year||!(r.year||r.season)||Number(it.year)===Number(r.year||r.season)));
-    if(candidates.length!==1)return;
+    if(candidates.length!==1)return {status:candidates.length?"ambiguous":"not_found"};
     match=candidates[0];
   }
   const patch = { enrichedAt: Date.now(), identityVersion:1, ...identityMetadata(it,match) };
@@ -1300,14 +1332,15 @@ async function enrichWork(id,force=false) {
     }
   }
   return serializeLibrary(async () => {
-    if(epoch!==accountEpoch)return;
+    if(epoch!==accountEpoch)return {status:"stale"};
     const current = await read(ITEMS_KEY, []);
     const live=current.find(x=>x.id===id);
-    if(!live||live.updatedAt!==it.updatedAt||live.title!==it.title||live.type!==it.type)return;
-    const next = current.map(x => x.id === id ? boundedProgress({...x,...patch}) : x);
+    if(!metadataIdentityUnchanged(live,it)||!metadataLeaseValid(live,lease))return {status:"stale"};
+    const next = current.map(x => x.id === id ? applyMetadataPatch(x,it,patch) : x);
     const result=await consolidateReadingIdentity(next,id);
+    if(lease&&result.item)result.item.metadataPending=live.metadataPending;
     await writeData({[ITEMS_KEY]:result.items,...(result.mergedIds.length?{[LISTS_KEY]:result.lists,[NOTIF_KEY]:result.notifications}:{})});
-    return result;
+    return {...result,status:result.item?.cover&&result.item?.synopsis?"matched":"partial"};
   });
 }
 
@@ -1577,37 +1610,52 @@ function runImportEnrichment() {
   importEnrichmentQueue=runImportEnrichmentBatch().finally(()=>{importEnrichmentQueue=null;});
   return importEnrichmentQueue;
 }
+async function queueMissingMetadata(ids) {
+  const selected=Array.isArray(ids)?new Set(ids):null;
+  const items=await read(ITEMS_KEY,[]);
+  let queued=0;
+  const next=items.map(item=>{
+    if(selected&&!selected.has(item.id)||item.metadataPending)return item;
+    if(!["reading","watching","game"].includes(item.type))return item;
+    if(!selected&&item.cover&&item.synopsis&&item.identityVersion===1&&!['failed','not_found','ambiguous','partial'].includes(item.metadataStatus?.state))return item;
+    queued++;
+    return {...item,metadataPending:newMetadataJob(),metadataStatus:{state:"queued",attempts:0,updatedAt:Date.now()}};
+  });
+  if(queued)await writeData({[ITEMS_KEY]:next});
+  return {ok:true,queued,items:next};
+}
 async function runImportEnrichmentBatch() {
   const epoch=accountEpoch;
-  // Persist the attempt before requesting metadata; a terminated worker leaves
-  // a retriable record, not a lost promise. Small batches respect catalog limits.
+  // Claims survive worker suspension. Tokens also invalidate late results from
+  // an earlier import or attempt, even when the attempt counts happen to match.
   for(let count=0;count<2;count++) {
     const candidate=await serializeLibrary(async()=>{
       if(epoch!==accountEpoch)return;
       const items=await read(ITEMS_KEY,[]);
-      const item=items.find(i=>i.metadataPending&&(Number(i.metadataPending.nextAttemptAt)||0)<=Date.now());
+      const item=items.filter(i=>i.metadataPending&&(Number(i.metadataPending.nextAttemptAt)||0)<=Date.now())
+        .sort((a,b)=>(Number(a.metadataPending.nextAttemptAt)||0)-(Number(b.metadataPending.nextAttemptAt)||0))[0];
       if(!item)return;
-      const pending={attempts:(Number(item.metadataPending.attempts)||0)+1,nextAttemptAt:Date.now()+60000};
-      const updated={...item,metadataPending:pending};
+      const pending={...item.metadataPending,jobId:item.metadataPending.jobId||crypto.randomUUID(),attemptId:crypto.randomUUID(),
+        attempts:(Number(item.metadataPending.attempts)||0)+1,nextAttemptAt:Date.now()+120000,state:"running"};
+      const updated={...item,metadataPending:pending,metadataStatus:{state:"running",attempts:pending.attempts,updatedAt:Date.now()}};
       await writeData({[ITEMS_KEY]:items.map(i=>i.id===item.id?updated:i)});
       return updated;
     });
     if(!candidate)break;
     let completion;
-    try {completion=await(candidate.type==="game"?enrichGame(candidate.id):enrichWork(candidate.id));}catch{/* Retried below. */}
+    try {completion=await(candidate.type==="game"?enrichGame(candidate.id,false,candidate.metadataPending):enrichWork(candidate.id,false,candidate.metadataPending));}
+    catch {completion={status:"retryable_error"};}
     await serializeLibrary(async()=>{
       if(epoch!==accountEpoch)return;
-      const items=await read(ITEMS_KEY,[]);
-      const id=completion?.item?.id||candidate.id;
+      const items=await read(ITEMS_KEY,[]), id=completion?.item?.id||candidate.id;
       const current=items.find(i=>i.id===id);
-      if(!current?.metadataPending)return;
-      // A re-import or user edit may have replaced this attempt.
-      if(id===candidate.id&&current.metadataPending.attempts!==candidate.metadataPending.attempts)return;
-      const matched=Boolean(current.enrichedAt&&current.enrichedAt!==candidate.enrichedAt)||Boolean(completion?.mergedIds?.length);
-      const exhausted=candidate.metadataPending.attempts>=3;
-      const next={...current,metadataPending:matched||exhausted?undefined:{
-        attempts:candidate.metadataPending.attempts,
-        nextAttemptAt:Date.now()+candidate.metadataPending.attempts*60000
+      if(!current?.metadataPending||!metadataLeaseValid(current,candidate.metadataPending))return;
+      const attempts=candidate.metadataPending.attempts;
+      const outcome=completion?.status||"retryable_error";
+      const terminal=["matched","partial","ambiguous"].includes(outcome)||(outcome==="not_found"?attempts>=3:attempts>=5);
+      const state=terminal?(outcome==="retryable_error"||outcome==="stale"?"failed":outcome):"retrying";
+      const next={...current,metadataStatus:{state,attempts,updatedAt:Date.now()},metadataPending:terminal?undefined:{
+        jobId:candidate.metadataPending.jobId,attempts,state:"queued",nextAttemptAt:Date.now()+Math.min(900000,60000*2**(attempts-1))
       }};
       await writeData({[ITEMS_KEY]:items.map(i=>i.id===id?next:i)});
     });
@@ -1641,7 +1689,7 @@ async function mergeImport(payload) {
     byId.set(key,item);
     // Imported exports often contain progress but omit artwork and synopsis.
     // Queue a best-effort lookup after the atomic import is safely stored.
-    if(!item.enrichedAt || !item.cover || !item.synopsis || (item.type==="reading" && item.identityVersion!==1)) {enrichIds.add(key);item.metadataPending={attempts:0,nextAttemptAt:0};}
+    if(!item.enrichedAt || !item.cover || !item.synopsis || (item.type==="reading" && item.identityVersion!==1)) {enrichIds.add(key);item.metadataPending=newMetadataJob();item.metadataStatus={state:"queued",attempts:0,updatedAt:Date.now()};}
     if(ex)updated++;else added++;
   }
   const patch={[ITEMS_KEY]:[...byId.values()]};
@@ -1763,16 +1811,18 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "ADD_SITE":
     case "REMOVE_SITE":
       mutateAndReply(async()=>{const previous=await read(SITES_KEY,[]);const sites=message.type==='REMOVE_SITE'?previous.filter(s=>(s.id||s.url)!==message.id):previous.some(s=>s.url===message.payload.url)?previous:[...previous,message.payload];await writeData({[SITES_KEY]:sites});return {sites};},sendResponse);return true;
+    case "QUEUE_MISSING_METADATA":
+      serializeLibrary(()=>queueMissingMetadata(message.ids)).then(result=>{sendResponse(result);void ensureImportEnrichmentAlarm().then(()=>runImportEnrichment()).catch(()=>{});},error=>sendResponse({ok:false,error:String(error.message)}));return true;
     case "COMPLETE_ITEM_METADATA": {
       const epoch = accountEpoch;
       read(ITEMS_KEY, []).then(async saved => {
         const item = saved.find(x => x.id === message.id);
         if (!item || epoch !== accountEpoch) return {ok:false,error:"item_unavailable"};
-        const completion=await (item.type === "game" ? enrichGame(item.id) : enrichWork(item.id,message.force===true));
+        const completion=await (item.type === "game" ? enrichGame(item.id,message.force===true) : enrichWork(item.id,message.force===true));
         if (epoch !== accountEpoch) return {ok:false,error:"account_changed"};
         const current = (await read(ITEMS_KEY, [])).find(x => x.id === (completion?.item?.id||item.id));
         autoSync();
-        return {ok:true,item:current,mergedIds:completion?.mergedIds||[],lists:completion?.lists,matched:Boolean(current?.enrichedAt && current.enrichedAt !== item.enrichedAt)};
+        return {ok:true,item:current,mergedIds:completion?.mergedIds||[],lists:completion?.lists,status:completion?.status,matched:completion?.status==="matched"};
       }).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));
       return true;
     }
