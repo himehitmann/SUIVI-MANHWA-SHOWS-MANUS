@@ -23,6 +23,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - run: node scripts/security-check.mjs
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm check
