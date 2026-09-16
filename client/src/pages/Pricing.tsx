@@ -24,8 +24,8 @@ const tiers: Tier[] = [
     icon: Star,
     price: { monthly: "$0", yearly: "$0" },
     features: [
-      "Unlimited library — manga, webtoons, anime, series, films & games",
-      "One-click save & resume on any site",
+      "Library for manga, webtoons, anime, series, films & games",
+      "Save and resume on supported pages",
       "Import from Trakt, TV Time, IMDb, Letterboxd & MyAnimeList",
       "Custom lists, tags, ratings & drag-and-drop",
       "Built-in page & image translation",
@@ -40,12 +40,12 @@ const tiers: Tier[] = [
     featured: true,
     features: [
       "Everything in Free",
-      "Encrypted cloud sync across unlimited devices",
+      "Optional account synchronization across devices",
       "New chapter, episode & release alerts",
-      "Full stats — streaks, trends, calendar & forecasts",
-      "Unlimited translation, every language",
+      "Library statistics and learning history",
+      "Translation tools, subject to provider availability and limits",
       "Custom list covers & profile",
-      "Priority support & early features",
+      "Profile and library preferences",
     ],
   },
 ];
@@ -70,9 +70,8 @@ export default function Pricing() {
       window.location.href = url;
       return;
     }
-    // No checkout configured (dev / unlocked owner build): local plan toggle.
-    store.setPlan(plan);
-    toast.success(ctaLabel(plan));
+    if(UNLOCK_ALL){store.setPlan(plan);toast.success(ctaLabel(plan));return;}
+    toast.error(t("pricing.unavailable"));
   };
 
   return (
@@ -89,7 +88,7 @@ export default function Pricing() {
               {t("pricing.billing.monthly")}
             </button>
             <button className={yearly ? "active" : ""} onClick={() => setYearly(true)} role="tab" aria-selected={yearly}>
-              {t("pricing.billing.yearly")} <em>{t("pricing.yearlyNote")}</em>
+              {t("pricing.billing.yearly")} 
             </button>
           </div>
         </div>
