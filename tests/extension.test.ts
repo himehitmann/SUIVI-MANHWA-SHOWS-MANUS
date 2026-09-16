@@ -809,3 +809,36 @@ describe("catalog content categories",()=>{
   it("excludes biographies and unknown Wikipedia pages",()=>{const w=worker();for(const desc of ["American film actor","Japanese manga author","French actress","American company",""]) {w.ctx.desc=desc;expect(w.run("classifyWiki(desc).type")).toBe("");}expect(w.run('classifyWiki("Japanese manga series").type')).toBe("reading");expect(w.run('classifyWiki("American television series").type')).toBe("watching");});
   it("does not put animated shows in regional drama rows",()=>{const w=worker();expect(w.run('liveActionShow({type:"Animation",genres:["Adventure"]})')).toBe(false);expect(w.run('liveActionShow({type:"Scripted",genres:["Anime"]})')).toBe(false);expect(w.run('liveActionShow({type:"Scripted",genres:["Drama","Romance"]})')).toBe(true);});
 });
+
+
+describe("progressive catalog search",()=>{
+  it("publishes fast providers before the slow provider finishes and shares the running job",async()=>{
+    const w=worker();
+    w.run('var releaseSlow; var calls=0; mangaSearchResilient=()=>{calls++;return new Promise(resolve=>{releaseSlow=resolve;});};steamSearch=async()=>[{title:"Fast game",type:"game",source:"steam"}];openLibrarySearch=async()=>[];tvmazeSearch=async()=>[];wikipediaSearch=async()=>[];');
+    const first=await w.call({type:"CATALOG_SEARCH",query:"test",progressive:true});
+    expect(first.pending).toBe(true);
+    await new Promise(r=>setTimeout(r,20));
+    const partial=await w.call({type:"CATALOG_SEARCH",query:"test",progressive:true});
+    expect(partial.pending).toBe(true);
+    expect(partial.results.map((r:any)=>r.title)).toContain("Fast game");
+    expect(w.run("calls")).toBe(1);
+    w.run('releaseSlow([{title:"Slow manga",type:"reading",source:"anilist"}])');
+    await w.run('Array.from(catalogJobs.values())[0].task');
+    const done=await w.call({type:"CATALOG_SEARCH",query:"test",progressive:true});
+    expect(done.pending).toBe(false);
+    expect(done.results.map((r:any)=>r.title)).toEqual(["Fast game","Slow manga"]);
+  });
+  it("allows an immediate retry after total provider failure",async()=>{
+    const w=worker();
+    w.run('catalogSearchAll=async()=>{throw Error("offline");}');
+    await w.call({type:"CATALOG_SEARCH",query:"retry",progressive:true});
+    await w.run('Array.from(catalogJobs.values())[0].task');
+    w.run('catalogSearchAll=async()=>[{title:"Recovered",type:"reading"}]');
+    await w.call({type:"CATALOG_SEARCH",query:"retry",progressive:true});
+    await w.run('Array.from(catalogJobs.values())[0].task');
+    const result=await w.call({type:"CATALOG_SEARCH",query:"retry",progressive:true});
+    expect(result.ok).toBe(true);
+    expect(result.results[0].title).toBe("Recovered");
+  });
+});
+
