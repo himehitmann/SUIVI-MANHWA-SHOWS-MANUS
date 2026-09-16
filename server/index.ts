@@ -27,6 +27,7 @@ async function resolveStore(): Promise<Store> {
       throw new Error(
         "Configure DATABASE_URL or persistent SYNC_DB_FILE before serving accounts."
       );
+    if(process.env.NODE_ENV === "production")console.warn("SYNC_DB_FILE is single-process storage and rewrites the whole snapshot. Use DATABASE_URL for a multi-user deployment.");
     return createStore(process.env.SYNC_DB_FILE);
   }
   const pgModule = "pg";
@@ -37,6 +38,11 @@ async function resolveStore(): Promise<Store> {
   };
   const pool = new pg.Pool({
     connectionString: url,
+    max: 10,
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+    statement_timeout: 10000,
+    query_timeout: 12000,
     ...(process.env.DATABASE_SSL === "false"
       ? {}
       : { ssl: { rejectUnauthorized: true } }),
