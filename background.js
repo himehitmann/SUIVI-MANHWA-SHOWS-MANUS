@@ -34,7 +34,9 @@ function pageSender(sender) {
 }
 function pageDetection(payload,sender) {
   if(!payload || typeof payload.title!=="string" || !payload.title.trim() || payload.title.length>500 || !["reading","watching","game"].includes(payload.type))throw Error("invalid_detection");
-  const clean={title:payload.title,type:payload.type,url:sender.url,domain:new URL(sender.url).hostname};
+  const pageUrl=sender.tab?.url||sender.url;
+  if(!["http:","https:"].includes(new URL(pageUrl).protocol))throw Error("invalid_detection");
+  const clean={title:payload.title,type:payload.type,url:pageUrl,domain:new URL(pageUrl).hostname};
   for(const key of ["chapter","episode","season","page","position","duration","confidence","total","year"])if(Number.isFinite(payload[key])&&payload[key]>=0&&payload[key]<=1e9)clean[key]=payload[key];
   for(const key of ["format","cover","synopsis","episodeTitle","releaseDate","platform","price","trailer"])if(typeof payload[key]==="string")clean[key]=payload[key].slice(0,key==="synopsis"?20000:2048);
   for(const key of ["alternativeTitles","authors","tags"])if(Array.isArray(payload[key]))clean[key]=payload[key].filter(x=>typeof x==="string").slice(0,100).map(x=>x.slice(0,500));
@@ -2307,5 +2309,6 @@ api.commands.onCommand.addListener(async (command) => {
     }
   }
 });
-void scrubLegacySyncedSettings().catch(()=>{});
+const startupSecurity=scrubLegacySyncedSettings();
+startupSecurity.catch(()=>{});
 
