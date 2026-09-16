@@ -4,7 +4,7 @@ import type { Server } from "node:http";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createApiRouter } from "../server/api";
+import { createApiRouter, createRequestLimiter } from "../server/api";
 import { createStore } from "../server/lib/store";
 let server: Server, base: string;
 beforeEach(async () => {
@@ -203,3 +203,37 @@ it("requires the password for email changes and account deletion", async () => {
   ).toBe(200);
   expect((await call("/me", undefined, a.token)).status).toBe(401);
 });
+
+describe("private response caching and resource limits",()=>{
+  it("marks successes, auth failures and parser errors as non-cacheable",async()=>{
+    const created=await call("/auth/signup",{email:"cache@example.test",password:"cache-test-password"});
+    expect(created.headers.get("cache-control")).toBe("no-store");const account=await created.json();
+    const results=[await call("/me",undefined,account.token),await call("/sync",undefined,account.token),await call("/sync"),await call("/auth/login",{email:[],password:[]}),await fetch(base+"/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:"{"}),await call("/auth/login",{large:"a".repeat(2100000)})];
+    expect(results.map(r=>r.status)).toEqual([200,200,401,400,400,413]);
+    for(const result of results){expect(result.headers.get("cache-control")).toBe("no-store");expect(result.headers.get("vary")).toContain("Origin");}
+  });
+  it("shares login limits across route case and trailing-slash variants",async()=>{
+    let last:Response|undefined;
+    for(let i=0;i<12;i++)last=await call(i%2?"/AUTH/LOGIN/":"/auth/login",{email:"missing@example.test",password:"wrong"});
+    expect(last!.status).toBe(429);expect(Number(last!.headers.get("retry-after"))).toBeGreaterThan(0);expect(last!.headers.get("cache-control")).toBe("no-store");
+  });
+  it("expires limiter entries without requiring a signup",()=>{
+    let now=100000;const limiter=createRequestLimiter(()=>now,3);
+    for(const id of ["catalog:a","login:b","sync:c"])expect(limiter.check(id,1).allowed).toBe(true);
+    now+=61000;expect(limiter.check("catalog:d",1).allowed).toBe(true);expect(limiter.size()).toBe(1);
+  });
+  it("bounds limiter memory without resetting active blocked clients",()=>{
+    const limiter=createRequestLimiter(()=>100000,2);
+    expect(limiter.check("blocked",1).allowed).toBe(true);expect(limiter.check("blocked",1).allowed).toBe(false);
+    expect(limiter.check("second",1).allowed).toBe(true);
+    for(let n=0;n<100;n++)expect(limiter.check("new:"+n,1).allowed).toBe(false);
+    expect(limiter.size()).toBe(2);expect(limiter.check("blocked",1).allowed).toBe(false);
+  });
+  it("limits sync per account without exhausting another account",async()=>{
+    const a=await(await call("/auth/signup",{email:"quota-a@example.test",password:"quota-safe-password"})).json();
+    const b=await(await call("/auth/signup",{email:"quota-b@example.test",password:"quota-safe-password"})).json();
+    let last:Response|undefined;for(let n=0;n<121;n++)last=await call("/sync",undefined,a.token);
+    expect(last!.status).toBe(429);expect((await call("/sync",undefined,b.token)).status).toBe(200);
+  });
+});
+
