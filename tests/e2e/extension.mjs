@@ -172,12 +172,6 @@ try {
   await worker.evaluate(()=>{
     globalThis.metadataOriginalSearch=catalogSearchAll;
     globalThis.metadataSearchStarted=false;
-    globalThis.metadataWrites=[];
-    globalThis.metadataOriginalSet=chrome.storage.local.set.bind(chrome.storage.local);
-    chrome.storage.local.set=async values=>{
-      if(values["dasi.items"])globalThis.metadataWrites.push({items:JSON.parse(JSON.stringify(values["dasi.items"])),stack:new Error().stack});
-      return globalThis.metadataOriginalSet(values);
-    };
     catalogSearchAll=()=>{globalThis.metadataSearchStarted=true;return new Promise(resolve=>{globalThis.finishMetadataSearch=resolve;});};
     return chrome.storage.local.set({"dasi.items":[{id:"metadata-e2e",title:"Imported fixture",type:"reading",chapter:8,metadataStatus:{state:"failed"}}],"dasi.lists":[]});
   });
@@ -190,15 +184,14 @@ try {
   await worker.evaluate(()=>globalThis.finishMetadataSearch([{title:"Imported fixture",type:"reading",cover:"https://example.org/cover.jpg",synopsis:"Recovered description",externalIds:{mal:"77"}}]));
   await page.waitForFunction(async()=>{const state=await chrome.runtime.sendMessage({type:"GET_STATE"});return state.items[0]?.metadataStatus?.state==="matched";});
   const completedMetadata=await worker.evaluate(async()=>{await importEnrichmentQueue;return (await chrome.storage.local.get("dasi.items"))["dasi.items"][0];});
-  console.log("Metadata completion:",JSON.stringify(completedMetadata));
-  console.log("Metadata writes:",JSON.stringify(await worker.evaluate(()=>globalThis.metadataWrites)));
   assert.equal(completedMetadata.chapter,8);assert.equal(completedMetadata.synopsis,"Recovered description");assert.equal(completedMetadata.metadataPending,null);
   await page.locator("#library-metadata-status").waitFor({state:"hidden"});
   await worker.evaluate(()=>chrome.storage.local.set({"dasi.items":[{id:"missing-e2e",title:"No match",type:"reading",metadataStatus:{state:"not_found",attempts:3}}]}));
   await page.locator("#retry-library-metadata").waitFor();
   assert.match(await page.locator("#library-metadata-status").innerText(),/uncertain match|correspondance certaine/);
-  await worker.evaluate(data=>{catalogSearchAll=globalThis.metadataOriginalSearch;chrome.storage.local.set=globalThis.metadataOriginalSet;return chrome.storage.local.set(data);},beforeMetadata);
-  await page.evaluate(async()=>{const state=await chrome.runtime.sendMessage({type:"GET_STATE"});items=state.items;lists=state.lists;switchView("home");});
+  await worker.evaluate(data=>{catalogSearchAll=globalThis.metadataOriginalSearch;return chrome.storage.local.set(data);},beforeMetadata);
+  await page.waitForFunction(ids=>items.length===ids.length&&ids.every(id=>items.some(item=>item.id===id)),beforeMetadata["dasi.items"].map(item=>item.id));
+  await page.evaluate(()=>switchView("home"));
 
   // Empty accounts start with discoveries, not a large instruction screen.
   const homeState=await page.evaluate(()=>({items,discover,settings}));
