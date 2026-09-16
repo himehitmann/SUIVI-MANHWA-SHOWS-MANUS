@@ -15,9 +15,7 @@ export default function Admin(){
  async function apply(){
   if(!target||!password||reason.trim().length<3)return;
   const action=kind==="role"?say("Changer le rôle : ","Change role: ")+role:days===0?say("Retirer l’abonnement offert","Remove gifted access"):say("Offrir Pro pendant ","Gift Pro for ")+days+say(" jours à compter de maintenant"," days starting now");
-  if(!window.confirm(action+"
-"+target.email+"
-"+say("Cela ne modifie ni ne résilie un abonnement payant existant.","This does not change or cancel an existing paid subscription.")))return;
+  if(!window.confirm(action+"\n"+target.email+"\n"+say("Cela ne modifie ni ne résilie un abonnement payant existant.","This does not change or cancel an existing paid subscription.")))return;
   const change={targetId:target.id,expectedVersion:target.accessVersion,kind,...(kind==="role"?{role}:{days}),reason:reason.trim()};
   const key=JSON.stringify(change);if(pending.current?.key!==key)pending.current={key,requestId:crypto.randomUUID()};
   setBusy(true);
