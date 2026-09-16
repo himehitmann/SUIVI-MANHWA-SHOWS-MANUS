@@ -1877,9 +1877,9 @@ function renderMetadataStatus() {
   const fr=settings.lang==="fr", pending=items.filter(i=>i.metadataPending).length;
   const unresolved=items.filter(i=>["failed","not_found","ambiguous","partial"].includes(i.metadataStatus?.state)&&!i.metadataPending).length;
   const missing=items.filter(i=>!i.metadataPending&&(!coverUrl(i)||!i.synopsis||i.identityVersion!==1)).length;
-  const message=pending?(fr?pending+" fiches en cours de recherche. Tu peux continuer à utiliser Yomu.":pending+" works are being completed. You can keep using Yomu."):
-    unresolved?(fr?unresolved+" fiches restent incomplètes ou sans correspondance certaine.":unresolved+" works still have missing details or an uncertain match."):
-    missing?(fr?missing+" fiches peuvent être complétées.":missing+" works can be checked for missing details."):
+  const message=pending?(fr?pending+(pending===1?" fiche en cours de recherche. Tu peux continuer à utiliser Yomu.":" fiches en cours de recherche. Tu peux continuer à utiliser Yomu."):pending+(pending===1?" work is being completed. You can keep using Yomu.":" works are being completed. You can keep using Yomu.")):
+    unresolved?(fr?unresolved+(unresolved===1?" fiche reste incomplète ou sans correspondance certaine.":" fiches restent incomplètes ou sans correspondance certaine."):unresolved+(unresolved===1?" work still has missing details or an uncertain match.":" works still have missing details or an uncertain match.")):
+    missing?(fr?missing+(missing===1?" fiche peut être complétée.":" fiches peuvent être complétées."):missing+(missing===1?" work can be checked for missing details.":" works can be checked for missing details.")):
     (fr?"Les affiches et descriptions disponibles sont enregistrées.":"Available artwork and descriptions are saved.");
   const label=document.getElementById("metadata-status");if(label)label.textContent=message;
   const button=document.getElementById("complete-metadata");
