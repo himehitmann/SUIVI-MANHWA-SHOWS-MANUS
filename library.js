@@ -1055,6 +1055,7 @@ function openDrawer(id) {
       ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${settings.lang==="fr"?"Auteurs":"Creators"}</div><p class="synopsis">${i.authors.filter(x=>typeof x==="string").map(esc).join(" · ")}</p>` : ""}
       ${Array.isArray(i.alternativeTitles)&&i.alternativeTitles.length ? `<div class="section-t">${settings.lang==="fr"?"Autres titres":"Alternative titles"}</div><ul class="synopsis">${i.alternativeTitles.filter(x=>typeof x==="string").map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="dr-refresh-info">${I.refresh} ${settings.lang==="fr"?"Actualiser la fiche":"Refresh details"}</button><button class="btn" id="dr-home-toggle" aria-pressed="${!!i.homeHidden}">${settings.lang==="fr"?(i.homeHidden?"Réafficher sur l’accueil":"Masquer de l’accueil"):(i.homeHidden?"Show on Home":"Hide from Home")}</button></div><p class="field-hint" id="dr-refresh-status" role="status"></p><div id="dr-extra-info"></div>
+      ${episodeGuideSlot(i)}
       ${i.synopsis ? `<div class="section-t">${t("synopsis")}</div><p class="synopsis clamp" id="dr-syn">${esc(i.synopsis)}</p><button class="link-btn" id="dr-syn-toggle">${t("showMore")}</button>` : ""}
       ${!isGame && Array.isArray(i.cast) && i.cast.length ? `<div class="section-t">${t("cast")}</div><div class="cast-strip scroll-x">${i.cast.map((c) => `<div class="cast-card"><div class="cast-av"><span class="cast-ph">${esc((c.name || "?")[0].toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : ""}</div><b>${esc(c.name)}</b>${c.character ? `<small>${esc(c.character)}</small>` : ""}${c.role && c.role !== "MAIN" ? `<small>${esc(c.role.toLowerCase())}</small>` : ""}</div>`).join("")}</div>` : ""}
       ${isGame ? `
@@ -1096,6 +1097,7 @@ function openDrawer(id) {
   document.getElementById("scrim").classList.add("open");
   d.classList.add("open");
   wireDrawer(i, isWatch, isGame);
+  mountEpisodeGuide(i);
   enhanceCarousels("#drawer");
   // Games arrive from Steam search/discovery without genres; pull them (and a
   // description) the first time the fiche opens, then re-render in place.
@@ -1736,6 +1738,58 @@ function embeddedTrailer(url) {
 function safeStoreLink(value) {
   try {const url=new URL(value);return url.protocol==="https:"&&["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com"].includes(url.hostname)&&!url.username&&!url.password?url.href:"";}catch{return "";}
 }
+
+function episodeGuideSlot(item) {
+  return item.type==="watching"&&/^[1-9]\d*$/.test(String(item.externalIds?.tvmaze||""))?'<section id="episode-guide" class="episode-guide" aria-label="'+(settings.lang==="fr"?"Saisons et épisodes":"Seasons and episodes")+'"></section>':"";
+}
+function mountEpisodeGuide(item) {
+  const root=document.getElementById("episode-guide");if(!root)return;
+  const fr=settings.lang==="fr";let request=0;
+  const active=()=>root.isConnected&&document.getElementById("drawer").classList.contains("open");
+  const send=(seasonId)=>new Promise((resolve,reject)=>api.runtime.sendMessage({type:"CATALOG_EPISODE_GUIDE",item:{type:item.type,externalIds:item.externalIds},seasonId},r=>{if(api.runtime.lastError||!r?.ok)reject(Error("unavailable"));else resolve(r);}));
+  const label=s=>(s.number===0?(fr?"Épisodes spéciaux":"Specials"):(fr?"Saison ":"Season ")+s.number)+(s.name?" · "+s.name:"");
+  const fail=(target,retry)=>{
+    target.innerHTML='<p class="sub" role="status">'+(fr?"Les épisodes sont indisponibles pour le moment.":"Episodes are unavailable at the moment.")+'</p><button class="btn" type="button">'+(fr?"Réessayer":"Retry")+'</button>';
+    target.querySelector("button").onclick=retry;
+  };
+  const load=async()=>{
+    const token=++request;
+    root.innerHTML='<div class="section-t">'+(fr?"Saisons et épisodes":"Seasons and episodes")+'</div><p class="sub" role="status">'+(fr?"Chargement des saisons…":"Loading seasons…")+'</p>';
+    try {
+      const data=await send();if(!active()||token!==request)return;
+      const seasons=data.seasons||[];
+      if(!seasons.length){root.innerHTML='<p class="sub">'+(fr?"Aucune saison renseignée pour le moment.":"No seasons listed yet.")+'</p>';return;}
+      const selected=seasons.find(s=>s.number===Number(item.season))||seasons[0];
+      root.innerHTML='<div class="section-t">'+(fr?"Saisons et épisodes":"Seasons and episodes")+'</div>'+(seasons.length>1?'<label class="guide-season-label">'+(fr?"Saison":"Season")+'<select class="field" id="guide-season">'+seasons.map(s=>'<option value="'+esc(s.id)+'"'+(s.id===selected.id?' selected':'')+'>'+esc(label(s))+'</option>').join("")+'</select></label>':'<h3>'+esc(label(selected))+'</h3>')+'<div class="guide-episodes" aria-live="polite"></div><p class="sub guide-source">'+(fr?"Données : ":"Data: ")+'<a href="https://www.tvmaze.com/shows/'+encodeURIComponent(item.externalIds.tvmaze)+'" target="_blank" rel="noopener noreferrer">TVmaze</a></p>';
+      const area=root.querySelector(".guide-episodes"),select=root.querySelector("select");
+      const choose=async id=>{
+        const version=++request;area.setAttribute("aria-busy","true");
+        area.innerHTML='<p class="sub">'+(fr?"Chargement des épisodes…":"Loading episodes…")+'</p>';
+        try{
+          const result=await send(id);if(!active()||version!==request)return;
+          area.setAttribute("aria-busy","false");const episodes=result.episodes||[];let visible=40;
+          const render=()=>{
+            const known=Number.isInteger(result.season.episodeCount)?result.season.episodeCount:null;
+            const count=episodes.filter(e=>e.number!==null&&!e.special).length;
+            const stats=[count+ (fr?" épisodes répertoriés":" episodes listed")];
+            if(known!==null&&known!==count)stats.push(known+(fr?" prévus":" expected"));
+            const rows=episodes.slice(0,visible).map(e=>{
+              const number=e.number===null?(fr?"Spécial":"Special"):(fr?"Ép. ":"Ep. ")+e.number;
+              const upcoming=/^\d{4}-\d{2}-\d{2}$/.test(e.airdate)&&e.airdate>new Date().toISOString().slice(0,10);
+              const meta=[e.airdate,e.runtime?e.runtime+" min":"",e.special?(fr?"Spécial":"Special"):"",upcoming?(fr?"À venir":"Upcoming"):""].filter(Boolean);
+              return '<li class="guide-episode"><span class="guide-number">'+esc(number)+'</span><div><b>'+esc(e.name||(fr?"Titre non communiqué":"Title not announced"))+'</b>'+(meta.length?'<small>'+meta.map(esc).join(" · ")+'</small>':"")+'</div></li>';
+            }).join("");
+            area.innerHTML='<p class="sub">'+esc(stats.join(" · "))+'</p>'+(rows?'<ol class="guide-list">'+rows+'</ol>':'<p class="sub">'+(fr?"Les épisodes de cette saison ne sont pas encore renseignés.":"Episodes for this season have not been listed yet.")+'</p>')+(episodes.length>visible?'<button type="button" class="btn guide-more">'+(fr?"Afficher plus d’épisodes":"Show more episodes")+'</button>':"");
+            const more=area.querySelector(".guide-more");if(more)more.onclick=()=>{visible+=40;render();};
+          };render();
+        }catch{if(active()&&version===request){area.setAttribute("aria-busy","false");fail(area,()=>choose(id));}}
+      };
+      if(select)select.onchange=()=>choose(select.value);
+      choose(selected.id);
+    }catch{if(active()&&token===request)fail(root,load);}
+  };load();
+}
+
 function catalogInformation(m) {
   const fr=settings.lang==="fr";
   const tags=[...new Set([...(m.genres||[]),...(m.tags||[])])].filter(x=>typeof x==="string");
@@ -1763,7 +1817,7 @@ function openCatalogPreview(m) {
   const token=++previewRequest;
   const drawer=document.getElementById("drawer");  delete drawer.dataset.itemId;
   const fr=settings.lang==="fr";
-  drawer.innerHTML='<div class="drawer-hero"><button id="preview-close" class="icon-btn drawer-close" aria-label="'+esc(t("close")||"Close")+'">'+I.close+'</button><div class="drawer-cover"><span class="cover-ph">'+esc((m.title||"?")[0])+'</span>'+covImg(m.cover,m.coverFallback)+'</div><h2 class="drawer-title">'+esc(m.title)+'</h2><p>'+esc([catLabel(m),m.country,m.year||m.season].filter(Boolean).join(" · "))+'</p></div><div class="drawer-body"><div id="preview-info">'+catalogInformation(m)+'</div><p class="sub" id="preview-status" role="status">'+(fr?"Chargement de la fiche":"Loading details")+'</p><div class="preview-actions"><label for="preview-list">'+(fr?"Choisir une liste":"Choose a list")+'</label><select id="preview-list" class="field"><option value="">'+(fr?"Sélectionner une liste":"Select a list")+'</option>'+lists.filter(l=>!l.archived).map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join("")+'<option value="__new">'+(fr?"Créer une liste":"Create a list")+'</option></select><input id="preview-list-name" class="field" hidden placeholder="'+(fr?"Nom de la liste":"List name")+'"><button class="btn primary" id="preview-add" disabled>'+(fr?"Ajouter à cette liste":"Add to this list")+'</button></div></div>';
+  drawer.innerHTML='<div class="drawer-hero"><button id="preview-close" class="icon-btn drawer-close" aria-label="'+esc(t("close")||"Close")+'">'+I.close+'</button><div class="drawer-cover"><span class="cover-ph">'+esc((m.title||"?")[0])+'</span>'+covImg(m.cover,m.coverFallback)+'</div><h2 class="drawer-title">'+esc(m.title)+'</h2><p>'+esc([catLabel(m),m.country,m.year||m.season].filter(Boolean).join(" · "))+'</p></div><div class="drawer-body"><div id="preview-info">'+catalogInformation(m)+'</div>'+episodeGuideSlot(m)+'<p class="sub" id="preview-status" role="status">'+(fr?"Chargement de la fiche":"Loading details")+'</p><div class="preview-actions"><label for="preview-list">'+(fr?"Choisir une liste":"Choose a list")+'</label><select id="preview-list" class="field"><option value="">'+(fr?"Sélectionner une liste":"Select a list")+'</option>'+lists.filter(l=>!l.archived).map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join("")+'<option value="__new">'+(fr?"Créer une liste":"Create a list")+'</option></select><input id="preview-list-name" class="field" hidden placeholder="'+(fr?"Nom de la liste":"List name")+'"><button class="btn primary" id="preview-add" disabled>'+(fr?"Ajouter à cette liste":"Add to this list")+'</button></div></div>';
   drawer.setAttribute("role","dialog");drawer.setAttribute("aria-modal","true");drawer.setAttribute("aria-label",m.title);
   drawer.classList.add("open");document.getElementById("scrim").classList.add("open");
   document.getElementById("preview-close").onclick=closeDrawer;
@@ -1772,6 +1826,7 @@ function openCatalogPreview(m) {
   select.onchange=selection;name.oninput=selection;
   button.onclick=()=>addFromCatalog({...m,listId:select.value==="__new"?undefined:select.value,listName:select.value==="__new"?name.value.trim():undefined},button);
   document.getElementById("preview-close").focus();
+  mountEpisodeGuide(m);
   api.runtime.sendMessage({type:"CATALOG_DETAIL",item:m},r=>{
     if(token!==previewRequest||!drawer.classList.contains("open")||drawer.dataset.itemId)return;
     const status=document.getElementById("preview-status");
