@@ -11,3 +11,24 @@ describe('catalog resilience and canonical identities',()=>{
  it('does not merge conflicting provider identities with the same title',()=>{const state={...seedState(),items:[createItem({title:'Colony',type:'watching',externalIds:{imdb:'tt1'}})]};expect(mergeLibraryImport(state,{items:[{title:'Colony',type:'watching',externalIds:{imdb:'tt2'}}]}).state.items).toHaveLength(2);});
  it('matches translated titles through a shared provider id',()=>{const state={...seedState(),items:[createItem({title:'Original title',externalIds:{anilist:123},country:'KR',genres:['Action']})]};const result=mergeLibraryImport(state,{items:[{title:'Titre traduit',externalIds:{anilist:123},chapter:5}]});expect(result.state.items).toHaveLength(1);expect(result.state.items[0].country).toBe('KR');expect(result.state.items[0].chapter).toBe(5);});
 });
+
+describe('catalogue overload protection',()=>{
+ it('coalesces identical queries and refuses extra distinct requests without contacting providers',async()=>{
+  const releases:Array<()=>void>=[];
+  const fetcher=vi.fn(()=>new Promise<Response>(resolve=>releases.push(()=>resolve(Response.json({})))));
+  const search=createCatalog(fetcher as typeof fetch,{maxPending:2});
+  const one=search('first'),same=search('FIRST'),two=search('second');
+  await expect(search('third')).rejects.toThrow('catalog_busy');
+  expect(fetcher).toHaveBeenCalledTimes(14);
+  releases.forEach(done=>done());await Promise.all([one,same,two]);
+ });
+ it('temporarily caches total provider failure and releases capacity after recovery',async()=>{
+  let time=0;const fetcher=vi.fn(async()=>{throw Error('offline');});
+  const search=createCatalog(fetcher as typeof fetch,{now:()=>time,startsPerMinute:2});
+  await search('example');await search('example');expect(fetcher).toHaveBeenCalledTimes(7);
+  time=30001;await search('example');expect(fetcher).toHaveBeenCalledTimes(14);
+  await expect(search('different')).rejects.toThrow('catalog_busy');
+  time=60001;await search('different');expect(fetcher).toHaveBeenCalledTimes(21);
+ });
+});
+
