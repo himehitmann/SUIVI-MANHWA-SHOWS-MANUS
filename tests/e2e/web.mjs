@@ -48,5 +48,13 @@ try{
  const copy=page.locator('article.list-card').filter({has:page.getByRole('link',{name:'My imported list (copy)',exact:true})});await copy.getByRole('button',{name:'Archive',exact:true}).click();assert.equal(await page.getByRole('link',{name:'My imported list (copy)',exact:true}).count(),0);await page.getByRole('button',{name:'Archived',exact:true}).click();await page.getByRole('link',{name:'My imported list (copy)',exact:true}).waitFor();await page.getByRole('button',{name:'Restore',exact:true}).click();await page.getByRole('button',{name:'Active',exact:true}).click();await page.getByRole('link',{name:'My imported list (copy)',exact:true}).click();await page.getByRole('button',{name:'Select all',exact:true}).click();await page.getByRole('button',{name:'Remove from this list',exact:true}).click();assert.equal(await page.getByRole('link',{name:'Alchemy of Souls',exact:true}).count(),0);
  await page.goto(base+'/list/watch');await page.getByRole('link',{name:'Alchemy of Souls',exact:true}).waitFor();await page.getByRole('link',{name:'Search fixture game',exact:true}).waitFor();
  await fs.mkdir('test-results',{recursive:true});await page.screenshot({path:'test-results/web-list-detail.png',fullPage:true});await page.goto(base+'/settings');await page.screenshot({path:'test-results/web-profile-settings.png',fullPage:true});assert.deepEqual(errors,[]);
+ await page.goto(base+'/welcome');await page.locator('.land-sub').waitFor();
+ const contrast=await page.evaluate(()=>{
+  const lum=c=>{const v=c.match(/[0-9.]+/g).slice(0,3).map(Number).map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;});return .2126*v[0]+.7152*v[1]+.0722*v[2];};
+  return ['.land-sub','.primary-cta'].map(selector=>{const el=document.querySelector(selector),fg=getComputedStyle(el).color;let node=el,bg='rgb(255, 255, 255)';while(node){const color=getComputedStyle(node).backgroundColor;if(!color.startsWith('rgba')&&color!=='transparent'){bg=color;break;}node=node.parentElement;}const a=lum(fg),b=lum(bg);return {selector,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};});
+ });
+ for(const sample of contrast)assert(sample.ratio>=4.5,JSON.stringify(sample));
+ await page.locator('.primary-cta').first().focus();assert.equal(await page.locator('.primary-cta').first().evaluate(el=>getComputedStyle(el).outlineStyle),'solid');
+ assert.deepEqual(errors,[]);
  console.log('Web browser journeys passed: account creation, extension backup import, bounded progress, notes, real API sync, sign-out isolation, sign-in restoration, mobile game detail.');
 }finally{if(browser)await browser.close();server.kill();await new Promise(r=>server.exitCode!==null?r():server.once('exit',r));await fs.rm(temp,{recursive:true,force:true});}
