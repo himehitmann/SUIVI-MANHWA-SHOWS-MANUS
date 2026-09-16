@@ -174,6 +174,12 @@ function catLabel(i) {
   if (f === "ANIME" || f === "TV" || f === "ONA" || f === "OVA" || f === "SPECIAL" || f === "TV_SHORT") return "Anime";
   return i.type === "reading" ? "Comic" : i.type === "watching" ? "Video" : "Game";
 }
+const safeColor=(value,fallback="#EDE6FF")=>typeof value==="string"&&/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(value)?value:fallback;
+function safeBackground(value) {
+  if(typeof value!=="string")return "background:#EDE6FF";
+  const image=/^data:image\/(?:png|jpe?g|webp|gif|avif);base64,[a-z0-9+/=]+$/i.test(value)?value:safeNavigationUrl(value);
+  return image?"background-image:url('"+esc(image.replace(/['"\\()\s]/g,c=>"%"+c.charCodeAt(0).toString(16).padStart(2,"0")))+"')":"background:"+safeColor(value);
+}
 const coverUrl = (i) => i.coverOverride || i.cover || "";
 // Current position and how many entries are released · the basis for "unseen".
 const currentNum = (i) => (i.type === "watching" ? i.episode || 0 : i.chapter || 0);
@@ -267,8 +273,8 @@ function topGenres(source=items) {
 function posterHtml(i) {
   const lbl = flagLabel(i);
   const flag = lbl ? `<span class="flag ${isSoon(i) && unseen(i) === 0 ? "soon" : ""}">${esc(lbl)}</span>` : "";
-  return `<div class="poster" data-open="${i.id}">
-    <div class="art" style="background:${i.accent || accentFor(i)}"><span class="cat-badge">${esc(catLabel(i))}</span>${coverInner(i, 30)}${flag}
+  return `<div class="poster" data-open="${esc(i.id)}" role="button" tabindex="0" aria-label="${esc(t("details")+": "+i.title)}">
+    <div class="art" style="background:${safeColor(i.accent,accentFor(i))}"><span class="cat-badge">${esc(catLabel(i))}</span>${coverInner(i, 30)}${flag}
       ${(i.progress || 0) > 0 && (i.progress || 0) < 100 ? `<div class="prog"><i style="width:${i.progress}%;background:${accentFor(i)}"></i></div>` : ""}
     </div>
     <h4>${esc(i.title || "Untitled")}</h4><small>${esc(marker(i))}</small>
@@ -569,7 +575,7 @@ function renderLibHeader() {
   if (!el) return;
   const p = settings.profile || {};
   const name = p.name || "Yomu";
-  const banner = p.banner && /^https?:|^data:/.test(p.banner) ? `background-image:url('${esc(p.banner)}')` : (p.banner ? `background:${esc(p.banner)}` : "");
+  const banner = p.banner ? safeBackground(p.banner) : "";
   el.innerHTML = `<div class="dash">
     <div class="dash-banner" style="${banner}"><button class="edit-banner" id="dash-edit-banner">${I.image} ${t("changeBanner")}</button></div>
     <div class="dash-body">
@@ -624,14 +630,14 @@ function renderFilters() {
 function cardHtml(i) {
   const rating = i.rating || 0;
   const tags = (i.tags || []).slice(0, 4).map((x) => `<span class="tag">${esc(x)}</span>`).join("");
-  return `<article class="card" data-open="${i.id}">
-    <button class="fav ${i.favorite ? "on" : ""}" data-fav="${i.id}">${I.star}</button>
-    <div class="cover" style="background:${i.accent || accentFor(i)}">${coverInner(i)}<span class="cat-badge">${esc(catLabel(i))}</span>${flagLabel(i) ? `<span class="new-flag" style="top:auto;bottom:5px">${esc(flagLabel(i))}</span>` : ""}</div>
+  return `<article class="card" data-open="${esc(i.id)}">
+    <button class="fav ${i.favorite ? "on" : ""}" data-fav="${esc(i.id)}" aria-pressed="${!!i.favorite}" aria-label="${esc(t("favorites")+": "+i.title)}">${I.star}</button>
+    <div class="cover" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}<span class="cat-badge">${esc(catLabel(i))}</span>${flagLabel(i) ? `<span class="new-flag" style="top:auto;bottom:5px">${esc(flagLabel(i))}</span>` : ""}</div>
     <div class="card-body">
-      <h3>${esc(i.title || "Untitled")}</h3><p>${esc(marker(i))}${itemState(i) !== "current" ? ` · <b style="color:var(--lav-ink)">${t(itemState(i))}</b>` : ""}</p>
+      <h3><button class="link-btn" data-open="${esc(i.id)}">${esc(i.title || "Untitled")}</button></h3><p>${esc(marker(i))}${itemState(i) !== "current" ? ` · <b style="color:var(--lav-ink)">${t(itemState(i))}</b>` : ""}</p>
       ${(i.progress || 0) > 0 ? `<div class="bar"><i style="width:${Math.min(100, i.progress)}%;background:${accentFor(i)}"></i></div>` : ""}
       <small>${relative(i.activityAt||i.updatedAt)}</small>
-      <div class="rate">${[1,2,3,4,5].map((n) => `<span data-rate="${i.id}" data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= rating ? "on" : ""}"`)}</span>`).join("")}</div>
+      <div class="rate">${[1,2,3,4,5].map((n) => `<span data-rate="${esc(i.id)}" data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= rating ? "on" : ""}"`)}</span>`).join("")}</div>
       ${tags ? `<div class="tags">${tags}</div>` : ""}
     </div>
 
@@ -717,7 +723,7 @@ function showGameForm(title="") {
   const field=(id,label,value="",type="text")=>'<label for="'+id+'">'+esc(label)+'</label><input class="field" id="'+id+'" type="'+type+'" value="'+esc(value)+'">';
   d.innerHTML='<div class="drawer-hero"><button class="icon-btn drawer-close" id="manual-close" aria-label="'+esc(t("close"))+'">'+I.close+'</button><h2 class="drawer-title">'+(fr?"Ajouter un jeu":"Add a game")+'</h2><p>'+(fr?"Vérifiez les informations, puis choisissez une liste.":"Review the details, then choose a list.")+'</p></div><form class="drawer-body manual-game-form" id="manual-game-form">'+field("g-title",t("title"),title)+field("g-url",fr?"Lien vers la boutique (facultatif)":"Store link (optional)","","url")+field("g-platform",t("platform"))+field("g-date",t("releaseDate"),"","date")+field("g-cover",fr?"Lien de l’affiche (facultatif)":"Cover URL (optional)","","url")+'<label for="g-synopsis">'+t("synopsis")+'</label><textarea class="field" id="g-synopsis" rows="4"></textarea><p id="manual-error" role="alert"></p><button class="btn primary" type="submit">'+(fr?"Vérifier et choisir une liste":"Review and choose a list")+'</button></form>';
   d.setAttribute("role","dialog");d.setAttribute("aria-modal","true");d.setAttribute("aria-label",fr?"Ajouter un jeu":"Add a game");
-  d.classList.add("open");document.getElementById("scrim").classList.add("open");
+  d.classList.add("open");focusDrawer();document.getElementById("scrim").classList.add("open");
   document.getElementById("manual-close").onclick=closeDrawer;
   document.getElementById("g-title").required=true;
   document.getElementById("g-title").focus();
@@ -768,13 +774,13 @@ function renderPlans() {
 }
 
 /* ================= LISTS ================= */
-function listCover(l) { return l.cover && /^https?:|^data:/.test(l.cover) ? `background-image:url('${esc(l.cover)}')` : `background:${esc(l.cover || "#EDE6FF")}`; }
+function listCover(l) { return safeBackground(l.cover); }
 function isImg(v) { return v && /^https?:|^data:/.test(v); }
 let showArchivedLists=false;
 function renderLists() {
   const strip = document.getElementById("list-strip");
   if (!strip) return;
-  strip.innerHTML = lists.filter(l=>Boolean(l.archived)===showArchivedLists).map((l) => { const n = (l.itemIds || []).length; return `<div class="strip-list" data-list="${l.id}">
+  strip.innerHTML = lists.filter(l=>Boolean(l.archived)===showArchivedLists).map((l) => { const n = (l.itemIds || []).length; return `<div class="strip-list" data-list="${esc(l.id)}">
       <div class="lc" style="position:relative;${listCover(l)}"><button class="icon-btn" data-delete-list="${esc(l.id)}" aria-label="${esc(t("delete")+" "+l.name)}" style="position:absolute;right:6px;top:6px;z-index:2;background:var(--card)">${I.trash}</button>${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
       <b>${esc(l.name)}</b><small>${n} ${n === 1 ? t("work") : t("works")}</small>
     </div>`; }).join("") + `<button class="strip-new" id="new-list">${I.plus}</button><button class="btn" id="toggle-archived">${showArchivedLists?(settings.lang==='fr'?'Actives':'Active'):(settings.lang==='fr'?'Archivées':'Archived')}</button>`;
@@ -804,7 +810,7 @@ function closeQuickAdd() { if (qaMenuEl) { qaMenuEl.remove(); qaMenuEl = null; }
 function openQuickAdd(itemId, anchor) {
   closeQuickAdd();
   const build = () => {
-    const rows = lists.map((l) => { const on = (l.itemIds || []).includes(itemId); return `<button data-ql="${l.id}" class="${on ? "qa-on" : ""}">${on ? I.check : I.plus} ${esc(l.name)} <span style="margin-left:auto;color:var(--muted);font-size:11px">${(l.itemIds || []).length}</span></button>`; }).join("");
+    const rows = lists.map((l) => { const on = (l.itemIds || []).includes(itemId); return `<button data-ql="${esc(l.id)}" class="${on ? "qa-on" : ""}">${on ? I.check : I.plus} ${esc(l.name)} <span style="margin-left:auto;color:var(--muted);font-size:11px">${(l.itemIds || []).length}</span></button>`; }).join("");
     return `${rows}<div style="height:1px;background:var(--line);margin:5px 4px"></div><button data-ql-new>${I.plus} ${t("newList")}</button>`;
   };
   const m = document.createElement("div");
@@ -867,15 +873,15 @@ function renderListDetail() {
     </div>
     <div class="section-t">${t("inThisList")}</div>
     ${grid
-      ? `<div id="list-items" class="li-grid">${members.length ? members.map((i) => `<div class="li-card" draggable="true" data-id="${i.id}">
-          <div class="li-card-cov" style="background:${i.accent || accentFor(i)}">${coverInner(i)}<button class="li-card-rm" data-remove="${i.id}" title="${t("delete")}">${I.close}</button></div>
+      ? `<div id="list-items" class="li-grid">${members.length ? members.map((i) => `<div class="li-card" draggable="true" data-id="${esc(i.id)}">
+          <div class="li-card-cov" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}<button class="li-card-rm" data-remove="${esc(i.id)}" title="${t("delete")}">${I.close}</button></div>
           <b>${esc(i.title)}</b><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>`).join("") : `<p class="empty" style="padding:24px 0">—</p>`}</div>`
-      : `<div id="list-items">${members.length ? members.map((i) => `<div class="li-row" draggable="true" data-id="${i.id}">
+      : `<div id="list-items">${members.length ? members.map((i) => `<div class="li-row" draggable="true" data-id="${esc(i.id)}">
         <span class="grip">${I.grip}</span>
-        <div class="li-cover" style="background:${i.accent || accentFor(i)}">${coverInner(i)}</div>
+        <div class="li-cover" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}</div>
         <div style="flex:1;min-width:0"><b>${esc(i.title)}</b><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>
-        <button class="btn danger" data-remove="${i.id}">${t("delete")}</button></div>`).join("") : `<p class="empty" style="padding:24px 0">—</p>`}</div>`}
-    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><div class="chips-wrap">${notIn.map((i) => `<button class="chip-toggle" data-add="${i.id}"><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(i.title)}</button>`).join("")}</div>` : ""}`;
+        <button class="btn danger" data-remove="${esc(i.id)}">${t("delete")}</button></div>`).join("") : `<p class="empty" style="padding:24px 0">—</p>`}</div>`}
+    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><div class="chips-wrap">${notIn.map((i) => `<button class="chip-toggle" data-add="${esc(i.id)}"><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(i.title)}</button>`).join("")}</div>` : ""}`;
   wireListDetail(l);
 }
 function wireListDetail(l) {
@@ -991,7 +997,7 @@ function openDrawer(id) {
   d.innerHTML = `
     <div class="drawer-hero">
       <button class="icon-btn drawer-close" id="dr-close">${I.close}</button>
-      <div class="drawer-cover" style="background:${i.accent || accentFor(i)}">${coverInner(i, 40)}<button class="change-cover" id="dr-cover">${I.image}</button></div>
+      <div class="drawer-cover" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i, 40)}<button class="change-cover" id="dr-cover">${I.image}</button></div>
       <h2 class="drawer-title">${esc(i.title || "Untitled")}</h2>
       <p class="drawer-marker">${esc(marker(i))}${isGame ? "" : " · " + relative(i.activityAt||i.updatedAt)}</p>
     </div>
@@ -1025,7 +1031,7 @@ function openDrawer(id) {
       <div class="rate-big" id="dr-rate">${[1,2,3,4,5].map((n) => `<span data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= (i.rating || 0) ? "on" : ""}"`)}</span>`).join("")}</div>
       <div class="section-t">${t("tags")}</div><div class="tag-edit" id="dr-tags"></div>
       <div class="section-t">${t("lists")}</div>
-      <div class="chips-wrap" id="dr-lists">${lists.map((l) => `<button class="chip-toggle ${memberIn.includes(l.id) ? "on" : ""}" data-list="${l.id}">${memberIn.includes(l.id) ? I.check : I.plus} ${esc(l.name)}</button>`).join("") || `<span style="color:var(--muted);font-size:12px">${t("newList")}…</span>`}</div>
+      <div class="chips-wrap" id="dr-lists">${lists.map((l) => `<button class="chip-toggle ${memberIn.includes(l.id) ? "on" : ""}" data-list="${esc(l.id)}">${memberIn.includes(l.id) ? I.check : I.plus} ${esc(l.name)}</button>`).join("") || `<span style="color:var(--muted);font-size:12px">${t("newList")}…</span>`}</div>
       <div class="section-t">${t("editDetails")}</div>
       <div class="edit-grid">
         <input class="field" id="dr-title" value="${esc(i.title || "")}" placeholder="${t("title")}" />
@@ -1039,7 +1045,7 @@ function openDrawer(id) {
       <div class="section-t">${t("manage")}</div><div class="notification-preferences"><label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input id="dr-notify" type="checkbox" ${i.notifyUpdates!==false?"checked":""}>${settings.lang==="fr"?"Notifications de nouvelles sorties":"New release notifications"}</label>${isGame?`<div class="panel" style="padding:10px 12px"><small>${settings.lang==="fr"?"Choisis précisément les alertes reçues pour ce jeu.":"Choose exactly which alerts you receive for this game."}</small><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-updates" type="checkbox" ${i.notifyGameUpdates!==false?"checked":""}>${settings.lang==="fr"?"Mises à jour et patch notes":"Updates and patch notes"}</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-events" type="checkbox" ${i.notifyGameEvents!==false?"checked":""}>${settings.lang==="fr"?"Événements et annonces":"Events and announcements"}</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-rewards" type="checkbox" ${i.notifyGameRewards!==false?"checked":""}>${settings.lang==="fr"?"Codes et récompenses":"Codes and rewards"}</label></div>`:""}</div><button class="btn danger" id="dr-remove">${I.trash} ${t("removeLib")}</button>
     </div>`;
   document.getElementById("scrim").classList.add("open");
-  d.classList.add("open");
+  d.classList.add("open");focusDrawer();
   wireDrawer(i, isWatch, isGame);
   mountEpisodeGuide(i);
   enhanceCarousels("#drawer");
@@ -1143,7 +1149,14 @@ function renderDrawerTags(i) {
   document.getElementById("dr-addtag").onclick = () => { const tg = (prompt(t("tags")) || "").trim(); if (tg) update(i.id, { tags: [...new Set([...(i.tags || []), tg])] }); };
 }
 function setListItemsSilent(id,itemIds) {return listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{const itemId=document.getElementById("drawer").dataset.itemId;if(itemId)refreshOpenItem(itemId);});}
-function closeDrawer() { previewRequest++; document.querySelectorAll("#drawer iframe").forEach(el=>el.remove()); document.querySelectorAll("#drawer video").forEach(el=>el.pause()); document.getElementById("scrim").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); }
+let drawerReturnFocus=null;
+function focusDrawer() {
+  const panel=document.getElementById("drawer");
+  if(panel.inert){drawerReturnFocus=document.activeElement;panel.inert=false;}
+  panel.setAttribute("aria-label",settings.lang==="fr"?"Détails de l’œuvre":"Work details");
+  queueMicrotask(()=>{if(panel.classList.contains("open")&&!panel.contains(document.activeElement))(panel.querySelector("button,input,select,textarea,a[href]")||panel).focus();});
+}
+function closeDrawer() { const panel=document.getElementById("drawer"),wasOpen=panel.classList.contains("open");panel.inert=true;if(wasOpen&&drawerReturnFocus?.isConnected)drawerReturnFocus.focus(); previewRequest++; document.querySelectorAll("#drawer iframe").forEach(el=>el.remove()); document.querySelectorAll("#drawer video").forEach(el=>el.pause()); document.getElementById("scrim").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); }
 /* ---- image cropper (upload · zoom · reposition), Discord-style ---- */
 // Aspect-aware cropper. The view IS the output shape, so the user sees exactly
 // what will be visible (YouTube-style for the wide banner).
@@ -1433,6 +1446,7 @@ const openUrl = (value) => {
 };
 document.addEventListener("click",event=>{
   const anchor=event.target.closest?.("a[href]");if(!anchor)return;
+  const href=anchor.getAttribute("href");if(href?.startsWith("#")&&document.getElementById(href.slice(1)))return;
   if(!safeNavigationUrl(anchor.getAttribute("href"))){event.preventDefault();toast(settings.lang==="fr"?"Ce lien est invalide ou non autorisé.":"This link is invalid or not allowed.");}
 },true);
 function buildShare(el) {
@@ -1456,9 +1470,19 @@ function paintAvatar() {
   const av = document.getElementById("avatar");
   av.innerHTML = p.avatar ? `<img src="${esc(p.avatar)}">` : esc(initials(p.name || "Yomu"));
 }
+function updateNavigationAccessibility() {
+  document.title="Yomu · "+t(view==="plans"?"plansTitle":view);
+  const fr=settings.lang==="fr";
+  document.getElementById("q").setAttribute("aria-label",fr?"Rechercher dans la bibliothèque et les catalogues":"Search your library and catalog");
+  document.getElementById("lang-btn").setAttribute("aria-label",fr?"Choisir la langue":"Choose language");
+  document.getElementById("nav").setAttribute("aria-label",fr?"Navigation principale":"Main navigation");
+  document.getElementById("skip-content").textContent=fr?"Aller au contenu":"Skip to content";
+  document.querySelectorAll("#nav button").forEach(button=>{if(button.dataset.v===view)button.setAttribute("aria-current","page");else button.removeAttribute("aria-current");});
+}
 function renderNav() {
   const tabs = [["home", t("home")], ["library", t("library")], ["games", t("games")]];
   document.getElementById("nav").innerHTML = tabs.map(([k, l]) => `<button data-v="${k}" class="${view === k ? "active" : ""}">${l}</button>`).join("");
+  updateNavigationAccessibility();
   const goProLabel = document.getElementById("go-pro-label");
   if (goProLabel) goProLabel.textContent = UNLOCK_ALL || isPro() ? t("plans") : t("goPro");
   document.getElementById("lang-code").textContent = (settings.lang || "en").toUpperCase().slice(0, 2);
@@ -1517,7 +1541,8 @@ function applyLanguage(code) {
 }
 function switchView(v) {
   ++previewRequest;
-  view = v; closeMenus();
+  view = v; closeMenus();closeDrawer();
+  updateNavigationAccessibility();
   if (v !== "library") { query = ""; const qb = document.getElementById("q"); if (qb) qb.value = ""; clearSearchResults(); }
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${v}`));
   document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.v === v));
@@ -1797,7 +1822,7 @@ function openCatalogPreviewResolved(m) {
   const fr=settings.lang==="fr";
   drawer.innerHTML='<div class="drawer-hero"><button id="preview-close" class="icon-btn drawer-close" aria-label="'+esc(t("close")||"Close")+'">'+I.close+'</button><div class="drawer-cover"><span class="cover-ph">'+esc((m.title||"?")[0])+'</span>'+covImg(m.cover,m.coverFallback)+'</div><h2 class="drawer-title">'+esc(m.title)+'</h2><p>'+esc([catLabel(m),m.country,m.year||m.season].filter(Boolean).join(" · "))+'</p></div><div class="drawer-body"><div id="preview-info">'+catalogInformation(m)+'</div>'+episodeGuideSlot(m)+'<p class="sub" id="preview-status" role="status">'+(fr?"Chargement de la fiche":"Loading details")+'</p><div class="preview-actions"><label for="preview-list">'+(fr?"Choisir une liste":"Choose a list")+'</label><select id="preview-list" class="field"><option value="">'+(fr?"Sélectionner une liste":"Select a list")+'</option>'+lists.filter(l=>!l.archived).map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join("")+'<option value="__new">'+(fr?"Créer une liste":"Create a list")+'</option></select><input id="preview-list-name" class="field" hidden placeholder="'+(fr?"Nom de la liste":"List name")+'"><button class="btn primary" id="preview-add" disabled>'+(fr?"Ajouter à cette liste":"Add to this list")+'</button></div></div>';
   drawer.setAttribute("role","dialog");drawer.setAttribute("aria-modal","true");drawer.setAttribute("aria-label",m.title);
-  drawer.classList.add("open");document.getElementById("scrim").classList.add("open");
+  drawer.classList.add("open");focusDrawer();document.getElementById("scrim").classList.add("open");
   document.getElementById("preview-close").onclick=closeDrawer;
   const select=document.getElementById("preview-list"),name=document.getElementById("preview-list-name"),button=document.getElementById("preview-add");
   const selection=()=>{name.hidden=select.value!=="__new";button.disabled=!select.value||(select.value==="__new"&&!name.value.trim());};
@@ -1853,6 +1878,7 @@ document.getElementById("list-strip").addEventListener("click", (e) => {
 });
 document.getElementById("add-list-inline").onclick = newListFlow;
 document.getElementById("scrim").onclick = closeDrawer;
+document.addEventListener("keydown",e=>{if(["Enter"," "].includes(e.key)&&e.target.matches?.('[role="button"][data-open]')){e.preventDefault();e.target.click();}});
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); closeMenus(); if (cropState) closeCropper(); } });
 document.getElementById("crop-scrim").onclick = closeCropper;
 
