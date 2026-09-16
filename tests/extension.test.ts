@@ -844,3 +844,41 @@ describe("progressive catalog search",()=>{
   });
 });
 
+
+describe("series episode guide",()=>{
+  it("loads named seasons and only the selected season episodes, reusing the cache",async()=>{
+    const w=worker();
+    w.run('var guidePaths=[];fetchRemote=async url=>{guidePaths.push(url);return {ok:true,json:async()=>url.endsWith("/seasons")?[{id:20,number:2,name:"New chapter",episodeOrder:12},{id:10,number:1,name:""}]:[{id:100,season:2,number:1,type:"regular",name:"Return",airdate:"2028-01-01",runtime:42},{id:101,season:2,number:null,type:"significant_special",name:"Special"},{id:102,season:99,number:1,name:"Wrong season"}]};}');
+    const item={type:"watching",externalIds:{tvmaze:"7"}};
+    const first=await w.call({type:"CATALOG_EPISODE_GUIDE",item});
+    expect(first.seasons.map((s:any)=>s.number)).toEqual([1,2]);
+    expect(w.run("guidePaths.length")).toBe(1);
+    const result=await w.call({type:"CATALOG_EPISODE_GUIDE",item,seasonId:"20"});
+    expect(result.season.name).toBe("New chapter");
+    expect(result.season.episodeCount).toBe(12);
+    expect(result.episodes.map((e:any)=>e.name)).toEqual(["Return","Special"]);
+    expect(result.episodes[1].number).toBe(null);
+    expect(result.episodes[1].special).toBe(true);
+    await w.call({type:"CATALOG_EPISODE_GUIDE",item,seasonId:"20"});
+    expect(w.run("guidePaths.length")).toBe(2);
+  });
+  it("rejects seasons belonging to another show before requesting episodes",async()=>{
+    const w=worker();w.run('var guidePaths=[];fetchRemote=async url=>{guidePaths.push(url);return {ok:true,json:async()=>[{id:10,number:1}]};}');
+    const result=await w.call({type:"CATALOG_EPISODE_GUIDE",item:{type:"watching",externalIds:{tvmaze:"7"}},seasonId:"999"});
+    expect(result.ok).toBe(false);expect(w.run("guidePaths.length")).toBe(1);
+  });
+  it("does not request a guide for unsupported or malformed identities",async()=>{
+    const w=worker();w.run('fetchRemote=async()=>{throw Error("must not fetch")};');
+    for(const item of [{type:"reading",externalIds:{tvmaze:"7"}},{type:"watching",externalIds:{tvmaze:"../7"}},{type:"watching"}]){
+      const result=await w.call({type:"CATALOG_EPISODE_GUIDE",item});expect(result.ok).toBe(true);expect(result.supported).toBe(false);
+    }
+  });
+  it("does not cache failed requests",async()=>{
+    const w=worker();w.run('fetchRemote=async()=>({ok:false});');
+    const item={type:"watching",externalIds:{tvmaze:"7"}};
+    expect((await w.call({type:"CATALOG_EPISODE_GUIDE",item})).ok).toBe(false);
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>[{id:10,number:1}]});');
+    expect((await w.call({type:"CATALOG_EPISODE_GUIDE",item})).seasons).toHaveLength(1);
+  });
+});
+
