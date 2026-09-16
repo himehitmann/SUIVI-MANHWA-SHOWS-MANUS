@@ -1621,7 +1621,7 @@ function catalogSearch(q) {
   el.innerHTML='<div class="sr-wrap" role="status">'+t("searching")+' “'+esc(q)+'”…</div>';
   srFilter="all";srCountry="all";
   let previous="",attempts=0;
-  const poll=()=>{if(version!==searchVersion||view!=="library"||query.trim()!==q)return;api.runtime.sendMessage({type:"CATALOG_SEARCH",query:q,progressive:true},r=>{
+  const poll=()=>{if(version!==searchVersion||view!=="library"||query.trim()!==q)return;api.runtime.sendMessage({type:"CATALOG_SEARCH",query:q,progressive:true,retry:attempts===0},r=>{
     const error=api.runtime.lastError;
     if(version!==searchVersion||view!=="library"||query.trim()!==q)return;
     if(error||!r?.ok) {
