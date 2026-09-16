@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
-function worker(seed: Record<string, any> = {}) {
+function worker(seed: Record<string, any> = {}, syncSeed:Record<string,any>={}) {
   const data: Record<string, any> = structuredClone(seed),
     listeners: any[] = [],
     installed: any[] = [];
-  const synced:Record<string,any>={},accessLevels:string[]=[];
+  const synced:Record<string,any>=structuredClone(syncSeed),accessLevels:string[]=[];
   const local = {
     async setAccessLevel({accessLevel}:{accessLevel:string}){accessLevels.push("local:"+accessLevel);},
     async get(key: string) {
@@ -37,8 +37,8 @@ function worker(seed: Record<string, any> = {}) {
       storage: {
         local,
         sync: {
-          async get() {
-            return {};
+          async get(key:string) {
+            return { [key]:structuredClone(synced[key]) };
           },
           async set(values:any) {Object.assign(synced,structuredClone(values));},
           async setAccessLevel({accessLevel}:{accessLevel:string}){accessLevels.push("sync:"+accessLevel);},
@@ -1186,5 +1186,18 @@ it("rejects non-image and oversized downloads before OCR",async()=>{
   await expect(w.run('fetchBlob("https://cdn.example/panel")')).rejects.toThrow("invalid_image_type");
   w.ctx.fetch=async()=>({ok:true,headers:{get:()=>String(30*1024*1024)},blob:async()=>{throw Error("must_not_read");}});
   await expect(w.run('fetchBlob("https://cdn.example/panel")')).rejects.toThrow("image_too_large");
+});
+
+it("retains the episode page when progress comes from an embedded player",async()=>{
+  const w=worker();const sender={id:"test",url:"https://player.example/embed/123",tab:{id:4,url:"https://reader.example/show/episode-2"}};
+  await w.call({type:"DETECTION_UPDATED",payload:{title:"Show",type:"watching",episode:2}},sender);
+  expect(w.data["dasi.currentDetection"].url).toBe(sender.tab.url);
+});
+
+it("migrates legacy synced credentials locally without overwriting local preferences",async()=>{
+  const w=worker({"dasi.settings":{lang:"fr",ocrKey:"current-local"}},{"dasi.settings":{lang:"en",ocrKey:"old-synced",rawgKey:"legacy-rawg",imgServer:"https://service.example"}});
+  await w.run("startupSecurity");
+  expect(w.data["dasi.settings"]).toMatchObject({lang:"fr",ocrKey:"current-local",rawgKey:"legacy-rawg"});
+  expect(w.synced["dasi.settings"]).toEqual({lang:"en"});
 });
 
