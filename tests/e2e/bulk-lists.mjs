@@ -92,6 +92,7 @@ try {
  assert(await p.evaluate(()=>discoItems.every(item=>item.title.startsWith("Manga "))));
  assert(await p.locator("#view-home .carousel-arrow").count()>0);
  await p.evaluate(()=>openCatalogPreview({title:"Store fixture",type:"game",url:"https://store.steampowered.com/app/123/",price:"$12.99",genres:["Adventure"],alternativeTitles:["Other title"]}));
+ await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').waitFor();
  assert.equal(await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').count(),1);
  assert.equal(await p.locator("#preview-info details").count(),0);
  assert.equal(await p.locator("#preview-info .detail-price").textContent(),"$12.99");
