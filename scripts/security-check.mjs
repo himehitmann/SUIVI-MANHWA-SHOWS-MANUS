@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import {execFileSync,spawn} from "node:child_process";
 import {lstatSync,readFileSync,openSync,readSync,closeSync} from "node:fs";
-const LIMIT=2*1024**2, HEAD=8192, BATCH=8*1024**2;
+const LIMIT=8*1024**2, HEAD=8192, BATCH=16*1024**2;
 const rules=[
  ["PEM private key",/-----BEGIN ((?:(?:RSA|EC|DSA|OPENSSH|ENCRYPTED) )?PRIVATE KEY)-----\r?\n(?:[A-Za-z0-9+/=]{1,128}\r?\n){2,}-----END \1-----/],
  ["GitHub classic PAT",/(?<![A-Za-z0-9_])ghp_[A-Za-z0-9]{36}(?![A-Za-z0-9_])/],
