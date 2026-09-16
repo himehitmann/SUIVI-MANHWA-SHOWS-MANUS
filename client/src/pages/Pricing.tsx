@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Check, Cloud, Star } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
@@ -51,21 +52,24 @@ const tiers: Tier[] = [
 ];
 
 export default function Pricing() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const [, navigate] = useLocation();
+  const fr = lang === "fr";
   const store = useStore();
   const [yearly, setYearly] = useState(true);
 
-  const ctaLabel = (plan: Plan) => (plan === "free" ? t("pricing.cta.free") : t("pricing.cta.pro"));
+  const ctaLabel = (plan: Plan) => (plan === "free" ? (fr ? "Ouvrir ma bibliothèque" : "Open my library") : t("pricing.cta.pro"));
 
   const subscribe = (plan: Plan) => {
     if (plan === "free") {
-      store.setPlan("free");
+      navigate("/collections");
       return;
     }
     // Real payment path: redirect to the configured hosted checkout, tagging the
     // account so the backend webhook can grant the plan.
     const session = syncProvider.getSession();
-    const url = checkoutUrl(plan, yearly, { userId: session?.userId, email: session?.email });
+    if (!session?.userId) { toast.info(fr ? "Connecte-toi pour associer ton achat à ton compte." : "Sign in to link your purchase to your account."); navigate("/settings"); return; }
+    const url = checkoutUrl(plan, yearly, { userId: session.userId, email: session.email });
     if (url) {
       window.location.href = url;
       return;
@@ -130,6 +134,7 @@ export default function Pricing() {
           })}
         </div>
 
+        <p role="note">{fr ? "Ouvrir la bibliothèque gratuite ne résilie aucun abonnement payant. Les droits offerts ou administrateur sont accordés par le serveur. Aucun paiement ne peut être effectué tant que la boutique n’est pas configurée." : "Opening the free library does not cancel a paid subscription. Gifted and administrator access is granted by the server. Purchases remain unavailable until checkout is configured."}</p>
         <div className="account-note">
           <div>
             <span className="eyebrow">{t("account.eyebrow")}</span>
