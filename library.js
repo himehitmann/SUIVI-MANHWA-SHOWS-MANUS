@@ -124,6 +124,7 @@ const TR_LANGS = [["en","English"],["fr","Français"],["es","Español"],["de","D
 
 /* ---- SVG icons ---- */
 const I = {
+  search:'<svg class="ic" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>',
   star:'<svg class="ic fill" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.9 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg>',
   close:'<svg class="ic" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   open:'<svg class="ic" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M20 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5"/></svg>',
@@ -693,71 +694,41 @@ function gameLinkLabel(i) {
   return t("open");
 }
 function gameCardHtml(i) {
-  const released = isReleased(i), soon = isSoon(i);
-  return `<div class="game-card">
-    <div class="game-cover" data-open="${i.id}" style="cursor:pointer">${coverInner(i, 24)}</div>
-    <div class="game-body">
-      <h3 data-open="${i.id}" style="cursor:pointer">${esc(i.title)}</h3>
-      <div class="game-meta">
-        ${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}
-        ${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}${soon ? " · " + t("comingSoon") : released ? " · " + t("released") : isUpcoming(i) ? " · " + t("upcoming") : ""}</span>` : ""}
-        
-      </div>
-      <div class="game-actions">
-        ${embeddedTrailer(i.trailer)}
-        <a class="btn" href="${esc(gameLink(i))}" target="_blank" rel="noreferrer">${I.open} ${esc(gameLinkLabel(i))}</a>
-        <label class="prereg ${i.preregistered ? "on" : ""}" data-prereg="${i.id}"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label>
-        <button class="btn danger" data-rmgame="${i.id}">${I.trash}</button>
-      </div>
-    </div>
-  </div>`;
+  const fr=settings.lang==="fr";
+  const genres=[...new Set([...(i.genres||[]),...(i.tags||[])].filter(x=>typeof x==="string"))].slice(0,3);
+  return '<article class="game-card"><button class="game-cover" data-open="'+esc(i.id)+'" aria-label="'+esc(t("details")+": "+i.title)+'">'+coverInner(i,24)+'</button><div class="game-body"><h3><button class="link-btn" data-open="'+esc(i.id)+'">'+esc(i.title)+'</button></h3><p class="game-platform">'+esc(i.platform|| (fr?"Jeu vidéo":"Video game"))+'</p><div class="game-genres">'+genres.map(g=>'<span>'+esc(g)+'</span>').join("")+'</div>'+(i.releaseDate?'<p class="game-release">'+esc(i.releaseDate)+(isSoon(i)?" · "+t("comingSoon"):isReleased(i)?" · "+t("released"):"")+'</p>':"")+'</div></article>';
 }
 function renderGames() {
-  const el = document.getElementById("view-games");
-  const games = items.filter((i) => i.type === "game").sort((a, b) => (parseDate(a.releaseDate) || 9e15) - (parseDate(b.releaseDate) || 9e15));
-  el.innerHTML = `
-    <div class="section-h" style="margin-top:0"><h1 style="margin:0">${t("games")}</h1><button class="btn primary" id="add-game">${I.plus} ${t("addGame")}</button></div>
-    <p class="sub">${t("gamesSub")}</p>
-    <div id="game-form"></div>
-    <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">${games.length ? games.map(gameCardHtml).join("") : `<p class="empty">${t("gamesSub")}</p>`}</div>
-    ${renderGamesDiscover()}`;
-  document.getElementById("add-game").onclick = showGameForm;
+  const el=document.getElementById("view-games"),fr=settings.lang==="fr";
+  const games=items.filter(i=>i.type==="game").sort((a,b)=>(parseDate(a.releaseDate)||9e15)-(parseDate(b.releaseDate)||9e15));
+  el.innerHTML='<div class="section-h" style="margin-top:0"><div><h1 style="margin:0">'+t("games")+'</h1><p class="sub">'+(fr?"Vos jeux, leurs sorties et leurs actualités.":"Your games, upcoming releases and latest news.")+'</p></div><button class="btn" id="search-games">'+I.search+' '+(fr?"Rechercher un jeu":"Find a game")+'</button></div>'+(games.length?'<section aria-label="'+(fr?"Mes jeux":"My games")+'"><h2 class="games-section-title">'+(fr?"Mes jeux":"My games")+' <span>'+games.length+'</span></h2><div class="games-grid">'+games.map(gameCardHtml).join("")+'</div></section>':'<p class="games-empty">'+(fr?"Ouvrez une fiche ci-dessous pour enregistrer un jeu dans la liste de votre choix.":"Open a game below to save it to a list of your choice.")+'</p>')+renderGamesDiscover();
+  document.getElementById("search-games").onclick=()=>{searchFacets={kind:"GAME",genre:"all",year:"",release:"all",price:200};switchView("library");document.getElementById("q").focus();};
   bindDisco("#view-games");
-  if (!discoverTried) loadDiscover(false);
-  el.querySelectorAll("[data-prereg]").forEach((l) => (l.onclick = () => { const it = items.find((x) => x.id === l.dataset.prereg); if (it) update(it.id, { preregistered: !it.preregistered }); }));
-  el.querySelectorAll("[data-open]").forEach((n) => (n.onclick = () => openDrawer(n.dataset.open)));
-  el.querySelectorAll("[data-rmgame]").forEach((b) => (b.onclick = () => { if (confirm("Remove this game?")) api.runtime.sendMessage({ type: "REMOVE_ITEM", id: b.dataset.rmgame }, (r) => { items = r?.items || items; renderAll(); }); }));
+  if(!discoverTried)loadDiscover(false);
+  el.querySelectorAll("[data-open]").forEach(n=>n.onclick=()=>openDrawer(n.dataset.open));
 }
-function showGameForm() {
-  const f = document.getElementById("game-form");
-  f.innerHTML = `<div class="panel" style="padding:18px 20px;margin-bottom:16px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <input class="field" id="g-title" placeholder="${t("title")} *" style="grid-column:1/-1" />
-      <input class="field" id="g-platform" placeholder="${t("platform")}" />
-      <input class="field" id="g-date" placeholder="${t("releaseDate")} (e.g. 2026-11-20)" />
-      <input class="field" id="g-price" placeholder="${t("price")}" />
-      <input class="field" id="g-trailer" placeholder="${t("trailer")} URL" />
-      <input class="field" id="g-url" placeholder="Steam / ${t("open")} URL" />
-      <input class="field" id="g-cover" placeholder="${t("cover")} URL" style="grid-column:1/-1" />
-    </div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="btn primary" id="g-save">${t("add")}</button>
-      <button class="btn" id="g-cancel">${t("cancel")}</button>
-    </div></div>`;
-  document.getElementById("g-cancel").onclick = () => (f.innerHTML = "");
-  document.getElementById("g-save").onclick = () => {
-    const title = document.getElementById("g-title").value.trim();
-    if (!title) { document.getElementById("g-title").focus(); return; }
-    const payload = {
-      title, type: "game", url: document.getElementById("g-url").value.trim() || "",
-      platform: document.getElementById("g-platform").value.trim() || undefined,
-      releaseDate: document.getElementById("g-date").value.trim() || undefined,
-      price: document.getElementById("g-price").value.trim() || undefined,
-      trailer: document.getElementById("g-trailer").value.trim() || undefined,
-      cover: document.getElementById("g-cover").value.trim() || undefined,
-      domain: "manual",
-    };
-    api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload }, () => { api.runtime.sendMessage({ type: "GET_STATE" }, hydrate); toast(t("add") + " ✓"); });
+function missingGameAction() {
+  return searchFacets.kind==="GAME"?'<div class="search-manual"><p>'+(settings.lang==="fr"?"Vous ne trouvez pas votre jeu ?":"Can’t find your game?")+'</p><button class="link-btn" id="manual-game">'+(settings.lang==="fr"?"Ajouter les informations manuellement":"Enter its details manually")+'</button></div>':"";
+}
+function showGameForm(title="") {
+  ++previewRequest;
+  const d=document.getElementById("drawer"),fr=settings.lang==="fr";
+  delete d.dataset.itemId;
+  const field=(id,label,value="",type="text")=>'<label for="'+id+'">'+esc(label)+'</label><input class="field" id="'+id+'" type="'+type+'" value="'+esc(value)+'">';
+  d.innerHTML='<div class="drawer-hero"><button class="icon-btn drawer-close" id="manual-close" aria-label="'+esc(t("close"))+'">'+I.close+'</button><h2 class="drawer-title">'+(fr?"Ajouter un jeu":"Add a game")+'</h2><p>'+(fr?"Vérifiez les informations, puis choisissez une liste.":"Review the details, then choose a list.")+'</p></div><form class="drawer-body manual-game-form" id="manual-game-form">'+field("g-title",t("title"),title)+field("g-url",fr?"Lien vers la boutique (facultatif)":"Store link (optional)","","url")+field("g-platform",t("platform"))+field("g-date",t("releaseDate"),"","date")+field("g-cover",fr?"Lien de l’affiche (facultatif)":"Cover URL (optional)","","url")+'<label for="g-synopsis">'+t("synopsis")+'</label><textarea class="field" id="g-synopsis" rows="4"></textarea><p id="manual-error" role="alert"></p><button class="btn primary" type="submit">'+(fr?"Vérifier et choisir une liste":"Review and choose a list")+'</button></form>';
+  d.setAttribute("role","dialog");d.setAttribute("aria-modal","true");d.setAttribute("aria-label",fr?"Ajouter un jeu":"Add a game");
+  d.classList.add("open");document.getElementById("scrim").classList.add("open");
+  document.getElementById("manual-close").onclick=closeDrawer;
+  document.getElementById("g-title").required=true;
+  document.getElementById("g-title").focus();
+  document.getElementById("manual-game-form").onsubmit=e=>{
+    e.preventDefault();
+    const value=id=>document.getElementById(id).value.trim(),name=value("g-title"),url=value("g-url"),cover=value("g-cover");
+    const fail=message=>{document.getElementById("manual-error").textContent=message;};
+    if(!name){document.getElementById("g-title").focus();return;}
+    if(url&&!safeStoreLink(url)){fail(fr?"Utilisez un lien HTTPS vers Steam, Epic, GOG, PlayStation, Xbox ou Nintendo.":"Use an HTTPS link to Steam, Epic, GOG, PlayStation, Xbox or Nintendo.");return;}
+    if(cover){try{const u=new URL(cover);if(u.protocol!=="https:"||u.username||u.password)throw new Error();}catch{fail(fr?"L’affiche doit utiliser un lien HTTPS valide.":"The cover must use a valid HTTPS URL.");return;}}
+    openCatalogPreview({title:name,type:"game",format:"GAME",url,cover,platform:value("g-platform"),releaseDate:value("g-date"),synopsis:value("g-synopsis"),manual:true});
   };
 }
 
@@ -772,7 +743,7 @@ function renderPlans() {
     ${UNLOCK_ALL ? `<div class="unlocked-banner">${I.crown} ${t("unlocked")}</div>` : ""}
     <div class="cycle-toggle" role="tablist">
       <button data-cycle="month" class="${planCycle === "month" ? "on" : ""}">${t("monthly")}</button>
-      <button data-cycle="year" class="${planCycle !== "month" ? "on" : ""}">${t("yearly")}<span class="save">${t("save2mo")}</span></button>
+      <button data-cycle="year" class="${planCycle !== "month" ? "on" : ""}">${t("yearly")}</button>
     </div>
     <div class="plan-grid two">
       <div class="plan">
@@ -1079,7 +1050,7 @@ function openDrawer(id) {
       if (r && r.ok && r.item) {
         const idx = items.findIndex((x) => x.id === i.id);
         if (idx >= 0) items[idx] = r.item;
-        if (d.classList.contains("open")) openDrawer(i.id);
+        if (d.classList.contains("open") && d.dataset.itemId===i.id) openDrawer(i.id);
       }
     });
   }
@@ -1611,7 +1582,7 @@ function catalogSearch(q) {
     status.textContent=r.pending?(settings.lang==="fr"?"Recherche dans les autres catalogues…":"Searching other catalogs…"):"";
     if(r.pending&&++attempts<90){setTimeout(poll,500);return;}
     if(r.pending){status.textContent=settings.lang==="fr"?"Certains catalogues répondent lentement. Relance la recherche pour compléter les résultats.":"Some catalogs are responding slowly. Search again to complete the results.";return;}
-    if(!results.length)el.innerHTML='<div class="sr-wrap"><p class="sr-empty">'+t("noMatch")+'</p></div>';
+    if(!results.length){lastResults=[];renderSearchResults(q);}
   });};
   poll();
 }
@@ -1656,7 +1627,7 @@ function matchesSearchFacets(m) {
 }
 function renderSearchResults(q) {
   const el=document.getElementById("search-results"),fr=settings.lang==="fr",f=searchFacets;
-  const kinds=[...new Set(lastResults.map(resultKind))].sort();
+  const kinds=[...new Set([...lastResults.map(resultKind),...(f.kind!=="all"?[f.kind]:[])])].sort();
   const genres=[...new Set(lastResults.flatMap(m=>m.genres||[]))].sort();
   const labels={GAME:fr?"Jeux":"Games",MOVIE:fr?"Films":"Films",ANIME:"Anime",MANGA:"Manga",MANHWA:"Manhwa",MANHUA:"Manhua",KDRAMA:"K-drama",CDRAMA:"C-drama",JDRAMA:"J-drama",SERIES:fr?"Séries":"Series",US_SERIES:fr?"Séries américaines":"US series",NOVEL:fr?"Romans":"Novels"};
   const select=(id,label,values,value)=>'<label>'+label+'<select class="field" id="'+id+'"><option value="all">'+t("all")+'</option>'+values.map(([key,name])=>'<option value="'+esc(key)+'"'+(value===key?' selected':'')+'>'+esc(name)+'</option>').join("")+'</select></label>';
@@ -1668,13 +1639,14 @@ function renderSearchResults(q) {
     select("sf-release",fr?"Publication / diffusion":"Publication / airing",[["finished",fr?"Terminée":"Finished"],["ongoing",fr?"En cours":"Ongoing"],["upcoming",fr?"À venir":"Upcoming"],["unknown",fr?"Non renseignée":"Unknown"]],f.release)+
     '</div>'+(f.kind==="GAME"?'<label>'+(fr?"Prix maximum (USD)":"Maximum price (USD)")+' <output id="sf-price-label">'+(f.price===200?t("all"):f.price===0?(fr?"Gratuit":"Free"):"$"+f.price)+'</output><input id="sf-price" type="range" min="0" max="200" step="5" value="'+f.price+'" style="width:100%"></label>':"")+
     '<p class="sub">'+(fr?"Filtres appliqués aux résultats reçus. Les dates et états inconnus restent non renseignés.":"Filters apply to the returned results. Unknown dates and publication states remain unspecified.")+'</p><button class="btn" id="sf-reset"'+(f.kind==="all"&&f.genre==="all"&&!f.year&&f.release==="all"&&f.price===200?' style="display:none"':"")+'>'+(fr?"Effacer les filtres":"Clear filters")+'</button>'+
-    (shown.length?shown.map(m=>srRow(m,lastResults.indexOf(m))).join(""):'<p class="sr-empty">'+t("noMatch")+'</p>')+'</div>';
+    (shown.length?shown.map(m=>srRow(m,lastResults.indexOf(m))).join(""):'<p class="sr-empty">'+t("noMatch")+'</p>')+missingGameAction()+'</div>';
   for(const [id,key] of [["sf-kind","kind"],["sf-genre","genre"],["sf-year","year"],["sf-release","release"],["sf-price","price"]]){
     const field=document.getElementById(id);if(!field)continue;
     field.onchange=()=>{f[key]=key==="price"?Number(field.value):field.value;renderSearchResults(q);document.getElementById(id)?.focus();};
     if(key==="price")field.oninput=()=>{document.getElementById("sf-price-label").textContent=field.value==="0"?(fr?"Gratuit":"Free"):field.value==="200"?t("all"):"$"+field.value;};
   }
   document.getElementById("sf-reset").onclick=()=>{searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};renderSearchResults(q);};
+  const manual=document.getElementById("manual-game");if(manual)manual.onclick=()=>showGameForm(q);
   el.querySelectorAll("[data-preview]").forEach(button=>button.onclick=()=>openCatalogPreview(lastResults[Number(button.dataset.preview)]));
 }
 function srRow(m, idx) {
@@ -1799,6 +1771,7 @@ function openCatalogPreview(m) {
   button.onclick=()=>addFromCatalog({...m,listId:select.value==="__new"?undefined:select.value,listName:select.value==="__new"?name.value.trim():undefined},button);
   document.getElementById("preview-close").focus();
   mountEpisodeGuide(m);
+  if(m.manual){document.getElementById("preview-status").textContent="";return;}
   api.runtime.sendMessage({type:"CATALOG_DETAIL",item:m},r=>{
     if(token!==previewRequest||!drawer.classList.contains("open")||drawer.dataset.itemId)return;
     const status=document.getElementById("preview-status");
@@ -1812,7 +1785,7 @@ function openCatalogPreview(m) {
 function addFromCatalog(m, btn) {
   const payload = {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, coverFallback: m.coverFallback || undefined, synopsis: m.synopsis || undefined,
-    trailerUrl:m.trailerUrl, trailer:m.trailer, cast:m.cast, genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds, alternativeTitles:m.alternativeTitles, authors:m.authors, anilistId:m.anilistId,
+    trailerUrl:m.trailerUrl, trailer:m.trailer, cast:m.cast, tags:m.tags||[], genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds, alternativeTitles:m.alternativeTitles, authors:m.authors, anilistId:m.anilistId,
     format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
   };
