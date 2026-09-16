@@ -149,6 +149,7 @@ export default function Settings() {
           </div>
         </div>
 
+        <a href="/welcome#guide" className="heart-button">{fr ? "Guide de démarrage" : "Getting started guide"}</a>
         <ProfileEditor/>
         <div className="settings-grid">
           <section className="settings-card account-card">
