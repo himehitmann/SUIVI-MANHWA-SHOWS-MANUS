@@ -283,9 +283,9 @@ api.runtime.sendMessage({ type: "GET_STATE" }, (state) => {
 let translationPageUrl='',translationOrigins=[],autoRule=null;
 const trAuto=$('#tr-auto');
 api.tabs.query({active:true,currentWindow:true}).then(async tabs=>{
- const tab=tabs[0];if(!tab?.id||!/^https:///.test(tab.url||''))return;
+ const tab=tabs[0];if(!tab?.id||!(tab.url||'').startsWith('https://'))return;
  translationPageUrl=tab.url;translationOrigins=[new URL(tab.url).origin+'/*'];
- try{const result=await api.scripting.executeScript({target:{tabId:tab.id},func:()=>[...new Set([...document.images].filter(im=>{const r=im.getBoundingClientRect();return r.width>=180&&(r.height>=200||im.naturalHeight>=260);}).map(im=>{try{return new URL(im.currentSrc||im.src).origin;}catch{return '';}}))].slice(0,12)});for(const origin of result[0]?.result||[])if(/^https://[a-z0-9.-]+$/i.test(origin)&&!translationOrigins.includes(origin+'/*'))translationOrigins.push(origin+'/*');}catch{}
+ try{const result=await api.scripting.executeScript({target:{tabId:tab.id},func:()=>[...new Set([...document.images].filter(im=>{const r=im.getBoundingClientRect();return r.width>=180&&(r.height>=200||im.naturalHeight>=260);}).map(im=>{try{return new URL(im.currentSrc||im.src).origin;}catch{return '';}}))].slice(0,12)});for(const origin of result[0]?.result||[])if(origin.startsWith('https://') && /^[a-z0-9.-]+$/i.test(new URL(origin).hostname) && !new URL(origin).port&&!translationOrigins.includes(origin+'/*'))translationOrigins.push(origin+'/*');}catch{}
  api.runtime.sendMessage({type:'GET_TRANSLATION_RULE',url:translationPageUrl},r=>{void api.runtime.lastError;if(!r?.ok)return;autoRule=r.rule;trAuto.disabled=false;trAuto.checked=!!r.rule.enabled;if(r.rule.enabled){trSel.value=r.rule.target;trSrc.value=r.rule.source;}if(r.status==='permission_required')$('#tr-status').textContent='Automatic translation is paused. Allow access to this site to resume.';});
 }).catch(()=>{});
 function saveTranslationRule(enabled){
