@@ -8,6 +8,7 @@ const Collections=lazy(()=>import("@/pages/Collections"));
 const ListDetail=lazy(()=>import("@/pages/ListDetail"));
 const Pricing=lazy(()=>import("@/pages/Pricing"));
 const WorkDetail=lazy(()=>import("@/pages/WorkDetail"));
+const Admin=lazy(()=>import("@/pages/Admin"));
 const Settings=lazy(()=>import("@/pages/Settings"));
 const Learn=lazy(()=>import("@/pages/Learn"));
 const LearnStats=lazy(()=>import("@/pages/LearnStats"));
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/collections" component={Collections} />
       <Route path="/list/:id" component={ListDetail} />
       <Route path="/pricing" component={Pricing} />
+      <Route path="/admin" component={Admin} />
       <Route path="/settings" component={Settings} />
       <Route path="/welcome" component={Landing} />
       <Route path="/learn/stats" component={LearnStats} />
