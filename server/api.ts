@@ -9,9 +9,10 @@ import {createCatalog} from "./lib/catalog";
 import { randomBytes, randomUUID } from "node:crypto";
 import express, { type Request, type Response, type Router } from "express";
 import {
-  hashPassword,
+  hashPasswordAsync,
+  PasswordBusyError,
   signToken,
-  verifyPassword,
+  verifyPasswordAsync,
   verifyToken,
 } from "./lib/crypto";
 import { mergeBlobs, type SyncBlob } from "./lib/merge";
@@ -272,7 +273,7 @@ export function createApiRouter(
       const user = {
         id: randomUUID(),
         email,
-        passwordHash: hashPassword(password),
+        passwordHash: await hashPasswordAsync(password),
         plan: "free" as const,
         createdAt: Date.now(),
       };
@@ -296,7 +297,7 @@ export function createApiRouter(
       )
         return res.status(400).json({ error: "invalid_credentials" });
       const user = await store.getUserByEmail(email);
-      if (!user || !verifyPassword(password || "", user.passwordHash))
+      if (!user || !(await verifyPasswordAsync(password || "", user.passwordHash)))
         return res.status(401).json({ error: "invalid_credentials" });
       return res.json({
         token: await issueToken(user.id),
@@ -324,7 +325,7 @@ export function createApiRouter(
       if (
         typeof current !== "string" ||
         current.length > 1024 ||
-        !verifyPassword(current, user.passwordHash)
+        !(await verifyPasswordAsync(current, user.passwordHash))
       )
         return res.status(401).json({ error: "invalid_credentials" });
       const clash = await store.getUserByEmail(email);
@@ -353,9 +354,9 @@ export function createApiRouter(
         return res.status(400).json({ error: "weak_password" });
       const user = await store.getUserById(session.id);
       if (!user) return res.status(401).json({ error: "unauthorized" });
-      if (!verifyPassword(current || "", user.passwordHash))
+      if (!(await verifyPasswordAsync(current || "", user.passwordHash)))
         return res.status(401).json({ error: "invalid_credentials" });
-      await store.updateUser({ ...user, passwordHash: hashPassword(next) });
+      await store.updateUser({ ...user, passwordHash: await hashPasswordAsync(next) });
       await store.revokeUserSessions(user.id);
       return res.json({ ok: true, token: await issueToken(user.id) });
     })
@@ -390,7 +391,7 @@ export function createApiRouter(
         !user ||
         typeof current !== "string" ||
         current.length > 1024 ||
-        !verifyPassword(current, user.passwordHash)
+        !(await verifyPasswordAsync(current, user.passwordHash))
       )
         return res.status(401).json({ error: "invalid_credentials" });
       await store.deleteUser(session.id);
@@ -467,6 +468,8 @@ export function createApiRouter(
       res: Response,
       _next: express.NextFunction
     ) => {
+      if(error instanceof PasswordBusyError){res.setHeader("Retry-After","2");return res.status(503).json({error:"auth_busy"});}
+      if(error instanceof Error&&error.message==="catalog_busy"){res.setHeader("Retry-After","5");return res.status(503).json({error:"catalog_busy"});}
       const status = (error as { status?: number }).status;
       res.status(status && status >= 400 && status < 500 ? status : 500).json({
         error: status === 413 ? "payload_too_large" : "request_failed",
