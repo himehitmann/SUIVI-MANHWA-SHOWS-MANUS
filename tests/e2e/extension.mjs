@@ -348,6 +348,17 @@ try {
       .locator("#view-settings")
       .evaluate(el => el.classList.contains("active"))
   );
+
+  // Export a real downloaded backup: personal service keys and endpoints stay local.
+  await page.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"SET_SETTINGS",patch:{ocrKey:"export-test-ocr",tmdbKey:"export-test-tmdb",rawgKey:"export-test-rawg",imgServer:"https://service.example?token=export-private"}},result=>{settings=result.settings;resolve(result);})));
+  await page.waitForFunction(()=>settings.ocrKey==="export-test-ocr");
+  const backupDownload=page.waitForEvent("download");
+  await page.locator("#export").click();
+  const backup=await backupDownload;
+  const backupText=await fs.readFile(await backup.path(),"utf8"), backupData=JSON.parse(backupText);
+  for(const key of ["ocrKey","tmdbKey","rawgKey","imgServer"])assert.equal(backupData.settings[key],undefined,"Backup exposed "+key);
+  assert(!backupText.includes("export-private"));assert(backupData.items.length>0);assert.equal(backupData.settings.lang,"fr");
+
   await page.setViewportSize({ width: 390, height: 844 });
   assert(
     await page.evaluate(
