@@ -1,11 +1,13 @@
 import { Link } from "wouter";
+import { QuickTour } from "@/components/QuickTour";
 import { BookOpen, Chrome, Cloud, Gauge, Globe, GraduationCap, Lock, MousePointerClick } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { ShareBar } from "@/components/ShareBar";
 import { useI18n } from "@/i18n/I18nContext";
 import type { StringKey } from "@/i18n/strings";
 
-const STORE_URL = "https://chromewebstore.google.com/detail/yomu";
+const storeCandidate = String(import.meta.env.VITE_CHROME_STORE_URL || "");
+const STORE_URL = (() => { try { const u=new URL(storeCandidate); return u.origin==="https://chromewebstore.google.com" && !u.username && !u.password && /^\/detail\/(?:[^/]+\/)?[a-p]{32}\/?$/.test(u.pathname) ? u.href : null; } catch { return null; } })();
 
 const FEATURES: { icon: typeof BookOpen; key: string }[] = [
   { icon: MousePointerClick, key: "f1" },
@@ -18,7 +20,7 @@ const FEATURES: { icon: typeof BookOpen; key: string }[] = [
 
 /** Public marketing / landing page — the product's front door (English-first). */
 export default function Landing() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   return (
     <div className="dasi-app">
       <AppHeader />
@@ -29,8 +31,8 @@ export default function Landing() {
           <h1>{t("land.title")}</h1>
           <p className="land-sub">{t("land.subtitle")}</p>
           <div className="land-cta">
-            <a className="primary-cta" href={STORE_URL} target="_blank" rel="noreferrer">
-              <Chrome size={16} /> {t("land.ctaGet")}
+            <a className="primary-cta" href={STORE_URL || "#guide"} target={STORE_URL ? "_blank" : undefined} rel="noreferrer">
+              <Chrome size={16} /> {STORE_URL ? t("land.ctaGet") : lang === "fr" ? "Découvrir le fonctionnement" : "See how it works"}
             </a>
             <Link href="/pricing" className="heart-button">{t("land.ctaPlans")}</Link>
           </div>
@@ -65,6 +67,7 @@ export default function Landing() {
           </div>
         </section>
 
+        <QuickTour />
         {/* How it works */}
         <section className="land-steps">
           <span className="eyebrow">{t("land.stepsEyebrow")}</span>
@@ -111,8 +114,8 @@ export default function Landing() {
           <h2>{t("land.plansTitle")}</h2>
           <p>{t("land.plansBody")}</p>
           <div className="land-cta">
-            <a className="primary-cta" href={STORE_URL} target="_blank" rel="noreferrer">
-              <Chrome size={16} /> {t("land.ctaGet")}
+            <a className="primary-cta" href={STORE_URL || "#guide"} target={STORE_URL ? "_blank" : undefined} rel="noreferrer">
+              <Chrome size={16} /> {STORE_URL ? t("land.ctaGet") : lang === "fr" ? "Découvrir le fonctionnement" : "See how it works"}
             </a>
             <Link href="/pricing" className="heart-button">{t("land.ctaPlans")}</Link>
           </div>

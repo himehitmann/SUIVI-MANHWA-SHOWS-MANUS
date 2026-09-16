@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { AddWork } from "@/components/AddWork";
 import { Cover, Pill, Progress, itemAccent, onImgError } from "@/components/Bits";
-import { parseImport } from "@/lib/importers";
+import {LibraryImport} from "@/components/LibraryImport";
 import { useI18n } from "@/i18n/I18nContext";
 import { useStore } from "@/store/StoreContext";
 import { markerLabel, relativeTime } from "@/lib/format";
@@ -17,36 +17,16 @@ import type { ContentType } from "@/lib/types";
 type Filter = "all" | ContentType | "favorites";
 
 export default function Home() {
-  const { t } = useI18n();
+  const { t,lang } = useI18n();
   const store = useStore();
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [checking, setChecking] = useState(false);
-  const [speed, setSpeed] = useState(1);
-  const [tools, setTools] = useState(false);
-  const [conflict, setConflict] = useState(false);
   const [siteForm, setSiteForm] = useState(false);
   const [siteName, setSiteName] = useState("");
   const [siteUrl, setSiteUrl] = useState("");
-  const fileInput = useRef<HTMLInputElement>(null);
   const [addOpen, setAddOpen] = useState(false);
 
-  const onImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    file.text().then((text) => {
-      const res = parseImport(text);
-      if (res.format === "dasi" && store.importData(text)) {
-        toast.success(t("toast.imported"));
-      } else if (res.items.length > 0) {
-        const n = store.importItems(res.items);
-        toast.success(t("toast.imported.n", { n, format: res.format.toUpperCase() }));
-      } else {
-        toast.error(t("toast.importEmpty"));
-      }
-    });
-    e.target.value = "";
-  };
 
   const findAgain = (title: string) => {
     window.open(`https://www.google.com/search?q=${encodeURIComponent(title)}`, "_blank", "noreferrer");
@@ -59,7 +39,7 @@ export default function Home() {
     const q = query.trim().toLowerCase();
     return store.items.filter((i) => {
       if (filter === "favorites" && !i.favorite) return false;
-      if ((filter === "reading" || filter === "watching") && i.type !== filter) return false;
+      if ((filter === "reading" || filter === "watching" || filter === "game") && i.type !== filter) return false;
       if (!q) return true;
       return `${i.title} ${markerLabel(i, t)}`.toLowerCase().includes(q);
     });
@@ -71,16 +51,8 @@ export default function Home() {
       setChecking(false);
       const found = store.simulateUpdateScan();
       if (found > 0) toast.success(t("toast.newFound", { n: found }));
-      else toast.success(t("toast.upToDate"), { description: t("toast.upToDateDesc") });
+      else toast.info(lang==="fr"?"Aucune nouvelle alerte enregistrée. Les sources n’ont pas été interrogées.":"No new saved alerts. Sources have not been checked.");
     }, 800);
-  };
-
-  const save = () => {
-    if (current && current.progress < 72) {
-      setConflict(true);
-      return;
-    }
-    toast.success(t("toast.saved"));
   };
 
   const addSite = () => {
@@ -103,6 +75,9 @@ export default function Home() {
     <div className="dasi-app">
       <AppHeader query={query} onQuery={setQuery} />
       <main className="dasi-main">
+        {store.profile?.banner&&<img className="profile-banner" src={store.profile.banner} alt=""/>}
+        {store.profile?.name&&<h2>{store.profile.name}</h2>}
+        {store.profile?.bio&&<p>{store.profile.bio}</p>}
         <div className="welcome">
           <div>
             <span className="eyebrow pastel-label">{t("welcome.eyebrow")}</span>
@@ -145,9 +120,9 @@ export default function Home() {
                   <Play size={16} fill="currentColor" />
                   {t("action.resume")}
                 </a>
-                <button className="heart-button" onClick={save}>
-                  <Heart size={17} />
-                  {t("action.save")}
+                <button className="heart-button" aria-pressed={current.favorite} onClick={() => store.toggleFavorite(current.id)}>
+                  <Heart size={17} fill={current.favorite ? "currentColor" : "none"} />
+                  {t("categories.favorites")}
                 </button>
               </div>
             </div>
@@ -238,13 +213,13 @@ export default function Home() {
           <div className="cover-rail">
             {filtered.slice(0, 3).map((item) => (
               <article className="cover-card" key={item.id}>
-                <a className="cover-image" href={item.url} target="_blank" rel="noreferrer" style={{ background: item.accent }} data-initial={item.title[0]}>
+                <Link className="cover-image" href={`/work/${encodeURIComponent(item.id)}`} style={{ background: item.accent }} data-initial={item.title[0]}>
                   {item.cover ? <img src={item.cover} alt="" onError={onImgError} /> : <span>{item.title[0]}</span>}
                   <span className="cover-badge">{t(`type.${item.type}`)}</span>
                   {item.hasUpdate && <span className="cover-new">{t("unit.newBadge")}</span>}
-                </a>
+                </Link>
                 <div className="cover-info">
-                  <h4>{item.title}</h4>
+                  <h4><Link href={`/work/${encodeURIComponent(item.id)}`}>{item.title}</Link></h4>
                   <p>{markerLabel(item, t)}</p>
                   <Progress value={item.progress} accent={itemAccent(item)} />
                   <small>
@@ -268,7 +243,7 @@ export default function Home() {
               </button>
             </div>
             <div className="mini-tabs">
-              {(["all", "reading", "watching"] as const).map((tab) => (
+              {(["all", "reading", "watching", "game"] as const).map((tab) => (
                 <button className={filter === tab ? "selected" : ""} onClick={() => setFilter(tab)} key={tab}>
                   {t(`categories.${tab}`)}
                 </button>
@@ -278,7 +253,7 @@ export default function Home() {
               {filtered.length === 0 && <p className="muted-note">{t("library.empty")}</p>}
               {filtered.map((item) => (
                 <article className="dasi-row" key={item.id}>
-                  <Cover item={item} className="row-cover" />
+                  <Link href={`/work/${encodeURIComponent(item.id)}`} aria-label={item.title}><Cover item={item} className="row-cover" /></Link>
                   <div className="dasi-row-main">
                     <div>
                       <h4>{item.title}</h4>
@@ -330,7 +305,7 @@ export default function Home() {
               </div>
               <span className="synced">
                 <Check size={13} />
-                {t("now.upToDate")}
+                {lang==="fr"?"Enregistré localement":"Saved locally"}
               </span>
             </div>
             {current && (
@@ -338,7 +313,7 @@ export default function Home() {
                 <div className="mini-cover" data-initial={current.title[0]}>{current.cover ? <img src={current.cover} alt="" onError={onImgError} /> : null}</div>
                 <div>
                   <strong>{markerLabel(current, t)}</strong>
-                  <span>{t("now.detected")}</span>
+                  <span>{lang==="fr"?"Dernière position enregistrée":"Last saved position"}</span>
                 </div>
               </div>
             )}
@@ -347,29 +322,6 @@ export default function Home() {
               {t("now.checkNew")}
               <ChevronRight size={15} />
             </button>
-            <button className="soft-action" onClick={() => setTools((v) => !v)}>
-              <Video size={15} />
-              {t("now.videoTools")} <b>{tools ? "−" : "+"}</b>
-            </button>
-            {tools && (
-              <div className="video-pop">
-                <div>
-                  <span>{t("now.speed")}</span>
-                  <div className="speed">
-                    <button onClick={() => setSpeed(Math.max(0.25, Number((speed - 0.25).toFixed(2))))}>
-                      <Minus size={14} />
-                    </button>
-                    <strong>{speed}×</strong>
-                    <button onClick={() => setSpeed(Math.min(3, Number((speed + 0.25).toFixed(2))))}>
-                      <Plus size={14} />
-                    </button>
-                  </div>
-                </div>
-                <button className="pip-cta" onClick={() => toast(t("now.pip"))}>
-                  {t("now.pip")}
-                </button>
-              </div>
-            )}
             <Link href="/collections" className="soft-action">
               <Grid2X2 size={15} />
               {t("nav.collections")}
@@ -379,11 +331,7 @@ export default function Home() {
               <Download size={15} />
               {t("now.export")}
             </button>
-            <button className="soft-action" onClick={() => fileInput.current?.click()}>
-              <Upload size={15} />
-              {t("now.import")}
-            </button>
-            <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={onImport} aria-label={t("import.button")} />
+            <LibraryImport />
             <div className="local-note">
               <Heart size={14} />
               {t("now.local")}
@@ -394,32 +342,7 @@ export default function Home() {
 
       {addOpen && <AddWork onClose={() => setAddOpen(false)} />}
 
-      {conflict && current && (
-        <div className="modal-backdrop" onClick={() => setConflict(false)}>
-          <div className="conflict-modal" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setConflict(false)}>
-              <X size={17} />
-            </button>
-            <span className="eyebrow">{t("conflict.eyebrow")}</span>
-            <h2>{t("conflict.title")}</h2>
-            <p dangerouslySetInnerHTML={{ __html: t("conflict.body", { title: `<strong>${current.title}</strong>` }) }} />
-            <div className="conflict-actions">
-              <button className="heart-button" onClick={() => setConflict(false)}>
-                {t("conflict.keep")}
-              </button>
-              <button
-                className="primary-cta"
-                onClick={() => {
-                  setConflict(false);
-                  toast.success(t("toast.replaced"));
-                }}
-              >
-                {t("conflict.replace")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

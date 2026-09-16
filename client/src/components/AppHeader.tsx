@@ -1,3 +1,4 @@
+import {useStore} from "@/store/StoreContext";
 import { Search } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useI18n } from "@/i18n/I18nContext";
@@ -12,11 +13,13 @@ interface Props {
 
 /** Global top bar: brand, primary nav, search, language, notifications, profile. */
 export function AppHeader({ query, onQuery }: Props) {
-  const { t } = useI18n();
+  const {profile}=useStore();
+  const { t, lang } = useI18n();
   const [location] = useLocation();
   const isLibrary = location === "/" || location.startsWith("/list");
   const nav: { href: string; label: string; active: boolean }[] = [
     { href: "/", label: t("nav.library"), active: isLibrary },
+    { href: "/search", label:lang==="fr"?"Rechercher":"Search",active:location==="/search" },
     { href: "/learn", label: t("nav.learn"), active: location === "/learn" },
     { href: "/collections", label: t("nav.collections"), active: location === "/collections" },
     { href: "/pricing", label: t("nav.pricing"), active: location === "/pricing" },
@@ -50,7 +53,7 @@ export function AppHeader({ query, onQuery }: Props) {
         <LanguageSwitch />
         <Notifications />
         <Link href="/settings" className="profile" aria-label={t("nav.settings")}>
-          H
+          {profile?.avatar?<img src={profile.avatar} alt="" style={{width:"100%",height:"100%",borderRadius:"50%",objectFit:"cover"}}/>:(profile?.name?.[0]||"Y")}
         </Link>
       </div>
     </header>

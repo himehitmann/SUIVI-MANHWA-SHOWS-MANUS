@@ -56,7 +56,7 @@ function render() {
   const d = detection;
   const watching = d.type === "watching";
   $("#kind").className = `kind ${watching ? "watching" : ""}`;
-  $("#kindLabel").textContent = watching ? "Watching" : "Reading";
+  $("#kindLabel").textContent = watching ? "Watching" : d.type === "game" ? "Game" : "Reading";
   $("#title").textContent = d.title || "Untitled page";
   setCover(d.cover, d.title);
 
@@ -65,7 +65,7 @@ function render() {
 
   if (watching && d.duration) {
     $("#time").style.display = "";
-    $("#time").textContent = `⏱ ${timecode(d.position)} / ${timecode(d.duration)}`;
+    $("#time").textContent = `${timecode(d.position)} / ${timecode(d.duration)}`;
   } else if (watching && d.position) {
     $("#time").style.display = "";
     $("#time").textContent = `⏱ ${timecode(d.position)}`;
@@ -85,7 +85,7 @@ function render() {
   const differs = existing && (prevMarker !== marker || (existing.domain && existing.domain !== d.domain));
   if (existing && differs) {
     const bits = [prevMarker || "saved", existing.domain].filter(Boolean).join(" · ");
-    $("#prevText").textContent = `${bits}. Saving replaces it with your current spot.`;
+    $("#prevText").textContent = `${bits}. Your furthest position is kept if this page is earlier.`;
     $("#prev").classList.add("show");
     $("#save").textContent = "Overwrite save";
     $("#save").classList.add("warn");
@@ -95,7 +95,8 @@ function render() {
     $("#save").classList.remove("warn");
   }
   $("#save").disabled = false;
-  $("#pip").disabled = !d.hasVideo;
+  $("#pip").disabled = false;
+  $("#video-tools").style.display="grid";
 }
 
 // Kick off detection, then check for an existing save (cross-site, by title).
@@ -150,7 +151,10 @@ $("#save").onclick = () => {
   } else if (listSel && listSel.value) {
     msg.listId = listSel.value;
   }
+  $("#save").disabled=true;
+  $("#save").textContent="Saving…";
   api.runtime.sendMessage(msg, (r) => {
+    if(api.runtime.lastError || !r?.item || r.ok===false){$("#save").disabled=false;$("#save").textContent="Retry save";$("#conf").textContent=r?.error==="list_save_failed"?"Work saved, but the list could not be updated. Retry.":"Save failed. Your previous library is intact. Retry.";$("#conf").classList.add("show");return;}
     $("#save").textContent = r?.conflict && r.kept === "existing" ? "Kept furthest ✓" : "Saved ✓";
     $("#save").disabled = true;
     $("#prev").classList.remove("show");
@@ -183,30 +187,38 @@ $("#save-site").onclick = () => {
   });
 };
 
-// Playback speed: 0.25×–3×, adjustable with −/+ or by typing the number.
-const applySpeed = (v) => {
-  speed = Math.min(3, Math.max(0.25, Math.round(Number(v) * 100) / 100 || 1));
-  const inp = $("#speed-input");
-  if (inp) inp.value = String(speed);
-  api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs[0]?.id) api.tabs.sendMessage(tabs[0].id, { type: "SET_PLAYBACK_SPEED", speed });
-  });
+// Inspect every permitted frame, including players inside open shadow roots.
+async function videoCommand(action, value) {
+  const status = $("#video-status");
+  try {
+    const [tab] = await api.tabs.query({active:true,currentWindow:true});
+    if (!tab?.id) throw new Error("No active page");
+    const results = await api.scripting.executeScript({target:{tabId:tab.id,allFrames:true},args:[action,value],func:async (action,value) => {
+      const videos=[];
+      const visit=root=>{videos.push(...root.querySelectorAll("video"));for(const element of root.querySelectorAll("*"))if(element.shadowRoot)visit(element.shadowRoot);};
+      visit(document);
+      if(action==="speed") {for(const video of videos)video.playbackRate=value;return {ok:videos.length>0};}
+      const video=videos.filter(v=>v.readyState>0).sort((a,b)=>Number(!b.paused)-Number(!a.paused)||b.clientWidth*b.clientHeight-a.clientWidth*a.clientHeight)[0];
+      if(!video)return {ok:false};
+      if(!document.pictureInPictureEnabled)return {ok:false,error:"Picture-in-Picture is unavailable on this player."};
+      try {if(document.pictureInPictureElement)await document.exitPictureInPicture();else await video.requestPictureInPicture();return {ok:true};}
+      catch {return {ok:false,error:"The player refused Picture-in-Picture. Start the video and retry."};}
+    }});
+    status.textContent=results.some(r=>r.result?.ok)?(action==="speed"?"Playback speed updated":"Picture-in-Picture updated"):(results.find(r=>r.result?.error)?.result.error||"No accessible video. Start the video, then retry.");
+  } catch {status.textContent="This page does not allow video controls. Open the player page and retry.";}
+}
+const applySpeed = v => {
+  speed=Math.min(3,Math.max(.25,Math.round(Number(v)*100)/100||1));
+  $("#speed-input").value=String(speed);
+  videoCommand("speed",speed);
 };
-$("#slower").onclick = () => applySpeed(speed - 0.25);
-$("#faster").onclick = () => applySpeed(speed + 0.25);
-$("#speed-input").addEventListener("change", (e) => applySpeed(e.target.value));
-
-$("#pip").onclick = () =>
-  api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (!tabs[0]?.id) return;
-    api.tabs.sendMessage(tabs[0].id, { type: "REQUEST_PIP" }, (r) => {
-      void api.runtime.lastError;
-      $("#pip").textContent = r?.ok ? "Picture-in-Picture on" : r?.reason === "unsupported" ? "Not available here" : "Player refused PiP";
-    });
-  });
+$("#slower").onclick=()=>applySpeed(speed-.25);
+$("#faster").onclick=()=>applySpeed(speed+.25);
+$("#speed-input").addEventListener("change",e=>applySpeed(e.target.value));
+$("#pip").onclick=()=>videoCommand("pip",null);
 
 // Rate + share. Store URL is a single constant to swap once the listing is live.
-const DASI_STORE_URL = "https://chromewebstore.google.com/detail/dasi";
+const DASI_STORE_URL = "https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS";
 const DASI_SHARE_TEXT = "Yomu — never lose your spot in any manga, webtoon, anime or series. Save & resume in one click.";
 const openUrl = (u) => api.tabs.create({ url: u });
 // Animated 5-star rating → opens the Chrome Web Store review page.
@@ -234,8 +246,7 @@ $("#sh-cp").onclick = () => {
 /*
  * One-click page translation. Pick a target language and Yomu translates the
  * current page's text in place (optional, best-effort; revert from the on-page
- * pill). Free plan is metered to 5 pages/day; Pro/Lifetime and the owner build
- * are unlimited.
+ * pill). Provider quotas and configured account access apply.
  */
 const TR_LANGS = [
   ["en", "English"], ["fr", "Français"], ["es", "Español"], ["de", "Deutsch"], ["it", "Italiano"],
@@ -247,7 +258,6 @@ const TR_LANGS = [
   ["ro", "Română"], ["hu", "Magyar"], ["bg", "Български"], ["sr", "Српски"], ["hr", "Hrvatski"],
 ];
 const UNLOCK = typeof DASI_UNLOCK_ALL !== "undefined" ? DASI_UNLOCK_ALL : true;
-const FREE_TR_LIMIT = 5;
 let popupSettings = { translateLang: "en" };
 let popupPlan = null;
 
@@ -256,7 +266,7 @@ TR_LANGS.forEach(([code, name]) => { const o = document.createElement("option");
 
 // Source language for image (OCR) translation. "Auto" guesses from the site.
 const trSrc = $("#tr-src");
-const SRC_LANGS = [["", "Auto"], ["kor", "Korean"], ["jpn", "Japanese"], ["chs", "Chinese"]];
+const SRC_LANGS = [["", "Auto"], ["kor", "Korean"], ["jpn", "Japanese"], ["chi_sim", "Chinese"], ["eng", "English"], ["fra", "French"]];
 SRC_LANGS.forEach(([code, name]) => { const o = document.createElement("option"); o.value = code; o.textContent = name; trSrc.appendChild(o); });
 trSrc.onchange = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateSrc: trSrc.value } }, () => void api.runtime.lastError);
 
@@ -269,28 +279,26 @@ api.runtime.sendMessage({ type: "GET_STATE" }, (state) => {
   renderLists();
 });
 
+
+let translationPageUrl='',translationOrigins=[],autoRule=null;
+const trAuto=$('#tr-auto');
+api.tabs.query({active:true,currentWindow:true}).then(async tabs=>{
+ const tab=tabs[0];if(!tab?.id||!(tab.url||'').startsWith('https://'))return;
+ translationPageUrl=tab.url;translationOrigins=[new URL(tab.url).origin+'/*'];
+ try{const result=await api.scripting.executeScript({target:{tabId:tab.id},func:()=>[...new Set([...document.images].filter(im=>{const r=im.getBoundingClientRect();return r.width>=180&&(r.height>=200||im.naturalHeight>=260);}).map(im=>{try{return new URL(im.currentSrc||im.src).origin;}catch{return '';}}))].slice(0,12)});for(const origin of result[0]?.result||[])if(origin.startsWith('https://') && /^[a-z0-9.-]+$/i.test(new URL(origin).hostname) && !new URL(origin).port&&!translationOrigins.includes(origin+'/*'))translationOrigins.push(origin+'/*');}catch{}
+ api.runtime.sendMessage({type:'GET_TRANSLATION_RULE',url:translationPageUrl},r=>{void api.runtime.lastError;if(!r?.ok)return;autoRule=r.rule;trAuto.disabled=false;trAuto.checked=!!r.rule.enabled;if(r.rule.enabled){trSel.value=r.rule.target;trSrc.value=r.rule.source;}if(r.status==='permission_required')$('#tr-status').textContent='Automatic translation is paused. Allow access to this site to resume.';});
+}).catch(()=>{});
+function saveTranslationRule(enabled){
+ const send=()=>api.runtime.sendMessage({type:'SET_TRANSLATION_RULE',url:translationPageUrl,enabled,target:trSel.value,source:trSrc.value},r=>{void api.runtime.lastError;trAuto.disabled=false;if(!r?.ok){trAuto.checked=!!autoRule?.enabled;$('#tr-status').textContent='Could not save automatic translation. Check site permission and retry.';return;}autoRule={enabled,target:trSel.value,source:trSrc.value};trAuto.checked=enabled;$('#tr-status').textContent=r.unconfirmed||r.status==='saved_application_unconfirmed'?'Setting saved. Reload the page if its translation state has not changed.':enabled?'Automatic translation is on for this site.':'Automatic translation is off for this site.';});
+ trAuto.disabled=true;if(!enabled){send();return;}api.permissions.request({origins:translationOrigins},granted=>{const failed=api.runtime.lastError;if(granted&&!failed)send();else{trAuto.disabled=false;trAuto.checked=!!autoRule?.enabled;$('#tr-status').textContent='Access was not granted. Automatic translation remains unchanged.';}});
+}
+trAuto.addEventListener('change',()=>saveTranslationRule(trAuto.checked));
+for(const select of [trSel,trSrc])select.addEventListener('change',()=>{if(trAuto.checked)saveTranslationRule(true);});
+$('#tr-stop').onclick=()=>api.runtime.sendMessage({type:'STOP_TRANSLATION'},r=>{void api.runtime.lastError;$('#tr-status').textContent=r?.ok?'Original page restored. Turn off the site switch to stop on future pages.':'Nothing to restore, or this page is no longer accessible.';});
+
 trSel.onchange = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: trSel.value } }, () => void api.runtime.lastError);
 
-const isProPopup = () => UNLOCK || popupPlan === "pro" || popupPlan === "lifetime";
-function trUsageToday() {
-  const today = new Date().toISOString().slice(0, 10);
-  const u = popupSettings.trUsage || {};
-  return u.date === today ? u.count || 0 : 0;
-}
-function bumpTrUsage() {
-  const today = new Date().toISOString().slice(0, 10);
-  const count = trUsageToday() + 1;
-  popupSettings.trUsage = { date: today, count };
-  api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { trUsage: popupSettings.trUsage } }, () => void api.runtime.lastError);
-}
-
 $("#tr-go").onclick = () => {
-  if (!isProPopup() && trUsageToday() >= FREE_TR_LIMIT) {
-    const s = $("#tr-status");
-    s.textContent = `Free limit reached (${FREE_TR_LIMIT}/day). Go Pro for unlimited translation.`;
-    s.classList.add("up");
-    return;
-  }
   const lang = trSel.value;
   $("#tr-status").classList.remove("up");
   $("#tr-status").textContent = "Translating the page…";
@@ -298,16 +306,16 @@ $("#tr-go").onclick = () => {
   // Manga/webtoon panels are images; translating them (OCR) needs to fetch the
   // panel from its site. Ask once for that access — text pages don't need it,
   // so denying still lets text translation work.
-  const go = () => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang, src: trSrc.value }, (r) => {
+  const go = (imagesAllowed = true) => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang, src: trSrc.value }, (r) => {
     void api.runtime.lastError;
     $("#tr-go").disabled = false;
-    if (r && r.ok) { $("#tr-status").textContent = "Done — see the pill on the page (revert there)."; bumpTrUsage(); }
+    if (r && r.ok) { $("#tr-status").textContent = imagesAllowed ? "Translation started — follow progress on the page." : "Page translation started. Image access was denied; allow it to translate speech bubbles."; }
     else $("#tr-status").textContent = r && r.error === "restricted_page" ? "Can't translate this page." : "Translation unavailable here.";
   });
   try {
-    api.permissions.request({ origins: ["<all_urls>"] }, () => { void api.runtime.lastError; go(); });
+    api.permissions.request({ origins: translationOrigins }, granted => { const error = api.runtime.lastError; go(!!granted && !error); });
   } catch {
-    go();
+    go(false);
   }
 };
 
@@ -316,5 +324,5 @@ $("#sync-link").onclick = () => api.runtime.openOptionsPage();
 api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => {
   void api.runtime.lastError;
   popupPlan = (s && s.plan) || null;
-  if (s && s.configured) $("#sync-link").textContent = s.meta && s.meta.lastError ? "Sync needs attention" : "Synced ✓";
+  if (s && s.configured) $("#sync-link").textContent = s.meta?.lastError ? "Sync needs attention" : s.meta?.lastSyncAt ? "Last sync completed" : "Sync pending";
 });
