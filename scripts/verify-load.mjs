@@ -101,14 +101,7 @@ finally {
  clearTimeout(watchdog);
  if(server)await new Promise(resolve=>server.close(resolve));if(pool)await pool.end();await admin.end();
  mkdirSync('test-results',{recursive:true});writeFileSync('test-results/load-report.json',JSON.stringify(report,null,2));
- if(process.env.GITHUB_STEP_SUMMARY)appendFileSync(process.env.GITHUB_STEP_SUMMARY,'## Yomu isolated capacity probe
-
-'+report.kind+'
-
-```json
-'+JSON.stringify(report,null,2)+'
-```
-');
+ if(process.env.GITHUB_STEP_SUMMARY)appendFileSync(process.env.GITHUB_STEP_SUMMARY,"## Yomu isolated capacity probe\n\n"+report.kind+"\n\n```json\n"+JSON.stringify(report,null,2)+"\n```\n");
  if(report.failure)console.error(report.failure);
 }
 
