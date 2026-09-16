@@ -1175,3 +1175,16 @@ describe("extension trust boundary",()=>{
   });
 });
 
+it("accepts raster panels but rejects local-network, executable and credential URLs",()=>{
+  const w=worker();
+  for(const url of ["file:///private","javascript:alert(1)","data:image/svg+xml;base64,PHN2Zz4=","https://u:p@cdn.example/image.png","http://localhost/image.png","http://127.1/image.png","http://2130706433/image.png","http://10.0.0.1/a","http://192.168.1.2/a","http://172.20.1.1/a","http://169.254.169.254/a","http://[::1]/a"]){w.ctx.panel=url;expect(()=>w.run("safePanelSource(panel)")).toThrow();}
+  expect(w.run('safePanelSource("https://cdn.example/panel.jpg")')).toBe("https://cdn.example/panel.jpg");
+  expect(w.run('safePanelSource("data:image/png;base64,YWJj")')).toBe("data:image/png;base64,YWJj");
+});
+it("rejects non-image and oversized downloads before OCR",async()=>{
+  const w=worker();w.ctx.fetch=async()=>({ok:true,headers:{get:()=>null},blob:async()=>({type:"text/html",size:10})});
+  await expect(w.run('fetchBlob("https://cdn.example/panel")')).rejects.toThrow("invalid_image_type");
+  w.ctx.fetch=async()=>({ok:true,headers:{get:()=>String(30*1024*1024)},blob:async()=>{throw Error("must_not_read");}});
+  await expect(w.run('fetchBlob("https://cdn.example/panel")')).rejects.toThrow("image_too_large");
+});
+
