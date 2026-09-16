@@ -374,13 +374,14 @@ function renderDiscover() {
   let out=`<div class="section-h discover-h"><h2>${settings.lang==="fr"?"À découvrir maintenant":"Discover now"}</h2><div class="disco-h-actions"><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div></div>`;
   out+='<div class="home-category-chips">'+HOME_CAT_KEYS.map(key=>'<button class="chip-toggle '+(homeCatAllowed(key)?'on':'')+'" data-home-category="'+key+'" aria-pressed="'+homeCatAllowed(key)+'">'+esc(t("cat"+key[0].toUpperCase()+key.slice(1)))+'</button>').join("")+'</div>';
   if(!pools.length)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Aucune tendance disponible pour cette sélection.":"No trends available for this selection.")+'</p>';
-  const weights=tasteWeights();
+  const weights=tasteWeights(),recommended=new Set();
   if(Object.keys(weights).length) {
     const seen=new Set();
-    const picks=pools.filter(p=>!p.game).flatMap(p=>p.list).map(m=>({m,score:scoreTaste(m,weights)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).filter(x=>{const key=normTitle(x.m.title);if(seen.has(key))return false;seen.add(key);return true;}).slice(0,14).map(x=>x.m);
+    const picks=pools.filter(p=>!p.game).flatMap(p=>p.list).map(m=>({m,score:scoreTaste(m,weights)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).filter(x=>{const key=x.m.type+":"+normTitle(x.m.title);if(seen.has(key))return false;seen.add(key);return true;}).slice(0,14).map(x=>x.m);
+    for(const pick of picks)recommended.add(pick.type+":"+normTitle(pick.title));
     if(picks.length)out+=discoRow(t("forYou"),picks,{forYou:true});
   }
-  for(const pool of pools.slice(0,homeShowAll?9:3))out+=discoRow(pool.label,pool.list.slice(0,14),{sub:pool.game?"Steam":pool.key==="series"||pool.key.endsWith("drama")?(settings.lang==="fr"?"Diffusions récentes":"Recently airing"):(settings.lang==="fr"?"Tendances du moment":"Trending now")});
+  for(const pool of pools.slice(0,homeShowAll?9:3))out+=discoRow(pool.label,pool.list.filter(m=>!recommended.has(m.type+":"+normTitle(m.title))).slice(0,12),{sub:pool.game?"Steam":pool.key==="series"||pool.key.endsWith("drama")?(settings.lang==="fr"?"Diffusions récentes":"Recently airing"):(settings.lang==="fr"?"Tendances du moment":"Trending now")});
   if(pools.length>3)out+='<button class="btn" id="home-more">'+(settings.lang==="fr"?(homeShowAll?"Réduire les catégories":"Voir les autres catégories"):(homeShowAll?"Show fewer categories":"Show more categories"))+'</button>';
   return out;
 }
@@ -501,92 +502,63 @@ function valueStrip() {
   return `<div class="value-strip">${cards.map(([ic, a, b]) => `<div class="value-card"><span class="vc-ic">${ic}</span><div><b>${esc(a)}</b><small>${esc(b)}</small></div></div>`).join("")}</div>`;
 }
 function renderHome() {
-  const homeItems=items.filter(i=>!i.homeHidden);
-  const el = document.getElementById("view-home");
-  if (!items.length) {
-    el.innerHTML = `<div class="onboard"><div class="big"><i></i></div><h2>${t("welcomeTitle")}</h2><p>${t("welcomeBody")}</p>
-      <button class="btn primary" id="onb-search" style="margin-top:18px">${I.plus} ${t("addByName")}</button></div>${valueStrip()}${renderDiscover()}`;
-    bindHome();
-    bindDisco();
-    const ob = document.getElementById("onb-search");
-    if (ob) ob.onclick = () => { document.getElementById("q").focus(); };
-    return;
-  }
-  // Each work appears in at most ONE row (no duplicates across the home).
-  const used = new Set();
-  const take = (list, n) => { const out = []; for (const i of list) { if (out.length >= n) break; if (!used.has(i.id)) { used.add(i.id); out.push(i); } } return out; };
-
-  const inProgress = homeItems.filter((i) => i.type !== "game" && itemState(i) === "current" && (i.progress || 0) < 100).sort((a, b) => (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0));
-  const newsAll = homeItems.filter(isNew).sort((a, b) => unseen(b) - unseen(a) || (b.activityAt || b.updatedAt || 0) - (a.activityAt || a.updatedAt || 0));
-  const soon = homeItems.filter((i) => i.type === "game" && isSoon(i));
-  const genres = topGenres(homeItems);
-  const topG = genres[0] && genres[0][1] >= 2 ? genres[0][0] : null;
-  const recoAll = topG ? homeItems.filter((i) => (i.tags || []).includes(topG)).sort((a, b) => (b.rating || 0) - (a.rating || 0)) : [];
-  const recentAll = [...homeItems].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-  spotItems = [...newsAll, ...soon, ...inProgress].filter((v, idx, arr) => arr.findIndex((x) => x.id === v.id) === idx).slice(0, 6);
-  if (!spotItems.length) spotItems = recentAll.slice(0, 4);
-
-  const rNew = take(newsAll, 14);        // actionable: something you haven't seen
-  const rCatchUp = take(homeItems.filter(i=>unseen(i)>0&&itemState(i)!=="dropped"&&currentNum(i)>0),14);
-  const rContinue = take(inProgress, 14); // in progress, not already shown as new
-  const rReco = topG ? take(recoAll, 14) : [];
-  const rRecent = take(recentAll, 14);
-
-  el.innerHTML = `
-    <div id="spot-wrap">${spotHtml(spotItems[spotIdx % Math.max(1, spotItems.length)])}${spotItems.length > 1 ? `<div class="dots" id="dots">${spotItems.map((_, i) => `<i class="${i === spotIdx % spotItems.length ? "on" : ""}" data-dot="${i}"></i>`).join("")}</div>` : ""}</div>
-    ${row(t("continue"), rContinue)}
-    ${row(t("newWeek"), rNew)}
-    ${row(settings.lang==="fr"?"À rattraper":"Catch up",rCatchUp)}
-    ${renderDiscover()}
-    ${rReco.length ? row(t("becauseYouLove", { g: topG }), rReco) : ""}
-    ${genres.length ? `<div class="section-h"><h2>${t("yourGenres")}</h2></div><div class="genres">${genres.slice(0, 10).map(([g, n]) => `<span class="genre" data-genre="${esc(g)}">${esc(g)} <b>${n}</b></span>`).join("")}</div>` : ""}
-    ${row(t("recentlyAdded"), rRecent)}
-    ${homeItems.length < 4 ? valueStrip() : ""}
-  `;
-  bindHome();
-  bindDisco();
-  startSpot();
-}
-function spotHtml(i) {
-  if (!i) return "";
-  const u = coverUrl(i);
-  const badges = [
-    i.type === "game" ? `<span class="pill game">${I.game} ${esc(i.platform || t("games"))}</span>` : "",
-    isNew(i) ? `<span class="pill new">${t("newWeek")}</span>` : "",
-    isSoon(i) ? `<span class="pill soon">${t("comingSoon")}</span>` : "",
-  ].filter(Boolean).join("");
-  return `<div class="spot" data-open="${i.id}">
-    ${u ? `<div class="spot-bg" style="background-image:url('${esc(u)}')"></div>` : `<div class="spot-fallback"></div>`}
-    <div class="spot-grad"></div>
-    <div class="spot-inner">
-      <div class="spot-badges">${badges || `<span class="pill">${esc((i.type === "watching" ? t("watching") : i.type === "game" ? t("games") : t("reading")))}</span>`}</div>
-      <h2>${esc(i.title || "Untitled")}</h2>
-      <p>${esc(i.synopsis ? i.synopsis.slice(0, 120) + (i.synopsis.length > 120 ? "…" : "") : marker(i))}</p>
-      <div class="spot-cta">
-        ${i.url ? `<a class="btn-glass" href="${esc(i.url)}" target="_blank" rel="noreferrer" data-stop>${I.play} ${t("resume")}</a>` : ""}
-        <button class="btn-glass ghost" data-details="${i.id}">${t("details")}</button>
-      </div>
-    </div>
-  </div>`;
-}
-function startSpot() {
   clearInterval(spotTimer);
-  if (spotItems.length < 2) return;
-  spotTimer = setInterval(() => { if (view !== "home") return; spotIdx = (spotIdx + 1) % spotItems.length; refreshSpot(); }, 6000);
+  const fr=settings.lang==="fr",homeItems=items.filter(i=>!i.homeHidden),el=document.getElementById("view-home");
+  const active=homeItems.filter(i=>i.type!=="game"&&itemState(i)==="current");
+  const resume=active.filter(i=>currentNum(i)>0&&(i.progress||0)<100).sort((a,b)=>(b.activityAt||b.updatedAt||0)-(a.activityAt||a.updatedAt||0));
+  const catchUp=homeItems.filter(i=>i.type!=="game"&&!['dropped','on_hold','planned'].includes(itemState(i))&&(isNew(i)||unseen(i)>0&&currentNum(i)>0)).sort((a,b)=>Number(isNew(b))-Number(isNew(a))||(b.lastReleaseAt||0)-(a.lastReleaseAt||0)||unseen(b)-unseen(a));
+  const used=new Set(catchUp.map(i=>i.id));
+  const continuing=resume.filter(i=>!used.has(i.id)).slice(0,12);
+  const pools=discover?discoPools():[];
+  const first=resume[0]||catchUp[0];
+  spotItems=first?[{item:first,catalog:false,label:fr?"Votre prochaine lecture ou séance":"Pick up where you left off"}]:[];
+  const seen=new Set(first?[first.type+":"+normTitle(first.title)]:[]);
+  for(const pool of pools){
+    const candidate=pool.list.find(m=>!seen.has(m.type+":"+normTitle(m.title)));
+    if(!candidate)continue;
+    seen.add(candidate.type+":"+normTitle(candidate.title));
+    spotItems.push({item:candidate,catalog:true,label:(fr?"À découvrir · ":"Discover · ")+pool.label});
+    if(spotItems.length>=5)break;
+  }
+  spotIdx=spotIdx%Math.max(1,spotItems.length);
+  const personal=continuing.length||catchUp.length;
+  el.innerHTML='<div class="home-heading"><div><h1>'+(fr?"À votre rythme":"Your next chapter")+'</h1><p class="sub">'+(fr?"Reprenez vos favoris. Découvrez votre prochaine obsession.":"Continue your favorites. Find your next obsession.")+'</p></div><button class="btn" id="home-library">'+(fr?"Ma bibliothèque":"My library")+'</button></div>'+
+    (spotItems.length?'<section id="spot-wrap" class="home-feature-wrap" aria-label="'+(fr?"À la une":"Featured")+'">'+spotHtml(spotItems[spotIdx])+spotControls()+'</section>':(!items.length?'<div class="home-welcome"><h2>'+t("welcomeTitle")+'</h2><p class="sub">'+(fr?"Explorez les tendances ci-dessous ou recherchez une œuvre avec la barre en haut.":"Explore the trends below or search for a title using the bar above.")+'</p></div>':""))+
+    (personal?'<section class="home-personal" aria-label="'+(fr?"Votre suivi":"Your activity")+'">'+row(fr?"À rattraper":"Catch up",catchUp.slice(0,12),fr?"Les sorties que vous n’avez pas encore vues ou lues":"Releases you have not watched or read yet")+row(t("continue"),continuing)+'</section>':"")+renderDiscover();
+  bindHome();bindDisco();startSpot();
 }
-function refreshSpot() {
-  const wrap = document.getElementById("spot-wrap");
-  if (!wrap) return;
-  wrap.innerHTML = `${spotHtml(spotItems[spotIdx % spotItems.length])}${spotItems.length > 1 ? `<div class="dots" id="dots">${spotItems.map((_, i) => `<i class="${i === spotIdx % spotItems.length ? "on" : ""}" data-dot="${i}"></i>`).join("")}</div>` : ""}`;
-  bindHome();
+function spotHtml(entry) {
+  if(!entry)return "";
+  const i=entry.item,fr=settings.lang==="fr",u=coverUrl(i),catalog=entry.catalog;
+  return '<article class="home-feature"><div class="home-feature-copy"><span class="home-eyebrow">'+esc(entry.label)+'</span><h2>'+esc(i.title||"Untitled")+'</h2><p class="home-feature-meta">'+esc([catLabel(i),...(i.genres||i.tags||[]).slice(0,3)].filter(Boolean).join(" · "))+'</p><p class="home-feature-synopsis">'+esc(i.synopsis?i.synopsis.slice(0,230)+(i.synopsis.length>230?"…":""):catalog?(fr?"Découvrez la fiche et choisissez une liste pour garder cette œuvre de côté.":"Explore the details and choose a list to save this title."):marker(i))+'</p><div class="spot-cta">'+(!catalog&&i.url?'<a class="btn-glass" href="'+esc(i.url)+'" target="_blank" rel="noopener noreferrer">'+I.play+' '+t("resume")+'</a>':"")+'<button class="btn-glass '+(!catalog&&i.url?'ghost':'')+'" data-feature-details>'+t("details")+'</button></div></div>'+(u?'<button class="home-feature-art" data-feature-details aria-label="'+esc(t("details")+": "+i.title)+'">'+covImg(u,i.coverFallback)+'</button>':"")+'</article>';
 }
-function bindHome() {
+let spotPaused=false;
+function spotControls(){
+  if(spotItems.length<2)return "";
+  const fr=settings.lang==="fr";
+  return '<div class="home-feature-controls"><button class="feature-arrow" data-feature-step="-1" aria-label="'+(fr?"Précédent":"Previous")+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="feature-dots">'+spotItems.map((entry,index)=>'<button data-dot="'+index+'" aria-label="'+esc(entry.item.title)+'" aria-pressed="'+(index===spotIdx)+'" class="'+(index===spotIdx?'on':'')+'"></button>').join("")+'</div><button class="feature-arrow" data-feature-step="1" aria-label="'+(fr?"Suivant":"Next")+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button><button class="feature-pause" id="feature-pause" aria-pressed="'+spotPaused+'">'+(spotPaused?(fr?"Reprendre":"Play"):(fr?"Pause":"Pause"))+'</button></div>';
+}
+function startSpot(){
+  clearInterval(spotTimer);
+  if(spotItems.length<2||matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  spotTimer=setInterval(()=>{
+    const wrap=document.getElementById("spot-wrap");
+    if(view!=="home"||document.visibilityState!=="visible"||spotPaused||!wrap||wrap.matches(":hover")||wrap.contains(document.activeElement)||document.getElementById("drawer").classList.contains("open"))return;
+    spotIdx=(spotIdx+1)%spotItems.length;refreshSpot();
+  },9000);
+}
+function refreshSpot(){
+  const wrap=document.getElementById("spot-wrap");if(!wrap||!spotItems.length)return;
+  wrap.innerHTML=spotHtml(spotItems[spotIdx])+spotControls();bindHome();
+}
+function bindHome(){
   enhanceCarousels("#view-home");
-  document.querySelectorAll("#view-home [data-open]").forEach((n) => (n.onclick = (e) => { if (!e.target.closest("[data-stop],[data-details]")) openDrawer(n.dataset.open); }));
-  document.querySelectorAll("#view-home [data-details]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); openDrawer(b.dataset.details); }));
-  document.querySelectorAll("#view-home [data-dot]").forEach((d) => (d.onclick = (e) => { e.stopPropagation(); spotIdx = Number(d.dataset.dot); refreshSpot(); }));
-  document.querySelectorAll("#view-home [data-genre]").forEach((g) => (g.onclick = () => { query = g.dataset.genre; document.getElementById("q").value = query; switchView("library"); renderGrid(); }));
+  const library=document.getElementById("home-library");if(library)library.onclick=()=>switchView("library");
+  document.querySelectorAll("#view-home [data-open]").forEach(n=>n.onclick=()=>openDrawer(n.dataset.open));
+  document.querySelectorAll("#view-home [data-feature-details]").forEach(button=>{const entry=spotItems[spotIdx];button.onclick=()=>entry.catalog?openCatalogPreview(entry.item):openDrawer(entry.item.id);});
+  document.querySelectorAll("#view-home [data-dot]").forEach(button=>button.onclick=()=>{spotIdx=Number(button.dataset.dot);refreshSpot();document.querySelector('#view-home [data-dot="'+spotIdx+'"]').focus();});
+  document.querySelectorAll("#view-home [data-feature-step]").forEach(button=>button.onclick=()=>{const step=Number(button.dataset.featureStep);spotIdx=(spotIdx+step+spotItems.length)%spotItems.length;refreshSpot();document.querySelector('#view-home [data-feature-step="'+step+'"]').focus();});
+  const pause=document.getElementById("feature-pause");if(pause)pause.onclick=()=>{spotPaused=!spotPaused;refreshSpot();document.getElementById("feature-pause").focus();};
 }
 
 /* ================= LIBRARY ================= */
