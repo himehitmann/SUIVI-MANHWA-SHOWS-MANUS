@@ -7,6 +7,7 @@ import {cpus,totalmem} from 'node:os';
 import express from 'express';
 import pg from 'pg';
 import {ensureSchema,createPostgresStore} from '../server/lib/store-postgres.ts';
+import {ensureAccessSchema,createPostgresAccessStore} from '../server/lib/access.ts';
 import {hashPasswordAsync,signToken} from '../server/lib/crypto.ts';
 
 const url=new URL(process.env.LOAD_DATABASE_URL||'http://invalid');
@@ -52,7 +53,7 @@ async function measure(name,concurrency,count,request,paceMs=0) {
 try {
  for(const scenario of [{total:100,accounts:10},{total:10000,accounts:100},{total:100000,accounts:200}]) {
   const schema='load_'+randomBytes(8).toString('hex');await admin.query('CREATE SCHEMA '+schema);
-  pool=new pg.Pool({...poolConfig,options:'-c search_path='+schema});await ensureSchema(pool);
+  pool=new pg.Pool({...poolConfig,options:'-c search_path='+schema});await ensureSchema(pool);await ensureAccessSchema(pool);
   const store=createPostgresStore(pool),itemsPerAccount=scenario.total/scenario.accounts;
   const tokens=[],accountIds=[];
   for(let a=0;a<scenario.accounts;a++) {
@@ -70,7 +71,7 @@ try {
   const accountVolume=await pool.query('SELECT count(*)::int AS accounts FROM users');
   const volume=await pool.query("SELECT sum(jsonb_array_length(blob->'items'))::int AS items, sum(pg_column_size(blob))::bigint AS stored_bytes FROM sync");
   assert.equal(volume.rows[0].items,scenario.total);
-  const app=express();app.set('trust proxy','loopback');app.get('/healthz',(_req,res)=>res.json({ok:true}));app.use('/api',createApiRouter(store));
+  const app=express();app.set('trust proxy','loopback');app.get('/healthz',(_req,res)=>res.json({ok:true}));app.use('/api',createApiRouter(store,createPostgresAccessStore(pool),new Set(["account-0"])));
   await new Promise(resolve=>{server=app.listen(0,'127.0.0.1',resolve);});
   const base='http://127.0.0.1:'+server.address().port;
   const headers=(a)=>({'Content-Type':'application/json',Authorization:'Bearer '+tokens[a], 'X-Forwarded-For':'192.0.2.'+(a+1)});
@@ -100,6 +101,19 @@ try {
    const healthy=await fetch(base+'/healthz');assert.equal(healthy.status,200);await healthy.json();
    report.results.push({name:'request-guardrails',oversized:413,over20000Records:400,healthAfterOverload:200});
   }
+
+  if(scenario.total===100000){
+   const rights=createPostgresAccessStore(pool),owners=new Set(['account-0']),request={requestId:'gift-duplicate',expectedVersion:0,kind:'gift',days:30,reason:'Isolated persistence probe'};
+   const duplicate=await Promise.all([rights.change('account-0','account-1',request,owners),rights.change('account-0','account-1',request,owners)]);
+   assert.deepEqual(duplicate[0],duplicate[1]);assert.equal((await rights.audit()).length,1);
+   const races=await Promise.allSettled([rights.change('account-0','account-1',{...request,requestId:'race-a',expectedVersion:1,days:0},owners),rights.change('account-0','account-1',{...request,requestId:'race-b',expectedVersion:1,days:0},owners)]);
+   assert.equal(races.filter(r=>r.status==='fulfilled').length,1);
+   await rights.change('account-0','account-1',request,owners);assert.equal((await rights.get('account-1')).giftUntil,0);
+   await assert.rejects(()=>rights.change('account-0','account-2',{...request,requestId:'invalid-session'},owners,async()=>false),{code:'actor_session_invalid'});
+   const independent=new pg.Pool({...poolConfig,options:'-c search_path='+schema});try{assert.equal((await createPostgresAccessStore(independent).get('account-1')).version,2);assert.equal((await createPostgresAccessStore(independent).audit()).length,2);}finally{await independent.end();}
+   report.results.push({name:'postgres-administration',duplicateAppliedOnce:true,staleVersionRejected:true,replayDoesNotRestoreGift:true,sessionRechecked:true,durableAudit:true});
+  }
+
   await new Promise((resolve,reject)=>server.close(e=>e?reject(e):resolve()));server=null;await pool.end();pool=null;sampleNumber++;
  }
  report.completedScenarios=sampleNumber;
