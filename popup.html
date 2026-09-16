@@ -188,9 +188,8 @@
         <div class="tr-line">
           <button id="tr-go" class="tr-go" style="flex:1;justify-content:center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7M9 3v2c0 5-3 8-6 9"/><path d="M5 11c2 2 5 3 7 3"/><path d="M13 21l4-9 4 9M14.5 18h5"/></svg> Translate</button>
         </div>
-        <label style="grid-column:1/-1;display:flex;gap:8px;align-items:center"><input type="checkbox" id="tr-auto" disabled> Automatically on this site</label>
-        <button id="tr-stop" style="grid-column:1/-1" type="button">Restore this page</button>
-        <small style="grid-column:1/-1">Page text and detected image text are sent to the configured translation service. Image recognition runs locally unless a remote fallback is enabled.</small>
+        <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px"><label style="display:flex;align-items:center;gap:6px;font-size:11px"><input type="checkbox" id="tr-auto" disabled> Auto on this site</label><button id="tr-stop" type="button">Restore</button></div>
+        <details style="grid-column:1/-1;font-size:10px"><summary>Uses a translation service. Privacy details</summary><p>Page text and detected image text are sent to the configured translation service. Image recognition runs locally unless a remote fallback is enabled. Automatic translation is limited to sites you enable.</p></details>
         <div class="tr-status" id="tr-status" role="status" aria-live="polite"></div>
       </div>
 
