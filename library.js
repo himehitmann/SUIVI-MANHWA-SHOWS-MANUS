@@ -1319,6 +1319,7 @@ function renderSettings() {
       <div class="row" style="align-items:flex-start"><div class="grow"><b>${t("imgTranslate")}</b><small>${t("imgTranslateSub")}</small></div><span class="ok-pill">${I.check} ${t("imgOn")}</span></div>
     </div>`;
   wireSettings();
+  renderMetadataStatus();
 }
 function wireSettings() {
   const nameEl = document.getElementById("set-name");
@@ -1511,6 +1512,7 @@ function switchView(v) {
 }
 
 function renderAll() {
+  renderMetadataStatus();
   renderNav();
   paintAvatar();
   renderLibHeader();
@@ -1851,14 +1853,16 @@ let storageRefresh = 0;
 api.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes["dasi.items"]) return;
   const change = changes["dasi.items"];
-  const before = new Map((change.oldValue || []).map(item => [item.id, [item.enrichedAt,item.releaseCheckedAt].join(":")]));
-  if (!(change.newValue || []).some(item => (item.enrichedAt||item.releaseCheckedAt) && before.get(item.id) !== [item.enrichedAt,item.releaseCheckedAt].join(":"))) return;
+  const signature=item=>JSON.stringify([item.enrichedAt,item.releaseCheckedAt,item.gameEnrichedAt,item.metadataPending,item.metadataStatus]);
+  const before=new Map((change.oldValue||[]).map(item=>[item.id,signature(item)]));
+  if(!(change.newValue||[]).some(item=>before.get(item.id)!==signature(item))&&(change.oldValue||[]).length===(change.newValue||[]).length)return;
   clearTimeout(storageRefresh);
   storageRefresh = setTimeout(() => api.runtime.sendMessage({ type: "GET_STATE" }, state => {
     if (api.runtime.lastError || !Array.isArray(state?.items)) return;
     items = state.items;
     if (Array.isArray(state.lists)) lists = state.lists;
     // Preserve selected list rows, open editors, profile and navigation state.
+    renderMetadataStatus();
     renderGrid();
     renderStats();
     if (view === "home" && !currentListId) renderHome();
@@ -1869,39 +1873,40 @@ api.storage.onChanged.addListener((changes, area) => {
 document.addEventListener("load", (event) => { const im=event.target; if(im instanceof HTMLImageElement && im.matches("img.cov")) im.classList.toggle("landscape", im.naturalWidth > im.naturalHeight * 1.2); }, true);
 
 let completingMetadata = false;
-async function completeMissingMetadata() {
-  if (completingMetadata) return;
-  completingMetadata = true;
-  const button = document.getElementById("complete-metadata");
-  const label = document.getElementById("metadata-status");
-  const fr = settings.lang === "fr";
-  const candidates = items.filter(item => !coverUrl(item) || !item.synopsis || ["reading","watching"].includes(item.type));
-  let checked = 0, matched = 0, merged = 0;
-  const mergedIds = new Set();
-  if (button) button.disabled = true;
-  try {
-    for (const item of candidates) {
-      if (!button?.isConnected) break;
-      if (mergedIds.has(item.id)) {checked++;continue;}
-      if (label) label.textContent = (fr ? "Recherche " : "Checking ") + (checked + 1) + "/" + candidates.length;
-      const response = await new Promise((resolve, reject) => api.runtime.sendMessage({type:"COMPLETE_ITEM_METADATA",id:item.id}, result => {
-        if (api.runtime.lastError || !result?.ok) reject(new Error(result?.error || "metadata_unavailable"));
-        else resolve(result);
-      }));
-      checked++;
-      if (response.matched) matched++;
-      for (const id of response.mergedIds || []) mergedIds.add(id);
-      merged += (response.mergedIds || []).length;
-      if (response.item) items = items.filter(saved => !mergedIds.has(saved.id)).map(saved => saved.id === response.item.id ? response.item : saved);
-      if (response.lists) lists = response.lists;
-    }
-    if (label) label.textContent = fr ? checked + " fiches vérifiées · " + matched + " complétées · " + merged + " doublons regroupés. Les correspondances incertaines restent inchangées." : checked + " checked · " + matched + " completed · " + merged + " duplicates combined. Uncertain matches are left unchanged.";
-  } catch {
-    if (label) label.textContent = fr ? "Recherche interrompue. Les résultats enregistrés sont conservés ; tu peux réessayer." : "Search interrupted. Saved results are retained; you can retry.";
-  } finally {
-    completingMetadata = false;
-    if (button) button.disabled = false;
+function renderMetadataStatus() {
+  const fr=settings.lang==="fr", pending=items.filter(i=>i.metadataPending).length;
+  const unresolved=items.filter(i=>["failed","not_found","ambiguous","partial"].includes(i.metadataStatus?.state)&&!i.metadataPending).length;
+  const missing=items.filter(i=>!i.metadataPending&&(!coverUrl(i)||!i.synopsis||i.identityVersion!==1)).length;
+  const message=pending?(fr?pending+" fiches en cours de recherche. Tu peux continuer à utiliser Yomu.":pending+" works are being completed. You can keep using Yomu."):
+    unresolved?(fr?unresolved+" fiches restent incomplètes ou sans correspondance certaine.":unresolved+" works still have missing details or an uncertain match."):
+    missing?(fr?missing+" fiches peuvent être complétées.":missing+" works can be checked for missing details."):
+    (fr?"Les affiches et descriptions disponibles sont enregistrées.":"Available artwork and descriptions are saved.");
+  const label=document.getElementById("metadata-status");if(label)label.textContent=message;
+  const button=document.getElementById("complete-metadata");
+  if(button){button.disabled=completingMetadata;button.textContent=fr?"Rechercher les informations":"Find missing details";}
+  const banner=document.getElementById("library-metadata-status");
+  if(banner){
+    banner.hidden=!(pending||unresolved);
+    banner.innerHTML='<span role="status">'+message+'</span>'+((unresolved||missing)?'<button class="btn sm" id="retry-library-metadata">'+(fr?"Réessayer":"Retry")+'</button>':"");
+    const retry=document.getElementById("retry-library-metadata");if(retry){retry.disabled=completingMetadata;retry.onclick=completeMissingMetadata;}
   }
+}
+async function completeMissingMetadata() {
+  if(completingMetadata)return;
+  completingMetadata=true;renderMetadataStatus();
+  try {
+    const response=await new Promise((resolve,reject)=>api.runtime.sendMessage({type:"QUEUE_MISSING_METADATA"},result=>{
+      if(api.runtime.lastError||!result?.ok)reject(new Error("metadata_unavailable"));else resolve(result);
+    }));
+    if(Array.isArray(response.items))items=response.items;
+  } catch {
+    const label=document.getElementById("metadata-status");
+    if(label)label.textContent=settings.lang==="fr"?"La recherche n’a pas pu démarrer. Réessaie dans un instant.":"The search could not start. Please try again shortly.";
+    completingMetadata=false;
+    const button=document.getElementById("complete-metadata");if(button)button.disabled=false;
+    return;
+  }
+  completingMetadata=false;renderMetadataStatus();
 }
 
 // Refresh visible discovery as its provider cache expires.
