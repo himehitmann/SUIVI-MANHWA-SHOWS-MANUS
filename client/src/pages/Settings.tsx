@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
   Cloud,
@@ -33,6 +33,8 @@ export default function Settings() {
     [nextPassword, setNextPassword] = useState(""),
     [nextEmail, setNextEmail] = useState("");
   const fr = lang === "fr";
+  const [canAdmin,setCanAdmin]=useState(false);
+  useEffect(()=>{let live=true;if(session)syncProvider.adminRequest("me").then(()=>{if(live)setCanAdmin(true);}).catch(()=>{if(live)setCanAdmin(false);});else setCanAdmin(false);return()=>{live=false;};},[session?.userId]);
 
   const authenticate = async () => {
     setBusy(true);
@@ -166,6 +168,8 @@ export default function Settings() {
                 <p className="settings-value">
                   {t("settings.signedInAs", { email: session.email })}
                 </p>
+                <small>{fr?"Identifiant du compte":"Account ID"}: <code>{session.userId}</code></small>
+                {canAdmin&&<Link href="/admin" className="heart-button">{fr?"Administration":"Administration"}</Link>}
                 <div className="settings-actions">
                   <button
                     className="primary-cta full"
