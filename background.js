@@ -73,44 +73,74 @@ function identityTitles(item) {
 function identityIds(item) {
   const ids={};
   for(const [key,value] of Object.entries(item?.externalIds||{})) {
-    if(["anilist","mal","mangaupdates","tvmaze","tmdb","openlibrary","steam"].includes(key)&&["string","number"].includes(typeof value)&&String(value).trim())ids[key]=String(value);
+    if(["anilist","mal","mangaupdates","tvmaze","tmdb","openlibrary","steam"].includes(key)&&["string","number"].includes(typeof value)&&String(value).trim())ids[key]=String(value).trim();
   }
-  if(item?.anilistId)ids.anilist=String(item.anilistId);
+  if(item?.anilistId)ids.anilist=String(item.anilistId).trim();
   return ids;
+}
+function identityFamily(item) {
+  const f=String(item?.format||"").toUpperCase();
+  if(item?.type==="reading")return /NOVEL|BOOK/.test(f)?"novel":/MANGA|MANHWA|MANHUA|COMIC|WEBTOON/.test(f)?"comic":"";
+  if(item?.type==="watching")return /ANIME|OVA|ONA/.test(f)?"animation":/MOVIE|FILM/.test(f)?"film":/SERIES|DRAMA|TV/.test(f)?"series":"";
+  return item?.type==="game"?"game":"";
+}
+function identityEvidence(a,b) {
+  const ai=identityIds(a),bi=identityIds(b);
+  return {shared:Object.keys(ai).some(k=>bi[k]===ai[k]),conflict:Object.keys(ai).some(k=>bi[k]&&ai[k]!==bi[k])};
 }
 function identityCompatible(a,b) {
   if(a.type!==b.type)return false;
+  const evidence=identityEvidence(a,b);if(evidence.conflict)return false;
+  const af=identityFamily(a),bf=identityFamily(b);
+  if(af&&bf&&af!==bf)return false;
+  // Identifiers refer to a work; release years and catalog subtypes can drift.
+  if(evidence.shared)return true;
   if(a.format&&b.format&&String(a.format).toUpperCase()!==String(b.format).toUpperCase())return false;
-  const ai=identityIds(a),bi=identityIds(b);
-  if(Object.keys(ai).some(k=>bi[k]&&ai[k]!==bi[k]))return false;
-  return !a.year||!b.year||Number(a.year)===Number(b.year);
+  if(a.year&&b.year&&Number(a.year)!==Number(b.year))return false;
+  const parts=item=>identityTitles(item).map(title=>(title.toLowerCase().match(/\b(?:part|arc|cour)\s+(?:\d+|[ivx]+)\b/g)||[]).join("|")).filter(Boolean);
+  const ap=parts(a),bp=parts(b);
+  if((ap.length||bp.length)&&!ap.some(x=>bp.includes(x)))return false;
+  return true;
+}
+function sharedCreator(a,b) {
+  const key=name=>String(name).normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").trim();
+  const aa=(Array.isArray(a.authors)?a.authors:[]).filter(x=>typeof x==="string").map(key).filter(Boolean);
+  const ba=(Array.isArray(b.authors)?b.authors:[]).filter(x=>typeof x==="string").map(key).filter(Boolean);
+  return aa.some(x=>ba.includes(x));
 }
 function sameIdentity(a,b,fuzzy=false) {
   if(!identityCompatible(a,b))return false;
-  const ai=identityIds(a),bi=identityIds(b);
-  if(Object.keys(ai).some(k=>bi[k]===ai[k]))return true;
-  return identityTitles(a).some(x=>identityTitles(b).some(y=>fuzzy?sameWork(x,y):normalizeTitle(x)===normalizeTitle(y)));
+  if(identityEvidence(a,b).shared)return true;
+  const exact=identityTitles(a).some(x=>identityTitles(b).some(y=>normalizeTitle(x)&&normalizeTitle(x)===normalizeTitle(y)));
+  if(exact)return true;
+  // A single similar spelling is not proof: require creator corroboration.
+  return fuzzy&&sharedCreator(a,b)&&identityTitles(a).some(x=>identityTitles(b).some(y=>sameWork(x,y)));
 }
-function sharedCatalogIdentity(a,b) {
-  if(!identityCompatible(a,b))return false;
-  const ai=identityIds(a),bi=identityIds(b);
-  return Object.keys(ai).some(k=>bi[k]===ai[k]);
-}
+function sharedCatalogIdentity(a,b) {return identityCompatible(a,b)&&identityEvidence(a,b).shared;}
 function selectIdentityMatch(matches,payload) {
   if(matches.length===1)return matches[0];
   if(payload.type==="watching"&&Number.isInteger(Number(payload.season))&&Number(payload.season)>0) {
     const season=matches.filter(i=>Number(i.season||1)===Number(payload.season));
     if(season.length===1)return season[0];
   }
-  return null;
+  const creators=matches.filter(i=>sharedCreator(i,payload));
+  return creators.length===1?creators[0]:null;
 }
 function findIdentity(items,payload) {
-  const identified=items.filter(i=>sharedCatalogIdentity(i,payload));
-  if(identified.length)return selectIdentityMatch(identified,payload);
+  const shared=items.filter(i=>i.type===payload.type&&identityEvidence(i,payload).shared&&(!identityFamily(i)||!identityFamily(payload)||identityFamily(i)===identityFamily(payload)));
+  // Do not bridge inconsistent mappings from two providers by falling back to a title.
+  if(shared.some(i=>!identityCompatible(i,payload)))return null;
+  if(shared.some(a=>shared.some(b=>identityEvidence(a,b).conflict)))return null;
+  if(shared.length)return selectIdentityMatch(shared,payload);
   const exact=items.filter(i=>sameIdentity(i,payload));
   if(exact.length)return selectIdentityMatch(exact,payload);
   const fuzzy=items.filter(i=>sameIdentity(i,payload,true));
   return fuzzy.length===1?fuzzy[0]:null;
+}
+function identityAmbiguous(items,payload) {
+  if(findIdentity(items,payload))return false;
+  const shared=items.filter(i=>i.type===payload.type&&identityEvidence(i,payload).shared&&(!identityFamily(i)||!identityFamily(payload)||identityFamily(i)===identityFamily(payload)));
+  return shared.length>0||items.filter(i=>sameIdentity(i,payload)).length>1;
 }
 function identityMetadata(a,b) {
   return {
@@ -360,14 +390,48 @@ function boundedProgress(item) {
   const n = value => Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
   const total = n(out.total);
   if (out.total !== undefined) out.total = total || undefined;
-  for (const key of ['chapter','episode','page','season','volume','latestChapter','latestEpisode']) {
+  for (const key of ['episode','page','season','volume','latestEpisode']) {
     if(out[key] !== undefined) out[key] = n(out[key]);
   }
+  for(const field of ['chapter','latestChapter'])if(out[field]!==undefined)out[field]=Number.isFinite(Number(out[field]))?Math.max(0,Number(out[field])):0;
   const key = out.type === 'watching' ? 'episode' : 'chapter';
   if (total && out[key] !== undefined) out[key] = Math.min(total,out[key]);
   if (out.progress !== undefined) out.progress = Math.max(0,Math.min(100,Number(out.progress) || 0));
   return out;
 }
+function automaticProgress(existing,raw) {
+  const p={...raw},positive=value=>Number.isFinite(Number(value))&&Number(value)>0;
+  const watching=p.type==="watching";
+  const playback=watching&&Number.isFinite(p.position)&&p.position>=3&&Number.isFinite(p.duration)&&p.duration>0;
+  const active=positive(watching?p.episode:p.chapter)||(!watching&&positive(p.page))||playback;
+  if(!existing)return {payload:p,active,advanced:false};
+  const oldSeason=Number(existing.season)||1;
+  const season=positive(p.season)?Number(p.season):oldSeason;
+  if(!active) {
+    // Overview pages may report zero or their first season. They are metadata,
+    // never a request to reset the user's viewing or reading context.
+    for(const key of ["season","episode","chapter","page","volume","position","duration","progress","status","state","activityAt","url"])p[key]=existing[key];
+    const known=Number(watching?existing.episode:existing.chapter)||0;
+    if((watching&&season!==oldSeason)||!positive(p.total)||Number(p.total)<known)p.total=existing.total;
+    return {payload:p,active:false,advanced:false};
+  }
+  p.state=existing.state;
+  if(watching)p.season=season;
+  const key=watching?"episode":"chapter",old=Number(existing[key])||0;
+  if((!watching||season===oldSeason)&&positive(p.total)&&Number(p.total)<old)p.total=Number(existing.total)>=old?existing.total:undefined;
+  if(!positive(p[key])&&(!watching||season===oldSeason))p[key]=existing[key];
+  const advanced=(watching&&season>oldSeason)||((!watching||season===oldSeason)&&Number(p[key])>old);
+  if(advanced) {
+    if(!positive(p[key]))p[key]=undefined;
+    for(const field of ["position","duration","page"])if(!positive(p[field]))p[field]=undefined;
+    if(watching&&season>oldSeason&&!positive(p.total))p.total=undefined;
+    p.progress=playback?percent(p):0;
+  } else {
+    for(const field of ["position","duration","page"])if(!positive(p[field]))p[field]=existing[field];
+  }
+  return {payload:p,active:true,advanced};
+}
+
 async function writeItem(payload) { const epoch=accountEpoch; const resolved=await resolveIncomingIdentity(payload); return serializeLibrary(() => {if(epoch!==accountEpoch)throw new Error("account_changed");return writeItemUnlocked(resolved);}); }
 async function writeItemUnlocked(payload) {
   if (!payload || typeof payload.title !== 'string' || !payload.title.trim()) throw new Error('missing_title');
@@ -375,8 +439,12 @@ async function writeItemUnlocked(payload) {
   const items = await read(ITEMS_KEY, []);
   let key = workKey(payload);
   let existing=findIdentity(items,payload);
+  if(!existing&&identityAmbiguous(items,payload))throw new Error("ambiguous_identity");
   if(existing)key=existing.id;
   else if(items.some(i=>i.id===key)){const base=key+'-'+(payload.type||'reading');let n=2;key=base;while(items.some(i=>i.id===key))key=base+'-'+n++;}
+  const incomingIsSeriesLevel=!(payload.chapter||payload.episode||payload.season||payload.volume);
+  const sourceUrl=payload.url;
+  const progressChange=automaticProgress(existing,payload);payload=progressChange.payload;
   const sameSeason = !existing || (Number(payload.season) || 1) === (Number(existing.season) || 1);
   payload = boundedProgress({ ...payload, total: payload.total || (sameSeason ? existing?.total : undefined) });
   const incomingScore = numericProgress(payload);
@@ -385,16 +453,17 @@ async function writeItemUnlocked(payload) {
   const incoming = {
     ...payload,
     id: key,
-    activityAt: Date.now(),
+    activityAt: existing&&!progressChange.active?existing.activityAt:Date.now(),
     updatedAt: Date.now(),
-    progress: percent(payload) ?? existing?.progress ?? 0,
-    status: percent(payload) && percent(payload) > 92 ? "completed" : "in_progress",
+    progress: existing&&!progressChange.active?existing.progress:percent(payload) ?? (progressChange.advanced?0:existing?.progress) ?? 0,
+    status: existing&&!progressChange.active?existing.status:percent(payload)&&percent(payload)>92?"completed":"in_progress",
   };
 
   // Regression guard: keep the furthest position, flag the conflict.
   const earlierSeason=existing && payload.type==="watching" && (Number(payload.season)||1)<(Number(existing.season)||1);
   const earlierPosition=existing && sameSeason && incomingScore===existingScore && Number.isFinite(payload.position) && (Number(existing.position)||0)>payload.position;
-  if (existing && (earlierSeason || earlierPosition || (sameSeason && existingScore > incomingScore && incomingScore > 0))) {
+  const earlierPage=existing&&payload.type==="reading"&&incomingScore===existingScore&&Number.isFinite(payload.page)&&(Number(existing.page)||0)>payload.page;
+  if (existing && (earlierSeason || earlierPosition || earlierPage || (sameSeason && existingScore > incomingScore && incomingScore > 0))) {
     await api.storage.local.set({ "dasi.lastConflict": { existing, incoming, reason: "lower_progress" } });
     return { item: existing, conflict: true, kept: "existing" };
   }
@@ -403,7 +472,6 @@ async function writeItemUnlocked(payload) {
   // a save comes from a series/overview page (no chapter/episode marker), which
   // carries the real series art rather than an episode thumbnail. A manual
   // coverOverride always wins at render time.
-  const incomingIsSeriesLevel = !(payload.chapter || payload.episode || payload.season || payload.volume);
   let cover = existing?.cover || "";
   if (payload.cover && (!cover || incomingIsSeriesLevel)) cover = payload.cover;
 
@@ -416,7 +484,7 @@ async function writeItemUnlocked(payload) {
     coverOverride: existing?.coverOverride || undefined,
     synopsis: payload.synopsis || existing?.synopsis || "",
     // Auto-tags: seed from detected genres on first save, then user-owned.
-    tags: existing?.tags ?? (Array.isArray(payload.genres) ? payload.genres : []),
+    tags: existing?.tags ?? (Array.isArray(payload.tags)&&payload.tags.length?payload.tags:Array.isArray(payload.genres)?payload.genres:[]),
     // Furthest point ever reached (for "mark all up to here", progress display).
     latestChapter: Math.max(existing?.latestChapter || 0, payload.chapter || 0) || undefined,
     latestEpisode: Math.max(sameSeason ? existing?.latestEpisode || 0 : 0, payload.episode || 0) || undefined,
@@ -426,6 +494,7 @@ async function writeItemUnlocked(payload) {
     favorite: existing?.favorite || false,
     rating: existing?.rating || 0,
     sources: [...new Set([...(existing?.sources || []), payload.domain].filter(Boolean))],
+    sourceUrls:[...new Set([...(existing?.sourceUrls||[]),existing?.url,sourceUrl].filter(u=>typeof u==="string"&&/^https?:\/\//i.test(u)))].slice(-100),
   };
 
   const next = [boundedProgress(merged), ...items.filter((i) => i.id !== key)];
@@ -1608,9 +1677,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
         if(settings.autoTrack===false)return {ok:true,skipped:"disabled"};
         const saved=await read(ITEMS_KEY,[]);
-        const matches=saved.filter(i=>i.type==="watching" && (!i.year||!p.year||Number(i.year)===Number(p.year)) && (i.id===workKey(p)||normalizeTitle(i.title)===normalizeTitle(p.title)));
-        if(matches.length!==1)return {ok:true,skipped:"not_tracked_or_ambiguous"};
-        return writeItemUnlocked({...p,workId:matches[0].id});
+        const existing=findIdentity(saved,p);
+        if(!existing)return {ok:true,skipped:"not_tracked_or_ambiguous"};
+        return writeItemUnlocked(p);
       }).then(r=>{sendResponse(r);if(r.item)autoSync();},e=>sendResponse({ok:false,error:String(e.message)}));
       return true;
     case "SAVE_PROGRESS":
@@ -1629,6 +1698,10 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Look up (without saving) whether this work already has a saved position, so
     // the popup can show the previous marker and ask before overwriting.
+    case "CHECK_EXISTING_BATCH":
+      read(ITEMS_KEY,[]).then(items=>sendResponse({ok:true,matches:(Array.isArray(message.items)?message.items:[]).slice(0,200).map(item=>findIdentity(items,item||{})?.id||null)}),()=>sendResponse({ok:false,matches:[]}));
+      return true;
+
     case "CHECK_EXISTING":
       read(ITEMS_KEY, []).then((items) => {
         const existing = findIdentity(items,message.payload || {});
