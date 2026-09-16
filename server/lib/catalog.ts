@@ -7,7 +7,9 @@ export interface CatalogWork {
 export type CatalogResponse={results:CatalogWork[];sources:{name:string;ok:boolean}[]};
 const plain=(s:any)=>String(s||'').replace(/<[^>]*>/g,' ').replace(/&amp;/g,'&').replace(/&#0?39;|&apos;/g,"'").replace(/&quot;/g,'"').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
 async function json(url:string,init:RequestInit={},fetcher=fetch){const r=await fetcher(url,{...init,signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('catalog_'+r.status);return r.json();}
-export function createCatalog(fetcher=fetch){
+export function createCatalog(fetcher=fetch,options:{now?:()=>number;maxPending?:number;startsPerMinute?:number}={}){
+ const now=options.now||Date.now,maxPending=Math.max(1,Math.min(32,options.maxPending||8)),startsPerMinute=Math.max(1,Math.min(300,options.startsPerMinute||60));
+ let windowStart=now(),starts=0;
  const cache=new Map<string,{at:number;value:CatalogResponse}>(),pending=new Map<string,Promise<CatalogResponse>>();
  const get=(url:string,init?:RequestInit)=>json(url,init,fetcher);
  const anilist=async(q:string):Promise<CatalogWork[]>=>{
@@ -49,14 +51,17 @@ export function createCatalog(fetcher=fetch){
   });
  };
  return async(q:string):Promise<CatalogResponse>=>{
-  const key=q.trim().toLowerCase();if(key.length<2)return {results:[],sources:[]};const hit=cache.get(key);if(hit&&Date.now()-hit.at<900000)return hit.value;
+  const key=q.trim().toLowerCase();if(key.length<2)return {results:[],sources:[]};const hit=cache.get(key);if(hit&&now()-hit.at<(hit.value.sources.some(s=>s.ok)?900000:30000))return hit.value;
   if(pending.has(key))return pending.get(key)!;
+  if(now()-windowStart>=60000){windowStart=now();starts=0;}
+  if(pending.size>=maxPending||starts>=startsPerMinute)throw Error("catalog_busy");
+  starts++;
   const work=(async()=>{
    const adapters=[['AniList',anilist],['Jikan',jikan],['TVmaze',tvmaze],['Open Library',books],['Steam',steam],['Wikipedia',wiki]] as const;
    const settled=await Promise.allSettled(adapters.map(([,search])=>search(q)));
    const results:CatalogWork[]=[],seen=new Set<string>();settled.forEach(r=>{if(r.status==='fulfilled')for(const item of r.value){if(!item.title)continue;const id=item.type+'|'+item.format+'|'+item.title.toLowerCase()+'|'+(item.year||'');if(!seen.has(id)){seen.add(id);results.push(item);}}});
    const value={results:results.sort((a,b)=>Number(b.title.toLowerCase().replace(/\s*\([^)]*\)$/, '')===key)-Number(a.title.toLowerCase().replace(/\s*\([^)]*\)$/, '')===key)),sources:adapters.map(([name],i)=>({name,ok:settled[i].status==='fulfilled'}))};
-   if(value.sources.some(s=>s.ok)){if(cache.size>=128)cache.delete(cache.keys().next().value!);cache.set(key,{at:Date.now(),value});}
+   if(cache.size>=128)cache.delete(cache.keys().next().value!);cache.set(key,{at:now(),value});
    return value;
   })();pending.set(key,work);try{return await work;}finally{pending.delete(key);}
  };
