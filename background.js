@@ -1654,7 +1654,7 @@ async function runImportEnrichmentBatch() {
       const outcome=completion?.status||"retryable_error";
       const terminal=["matched","partial","ambiguous"].includes(outcome)||(outcome==="not_found"?attempts>=3:attempts>=5);
       const state=terminal?(outcome==="retryable_error"||outcome==="stale"?"failed":outcome):"retrying";
-      const next={...current,metadataStatus:{state,attempts,updatedAt:Date.now()},metadataPending:terminal?undefined:{
+      const next={...current,metadataStatus:{state,attempts,updatedAt:Date.now()},metadataPending:terminal?null:{
         jobId:candidate.metadataPending.jobId,attempts,state:"queued",nextAttemptAt:Date.now()+Math.min(900000,60000*2**(attempts-1))
       }};
       await writeData({[ITEMS_KEY]:items.map(i=>i.id===id?next:i)});
