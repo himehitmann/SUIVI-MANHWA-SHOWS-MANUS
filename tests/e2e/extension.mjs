@@ -352,6 +352,18 @@ try {
   // Export a real downloaded backup: personal service keys and endpoints stay local.
   await page.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"SET_SETTINGS",patch:{ocrKey:"export-test-ocr",tmdbKey:"export-test-tmdb",rawgKey:"export-test-rawg",imgServer:"https://service.example?token=export-private"}},result=>{settings=result.settings;resolve(result);})));
   await page.waitForFunction(()=>settings.ocrKey==="export-test-ocr");
+
+  const invalidLinks=await page.evaluate(()=>{
+    const rejected=[];
+    for(const value of ["javascript:alert(1)","data:text/html,unsafe","file:///private","https://user:pass@reader.example/"]) {
+      const anchor=document.createElement("a");anchor.href=value;document.body.append(anchor);
+      rejected.push(!anchor.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true})));
+      anchor.remove();
+    }
+    return {rejected,valid:safeNavigationUrl("https://reader.example/chapter/1")};
+  });
+  assert(invalidLinks.rejected.every(Boolean),"An unsafe imported link was allowed");assert.equal(invalidLinks.valid,"https://reader.example/chapter/1");
+
   const backupDownload=page.waitForEvent("download");
   await page.locator("#export").click();
   const backup=await backupDownload;
