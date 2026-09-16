@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hashPassword, signToken, verifyPassword, verifyToken } from "../server/lib/crypto";
+import { hashPassword, hashPasswordAsync, verifyPasswordAsync, createPasswordLimiter, signToken, verifyPassword, verifyToken } from "../server/lib/crypto";
 import { mergeBlobs, type SyncBlob } from "../server/lib/merge";
 import { createStore } from "../server/lib/store";
 
@@ -88,3 +88,27 @@ describe("account changes (email / password)", () => {
     expect(await store.getUserByEmail("a@x.com")).toBeNull();
   });
 });
+
+describe('bounded asynchronous password processing',()=>{
+ it('keeps existing passwords compatible in both directions',async()=>{
+  const password='A unicode password: 日本語 é';
+  expect(await verifyPasswordAsync(password,hashPassword(password))).toBe(true);
+  const asyncHash=await hashPasswordAsync(password);
+  expect(verifyPassword(password,asyncHash)).toBe(true);
+  expect(await verifyPasswordAsync('wrong',asyncHash)).toBe(false);
+  expect(await hashPasswordAsync(password)).not.toBe(asyncHash);
+ });
+ it('rejects malformed stored hashes before costly work',async()=>{
+  for(const hash of [null,undefined,'','00:00','g'.repeat(32)+':'+ '0'.repeat(128),'0'.repeat(32)+':'+ '0'.repeat(128)+':extra'])expect(await verifyPasswordAsync('password',hash)).toBe(false);
+ });
+ it('bounds active work and queue, preserves FIFO, and recovers after errors',async()=>{
+  const run=createPasswordLimiter(1,1),order:number[]=[];let release!:()=>void;
+  const first=run(()=>new Promise<void>(resolve=>{order.push(1);release=resolve;}));
+  const second=run(async()=>{order.push(2);throw Error('test_failure');});
+  const checked=expect(second).rejects.toThrow('test_failure');
+  await expect(run(async()=>3)).rejects.toMatchObject({code:'auth_busy'});
+  expect(order).toEqual([1]);release();await first;await checked;expect(order).toEqual([1,2]);
+  expect(await run(async()=>4)).toBe(4);
+ });
+});
+
