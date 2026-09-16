@@ -49,7 +49,9 @@ try {
  await p.evaluate(()=>openCatalogPreview({title:"Unsaved fixture",type:"reading",externalIds:{anilist:"999"},cover:"",genres:["Fantasy"]}));
  assert(await p.locator("#preview-add").isDisabled(),"A destination must be selected");
  await p.waitForFunction(()=>document.querySelector("#preview-info").textContent.includes("Actor"));
- assert.equal(await p.locator("#preview-info iframe").count(),1,"Trailer stays inside Yomu");
+ assert.equal(await p.locator("#preview-info iframe").count(),0,"No third-party player before activation");
+ await p.locator("#preview-info [data-trailer-src]").click();
+ assert.equal(await p.locator("#preview-info iframe").count(),1,"Trailer stays inside Yomu after activation");
  assert.equal(await p.locator("#drawer a[target='_blank']").count(),0,"Preview must not redirect to a catalog");
  assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].length),7,"Browsing must not save");
  await p.locator("#preview-list").selectOption("destination");
@@ -80,6 +82,8 @@ try {
  await p.waitForFunction(()=>items.find(i=>i.id==="fixture0").homeHidden===false);
  assert(await p.locator('#view-home [data-open="fixture0"]').count()>0);
  await p.evaluate(()=>{items.push({id:"game-trailer",title:"Game",type:"game",trailer:"https://www.youtube.com/watch?v=abcdefghijk"});openDrawer("game-trailer");});
+ assert.equal(await p.locator("#drawer iframe").count(),0);
+ await p.locator("#drawer [data-trailer-src]").click();
  assert.equal(await p.locator("#drawer iframe").count(),1);
  assert.equal(await p.locator('#drawer a[href*="youtube.com"]').count(),0);
 
