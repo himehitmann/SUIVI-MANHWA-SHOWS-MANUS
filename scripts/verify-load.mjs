@@ -63,6 +63,11 @@ try {
    const blob={items:Array.from({length:itemsPerAccount},(_,i)=>({id:id+'-work-'+i,title:'Synthetic work '+i,type:'reading',synopsis:'Synthetic metadata '.repeat(10),chapter:i%100,updatedAt:1})),updatedAt:1};
    await store.setSync(id,{blob,updatedAt:1});
   }
+  if(scenario.total===100000) {
+   await pool.query("INSERT INTO users (id,email,password_hash,plan,created_at) SELECT 'inactive-'||n, 'inactive-'||n||'@example.test', $1, 'free', 1 FROM generate_series(1,99800) AS n",[passwordHash]);
+   await pool.query("INSERT INTO sessions (id,user_id,created_at,expires_at) SELECT 'inactive-session-'||n, 'inactive-'||n, 1, $1 FROM generate_series(1,99800) AS n",[Date.now()+3600000]);
+  }
+  const accountVolume=await pool.query('SELECT count(*)::int AS accounts FROM users');
   const volume=await pool.query("SELECT sum(jsonb_array_length(blob->'items'))::int AS items, sum(pg_column_size(blob))::bigint AS stored_bytes FROM sync");
   assert.equal(volume.rows[0].items,scenario.total);
   const app=express();app.set('trust proxy','loopback');app.get('/healthz',(_req,res)=>res.json({ok:true}));app.use('/api',createApiRouter(store));
@@ -71,7 +76,7 @@ try {
   const headers=(a)=>({'Content-Type':'application/json',Authorization:'Bearer '+tokens[a], 'X-Forwarded-For':'192.0.2.'+(a+1)});
   const get=async(a)=>{const r=await fetch(base+'/api/sync',{headers:headers(a),signal:AbortSignal.timeout(15000)});const body=await r.json();assert.equal(r.status,200);assert.equal(body.blob.items.length,itemsPerAccount);assert(body.blob.items.every(item=>item.id.startsWith(accountIds[a]+'-work-')));return r.status;};
   await get(0);
-  report.results.push({name:'seed',...scenario,itemsPerAccount,storedBytes:Number(volume.rows[0].stored_bytes),sampleResponseBytes:Buffer.byteLength(JSON.stringify(await (await fetch(base+'/api/sync',{headers:headers(0)})).json()))});
+  report.results.push({name:'seed',...scenario,accountRows:accountVolume.rows[0].accounts,itemsPerAccount,storedBytes:Number(volume.rows[0].stored_bytes),sampleResponseBytes:Buffer.byteLength(JSON.stringify(await (await fetch(base+'/api/sync',{headers:headers(0)})).json()))});
   for(const concurrency of [10,50,200]) {
    const result=await measure('sync-read-'+scenario.total,concurrency,concurrency*3,i=>get(i%scenario.accounts));
    assert(result.p95Ms<5000,'Read p95 exceeded the CI regression budget of 5 seconds');
