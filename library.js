@@ -1646,6 +1646,7 @@ function renderSearchResults(q) {
     if(key==="price")field.oninput=()=>{document.getElementById("sf-price-label").textContent=field.value==="0"?(fr?"Gratuit":"Free"):field.value==="200"?t("all"):"$"+field.value;};
   }
   document.getElementById("sf-reset").onclick=()=>{searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};renderSearchResults(q);};
+  refreshCatalogSaveLabels(el,lastResults);
   const manual=document.getElementById("manual-game");if(manual)manual.onclick=()=>showGameForm(q);
   el.querySelectorAll("[data-preview]").forEach(button=>button.onclick=()=>openCatalogPreview(lastResults[Number(button.dataset.preview)]));
 }
@@ -1655,17 +1656,16 @@ function srRow(m, idx) {
   return `<div class="sr-row">
     <button class="sc" data-preview="${idx}" aria-label="${esc(t("details") + ": " + m.title)}"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}</button>
     <div class="si"><b><button class="link-btn" data-preview="${idx}">${esc(m.title)}</button><span class="cat">${esc(catLabel(m))}</span></b><small>${esc(meta)}${m.synopsis ? (meta ? " · " : "") + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
-    <button class="btn" data-preview="${idx}">${catalogSavedItem(m) ? (settings.lang==="fr"?"Dans la bibliothèque":"In library") : t("details")}</button>
+    <button class="btn" data-preview="${idx}" data-saved-label="${idx}">${t("details")}</button>
   </div>`;
 }
-function catalogSavedItem(m) {
-  const ids=m.externalIds||{};
-  const compatible=i=>i.type===(m.type||"reading")&&(!i.format||!m.format||String(i.format).toUpperCase()===String(m.format).toUpperCase());
-  const identified=items.filter(i=>compatible(i)&&Object.keys(ids).some(k=>i.externalIds?.[k]&&String(ids[k])===String(i.externalIds[k]))&&!Object.keys(ids).some(k=>i.externalIds?.[k]&&String(ids[k])!==String(i.externalIds[k])));
-  if(identified.length)return identified.length===1?identified[0]:null;
-  const titles=[m.title,...(m.alternativeTitles||[])].map(normTitle);
-  const matches=items.filter(i=>compatible(i)&&[i.title,...(i.alternativeTitles||[])].some(name=>titles.includes(normTitle(name))));
-  return matches.length===1?matches[0]:null;
+function refreshCatalogSaveLabels(root,results) {
+  const buttons=[...root.querySelectorAll("[data-saved-label]")];
+  if(!buttons.length)return;
+  api.runtime.sendMessage({type:"CHECK_EXISTING_BATCH",items:results},r=>{
+    if(api.runtime.lastError||!r?.ok)return;
+    for(const button of buttons)if(button.isConnected)button.textContent=r.matches?.[Number(button.dataset.savedLabel)]?(settings.lang==="fr"?"Dans la bibliothèque":"In library"):t("details");
+  });
 }
 function embeddedTrailer(url) {
   if(!url)return "";
@@ -1756,8 +1756,20 @@ function catalogInformation(m) {
 let previewRequest=0;
 function openCatalogPreview(m) {
   if(!m)return;
-  const saved=catalogSavedItem(m);
-  if(saved){openDrawer(saved.id);return;}
+  const request=++previewRequest;
+  // Ask the same engine that saves the work. Title-only UI shortcuts can open
+  // a remake or adaptation that the storage engine would correctly separate.
+  api.runtime.sendMessage({type:"CHECK_EXISTING",payload:m},r=>{
+    if(request!==previewRequest)return;
+    if(!api.runtime.lastError&&r?.existing) {
+      const saved=r.existing;
+      if(items.some(i=>i.id===saved.id))items=items.map(i=>i.id===saved.id?saved:i);else items=[saved,...items];
+      openDrawer(saved.id);return;
+    }
+    openCatalogPreviewResolved(m);
+  });
+}
+function openCatalogPreviewResolved(m) {
   const token=++previewRequest;
   const drawer=document.getElementById("drawer");  delete drawer.dataset.itemId;
   const fr=settings.lang==="fr";
@@ -1791,7 +1803,7 @@ function addFromCatalog(m, btn) {
   };
   if (btn) { btn.disabled = true; btn.innerHTML = I.check; }
   api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload, listId: m.listId || undefined, listName:m.listName || undefined }, (saved) => {
-    if (api.runtime.lastError || !saved || saved.ok === false) { if(btn){btn.disabled=false;btn.innerHTML=I.plus+" "+t("add");} toast(settings.lang === "fr" ? "Sauvegarde impossible. Réessaie." : "Could not save. Try again."); return; }
+    if (api.runtime.lastError || !saved || saved.ok === false) { if(btn){btn.disabled=false;btn.innerHTML=I.plus+" "+t("add");} const message=saved?.error==="ambiguous_identity"?(settings.lang==="fr"?"Plusieurs œuvres correspondent. Ouvrez la bonne fiche depuis votre bibliothèque pour enregistrer la progression.":"Several saved works match. Open the correct library entry to update its progress."):(settings.lang==="fr"?"Sauvegarde impossible. Réessaie.":"Could not save. Try again.");const status=document.getElementById("preview-status");if(status)status.textContent=message;toast(message); return; }
     api.runtime.sendMessage({ type: "GET_STATE" }, (s) => {
       query="";filter="all";document.getElementById("q").value="";clearSearchResults();
       hydrate(s);
