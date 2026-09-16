@@ -531,7 +531,7 @@ function renderHome() {
 function spotHtml(entry) {
   if(!entry)return "";
   const i=entry.item,fr=settings.lang==="fr",u=coverUrl(i),catalog=entry.catalog;
-  return '<article class="home-feature"><div class="home-feature-copy"><span class="home-eyebrow">'+esc(entry.label)+'</span><h2>'+esc(i.title||"Untitled")+'</h2><p class="home-feature-meta">'+esc([catLabel(i),...(i.genres||i.tags||[]).slice(0,3)].filter(Boolean).join(" · "))+'</p><p class="home-feature-synopsis">'+esc(i.synopsis?i.synopsis.slice(0,230)+(i.synopsis.length>230?"…":""):catalog?(fr?"Découvrez la fiche et choisissez une liste pour garder cette œuvre de côté.":"Explore the details and choose a list to save this title."):marker(i))+'</p><div class="spot-cta">'+(!catalog&&i.url?'<a class="btn-glass" href="'+esc(i.url)+'" target="_blank" rel="noopener noreferrer">'+I.play+' '+t("resume")+'</a>':"")+'<button class="btn-glass '+(!catalog&&i.url?'ghost':'')+'" data-feature-details>'+t("details")+'</button></div></div>'+(u?'<button class="home-feature-art" data-feature-details aria-label="'+esc(t("details")+": "+i.title)+'">'+covImg(u,i.coverFallback)+'</button>':"")+'</article>';
+  return '<article class="home-feature"><div class="home-feature-copy"><span class="home-eyebrow">'+esc(entry.label)+'</span><h2>'+esc(i.title||"Untitled")+'</h2><p class="home-feature-meta">'+esc([catLabel(i),...(i.genres||i.tags||[]).slice(0,3)].filter(Boolean).join(" · "))+'</p><p class="home-feature-synopsis">'+esc(i.synopsis?i.synopsis.slice(0,230)+(i.synopsis.length>230?"…":""):catalog?(fr?"Découvrez la fiche et choisissez une liste pour garder cette œuvre de côté.":"Explore the details and choose a list to save this title."):marker(i))+'</p><div class="spot-cta">'+(!catalog&&safeNavigationUrl(i.url)?'<a class="btn-glass" href="'+esc(safeNavigationUrl(i.url))+'" target="_blank" rel="noopener noreferrer">'+I.play+' '+t("resume")+'</a>':"")+'<button class="btn-glass '+(!catalog&&safeNavigationUrl(i.url)?'ghost':'')+'" data-feature-details>'+t("details")+'</button></div></div>'+(u?'<button class="home-feature-art" data-feature-details aria-label="'+esc(t("details")+": "+i.title)+'">'+covImg(u,i.coverFallback)+'</button>':"")+'</article>';
 }
 let spotPaused=false;
 function spotControls(){
@@ -1017,7 +1017,7 @@ function openDrawer(id) {
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
           ${i.total && unseen(i) > 0 ? `<button class="btn primary" id="dr-markall">${I.check} ${t("markAll")}</button>` : ""}
           ${embeddedTrailer(i.trailerUrl)}
-          ${i.url ? `<a class="btn" href="${esc(i.url)}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>` : ""}
+          ${safeNavigationUrl(i.url) ? `<a class="btn" href="${esc(safeNavigationUrl(i.url))}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>` : ""}
         </div>`}
       ${isGame ? "" : `<div class="section-t">${t("status")}</div>
       <div class="chips-wrap" id="dr-status">${STATUSES.map((s) => `<button class="chip-toggle ${itemState(i) === s ? "on" : ""}" data-status="${s}">${itemState(i) === s ? I.check : ""} ${t(s)}</button>`).join("")}</div>`}
@@ -1304,7 +1304,7 @@ function renderSettings() {
     <div class="panel"><div class="row"><div class="grow"><b>${settings.lang==='fr'?'Suivi automatique des vidéos enregistrées':'Automatically track saved videos'}</b><small>${settings.lang==='fr'?'Après ouverture de Yomu sur le lecteur, conserve la progression pendant la lecture.':'After opening Yomu on the player, keep progress updated while watching.'}</small></div><input id="set-autotrack" type="checkbox" aria-label="${settings.lang==='fr'?'Suivi automatique':'Automatic tracking'}" ${settings.autoTrack!==false?'checked':''}></div></div>
     <div class="section-t">${t("backup")}</div>
     <div class="panel">
-      <div class="row"><div class="grow"><b>${t("yourLibrary")}</b><small>${t("exportRestore")}</small></div><button class="btn" id="export">${I.image} ${t("export")}</button><button class="btn" id="import">${t("import")}</button><input id="file" type="file" accept=".json,.csv,.xml,.zip,.tsv,application/json,application/zip" multiple hidden aria-label="${t("import")}" /></div>
+      <div class="row"><div class="grow"><b>${t("yourLibrary")}</b><small>${t("exportRestore")} ${settings.lang==="fr"?"Les clés API restent sur cet appareil.":"API keys stay on this device."}</small></div><button class="btn" id="export">${I.image} ${t("export")}</button><button class="btn" id="import">${t("import")}</button><input id="file" type="file" accept=".json,.csv,.xml,.zip,.tsv,application/json,application/zip" multiple hidden aria-label="${t("import")}" /></div>
       <p class="field-hint" style="margin:-2px 2px 0">${t("importFormats")}</p>
       <div class="row"><div class="grow"><b>${settings.lang === "fr" ? "Compléter les fiches" : "Complete missing details"}</b><small id="metadata-status" role="status">${settings.lang === "fr" ? "Rechercher les affiches et descriptions manquantes et regrouper les doublons confirmés." : "Find missing artwork and descriptions and combine confirmed duplicates."}</small></div><button class="btn" id="complete-metadata">${I.refresh} ${settings.lang === "fr" ? "Rechercher" : "Search"}</button></div>
       <div class="row"><div class="grow"><b>${t("cloudSync")}</b><small id="sync-state">${t("cloudSyncSub")}</small></div><button class="btn" id="sync-link">${t("manageSync")}</button></div>
@@ -1422,7 +1422,19 @@ async function doImport(e) {
 }
 
 /* ---- share widgets (reused on the web interface) ---- */
-const openUrl = (u) => api.tabs.create({ url: u });
+function safeNavigationUrl(value) {
+  if(typeof value!=="string"||!value.trim())return "";
+  try {const url=new URL(value);return ["https:","http:"].includes(url.protocol)&&!url.username&&!url.password?url.href:"";}catch{return "";}
+}
+const openUrl = (value) => {
+  const url=safeNavigationUrl(value);
+  if(!url){toast(settings.lang==="fr"?"Ce lien est invalide ou non autorisé.":"This link is invalid or not allowed.");return;}
+  return api.tabs.create({url});
+};
+document.addEventListener("click",event=>{
+  const anchor=event.target.closest?.("a[href]");if(!anchor)return;
+  if(!safeNavigationUrl(anchor.getAttribute("href"))){event.preventDefault();toast(settings.lang==="fr"?"Ce lien est invalide ou non autorisé.":"This link is invalid or not allowed.");}
+},true);
 function buildShare(el) {
   if (!el) return;
   el.innerHTML = `<button class="soc x" data-tip="X / Twitter">${I.x}</button><button class="soc fb" data-tip="Facebook">${I.fb}</button><button class="soc wa" data-tip="WhatsApp">${I.wa}</button><button class="soc rd" data-tip="Reddit">${I.rd}</button><button class="soc cp" data-tip="Copy link">${I.link}</button>`;
@@ -1482,7 +1494,7 @@ function renderNotifMenu() {
     closeMenus();
     const id = row.dataset.nitem;
     if (id && items.find((x) => x.id === id)) openDrawer(id);
-    else if (row.dataset.nurl) api.tabs.create({ url: row.dataset.nurl });
+    else if (row.dataset.nurl) openUrl(row.dataset.nurl);
   }));
 }
 function renderBell() {
