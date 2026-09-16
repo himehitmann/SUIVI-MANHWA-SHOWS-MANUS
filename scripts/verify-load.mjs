@@ -27,7 +27,7 @@ const password='synthetic-capacity-password',passwordHash=await hashPasswordAsyn
 const poolConfig={connectionString:url.toString(),max:10,connectionTimeoutMillis:5000,statement_timeout:10000,query_timeout:12000};
 let pool,server;
 let sampleNumber=0;
-async function measure(name,concurrency,count,request) {
+async function measure(name,concurrency,count,request,paceMs=0) {
  const lag=monitorEventLoopDelay({resolution:10});lag.enable();
  let peakRss=process.memoryUsage().rss;
  const sampler=setInterval(()=>{peakRss=Math.max(peakRss,process.memoryUsage().rss);},20);
@@ -38,6 +38,7 @@ async function measure(name,concurrency,count,request) {
     try{const status=await request(i);codes[status]=(codes[status]||0)+1;if(status<200||status>=300)failures++;}
     catch(error){codes.error=(codes.error||0)+1;throw error;}
     finally{latencies.push(performance.now()-t);}
+    if(paceMs)await new Promise(resolve=>setTimeout(resolve,Math.max(0,paceMs-(performance.now()-t))));
    }
   }));
  } finally {clearInterval(sampler);lag.disable();}
@@ -75,6 +76,7 @@ try {
    const result=await measure('sync-read-'+scenario.total,concurrency,concurrency*3,i=>get(i%scenario.accounts));
    assert(result.p95Ms<5000,'Read p95 exceeded the CI regression budget of 5 seconds');
   }
+  if(scenario.total===100000)await measure("sync-steady-200-clients-30-rounds",200,6000,i=>get(i%scenario.accounts),1000);
   const writeCount=20;
   await measure('same-account-concurrent-write-'+scenario.total,writeCount,writeCount,async(i)=>{
    const r=await fetch(base+'/api/sync',{method:'PUT',headers:headers(0),signal:AbortSignal.timeout(15000),body:JSON.stringify({blob:{items:[{id:'acknowledged-'+i,title:'Concurrent update '+i,updatedAt:100+i}],updatedAt:100+i}})});await r.json();assert.equal(r.status,200);return r.status;
