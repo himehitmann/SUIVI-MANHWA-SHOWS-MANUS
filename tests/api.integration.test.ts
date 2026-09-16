@@ -237,3 +237,15 @@ describe("private response caching and resource limits",()=>{
   });
 });
 
+
+it('rejects incorrect passwords on every sensitive route after async migration',async()=>{
+ const credentials={email:'password-guards@example.test',password:'original-password'};
+ const account=await(await call('/auth/signup',credentials)).json();
+ expect((await call('/auth/login',{...credentials,password:'wrong-password'})).status).toBe(401);
+ expect((await call('/auth/email',{email:'changed@example.test',current:'wrong-password'},account.token)).status).toBe(401);
+ expect((await call('/auth/password',{current:'wrong-password',next:'changed-password'},account.token)).status).toBe(401);
+ expect((await call('/auth/delete',{current:'wrong-password'},account.token)).status).toBe(401);
+ const me=await(await call('/me',undefined,account.token)).json();expect(me.user.email).toBe(credentials.email);
+ expect((await call('/auth/login',credentials)).status).toBe(200);
+});
+
