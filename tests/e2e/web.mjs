@@ -57,6 +57,14 @@ try{
  await page.locator('.primary-cta').first().focus();assert.equal(await page.locator('.primary-cta').first().evaluate(el=>getComputedStyle(el).outlineStyle),'solid');
  assert.deepEqual(errors,[]);
 
+ await page.locator('#guide').getByRole('button',{name:'4. Read in your language',exact:true}).click();
+ await page.locator('#guide').getByRole('link',{name:'Explore the catalogue',exact:true}).waitFor();
+ await page.locator('#guide').getByRole('button',{name:'Previous',exact:true}).click();
+ await page.locator('#guide').getByRole('heading',{name:'Keep your place',exact:true}).waitFor();
+ await page.setViewportSize({width:375,height:900});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await page.screenshot({path:'test-results/onboarding-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1440,height:1000});
+
  // UI contract fixture; real authorization and transaction checks live in admin-api and PostgreSQL tests.
  let adminChanges=[];
  await page.route('**/api/admin/**',async route=>{
