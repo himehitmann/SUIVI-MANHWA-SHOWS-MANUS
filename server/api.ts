@@ -5,6 +5,7 @@
  * are HMAC-signed tokens, and storage is behind a swappable interface.
  */
 import { z } from "zod";
+import { AccessError, createMemoryAccessStore, effectivePlan, effectiveRole, type AccessStore } from "./lib/access";
 import {createCatalog} from "./lib/catalog";
 import { randomBytes, randomUUID } from "node:crypto";
 import express, { type Request, type Response, type Router } from "express";
@@ -113,7 +114,9 @@ export function createRequestLimiter(now=()=>Date.now(),capacity=10000) {
 }
 
 export function createApiRouter(
-  store: Store = createStore(process.env.SYNC_DB_FILE)
+  store: Store = createStore(process.env.SYNC_DB_FILE),
+  access: AccessStore = createMemoryAccessStore(),
+  owners: ReadonlySet<string> = new Set((process.env.YOMU_OWNER_IDS || "").split(",").map(s=>s.trim()).filter(Boolean))
 ): Router {
   const router = express.Router();
   const limiter=createRequestLimiter();
@@ -245,11 +248,54 @@ export function createApiRouter(
     if(typeof req.query.q!=='string'||req.query.q.length<2||req.query.q.length>160)return res.status(400).json({error:'invalid_query'});
     const result=await catalog(req.query.q);return res.status(result.sources.some(s=>s.ok)?200:503).json(result);
   }));
-  const publicUser = (u: { id: string; email: string; plan: string }) => ({
-    id: u.id,
-    email: u.email,
-    plan: u.plan,
-  });
+  const accountView = async (u: { id: string; email: string; plan: "free"|"pro"|"lifetime" }) => {
+    const rights = await access.get(u.id);
+    return {id:u.id,email:u.email,plan:effectivePlan(u.plan,u.id,rights,owners),role:effectiveRole(u.id,rights,owners),giftUntil:rights.giftUntil,accessVersion:rights.version};
+  };
+  const adminSession = async (req:Request,res:Response) => {
+    const session=await auth(req);
+    if(!session){res.status(401).json({error:"unauthorized"});return null;}
+    if(rateLimited(req,res,30,60000,"admin:"+session.id))return null;
+    const user=await store.getUserById(session.id);
+    if(!user || effectiveRole(user.id,await access.get(user.id),owners)==="member") {res.status(403).json({error:"admin_required"});return null;}
+    return {session,user};
+  };
+  router.get("/admin/me",asyncRoute(async(req,res)=>{
+    const admin=await adminSession(req,res);if(!admin)return;
+    return res.json({user:await accountView(admin.user)});
+  }));
+  router.post("/admin/lookup",asyncRoute(async(req,res)=>{
+    const admin=await adminSession(req,res);if(!admin)return;
+    const email=req.body?.email;
+    if(typeof email!=="string"||email.length>254||!EMAIL_RE.test(email))return res.status(400).json({error:"invalid_email"});
+    const user=await store.getUserByEmail(email);
+    if(!user)return res.status(404).json({error:"account_not_found"});
+    return res.json({user:await accountView(user)});
+  }));
+  router.get("/admin/audit",asyncRoute(async(req,res)=>{
+    if(!await adminSession(req,res))return;
+    return res.json({events:await access.audit()});
+  }));
+  const adminChange=z.object({targetId:z.string().min(1).max(128),requestId:z.string().uuid(),expectedVersion:z.number().int().nonnegative(),kind:z.enum(["role","gift"]),role:z.enum(["member","admin"]).optional(),days:z.number().int().min(0).max(366).optional(),reason:z.string().trim().min(3).max(200),current:z.string().min(1).max(1024)}).strict();
+  router.post("/admin/access",asyncRoute(async(req,res)=>{
+    const admin=await adminSession(req,res);if(!admin)return;
+    if(rateLimited(req,res,10,60000,"admin-write:"+admin.user.id))return;
+    const parsed=adminChange.safeParse(req.body);
+    if(!parsed.success)return res.status(400).json({error:"invalid_admin_change"});
+    const {targetId,current,...change}=parsed.data;
+    if(change.kind==="role"?(change.role===undefined||change.days!==undefined):(change.days===undefined||change.role!==undefined))return res.status(400).json({error:"invalid_admin_change"});
+    if(!await verifyPasswordAsync(current,admin.user.passwordHash))return res.status(401).json({error:"invalid_credentials"});
+    if(!await store.getUserById(targetId))return res.status(404).json({error:"account_not_found"});
+    const result=await access.change(admin.user.id,targetId,change,owners,async connection=>{
+      if(connection){
+        const result=await connection.query("SELECT u.id FROM users u JOIN sessions s ON s.user_id=u.id WHERE u.id=$1 AND u.password_hash=$2 AND s.id=$3 AND s.expires_at>$4 FOR SHARE OF u,s",[admin.user.id,admin.user.passwordHash,admin.session.sessionId,Date.now()]);
+        return result.rows.length===1;
+      }
+      const live=await store.getSession(admin.session.sessionId),user=await store.getUserById(admin.user.id);
+      return live?.userId===admin.user.id&&user?.passwordHash===admin.user.passwordHash&&!!await store.getUserById(targetId);
+    });
+    return res.json({ok:true,access:result});
+  }));
 
   router.post(
     "/auth/signup",
@@ -280,7 +326,7 @@ export function createApiRouter(
       await store.createUser(user);
       return res.json({
         token: await issueToken(user.id),
-        user: publicUser(user),
+        user: await accountView(user),
       });
     })
   );
@@ -301,7 +347,7 @@ export function createApiRouter(
         return res.status(401).json({ error: "invalid_credentials" });
       return res.json({
         token: await issueToken(user.id),
-        user: publicUser(user),
+        user: await accountView(user),
       });
     })
   );
@@ -332,7 +378,7 @@ export function createApiRouter(
       if (clash && clash.id !== user.id)
         return res.status(409).json({ error: "email_taken" });
       await store.updateUser({ ...user, email });
-      return res.json({ user: publicUser({ ...user, email }) });
+      return res.json({ user: await accountView({ ...user, email }) });
     })
   );
 
@@ -394,6 +440,7 @@ export function createApiRouter(
         !(await verifyPasswordAsync(current, user.passwordHash))
       )
         return res.status(401).json({ error: "invalid_credentials" });
+      if(owners.has(session.id))return res.status(409).json({error:"owner_account_protected"});
       await store.deleteUser(session.id);
       return res.json({ ok: true });
     })
@@ -406,7 +453,7 @@ export function createApiRouter(
       if (!session) return res.status(401).json({ error: "unauthorized" });
       const user = await store.getUserById(session.id);
       if (!user) return res.status(401).json({ error: "unauthorized" });
-      return res.json({ user: publicUser(user) });
+      return res.json({ user: await accountView(user) });
     })
   );
 
@@ -418,7 +465,8 @@ export function createApiRouter(
       const session = await auth(req);
       if (!session) return res.status(401).json({ error: "unauthorized" });
       const user = await store.getUserById(session.id);
-      return res.json({ plan: user?.plan ?? "free" });
+      if(!user)return res.status(401).json({error:"unauthorized"});
+      return res.json({plan:(await accountView(user)).plan});
     })
   );
 
@@ -430,7 +478,7 @@ export function createApiRouter(
       if(rateLimited(req,res,120,60000,"sync:"+session.id))return;
       const record = await store.getSync(session.id);
       return res.json({
-        blob: record?.blob ?? null,
+        blob: record?.blob ? {...record.blob,plan:(await accountView((await store.getUserById(session.id))!)).plan} : null,
         updatedAt: record?.updatedAt ?? 0,
       });
     })
@@ -456,7 +504,7 @@ export function createApiRouter(
         updatedAt: parsed.data.updatedAt || Date.now(),
       } as SyncBlob;
       const record = await store.mergeSync(session.id, incoming);
-      const merged = record.blob;
+      const merged = {...record.blob,plan:(await accountView(user)).plan};
       return res.json({ blob: merged, updatedAt: merged.updatedAt });
     })
   );
@@ -468,6 +516,7 @@ export function createApiRouter(
       res: Response,
       _next: express.NextFunction
     ) => {
+      if(error instanceof AccessError)return res.status(error.status).json({error:error.code});
       if(error instanceof PasswordBusyError){res.setHeader("Retry-After","2");return res.status(503).json({error:"auth_busy"});}
       if(error instanceof Error&&error.message==="catalog_busy"){res.setHeader("Retry-After","5");return res.status(503).json({error:"catalog_busy"});}
       const status = (error as { status?: number }).status;
