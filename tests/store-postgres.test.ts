@@ -14,7 +14,7 @@ function fakePg() {
     async query(text, params = []) {
       log.push(text.trim().split(/\s+/).slice(0, 3).join(" "));
       const t = text.trim();
-      if (t.startsWith("CREATE TABLE")) return { rows: [] };
+      if (t.startsWith("CREATE TABLE") || t.startsWith("CREATE INDEX")) return { rows: [] };
       if (t.startsWith("SELECT * FROM users WHERE email")) return { rows: users.filter((u) => u.email === params[0]) };
       if (t.startsWith("SELECT * FROM users WHERE id")) return { rows: users.filter((u) => u.id === params[0]) };
       if (t.startsWith("INSERT INTO users")) {
