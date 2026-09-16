@@ -531,7 +531,7 @@ describe("persistent import metadata queue",()=>{
     restarted.run('catalogSearchAll=async()=>[{title:"Imported work",type:"reading",cover:"https://example.org/cover.jpg",synopsis:"A synopsis",externalIds:{anilist:"123"}}]');
     await restarted.run("runImportEnrichment()");
     expect(restarted.data["dasi.items"][0]).toMatchObject({chapter:12,cover:"https://example.org/cover.jpg",synopsis:"A synopsis"});
-    expect(restarted.data["dasi.items"][0].metadataPending).toBeUndefined();
+    expect(restarted.data["dasi.items"][0].metadataPending).toBeFalsy();
   });
   it("limits a batch to two works and retains the remaining queue",async()=>{
     const w=worker({"dasi.items":Array.from({length:3},(_,n)=>({id:"work"+n,title:"Work "+n,type:"reading",metadataPending:{attempts:0,nextAttemptAt:0}}))});
@@ -545,7 +545,7 @@ describe("persistent import metadata queue",()=>{
     const w=worker({"dasi.items":[{id:"work",title:"Unknown",type:"reading",chapter:3,metadataPending:{attempts:2,nextAttemptAt:0}}]});
     w.run('catalogSearchAll=async()=>[]');
     await w.run("runImportEnrichment()");
-    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+    expect(w.data["dasi.items"][0].metadataPending).toBeFalsy();
     expect(w.data["dasi.items"][0].chapter).toBe(3);
   });
   it("does not restore a work removed during an external lookup",async()=>{
@@ -995,7 +995,7 @@ describe("durable metadata outcomes",()=>{
     await w.run("runImportEnrichment()");
     expect(w.run("requested")).toEqual(["620"]);
     expect(w.data["dasi.items"][0]).toMatchObject({externalIds:{steam:"620"},cover:"art",synopsis:"summary",tags:["Puzzle"],metadataStatus:{state:"matched",attempts:1}});
-    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+    expect(w.data["dasi.items"][0].metadataPending).toBeFalsy();
   });
   it("never chooses a namesake when an exact Steam lookup fails",async()=>{
     const w=worker({"dasi.items":[{id:"game",title:"Portal",type:"game",url:"https://store.steampowered.com/app/620",metadataPending:pending(4)}]});
@@ -1003,26 +1003,26 @@ describe("durable metadata outcomes",()=>{
     await w.run("runImportEnrichment()");
     expect(w.run("searched")).toBe(0);
     expect(w.data["dasi.items"][0]).toMatchObject({metadataStatus:{state:"failed",attempts:5}});
-    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+    expect(w.data["dasi.items"][0].metadataPending).toBeFalsy();
     expect(w.data["dasi.items"][0].externalIds).toBeUndefined();
   });
   it("retains a visible unmatched outcome after the third empty result",async()=>{
     const w=worker({"dasi.items":[{id:"work",title:"Unknown",type:"reading",chapter:7,metadataPending:pending(2)}]});
     w.run('catalogSearchAll=async()=>[]');await w.run("runImportEnrichment()");
     expect(w.data["dasi.items"][0]).toMatchObject({chapter:7,metadataStatus:{state:"not_found",attempts:3}});
-    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+    expect(w.data["dasi.items"][0].metadataPending).toBeFalsy();
   });
   it("records partial metadata instead of reporting a complete work",async()=>{
     const w=worker({"dasi.items":[{id:"work",title:"Partial",type:"reading",metadataPending:pending()}]});
     w.run('catalogSearchAll=async()=>[{title:"Partial",type:"reading",synopsis:"Summary without artwork"}]');await w.run("runImportEnrichment()");
     expect(w.data["dasi.items"][0].metadataStatus.state).toBe("partial");
-    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+    expect(w.data["dasi.items"][0].metadataPending).toBeFalsy();
   });
   it("stops ambiguous matches without selecting one at random",async()=>{
     const w=worker({"dasi.items":[{id:"work",title:"Homonym",type:"watching",metadataPending:pending()}]});
     w.run('catalogSearchAll=async()=>[{title:"Homonym",type:"watching",year:2000},{title:"Homonym",type:"watching",year:2020}]');await w.run("runImportEnrichment()");
     expect(w.data["dasi.items"][0].metadataStatus.state).toBe("ambiguous");
-    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+    expect(w.data["dasi.items"][0].metadataPending).toBeFalsy();
   });
   it("preserves edits made during a lookup while filling untouched fields",async()=>{
     const w=worker({"dasi.items":[{id:"work",title:"Concurrent",type:"reading",chapter:3,metadataPending:pending()}]});
@@ -1043,7 +1043,7 @@ describe("durable metadata outcomes",()=>{
     w.run('catalogSearchAll=async()=>{await chrome.storage.local.set({"dasi.items":[{id:"work",title:"Reimport",type:"reading",cover:"new",synopsis:"new",metadataStatus:{state:"matched",attempts:1}}]});throw Error("old request failed")}');
     await w.run("runImportEnrichment()");
     expect(w.data["dasi.items"][0]).toMatchObject({cover:"new",metadataStatus:{state:"matched",attempts:1}});
-    expect(w.data["dasi.items"][0].metadataPending).toBeUndefined();
+    expect(w.data["dasi.items"][0].metadataPending).toBeFalsy();
   });
   it("rejects a stale attempt of the same job",async()=>{
     const w=worker({"dasi.items":[{id:"work",title:"Restart",type:"reading",metadataPending:pending()}]});
@@ -1087,6 +1087,22 @@ describe("catalog resilience and aggregation",()=>{
   it("combines complementary metadata only for the same identity",()=>{
     const w=worker();w.ctx.catalog=[{title:"Français",type:"reading",externalIds:{mal:"7"},source:"anilist",genres:["Action"],cover:"art"},{title:"English",type:"reading",externalIds:{mal:"7"},source:"jikan",genres:["Mystery"],synopsis:"Summary"}];
     const result=w.run("mergeCatalogResults(catalog)");expect(result).toHaveLength(1);expect(result[0]).toMatchObject({cover:"art",synopsis:"Summary",genres:["Action","Mystery"],catalogSources:["anilist","jikan"]});expect(result[0].alternativeTitles).toContain("English");
+  });
+});
+
+
+describe("metadata completion across serialization",()=>{
+  it("keeps a completed job cleared after JSON serialization and a sync merge",async()=>{
+    const w=worker({"dasi.items":[{id:"work",title:"Synced",type:"reading",updatedAt:1,metadataPending:{jobId:"old",attempts:0,nextAttemptAt:0}}]});
+    w.run('catalogSearchAll=async()=>[{title:"Synced",type:"reading",cover:"art",synopsis:"summary"}]');
+    const before=structuredClone(w.data["dasi.items"]);
+    await w.run("runImportEnrichment()");
+    const after=JSON.parse(JSON.stringify(w.data["dasi.items"]));
+    expect(after[0].metadataPending).toBeNull();
+    w.ctx.remote={items:before,updatedAt:1};w.ctx.incoming={items:after,updatedAt:Date.now()};
+    const merged=w.run("YomuSync.mergeBlobs(remote,incoming)");
+    expect(merged.items[0].metadataPending).toBeNull();
+    expect(merged.items[0].metadataStatus.state).toBe("matched");
   });
 });
 
