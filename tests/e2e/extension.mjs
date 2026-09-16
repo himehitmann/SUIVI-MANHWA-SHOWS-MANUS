@@ -549,6 +549,14 @@ try {
   assert.deepEqual(await worker.evaluate(()=>globalThis.fallbackCalls),["remote","data"]);
   await reader.locator("#yomu-translation-status button").first().click();
   await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
+  let trailerRequests=0;
+  await page.route('https://www.youtube-nocookie.com/embed/*',async route=>{trailerRequests++;await route.fulfill({contentType:'text/html',body:'<title>Fixture trailer</title><p>Trailer fixture</p>'});});
+  await page.evaluate(()=>{const probe=document.createElement('div');probe.id='trailer-consent-probe';probe.innerHTML=embeddedTrailer('https://www.youtube.com/watch?v=abcdefghijk');document.body.append(probe);});
+  assert.equal(await page.locator('#trailer-consent-probe iframe').count(),0);assert.equal(trailerRequests,0);
+  await page.locator('#trailer-consent-probe button').focus();await page.keyboard.press('Enter');
+  await page.locator('#trailer-consent-probe iframe').waitFor();
+  assert.equal(await page.locator('#trailer-consent-probe iframe').getAttribute('src'),'https://www.youtube-nocookie.com/embed/abcdefghijk');
+  await page.evaluate(()=>document.getElementById('trailer-consent-probe').remove());
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(
