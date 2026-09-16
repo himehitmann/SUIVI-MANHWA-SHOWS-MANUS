@@ -816,12 +816,12 @@ async function rawgSearch(query, key) {
  * RAWG run only when a key is configured. Each source is best-effort. */
 
 const catalogJobs=new Map();
-async function catalogSearchProgress(query) {
+async function catalogSearchProgress(query,retry=false) {
   const text=String(query||"").trim().slice(0,200);
   if(!text)return {ok:true,results:[],pending:false};
   const key=accountEpoch+":"+text.toLowerCase();
   let job=catalogJobs.get(key);
-  if(!job||job.error||(!job.pending&&Date.now()-job.started>60000)) {
+  if(!job||(job.error&&retry)||(!job.pending&&Date.now()-job.started>60000)) {
     job={started:Date.now(),results:[],pending:true,error:null};
     catalogJobs.set(key,job);
     if(catalogJobs.size>20)catalogJobs.delete(catalogJobs.keys().next().value);
@@ -1718,7 +1718,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "CATALOG_DETAIL":
       catalogDetail(message.item||{}).then(item=>sendResponse({ok:true,item}),()=>sendResponse({ok:false,error:"details_unavailable"}));return true;
     case "CATALOG_SEARCH":
-      if(message.progressive===true){catalogSearchProgress(message.query).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));return true;}
+      if(message.progressive===true){catalogSearchProgress(message.query,message.retry===true).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));return true;}
       catalogSearchAll(message.query || "")
         .then((results) => sendResponse({ ok: true, results }))
         .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
