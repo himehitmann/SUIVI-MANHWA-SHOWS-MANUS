@@ -63,7 +63,7 @@ const SESSION_KEY = "dasi.sync.session";
 export function createHttpProvider(baseUrl: string): SyncProvider {
   const parsedBase=new URL(baseUrl,typeof location!=="undefined"?location.href:"https://invalid.local/");
   if(parsedBase.username||parsedBase.password||parsedBase.search||parsedBase.hash||!(parsedBase.protocol==="https:"||(parsedBase.protocol==="http:"&&["localhost","127.0.0.1","[::1]"].includes(parsedBase.hostname))))throw new Error("secure_api_required");
-  const base = parsedBase.href.replace(/\/+$/, "");
+  const base = baseUrl.replace(/\/+$/, "");
   const tokenKey = TOKEN_KEY + ":" + encodeURIComponent(base),
     sessionKey = SESSION_KEY + ":" + encodeURIComponent(base);
   let token: string | null = null;
