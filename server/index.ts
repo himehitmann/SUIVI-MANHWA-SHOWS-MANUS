@@ -3,6 +3,7 @@ import {readFileSync} from "node:fs";
 import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
+import {createMemoryAccessStore,createPostgresAccessStore,ensureAccessSchema,type AccessStore} from "./lib/access";
 import { createApiRouter } from "./api";
 import { createStore, type Store } from "./lib/store";
 import {
@@ -20,15 +21,16 @@ const __dirname = path.dirname(__filename);
  * dynamically via a non-literal specifier so it stays an optional dependency —
  * it is only required when DATABASE_URL is actually configured.
  */
-async function resolveStore(): Promise<Store> {
+async function resolveStore(): Promise<{store:Store;access:AccessStore}> {
   const url = process.env.DATABASE_URL;
   if (!url) {
+    if(process.env.NODE_ENV==="production"&&process.env.YOMU_OWNER_IDS)throw new Error("Administrative accounts require DATABASE_URL for durable roles, gifts and audit history.");
     if (process.env.NODE_ENV === "production" && !process.env.SYNC_DB_FILE)
       throw new Error(
         "Configure DATABASE_URL or persistent SYNC_DB_FILE before serving accounts."
       );
     if(process.env.NODE_ENV === "production")console.warn("SYNC_DB_FILE is single-process storage and rewrites the whole snapshot. Use DATABASE_URL for a multi-user deployment.");
-    return createStore(process.env.SYNC_DB_FILE);
+    return {store:createStore(process.env.SYNC_DB_FILE),access:createMemoryAccessStore()};
   }
   const pgModule = "pg";
   const pg = (await import(pgModule)) as {
@@ -49,8 +51,9 @@ async function resolveStore(): Promise<Store> {
   });
   const store = createPostgresStore(pool);
   await ensureSchema(pool);
+  await ensureAccessSchema(pool);
   console.log("Using Postgres store");
-  return store;
+  return {store,access:createPostgresAccessStore(pool)};
 }
 
 async function startServer() {
@@ -98,7 +101,8 @@ async function startServer() {
   app.get("/healthz", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
   // Optional sync + auth API. Harmless when unused; the apps default to local.
-  app.use("/api", createApiRouter(await resolveStore()));
+  const services=await resolveStore();
+  app.use("/api", createApiRouter(services.store,services.access));
 
   // Serve static files from dist/public in production
   const staticPath =
