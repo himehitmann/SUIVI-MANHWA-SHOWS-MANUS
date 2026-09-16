@@ -329,6 +329,32 @@ try {
   await page.screenshot({
     path: path.join(artifactDir, "library-desktop.png"),
   });
+
+  const libraryTitle=page.locator('#grid button[data-open="alchemy-of-souls"]');
+  await libraryTitle.focus();await libraryTitle.press("Enter");
+  await page.waitForFunction(()=>document.getElementById("drawer").contains(document.activeElement));
+  await page.keyboard.press("Escape");
+  assert(await libraryTitle.evaluate(el=>document.activeElement===el),"Drawer did not restore keyboard focus");
+  assert(await page.locator("#drawer").evaluate(el=>el.inert),"Hidden drawer remained keyboard-accessible");
+  assert(await page.locator("#q").getAttribute("aria-label"));
+  assert.equal(await page.locator('#nav [aria-current="page"]').getAttribute("data-v"),"library");
+  assert((await page.title()).startsWith("Yomu · "));
+  const markupCheck=await page.evaluate(()=>{
+    const id='bad"><img id="injected" src="x" onerror="alert(1)">';
+    const holder=document.createElement("div");holder.innerHTML=cardHtml({id,title:'<script>alert(1)</script>',type:"reading",tags:['<img onerror="alert(1)">'],accent:'red" onmouseover="alert(1)'});
+    return {id:holder.querySelector(".card").dataset.open,bad:holder.querySelectorAll("script,[onerror],[onmouseover],#injected").length,color:holder.querySelector(".cover").style.background,expected:id};
+  });
+  assert.equal(markupCheck.bad,0);assert.equal(markupCheck.id,markupCheck.expected);assert(markupCheck.color);
+  for(const width of [320,375,480]){
+    await page.setViewportSize({width,height:844});
+    for(const target of ["home","library","games"]){
+      await page.locator('[data-v="'+target+'"]').click();
+      const bounds=await page.evaluate(()=>({page:document.documentElement.scrollWidth,width:innerWidth,search:document.getElementById("q").getBoundingClientRect().right,nav:document.getElementById("nav").getBoundingClientRect().right}));
+      assert(bounds.page<=bounds.width&&bounds.search<=bounds.width&&bounds.nav<=bounds.width,"Narrow layout overflow: "+width+" "+target);
+    }
+  }
+  await page.setViewportSize({width:1440,height:1000});await page.locator('[data-v="library"]').click();
+
   const boxes = await page
     .locator("img.cov")
     .evaluateAll(ims =>
