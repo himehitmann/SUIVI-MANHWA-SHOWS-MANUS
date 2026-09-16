@@ -1631,7 +1631,7 @@ function catalogSearch(q) {
       return;
     }
     const results=Array.isArray(r.results)?r.results:[],signature=JSON.stringify(results);
-    if(results.length&&signature!==previous){previous=signature;lastResults=results;renderSearchResults(q);}
+    if(results.length&&signature!==previous){previous=signature;lastResults=results;const focused=document.activeElement?.id;renderSearchResults(q);if(focused?.startsWith("sf-"))document.getElementById(focused)?.focus();}
     let status=document.getElementById("search-progress");
     if(!status){status=document.createElement("p");status.id="search-progress";status.className="sub";status.setAttribute("role","status");el.append(status);}
     status.textContent=r.pending?(settings.lang==="fr"?"Recherche dans les autres catalogues…":"Searching other catalogs…"):"";
@@ -1693,7 +1693,7 @@ function renderSearchResults(q) {
     '<label>'+(fr?"Année de sortie":"Release year")+'<input class="field" id="sf-year" type="number" min="1900" max="2199" placeholder="2028" value="'+esc(f.year)+'"></label>'+
     select("sf-release",fr?"Publication / diffusion":"Publication / airing",[["finished",fr?"Terminée":"Finished"],["ongoing",fr?"En cours":"Ongoing"],["upcoming",fr?"À venir":"Upcoming"],["unknown",fr?"Non renseignée":"Unknown"]],f.release)+
     '</div>'+(f.kind==="GAME"?'<label>'+(fr?"Prix maximum (USD)":"Maximum price (USD)")+' <output id="sf-price-label">'+(f.price===200?t("all"):f.price===0?(fr?"Gratuit":"Free"):"$"+f.price)+'</output><input id="sf-price" type="range" min="0" max="200" step="5" value="'+f.price+'" style="width:100%"></label>':"")+
-    '<p class="sub">'+(fr?"Filtres appliqués aux résultats reçus. Les dates et états inconnus restent non renseignés.":"Filters apply to the returned results. Unknown dates and publication states remain unspecified.")+'</p><button class="btn" id="sf-reset">'+(fr?"Réinitialiser":"Reset")+'</button>'+
+    '<p class="sub">'+(fr?"Filtres appliqués aux résultats reçus. Les dates et états inconnus restent non renseignés.":"Filters apply to the returned results. Unknown dates and publication states remain unspecified.")+'</p><button class="btn" id="sf-reset"'+(f.kind==="all"&&f.genre==="all"&&!f.year&&f.release==="all"&&f.price===200?' style="display:none"':"")+'>'+(fr?"Effacer les filtres":"Clear filters")+'</button>'+
     (shown.length?shown.map(m=>srRow(m,lastResults.indexOf(m))).join(""):'<p class="sr-empty">'+t("noMatch")+'</p>')+'</div>';
   for(const [id,key] of [["sf-kind","kind"],["sf-genre","genre"],["sf-year","year"],["sf-release","release"],["sf-price","price"]]){
     const field=document.getElementById(id);if(!field)continue;
