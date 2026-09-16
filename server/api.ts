@@ -90,10 +90,46 @@ const asyncRoute =
     Promise.resolve(fn(req, res)).catch(next);
   };
 
+
+export function createRequestLimiter(now=()=>Date.now(),capacity=10000) {
+  const hits=new Map<string,{n:number;expires:number}>();
+  let sweptAt=0;
+  return {
+    size:()=>hits.size,
+    check(key:string,max:number,windowMs=60000) {
+      const time=now();
+      if(time-sweptAt>=30000||hits.size>=capacity){for(const [id,record] of hits)if(record.expires<=time)hits.delete(id);sweptAt=time;}
+      let record=hits.get(key);
+      if(record&&record.expires<=time){hits.delete(key);record=undefined;}
+      if(!record) {
+        if(hits.size>=capacity)return {allowed:false,retryAfter:30};
+        record={n:0,expires:time+windowMs};hits.set(key,record);
+      }
+      record.n++;
+      return {allowed:record.n<=max,retryAfter:Math.max(1,Math.ceil((record.expires-time)/1000))};
+    },
+  };
+}
+
 export function createApiRouter(
   store: Store = createStore(process.env.SYNC_DB_FILE)
 ): Router {
   const router = express.Router();
+  const limiter=createRequestLimiter();
+  const rateLimited=(req:Request,res:Response,max=20,windowMs=60000,scope?:string):boolean=>{
+    const route=req.path.toLowerCase().replace(/\/+$/,"");
+    const result=limiter.check(scope||route+":"+(req.ip||req.socket.remoteAddress||"unknown"),max,windowMs);
+    if(result.allowed)return false;
+    res.setHeader("Retry-After",String(result.retryAfter));res.status(429).json({error:"too_many_requests"});return true;
+  };
+  // Private bodies and credential errors must never be reused by browser/proxy caches.
+  // Apply before parsers as malformed or oversized bodies are private responses too.
+  router.use((req,res,next)=>{
+    res.setHeader("Cache-Control","no-store");res.setHeader("Pragma","no-cache");
+    res.setHeader("X-Content-Type-Options","nosniff");res.vary("Origin");
+    if(rateLimited(req,res,300,60000,"api:"+(req.ip||req.socket.remoteAddress||"unknown")))return;
+    next();
+  });
 
   // Webhooks must see the RAW request body to verify provider signatures, so
   // they are mounted before the JSON parser. Each is a no-op (503) until its
@@ -178,39 +214,6 @@ export function createApiRouter(
     next();
   });
 
-  // Simple in-memory fixed-window rate limiter for the auth endpoints, so a
-  // deployment gets basic brute-force / credential-stuffing protection out of
-  // the box (a real deployment behind a proxy can add more).
-  const hits = new Map<string, { n: number; t: number }>();
-  const rateLimited = (
-    req: Request,
-    res: Response,
-    max = 20,
-    windowMs = 60_000
-  ): boolean => {
-    const ip = req.ip || req.socket.remoteAddress || "?";
-    const key = `${req.path}:${ip}`;
-    const now = Date.now();
-    const rec = hits.get(key);
-    if (!rec || now - rec.t > windowMs) {
-      hits.set(key, { n: 1, t: now });
-      return false;
-    }
-    rec.n += 1;
-    if (rec.n > max) {
-      res.status(429).json({ error: "too_many_requests" });
-      return true;
-    }
-    return false;
-  };
-  // Occasional cleanup so the map can't grow unbounded.
-  const sweep = () => {
-    const now = Date.now();
-    hits.forEach((v, k) => {
-      if (now - v.t > 120_000) hits.delete(k);
-    });
-  };
-
   const auth = async (
     req: Request
   ): Promise<{ id: string; sessionId: string } | null> => {
@@ -251,7 +254,6 @@ export function createApiRouter(
     "/auth/signup",
     asyncRoute(async (req: Request, res: Response) => {
       if (rateLimited(req, res, 10)) return;
-      sweep();
       const { email, password } = req.body || {};
       if (
         typeof email !== "string" ||
@@ -424,6 +426,7 @@ export function createApiRouter(
     asyncRoute(async (req: Request, res: Response) => {
       const session = await auth(req);
       if (!session) return res.status(401).json({ error: "unauthorized" });
+      if(rateLimited(req,res,120,60000,"sync:"+session.id))return;
       const record = await store.getSync(session.id);
       return res.json({
         blob: record?.blob ?? null,
@@ -437,6 +440,7 @@ export function createApiRouter(
     asyncRoute(async (req: Request, res: Response) => {
       const session = await auth(req);
       if (!session) return res.status(401).json({ error: "unauthorized" });
+      if(rateLimited(req,res,120,60000,"sync:"+session.id))return;
       const parsed = syncInput.safeParse(req.body?.blob);
       if (!parsed.success)
         return res.status(400).json({
