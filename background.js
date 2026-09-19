@@ -962,21 +962,24 @@ async function tmdbSearch(query, key) {
 }
 /** Games via RAWG (needs the user's free API key from settings). */
 async function rawgSearch(query, key) {
-  const url = `https://api.rawg.io/api/games?key=${encodeURIComponent(key)}&search=${encodeURIComponent(query)}&page_size=6`;
+  const url = "https://api.rawg.io/api/games?key=" + encodeURIComponent(key) + "&search=" + encodeURIComponent(query) + "&page_size=30";
   const res = await fetchRemote(url);
-  if (!res.ok) throw new Error(`rawg_${res.status}`);
+  if (!res.ok) throw new Error("rawg_" + res.status);
   const data = await res.json();
-  return (data.results || []).filter((g) => g.name).map((g) => ({
-    title: g.name,
-    type: "game",
-    cover: g.background_image || "",
-    synopsis: "",
-    genres: (g.genres || []).map((x) => x.name).slice(0, 4),
-    releaseDate: g.released || undefined,
-    platform: (g.platforms && g.platforms[0] && g.platforms[0].platform && g.platforms[0].platform.name) || "PC",
-    format: "Game",
-    url: g.slug ? `https://rawg.io/games/${g.slug}` : "",
-  }));
+  if (!Array.isArray(data?.results)) throw new Error("rawg_response_invalid");
+  const names = rows => [...new Set((Array.isArray(rows) ? rows : []).map(x => typeof x?.name === "string" ? x.name.trim().slice(0,100) : "").filter(Boolean))].slice(0,80);
+  return data.results.slice(0,30).filter(g => typeof g?.name === "string" && g.name.trim()).map(g => {
+    const platforms = names((Array.isArray(g.platforms) ? g.platforms : []).map(x => x?.platform));
+    const date = typeof g.released === "string" && /^\d{4}-\d{2}-\d{2}$/.test(g.released) && Number.isFinite(Date.parse(g.released)) ? g.released : undefined;
+    let cover = "";
+    try { const image = new URL(g.background_image); if(image.protocol === "https:" && !image.username && !image.password) cover = image.href; } catch {}
+    return {
+      title: g.name.trim().slice(0,300), type: "game", source: "rawg", cover, synopsis: "",
+      genres: names(g.genres), tags: names(g.tags), platforms,
+      platform: platforms.join(" · "), releaseDate: date, year: date ? Number(date.slice(0,4)) : undefined,
+      format: "Game", url: typeof g.slug === "string" && g.slug ? "https://rawg.io/games/" + encodeURIComponent(g.slug) : "",
+    };
+  });
 }
 /** Unified catalog search across AniList (anime/manga), Steam & RAWG (games),
  * OpenLibrary (books) and TMDB (films/TV). Keyless sources always run; TMDB and
@@ -2317,4 +2320,3 @@ api.commands.onCommand.addListener(async (command) => {
 });
 const startupSecurity=scrubLegacySyncedSettings();
 startupSecurity.catch(()=>{});
-
