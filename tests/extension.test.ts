@@ -1354,3 +1354,55 @@ describe("resilient game detail providers",()=>{
     expect(item.platform).toBe("PlayStation 5 · Nintendo Switch");expect(item.trailer).toBe("https://cdn.example.test/video.mp4");expect(item.storeLinks).toHaveLength(2);
   });
 });
+
+describe("tracked episode notification delivery",()=>{
+  const seed=()=>({id:"show",title:"Series",type:"watching",season:1,episode:2,externalIds:{tvmaze:"42"},releaseCheckedAt:Date.now()-86400000});
+  it("establishes a silent initial baseline",async()=>{
+    const item={...seed(),releaseCheckedAt:undefined};
+    const w=worker({"dasi.items":[item]});
+    w.ctx.releases=[{season:1,episode:3,at:Date.now()-1000}];
+    w.run("fetchTrackedReleases=async()=>releases");
+    await w.run("checkTrackedReleasesOnce()");
+    expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+    expect(w.data["dasi.items"][0].releasedTotal).toBe(3);
+  });
+  it("persists one French notification and its baseline without repeats",async()=>{
+    const w=worker({"dasi.items":[seed()],"dasi.settings":{lang:"fr"}});
+    w.ctx.releases=[{season:1,episode:3,at:Date.now()-1000},{season:1,episode:4,at:Date.now()-500}];
+    w.run("fetchTrackedReleases=async()=>releases");
+    await w.run("checkTrackedReleasesOnce()");
+    expect(w.data["dasi.notifications"]).toHaveLength(1);
+    expect(w.data["dasi.notifications"][0].message).toBe("2 nouveaux épisodes disponibles");
+    await w.run("checkTrackedReleasesOnce()");
+    expect(w.data["dasi.notifications"]).toHaveLength(1);
+  });
+  it("honors mute and paused status while updating the baseline",async()=>{
+    for(const patch of [{notifyUpdates:false},{status:"on_hold"},{}]){
+      const w=worker({"dasi.items":[{...seed(),...patch}],"dasi.settings":Object.keys(patch).length?{}:{notifyNew:false}});
+      w.ctx.releases=[{season:1,episode:3,at:Date.now()-1000}];
+      w.run("fetchTrackedReleases=async()=>releases");
+      await w.run("checkTrackedReleasesOnce()");
+      expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+      expect(w.data["dasi.items"][0].releaseCheckedAt).toBeGreaterThan(Date.now()-60000);
+    }
+  });
+  it("excludes watched, old and future episodes but includes the next season",()=>{
+    const w=worker();const now=Date.now();w.ctx.now=now;
+    w.ctx.episodes=[{season:1,episode:2,at:now-100},{season:1,episode:3,at:now-100000},{season:2,episode:1,at:now-50},{season:2,episode:2,at:now+50}];
+    expect(w.run("freshTrackedReleases({season:1,episode:2,releaseCheckedAt:now-1000},episodes,{},now)")).toEqual([{season:2,episode:1,at:now-50}]);
+  });
+  it("uses progress edited during a fetch and rejects account changes",async()=>{
+    for(const accountChange of [false,true]){
+      const w=worker({"dasi.items":[seed()]});
+      w.run("fetchTrackedReleases=()=>new Promise(resolve=>{globalThis.finishRelease=resolve})");
+      const pending=w.run("checkTrackedReleasesOnce()");
+      for(let n=0;n<50&&!w.run("typeof finishRelease==='function'");n++)await new Promise(r=>setTimeout(r,2));
+      if(accountChange)w.run("accountEpoch++");
+      else w.data["dasi.items"][0].episode=3;
+      w.ctx.releases=[{season:1,episode:3,at:Date.now()-1000}];
+      w.run("finishRelease(releases)");
+      await pending;
+      expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+    }
+  });
+});
