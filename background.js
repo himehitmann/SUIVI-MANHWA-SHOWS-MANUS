@@ -2258,6 +2258,19 @@ function checkTrackedReleases() {
   trackedReleaseTask=checkTrackedReleasesOnce().finally(()=>{trackedReleaseTask=null;});
   return trackedReleaseTask;
 }
+function freshTrackedReleases(item, episodes, settings, now=Date.now()) {
+  if (!Number.isFinite(item.releaseCheckedAt) || item.releaseCheckedAt<=0 ||
+      item.notifyUpdates===false || settings.notifyNew===false ||
+      ["dropped","on_hold"].includes(item.status)) return [];
+  const season=Number(item.season)||1, episode=Number(item.episode)||0;
+  const seen=new Set();
+  return episodes.filter(ep=>{
+    const key=ep.season+":"+ep.episode;
+    if(seen.has(key)||ep.at<=item.releaseCheckedAt||ep.at>now||now-ep.at>7*86400000)return false;
+    seen.add(key);
+    return ep.season>season || ep.season===season&&ep.episode>episode;
+  });
+}
 async function checkTrackedReleasesOnce() {
   const epoch=accountEpoch;
   const candidates=(await read(ITEMS_KEY,[])).filter(i=>releaseIdentity(i)&&i.status!=="dropped"&&Date.now()-(i.releaseCheckedAt||0)>=TRACKED_RELEASE_INTERVAL).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,6);
@@ -2276,7 +2289,18 @@ async function checkTrackedReleasesOnce() {
       const aired=confirmed.filter(ep=>ep.season===season).map(ep=>ep.episode);
       const updated={...live,recentEpisodes,releaseCheckedAt:Date.now(),activityAt:live.activityAt||live.updatedAt||live.createdAt||0};
       if(aired.length) {updated.releasedTotal=Math.max(...aired);updated.releaseSeason=season;}
-      await writeData({[ITEMS_KEY]:current.map(i=>i.id===live.id?updated:i)});
+      const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
+      const fresh=freshTrackedReleases(live,confirmed,settings);
+      const changes={[ITEMS_KEY]:current.map(i=>i.id===live.id?updated:i)};
+      let message="";
+      if(fresh.length){
+        message=settings.lang==="fr"
+          ? fresh.length+(fresh.length>1?" nouveaux épisodes disponibles":" nouvel épisode disponible")
+          : fresh.length+" new episode"+(fresh.length>1?"s":"")+" available";
+        changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:live.id,title:live.title,message,url:live.url,read:false,ts:Date.now()},...await read(NOTIF_KEY,[])].slice(0,120);
+      }
+      await writeData(changes);
+      if(message)await systemNotify(live.title,message,"yomu_release_"+live.id);
     });
   }
   if(epoch===accountEpoch&&candidates.length)autoSync();
