@@ -1259,3 +1259,36 @@ describe("RAWG detail identity and store safety",()=>{
   });
 });
 
+
+describe("game metadata refresh races",()=>{
+  const seed=()=>({"dasi.settings":{rawgKey:"key"},"dasi.items":[{id:"game",title:"Game",type:"game",externalIds:{rawg:"123"},updatedAt:1,tags:[]}]});
+  function deferred(w:ReturnType<typeof worker>){
+    let release!:(value:any)=>void,started!:()=>void;
+    const began=new Promise<void>(resolve=>{started=resolve;});
+    const response=new Promise(resolve=>{release=resolve;});
+    w.ctx.fetch=async(url:string)=>{if(String(url).includes("/stores?"))return {ok:true,json:async()=>({results:[]})};started();return response;};
+    return {began,finish:()=>release({ok:true,json:async()=>({id:123,name:"Game",description:"Remote synopsis",background_image:"https://images.example.test/remote.png",tags:[{name:"Remote tag"}]})})};
+  }
+  it("preserves edits made while game details are downloading",async()=>{
+    const w=worker(seed()),request=deferred(w),pending=w.call({type:"GAME_ENRICH",id:"game",force:true});await request.began;
+    Object.assign(w.data["dasi.items"][0],{synopsis:"My revised synopsis",tags:["My tag"],coverOverride:"custom",cover:"https://images.example.test/mine.png"});
+    request.finish();const result=await pending;expect(result.ok).toBe(true);
+    expect(w.data["dasi.items"][0]).toMatchObject({synopsis:"My revised synopsis",tags:["My tag"],cover:"https://images.example.test/mine.png"});
+  });
+  it("does not recreate a game removed while its refresh was running",async()=>{
+    const w=worker(seed()),request=deferred(w),pending=w.call({type:"GAME_ENRICH",id:"game",force:true});await request.began;
+    w.data["dasi.items"]=[];request.finish();const result=await pending;
+    expect(result.ok).toBe(false);expect(result.status).toBe("stale");expect(w.data["dasi.items"]).toEqual([]);
+  });
+  it("does not apply a response after the catalogue identity was changed",async()=>{
+    const w=worker(seed()),request=deferred(w),pending=w.call({type:"GAME_ENRICH",id:"game",force:true});await request.began;
+    w.data["dasi.items"][0].externalIds={rawg:"456"};request.finish();const result=await pending;
+    expect(result.status).toBe("stale");expect(w.data["dasi.items"][0].synopsis).toBeUndefined();expect(w.data["dasi.items"][0].externalIds.rawg).toBe("456");
+  });
+  it("does not write an old account's response into a new account",async()=>{
+    const w=worker(seed()),request=deferred(w),pending=w.call({type:"GAME_ENRICH",id:"game",force:true});await request.began;
+    w.run("accountEpoch++");w.data["dasi.items"]=[{id:"other",title:"Other account",type:"game"}];request.finish();
+    expect((await pending).status).toBe("stale");expect(w.data["dasi.items"]).toEqual([{id:"other",title:"Other account",type:"game"}]);
+  });
+});
+
