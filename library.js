@@ -688,6 +688,14 @@ function renderGrid() {
 // Always give a working link to the game: its stored store/official URL, else a
 // Steam search for the title so the user still lands on the game's page.
 function gameLink(i) { return i.url || `https://store.steampowered.com/search/?term=${encodeURIComponent(i.title || "")}`; }
+function gameStoreButtons(item) {
+  const links=[...new Set([item.url,...(Array.isArray(item.storeLinks)?item.storeLinks:[])].map(safeStoreLink).filter(Boolean))].slice(0,24);
+  return links.length?'<div class="game-store-links" style="display:flex;gap:8px;flex-wrap:wrap" aria-label="'+(settings.lang==="fr"?"Boutiques":"Stores")+'">'+links.map(url=>'<a class="btn" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(gameLinkLabel({url}))+' '+I.open+'</a>').join("")+'</div>':"";
+}
+function gameSourceCredit(item) {
+  const id=String(item.externalIds?.rawg||"");
+  return /^[1-9]\d{0,14}$/.test(id)?'<p class="field-hint">'+(settings.lang==="fr"?"Données jeux : ":"Game data: ")+'<a href="https://rawg.io/games/'+id+'" target="_blank" rel="noopener noreferrer">RAWG</a></p>':"";
+}
 function gameLinkLabel(i) {
   if (!i.url) return "Steam";
   const host = (i.url.replace(/^https?:\/\//, "").split("/")[0] || "").replace(/^www\./, "");
@@ -697,6 +705,8 @@ function gameLinkLabel(i) {
   if (/playstation/.test(host)) return "PlayStation";
   if (/xbox|microsoft/.test(host)) return "Xbox";
   if (/nintendo/.test(host)) return "Nintendo";
+  if (host === "apps.apple.com") return "App Store";
+  if (host === "play.google.com") return "Google Play";
   return t("open");
 }
 function gameCardHtml(i) {
@@ -1010,8 +1020,9 @@ function openDrawer(id) {
       ${!isGame && Array.isArray(i.cast) && i.cast.length ? `<div class="section-t">${t("cast")}</div><div class="cast-strip scroll-x">${i.cast.map((c) => `<div class="cast-card"><div class="cast-av"><span class="cast-ph">${esc((c.name || "?")[0].toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : ""}</div><b>${esc(c.name)}</b>${c.character ? `<small>${esc(c.character)}</small>` : ""}${c.role && c.role !== "MAIN" ? `<small>${esc(c.role.toLowerCase())}</small>` : ""}</div>`).join("")}</div>` : ""}
       ${isGame ? `
         <div class="section-t">${t("games")}</div>
+        ${Array.isArray(i.genres)&&i.genres.length?`<div class="tags">${i.genres.filter(x=>typeof x==="string").map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
         <div class="game-meta">${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}</span>` : ""}${i.price ? `<span class="meta-pill price">${esc(i.price)}</span>` : ""}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${embeddedTrailer(i.trailer||i.trailerUrl)}<a class="btn" href="${esc(gameLink(i))}" target="_blank" rel="noreferrer">${I.open} ${esc(gameLinkLabel(i))}</a><label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${embeddedTrailer(i.trailer||i.trailerUrl)}${gameStoreButtons(i)}${gameSourceCredit(i)}<label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
       : `
         <div class="section-t">${t("progress")}</div>
         <p class="field-hint">${isWatch ? t("progHintWatch") : t("progHintRead")}</p>
@@ -1051,7 +1062,7 @@ function openDrawer(id) {
   enhanceCarousels("#drawer");
   // Games arrive from Steam search/discovery without genres; pull them (and a
   // description) the first time the fiche opens, then re-render in place.
-  if (isGame && !i.gameEnrichedAt && !(i.tags && i.tags.length) && /store\.steampowered\.com\/app\//.test(i.url || "")) {
+  if (isGame && !i.gameEnrichedAt && (i.externalIds?.rawg || /store\.steampowered\.com\/app\//.test(i.url || ""))) {
     api.runtime.sendMessage({ type: "GAME_ENRICH", id: i.id }, (r) => {
       void api.runtime.lastError;
       if (r && r.ok && r.item) {
@@ -1741,7 +1752,7 @@ document.addEventListener("click",event=>{
 });
 
 function safeStoreLink(value) {
-  try {const url=new URL(value);return url.protocol==="https:"&&["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com"].includes(url.hostname)&&!url.port&&!url.username&&!url.password?url.href:"";}catch{return "";}
+  try {const url=new URL(value);return url.protocol==="https:"&&["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com","apps.apple.com","play.google.com"].includes(url.hostname)&&!url.port&&!url.username&&!url.password?url.href:"";}catch{return "";}
 }
 
 function episodeGuideSlot(item) {
@@ -1798,7 +1809,7 @@ function mountEpisodeGuide(item) {
 function catalogInformation(m) {
   const fr=settings.lang==="fr";
   const tags=[...new Set([...(m.genres||[]),...(m.tags||[])])].filter(x=>typeof x==="string");
-  const store=m.type==="game"?safeStoreLink(m.url):"";
+
   const news=Array.isArray(m.news)?m.news.slice(0,8):[];
   const newsHtml=news.length?'<section class="game-news"><div class="section-t">'+(fr?"Actualités et mises à jour":"News and updates")+'</div>'+news.map(entry=>{
     const time=Number(entry.publishedAt);
@@ -1808,7 +1819,7 @@ function catalogInformation(m) {
   const gameFacts=m.type==="game"?'<dl class="game-detail-facts">'+(m.platform?'<dt>'+(fr?"Plateformes":"Platforms")+'</dt><dd>'+esc(m.platform)+'</dd>':"")+(m.releaseDate?'<dt>'+(fr?"Sortie":"Release date")+'</dt><dd>'+esc(m.releaseDate)+'</dd>':"")+'</dl>':"";
   return gameFacts+(tags.length?'<div class="tags">'+tags.map(x=>'<span class="tag">'+esc(x)+'</span>').join("")+'</div>':"")+
     (m.type==="game"&&m.price?'<p class="detail-price">'+esc(m.price)+'</p>':"")+
-    (store?'<a class="btn" href="'+esc(store)+'" target="_blank" rel="noopener noreferrer">'+esc(gameLinkLabel(m))+' '+I.open+'</a>':"")+
+    (m.type==="game"?gameStoreButtons(m)+gameSourceCredit(m):"")+
     (m.synopsis?'<div class="section-t">'+t("synopsis")+'</div><p class="synopsis">'+esc(m.synopsis)+'</p>':"")+
     ((m.authors||[]).length?'<div class="section-t">'+(fr?"Auteurs":"Creators")+'</div><p>'+m.authors.map(esc).join(" · ")+'</p>':"")+
     ((m.alternativeTitles||[]).length?'<div class="section-t">'+(fr?"Autres titres":"Alternative titles")+'</div><ul class="synopsis">'+m.alternativeTitles.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>':"")+
@@ -1860,6 +1871,7 @@ function addFromCatalog(m, btn) {
   const payload = {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, coverFallback: m.coverFallback || undefined, synopsis: m.synopsis || undefined,
     trailerUrl:m.trailerUrl, trailer:m.trailer, cast:m.cast, tags:m.tags||[], genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds, alternativeTitles:m.alternativeTitles, authors:m.authors, anilistId:m.anilistId,
+    source:m.source,storeLinks:Array.isArray(m.storeLinks)?m.storeLinks.map(safeStoreLink).filter(Boolean):[],gameEnrichedAt:m.gameEnrichedAt,
     format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
   };
