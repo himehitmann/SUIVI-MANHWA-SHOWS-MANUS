@@ -116,7 +116,7 @@ try {
  assert.equal(await p.locator("#drawer .game-store-links a").count(),3,"Every verified store remains after saving");
  assert.equal(await p.locator('#drawer .game-store-links a[href="https://store.epicgames.com/en-US/p/example"]').count(),1);
  const storedGame=await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].find(i=>i.title==="Store fixture"));
- assert.equal(storedGame.externalIds.rawg,"123");assert.equal(storedGame.storeLinks.length,3);
+ assert.equal(storedGame.externalIds.rawg,"123");assert.deepEqual([...storedGame.storeLinks].sort(),["https://store.steampowered.com/app/123/","https://www.gog.com/game/example","https://store.epicgames.com/en-US/p/example"].sort());
  assert(await p.evaluate(()=>!gameStoreButtons({url:"javascript:alert(1)",storeLinks:["https://www.gog.com.evil.test/game/x"]}).includes("href")));
 
 
