@@ -1221,3 +1221,41 @@ describe("RAWG game catalogue metadata", () => {
   });
 });
 
+
+describe("RAWG detail identity and store safety",()=>{
+  const detail={id:123,name:"Console game",name_original:"Original name",alternative_names:["Other name"],description:"<p>A complete adventure.</p>",background_image:"https://images.example.test/game.jpg",platforms:[{platform:{name:"Switch"}}],genres:[{name:"Adventure"}],tags:[{name:"Co-op"}],developers:[{name:"Studio"}]};
+  it("loads by stable ID, coalesces repeated requests and caches only provider fields",async()=>{
+    const w=worker({"dasi.settings":{rawgKey:"test-key"}});const calls:string[]=[];
+    w.ctx.fetch=async(url:string,init:any)=>{calls.push(String(url));expect(init.credentials).toBe("omit");expect(init.redirect).toBe("error");return {ok:true,json:async()=>String(url).includes("/stores?")?{results:[{game_id:123,url:"https://www.gog.com/game/example"},{game_id:123,url:"https://store.epicgames.com/en-US/p/example"},{game_id:123,url:"https://www.gog.com/game/example"},{game_id:456,url:"https://www.gog.com/game/wrong"},{url:"javascript:alert(1)"},{url:"https://www.gog.com.evil.test/game/x"},{url:"https://u:p@www.gog.com/game/x"},{url:"https://www.gog.com:444/game/x"}]}:detail};};
+    const results=await Promise.all([w.run('catalogDetail({title:"My title",type:"game",externalIds:{rawg:"123"},tags:["My tag"]})'),w.run('catalogDetail({title:"Other title",type:"game",externalIds:{rawg:"123"}})')]);
+    expect(calls).toHaveLength(2);expect(results[0].title).toBe("My title");expect(results[1].title).toBe("Other title");
+    expect(results[0].synopsis).toBe("A complete adventure.");expect(results[0].tags).toEqual(["My tag","Co-op"]);expect(results[0].authors).toEqual(["Studio"]);
+    expect(results[0].storeLinks).toEqual(["https://www.gog.com/game/example","https://store.epicgames.com/en-US/p/example"]);
+    await w.run('catalogDetail({title:"Again",type:"game",externalIds:{rawg:"123"}})');expect(calls).toHaveLength(2);
+  });
+  it("does not request stores or cache a mismatched provider identity",async()=>{
+    const w=worker();let calls=0;w.ctx.fetch=async()=>{calls++;return {ok:true,json:async()=>({...detail,id:456})};};
+    await expect(w.run('rawgDetails("123","key")')).rejects.toThrow("catalog_identity_mismatch");
+    await expect(w.run('rawgDetails("123","key")')).rejects.toThrow("catalog_identity_mismatch");expect(calls).toBe(2);
+  });
+  it("retains useful details and existing store links if the store service is unavailable",async()=>{
+    const w=worker({"dasi.settings":{rawgKey:"key"}});w.ctx.fetch=async(url:string)=>String(url).includes("/stores?")?{ok:false,status:403}:{ok:true,json:async()=>detail};
+    const result=await w.run('catalogDetail({title:"Game",type:"game",externalIds:{rawg:"123"},storeLinks:["https://www.gog.com/game/example"]})');
+    expect(result.synopsis).toBe("A complete adventure.");expect(result.storeLinks).toEqual(["https://www.gog.com/game/example"]);
+  });
+  it("does not fall back to an unrelated Steam game when a RAWG key is absent",async()=>{
+    const w=worker();let calls=0;w.ctx.fetch=async()=>{calls++;throw Error("unexpected");};
+    await expect(w.run('catalogDetail({title:"Game",type:"game",externalIds:{rawg:"123"}})')).rejects.toThrow("rawg_unavailable");expect(calls).toBe(0);
+  });
+  it("keeps same-named games with contradictory RAWG IDs separate",async()=>{
+    const w=worker();await w.save({title:"Game",type:"game",externalIds:{rawg:"123"}});await w.save({title:"Game",type:"game",externalIds:{rawg:"456"}});
+    expect(w.data["dasi.items"]).toHaveLength(2);expect(w.data["dasi.items"].map((i:any)=>i.externalIds.rawg).sort()).toEqual(["123","456"]);
+  });
+  it("preserves saved metadata and custom tags when refreshing through the public message",async()=>{
+    const w=worker({"dasi.settings":{rawgKey:"key"},"dasi.items":[{id:"game",title:"My game",type:"game",externalIds:{rawg:"123"},tags:["Custom"],synopsis:"My notes",coverOverride:"data:image/png;base64,YQ==",cover:"https://images.example.test/mine.png",updatedAt:1}]});
+    w.ctx.fetch=async(url:string)=>({ok:true,json:async()=>String(url).includes("/stores?")?{results:[{game_id:123,url:"https://www.gog.com/game/example"}]}:detail});
+    const result=await w.call({type:"GAME_ENRICH",id:"game",force:true});expect(result.ok).toBe(true);
+    const saved=w.data["dasi.items"][0];expect(saved.tags).toEqual(["Custom"]);expect(saved.synopsis).toBe("My notes");expect(saved.cover).toBe("https://images.example.test/mine.png");expect(saved.genres).toEqual(["Adventure"]);expect(saved.storeLinks).toEqual(["https://www.gog.com/game/example"]);
+  });
+});
+
