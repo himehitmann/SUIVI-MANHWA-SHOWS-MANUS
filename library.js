@@ -1741,7 +1741,7 @@ document.addEventListener("click",event=>{
 });
 
 function safeStoreLink(value) {
-  try {const url=new URL(value);return url.protocol==="https:"&&["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com"].includes(url.hostname)&&!url.username&&!url.password?url.href:"";}catch{return "";}
+  try {const url=new URL(value);return url.protocol==="https:"&&["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com"].includes(url.hostname)&&!url.port&&!url.username&&!url.password?url.href:"";}catch{return "";}
 }
 
 function episodeGuideSlot(item) {
@@ -1805,7 +1805,8 @@ function catalogInformation(m) {
     const date=Number.isFinite(time)&&time>0?new Date(time).toLocaleDateString(fr?"fr-FR":"en-US",{day:"numeric",month:"short",year:"numeric"}):"";
     return '<article class="game-news-card"><div class="game-news-meta">'+[entry.category,date].filter(Boolean).map(esc).join(" · ")+'</div><h4>'+esc(entry.title||"")+'</h4>'+(entry.summary?'<p class="synopsis">'+esc(entry.summary)+'</p>':"")+'</article>';
   }).join("")+'</section>':"";
-  return (tags.length?'<div class="tags">'+tags.map(x=>'<span class="tag">'+esc(x)+'</span>').join("")+'</div>':"")+
+  const gameFacts=m.type==="game"?'<dl class="game-detail-facts">'+(m.platform?'<dt>'+(fr?"Plateformes":"Platforms")+'</dt><dd>'+esc(m.platform)+'</dd>':"")+(m.releaseDate?'<dt>'+(fr?"Sortie":"Release date")+'</dt><dd>'+esc(m.releaseDate)+'</dd>':"")+'</dl>':"";
+  return gameFacts+(tags.length?'<div class="tags">'+tags.map(x=>'<span class="tag">'+esc(x)+'</span>').join("")+'</div>':"")+
     (m.type==="game"&&m.price?'<p class="detail-price">'+esc(m.price)+'</p>':"")+
     (store?'<a class="btn" href="'+esc(store)+'" target="_blank" rel="noopener noreferrer">'+esc(gameLinkLabel(m))+' '+I.open+'</a>':"")+
     (m.synopsis?'<div class="section-t">'+t("synopsis")+'</div><p class="synopsis">'+esc(m.synopsis)+'</p>':"")+
