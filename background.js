@@ -858,11 +858,41 @@ async function rawgDetails(id,key,force=false) {
   rawgDetailsInflight.set(cacheKey,task);
   try{return structuredClone(await task);}finally{rawgDetailsInflight.delete(cacheKey);}
 }
+function gamePlatforms(...items) {
+  const names=items.flatMap(item=>[
+    ...(Array.isArray(item?.platforms)?item.platforms:[]),
+    ...(typeof item?.platform==="string"?item.platform.split(" · "):[])
+  ]).filter(x=>typeof x==="string").map(x=>x.trim().slice(0,100)).filter(x=>x&&x!=="Steam");
+  return [...new Set(names)].slice(0,80);
+}
 function mergeGameDetails(item,detail) {
-  const merged={...item,...detail,title:item.title,...identityMetadata(item,detail)};
+  const fields=Object.fromEntries(Object.entries(detail).filter(([,value])=>value!==undefined&&value!==null&&value!==""));
+  const merged={...item,...fields,title:item.title,...identityMetadata(item,detail)};
   for(const field of ["genres","tags"])merged[field]=[...new Set([...(Array.isArray(item[field])?item[field]:[]),...(Array.isArray(detail[field])?detail[field]:[])])];
-  merged.storeLinks=gameStoreLinks(item.storeLinks,detail.storeLinks,[item.url]);
+  merged.platforms=gamePlatforms(item,detail);
+  if(merged.platforms.length)merged.platform=merged.platforms.join(" · ");
+  merged.storeLinks=gameStoreLinks(item.storeLinks,detail.storeLinks,[item.url,detail.url]);
   return merged;
+}
+/** Use only established provider IDs; a failed source never triggers a title guess. */
+async function knownGameDetails(item,force=false) {
+  const ids=identityIds(item),urlId=steamAppId(item.url);
+  if(ids.steam&&urlId&&ids.steam!==urlId)throw Error("catalog_identity_mismatch");
+  const steam=ids.steam||urlId,tasks=[];
+  if(/^[1-9]\d{0,14}$/.test(steam||""))tasks.push((async()=>{
+    const detail=await steamAppDetails(steam);
+    if(!detail)throw Error("details_unavailable");
+    return {...detail,externalIds:{steam},storeLinks:["https://store.steampowered.com/app/"+steam+"/"]};
+  })());
+  if(ids.rawg)tasks.push((async()=>{
+    const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
+    return rawgDetails(ids.rawg,settings.rawgKey,force);
+  })());
+  if(!tasks.length)throw Error("details_unavailable");
+  const outcomes=await Promise.allSettled(tasks);
+  const details=outcomes.filter(result=>result.status==="fulfilled").map(result=>result.value);
+  if(!details.length)throw outcomes.find(result=>result.status==="rejected").reason;
+  return details.reduce((merged,detail)=>mergeGameDetails(merged,detail),item);
 }
 
 async function catalogDetail(item) {
@@ -886,15 +916,7 @@ async function catalogDetail(item) {
       cast:(show._embedded?.cast||[]).slice(0,20).map(c=>({name:c.person?.name,character:c.character?.name,image:c.person?.image?.medium||c.character?.image?.medium||""})).filter(c=>c.name)
     };
   }
-  if(item.type==="game"&&/^[1-9]\d{0,14}$/.test(ids.rawg||"")) {
-    const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
-    return mergeGameDetails(item,await rawgDetails(ids.rawg,settings.rawgKey));
-  }
-  const steam=ids.steam||steamAppId(item.url);
-  if(item.type==="game"&&/^\d+$/.test(steam||"")) {
-    const detail=await steamAppDetails(steam);
-    return detail?{...item,...detail}:item;
-  }
+  if(item.type==="game"&&(ids.rawg||ids.steam||steamAppId(item.url)))return knownGameDetails(item);
   return item;
 }
 
@@ -1079,6 +1101,11 @@ function combineCatalogEntries(a,b) {
   const other=preferred===a?b:a,out={...other,...preferred,...identityMetadata(a,b)};
   for(const field of ["cover","coverFallback","synopsis","trailer","trailerUrl","releaseDate","price","platform","format","country","year","total"])if(!out[field]&&other[field])out[field]=other[field];
   for(const field of ["genres","tags"])out[field]=[...new Set([...(a[field]||[]),...(b[field]||[])])];
+  if(out.type==="game") {
+    out.platforms=gamePlatforms(a,b);
+    if(out.platforms.length)out.platform=out.platforms.join(" · ");
+    out.storeLinks=gameStoreLinks(a.storeLinks,b.storeLinks,[a.url,b.url]);
+  }
   if(!out.cast?.length&&other.cast?.length)out.cast=other.cast;
   out.catalogSources=[...new Set([...(a.catalogSources||[]),a.source,...(b.catalogSources||[]),b.source].filter(Boolean))];
   return out;
@@ -1176,7 +1203,13 @@ function steamGames(list, soon) {
 }
 // Genres/tags + a proper description for one Steam app (lazy: only when a game
 // fiche is opened without tags). Keyless appdetails endpoint.
-function steamAppId(url) { const m = String(url || "").match(/\/app\/(\d+)/); return m ? m[1] : ""; }
+function steamAppId(value) {
+  try {
+    const url=new URL(value);
+    if(!["https:","http:"].includes(url.protocol)||url.hostname!=="store.steampowered.com"||url.port||url.username||url.password)return "";
+    return url.pathname.match(/^\/app\/([1-9]\d{0,14})(?:\/|$)/)?.[1]||"";
+  }catch{return "";}
+}
 async function steamNews(appid) {
   const url = `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appid}&count=8&maxlength=500&format=json`;
   const res = await fetchRemote(url);
@@ -1201,8 +1234,9 @@ async function steamAppDetails(appid) {
   const data = await res.json();
   const d = data && data[appid] && data[appid].success && data[appid].data;
   if (!d) return null;
+  if(d.steam_appid!==undefined&&String(d.steam_appid)!==String(appid))throw Error("catalog_identity_mismatch");
   return {
-    genres: Array.isArray(d.genres) ? d.genres.map((g) => g.description).filter(Boolean).slice(0, 6) : [],
+    genres: Array.isArray(d.genres) ? [...new Set(d.genres.map((g) => typeof g?.description==="string"?g.description.trim():"").filter(Boolean))].slice(0,80) : [],
     synopsis: (d.short_description || "").trim(),
     releaseDate: d.release_date && d.release_date.date ? d.release_date.date : undefined,
     cover:d.header_image||undefined,
@@ -1297,44 +1331,26 @@ async function enrichGame(id,force=false,lease=null) {
   const epoch=accountEpoch,items=await read(ITEMS_KEY,[]),it=items.find(x=>x.id===id);
   if(!it||it.type!=="game"||!metadataLeaseValid(it,lease))return {status:"stale"};
   if(!force&&it.gameEnrichedAt&&it.cover&&it.synopsis&&it.identityVersion===1)return {status:"matched",item:it};
-  const rawg=identityIds(it).rawg;
-  if(rawg) {
-    let detail;
-    try {const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);detail=await rawgDetails(rawg,settings.rawgKey,force);}catch{return {status:"retryable_error",error:"source_unavailable"};}
-    const data=mergeGameDetails(it,detail),patch={enrichedAt:Date.now(),gameEnrichedAt:Date.now(),identityVersion:1};
-    for(const field of ["storeLinks","genres","alternativeTitles","authors","source"])if(data[field]!==undefined)patch[field]=data[field];
-    for(const field of ["synopsis","platform","releaseDate","year"])if(data[field]&&!it[field])patch[field]=data[field];
-    if(!it.tags?.length)patch.tags=data.tags?.length?data.tags:data.genres;
-    if(data.cover&&!it.coverOverride)patch.cover=data.cover;
-    return serializeLibrary(async()=>{
-      if(epoch!==accountEpoch)return {status:"stale"};
-      const current=await read(ITEMS_KEY,[]),live=current.find(x=>x.id===id);
-      if(!metadataIdentityUnchanged(live,it)||!metadataLeaseValid(live,lease))return {status:"stale"};
-      const item=applyMetadataPatch(live,it,patch);
-      await writeData({[ITEMS_KEY]:current.map(x=>x.id===id?item:x)});
-      return {status:item.cover&&item.synopsis?"matched":"partial",item};
-    });
-  }
-  const known=identityIds(it).steam||steamAppId(it.url);
-  let match,detail,appid=known;
+  const ids=identityIds(it),known=ids.steam||steamAppId(it.url);
+  let match,data;
   try {
-    if(!appid) {
+    if(!known&&!ids.rawg) {
       const candidates=(await steamSearch(it.title)).filter(r=>sameIdentity(r,it));
       if(candidates.length!==1)return {status:candidates.length?"ambiguous":"not_found"};
-      match=candidates[0];appid=identityIds(match).steam||steamAppId(match.url);
+      match=candidates[0];
     }
-    if(!appid)return {status:"not_found"};
-    detail=await steamAppDetails(appid);
-    if(!detail)return {status:"retryable_error",error:"details_unavailable"};
+    const candidate=match?{...it,...identityMetadata(it,match),externalIds:{...identityIds(it),...identityIds(match),steam:identityIds(match).steam||steamAppId(match.url)}}:it;
+    data=await knownGameDetails(candidate,force);
   }catch{return {status:"retryable_error",error:"source_unavailable"};}
-  const patch={enrichedAt:Date.now(),gameEnrichedAt:Date.now(),identityVersion:1,externalIds:{...identityIds(it),steam:String(appid)},format:it.format||"Game"};
-  const data={...match,...detail};
-  for(const field of ["synopsis","price","platform","releaseDate","coverFallback","trailer","trailerUrl"])if(data[field]&&!it[field])patch[field]=data[field];
+  const patch={enrichedAt:Date.now(),gameEnrichedAt:Date.now(),identityVersion:1,externalIds:identityIds(data),format:it.format||"Game"};
+  for(const field of ["storeLinks","genres","platforms","alternativeTitles","authors","source"])if(data[field]!==undefined)patch[field]=data[field];
+  for(const field of ["synopsis","price","platform","releaseDate","year","coverFallback","trailer","trailerUrl"])if(data[field]&&!it[field])patch[field]=data[field];
   if(data.cover&&!it.coverOverride)patch.cover=data.cover;
-  if(!it.url)patch.url=match?.url||"https://store.steampowered.com/app/"+appid;
-  if(!it.platform)patch.platform="Steam";
-  if(!it.tags?.length&&data.genres?.length)patch.tags=data.genres;
-  if(data.news?.length)patch.news=data.news;
+  if(!it.url&&(match?.url||known))patch.url=match?.url||"https://store.steampowered.com/app/"+known+"/";
+  if(data.platforms?.length)patch.platform=data.platforms.join(" · ");
+  if(!it.platform&&!patch.platform&&known)patch.platform="Steam";
+  if(!it.tags?.length)patch.tags=[...new Set([...(data.tags||[]),...(data.genres||[])])];
+  if(Array.isArray(data.news))patch.news=data.news;
   if(data.comingSoon!==undefined&&it.released===undefined)patch.released=!data.comingSoon;
   return serializeLibrary(async()=>{
     if(epoch!==accountEpoch)return {status:"stale"};
