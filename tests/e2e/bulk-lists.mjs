@@ -95,7 +95,7 @@ try {
  assert.deepEqual(await p.evaluate(()=>discoPools().map(pool=>pool.key)),["manga"]);
  assert(await p.evaluate(()=>discoItems.every(item=>item.title.startsWith("Manga "))));
  assert(await p.locator("#view-home .carousel-arrow").count()>0);
- await p.evaluate(()=>openCatalogPreview({title:"Store fixture",type:"game",url:"https://store.steampowered.com/app/123/",price:"$12.99",platform:"Nintendo Switch · PlayStation 5",releaseDate:"2028-04-12",genres:["Adventure"],alternativeTitles:["Other title"]}));
+ await p.evaluate(()=>openCatalogPreview({title:"Store fixture",type:"game",externalIds:{rawg:"123"},gameEnrichedAt:1,storeLinks:["https://www.gog.com/game/example","https://store.epicgames.com/en-US/p/example","https://www.gog.com/game/example","javascript:alert(1)","https://www.gog.com.evil.test/game/x"],url:"https://store.steampowered.com/app/123/",price:"$12.99",platform:"Nintendo Switch · PlayStation 5",releaseDate:"2028-04-12",genres:["Adventure"],alternativeTitles:["Other title"]}));
  await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').waitFor();
  assert.equal(await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').count(),1);
  assert.equal(await p.locator("#preview-info details").count(),0);
@@ -107,7 +107,18 @@ try {
  assert.equal(await p.evaluate(()=>safeStoreLink("javascript:alert(1)")),"");
  assert.equal(await p.evaluate(()=>safeStoreLink("https://store.steampowered.com.evil.example/app/1")),"");
  assert(await p.evaluate(()=>!discoCard({title:"Game",type:"game",price:"$12.99"},0).includes("$12.99")));
+ assert.equal(await p.locator("#preview-info .game-store-links a").count(),3);
+ assert.equal(await p.locator('#preview-info .game-store-links a[href="https://www.gog.com/game/example"]').textContent().then(s=>s.trim()),"GOG");
  await p.screenshot({path:"test-results/visual-refinement.png"});
+ await p.locator("#preview-list").selectOption("destination");await p.locator("#preview-add").click();
+ await p.waitForFunction(()=>items.some(i=>i.title==="Store fixture")&&document.querySelector("#drawer").dataset.itemId);
+ await p.locator('#drawer .game-store-links a[href="https://www.gog.com/game/example"]').waitFor();
+ assert.equal(await p.locator("#drawer .game-store-links a").count(),3,"Every verified store remains after saving");
+ assert.equal(await p.locator('#drawer .game-store-links a[href="https://store.epicgames.com/en-US/p/example"]').count(),1);
+ const storedGame=await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].find(i=>i.title==="Store fixture"));
+ assert.equal(storedGame.externalIds.rawg,"123");assert.equal(storedGame.storeLinks.length,3);
+ assert(await p.evaluate(()=>!gameStoreButtons({url:"javascript:alert(1)",storeLinks:["https://www.gog.com.evil.test/game/x"]}).includes("href")));
+
 
  await p.evaluate(()=>{closeDrawer();switchView("library");showArchivedLists=false;renderLists();});
  const beforeCount=await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].length);
