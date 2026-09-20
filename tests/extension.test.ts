@@ -1292,3 +1292,65 @@ describe("game metadata refresh races",()=>{
   });
 });
 
+
+
+describe("resilient game detail providers",()=>{
+  it("uses the established Steam identity when RAWG is offline",async()=>{
+    const w=worker({"dasi.settings":{rawgKey:"key"}});
+    w.run('var requested=[];rawgDetails=async()=>{throw Error("offline")};steamAppDetails=async id=>{requested.push(id);return {synopsis:"Steam summary",genres:["Adventure"],trailer:"https://cdn.example.test/trailer.mp4"}}');
+    const result=await w.run('catalogDetail({title:"Game",type:"game",externalIds:{rawg:"123",steam:"620"},storeLinks:["https://www.gog.com/game/example"]})');
+    expect(w.run("requested")).toEqual(["620"]);expect(result.synopsis).toBe("Steam summary");
+    expect(result.externalIds).toEqual({rawg:"123",steam:"620"});expect(result.storeLinks).toContain("https://www.gog.com/game/example");expect(result.storeLinks).toContain("https://store.steampowered.com/app/620/");
+  });
+  it("still opens a Steam-backed game after its optional RAWG key is removed",async()=>{
+    const w=worker();w.run('steamAppDetails=async()=>({synopsis:"Available on Steam",genres:[]})');
+    const result=await w.run('catalogDetail({title:"Game",type:"game",externalIds:{rawg:"123",steam:"620"}})');
+    expect(result.synopsis).toBe("Available on Steam");
+  });
+  it("uses RAWG when the established Steam source fails and combines successful sources",async()=>{
+    const w=worker();
+    w.run('steamAppDetails=async()=>{throw Error("offline")};rawgDetails=async()=>({externalIds:{rawg:"123"},synopsis:"RAWG summary",platform:"Nintendo Switch",genres:["RPG"],tags:["Co-op"],storeLinks:["https://www.gog.com/game/example"]})');
+    const first=await w.run('catalogDetail({title:"Game",type:"game",externalIds:{rawg:"123",steam:"620"}})');expect(first.synopsis).toBe("RAWG summary");
+    w.run('steamAppDetails=async()=>({synopsis:"Short summary",genres:["Adventure"],trailer:"https://cdn.example.test/video.mp4",news:[{title:"Update"}]})');
+    const both=await w.run('catalogDetail({title:"Game",type:"game",externalIds:{rawg:"123",steam:"620"},platform:"PlayStation 5",tags:["My tag"]})');
+    expect(both.synopsis).toBe("RAWG summary");expect(both.trailer).toBe("https://cdn.example.test/video.mp4");
+    expect(both.news).toEqual([{title:"Update"}]);expect(both.genres).toEqual(["Adventure","RPG"]);
+    expect(both.platforms).toEqual(["PlayStation 5","Nintendo Switch"]);expect(both.tags).toEqual(["My tag","Co-op"]);
+  });
+  it("preserves all game platforms and stores regardless of search response order",()=>{
+    const w=worker();w.ctx.a={title:"Game",type:"game",platform:"Steam",genres:["Action"],url:"https://store.steampowered.com/app/620/"};
+    w.ctx.b={title:"Game",type:"game",platforms:["Nintendo Switch","PlayStation 5"],platform:"Nintendo Switch · PlayStation 5",tags:["Co-op"],storeLinks:["https://www.gog.com/game/example"]};
+    for(const expression of ["combineCatalogEntries(a,b)","combineCatalogEntries(b,a)"]) {
+      const result=w.run(expression);expect(result.platforms).toEqual(["Nintendo Switch","PlayStation 5"]);expect(result.platform).not.toContain("Steam");
+      expect([...result.storeLinks].sort()).toEqual(["https://store.steampowered.com/app/620/","https://www.gog.com/game/example"].sort());
+    }
+  });
+  it("does not erase useful metadata when a provider returns empty fields",()=>{
+    const w=worker();const result=w.run('mergeGameDetails({title:"Game",synopsis:"Existing",cover:"art",releaseDate:"2028-01-01",genres:["Puzzle"]},{synopsis:"",cover:undefined,releaseDate:null,genres:[]})');
+    expect(result).toMatchObject({synopsis:"Existing",cover:"art",releaseDate:"2028-01-01",genres:["Puzzle"]});
+  });
+  it("never interprets unrelated or deceptive app URLs as Steam IDs",()=>{
+    const w=worker();
+    for(const url of ["https://other.example/app/620","https://store.steampowered.com.evil.test/app/620","https://store.steampowered.com@evil.test/app/620","https://u:p@store.steampowered.com/app/620","https://store.steampowered.com:444/app/620","https://store.steampowered.com/search?q=/app/620","https://store.steampowered.com/app/620fake","file:///app/620"]) {
+      w.ctx.value=url;expect(w.run("steamAppId(value)")).toBe("");
+    }
+    expect(w.run('steamAppId("https://store.steampowered.com/app/620/Portal_2/?l=french")')).toBe("620");
+  });
+  it("rejects contradictory Steam identities before making requests",async()=>{
+    const w=worker();w.run('steamAppDetails=async()=>{throw Error("must_not_request")};rawgDetails=async()=>{throw Error("must_not_request")}');
+    await expect(w.run('catalogDetail({title:"Game",type:"game",url:"https://store.steampowered.com/app/400/",externalIds:{steam:"620",rawg:"123"}})')).rejects.toThrow("catalog_identity_mismatch");
+  });
+  it("keeps more than six Steam genres and rejects a mismatched response ID",async()=>{
+    const w=worker();let mismatch=false;
+    w.ctx.fetch=async(url:string)=>({ok:true,json:async()=>String(url).includes("GetNewsForApp")?{appnews:{newsitems:[]}}:{"620":{success:true,data:{steam_appid:mismatch?400:620,short_description:"Summary",genres:Array.from({length:10},(_,n)=>({description:"Genre "+n}))}}}});
+    expect((await w.run('steamAppDetails("620")')).genres).toHaveLength(10);
+    mismatch=true;await expect(w.run('steamAppDetails("620")')).rejects.toThrow("catalog_identity_mismatch");
+  });
+  it("persists merged metadata through refresh while keeping the user's tags and synopsis",async()=>{
+    const w=worker({"dasi.items":[{id:"game",title:"Game",type:"game",externalIds:{steam:"620",rawg:"123"},platform:"PlayStation 5",tags:["Custom"],synopsis:"Custom summary",updatedAt:1}]});
+    w.run('steamAppDetails=async()=>({genres:["Adventure"],news:[],trailer:"https://cdn.example.test/video.mp4"});rawgDetails=async()=>({externalIds:{rawg:"123"},synopsis:"Provider summary",platform:"Nintendo Switch",tags:["Co-op"],storeLinks:["https://www.gog.com/game/example"]})');
+    const result=await w.call({type:"GAME_ENRICH",id:"game",force:true});expect(result.ok).toBe(true);
+    const item=w.data["dasi.items"][0];expect(item.tags).toEqual(["Custom"]);expect(item.synopsis).toBe("Custom summary");
+    expect(item.platform).toBe("PlayStation 5 · Nintendo Switch");expect(item.trailer).toBe("https://cdn.example.test/video.mp4");expect(item.storeLinks).toHaveLength(2);
+  });
+});
