@@ -95,11 +95,15 @@ try {
  assert.deepEqual(await p.evaluate(()=>discoPools().map(pool=>pool.key)),["manga"]);
  assert(await p.evaluate(()=>discoItems.every(item=>item.title.startsWith("Manga "))));
  assert(await p.locator("#view-home .carousel-arrow").count()>0);
- await p.evaluate(()=>openCatalogPreview({title:"Store fixture",type:"game",url:"https://store.steampowered.com/app/123/",price:"$12.99",genres:["Adventure"],alternativeTitles:["Other title"]}));
+ await p.evaluate(()=>openCatalogPreview({title:"Store fixture",type:"game",url:"https://store.steampowered.com/app/123/",price:"$12.99",platform:"Nintendo Switch · PlayStation 5",releaseDate:"2028-04-12",genres:["Adventure"],alternativeTitles:["Other title"]}));
  await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').waitFor();
  assert.equal(await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').count(),1);
  assert.equal(await p.locator("#preview-info details").count(),0);
  assert.equal(await p.locator("#preview-info .detail-price").textContent(),"$12.99");
+ assert(await p.locator("#preview-info .game-detail-facts").textContent().then(s=>s.includes("Nintendo Switch")&&s.includes("PlayStation 5")&&s.includes("2028-04-12")));
+ assert.equal(await p.evaluate(()=>safeStoreLink("https://www.gog.com:444/game/example")),"");
+ assert.equal(await p.evaluate(()=>safeStoreLink("https://store.epicgames.com/en-US/p/example")),"https://store.epicgames.com/en-US/p/example");
+ assert.equal(await p.evaluate(()=>safeStoreLink("https://www.gog.com/game/example")),"https://www.gog.com/game/example");
  assert.equal(await p.evaluate(()=>safeStoreLink("javascript:alert(1)")),"");
  assert.equal(await p.evaluate(()=>safeStoreLink("https://store.steampowered.com.evil.example/app/1")),"");
  assert(await p.evaluate(()=>!discoCard({title:"Game",type:"game",price:"$12.99"},0).includes("$12.99")));
