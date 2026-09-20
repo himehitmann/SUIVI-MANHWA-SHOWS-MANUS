@@ -1201,3 +1201,23 @@ it("migrates legacy synced credentials locally without overwriting local prefere
   expect(w.synced["dasi.settings"]).toEqual({lang:"en"});
 });
 
+describe("RAWG game catalogue metadata", () => {
+  it("retains every supplied genre and platform without inventing PC", async () => {
+    const w=worker();let requested="";
+    w.ctx.fetch=async (url:string)=>{requested=String(url);return {ok:true,json:async()=>({results:[{name:"Console game",slug:"console-game",released:"2028-04-12",background_image:"https://images.example.test/game.jpg",genres:[{name:"Action"},{name:"Adventure"},{name:"RPG"},{name:"Puzzle"},{name:"Indie"}],tags:[{name:"Story Rich"},{name:"Co-op"},{name:"Story Rich"}],platforms:[{platform:{name:"Nintendo Switch"}},{platform:{name:"PlayStation 5"}}]}]})};};
+    const results=await w.run('rawgSearch("Console game","test-key")');
+    expect(new URL(requested).searchParams.get("page_size")).toBe("30");
+    expect(results[0].genres).toHaveLength(5);expect(results[0].tags).toEqual(["Story Rich","Co-op"]);
+    expect(results[0].platforms).toEqual(["Nintendo Switch","PlayStation 5"]);
+    expect(results[0].platform).not.toContain("PC");expect(results[0].year).toBe(2028);expect(results[0].source).toBe("rawg");
+  });
+  it("handles missing and malformed optional metadata without false platform claims",async()=>{
+    const w=worker();w.ctx.fetch=async()=>({ok:true,json:async()=>({results:[null,{name:""},{name:"Unknown",platforms:{},genres:null,tags:[null],released:"not-a-date",background_image:"javascript:alert(1)"}]})});
+    const results=await w.run('rawgSearch("Unknown","test-key")');expect(results).toHaveLength(1);expect(results[0].platform).toBe("");expect(results[0].cover).toBe("");expect(results[0].releaseDate).toBeUndefined();expect(results[0].genres).toEqual([]);
+  });
+  it("treats malformed provider responses as failures rather than an empty catalogue",async()=>{
+    const w=worker();w.ctx.fetch=async()=>({ok:true,json:async()=>({results:{}})});
+    await expect(w.run('rawgSearch("Game","test-key")')).rejects.toThrow("rawg_response_invalid");
+  });
+});
+
