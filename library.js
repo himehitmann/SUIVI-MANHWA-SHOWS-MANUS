@@ -687,14 +687,15 @@ function renderGrid() {
 /* ================= GAMES ================= */
 // Always give a working link to the game: its stored store/official URL, else a
 // Steam search for the title so the user still lands on the game's page.
-function gameLink(i) { return i.url || `https://store.steampowered.com/search/?term=${encodeURIComponent(i.title || "")}`; }
 function gameStoreButtons(item) {
   const links=[...new Set([item.url,...(Array.isArray(item.storeLinks)?item.storeLinks:[])].map(safeStoreLink).filter(Boolean))].slice(0,24);
   return links.length?'<div class="game-store-links" style="display:flex;gap:8px;flex-wrap:wrap" aria-label="'+(settings.lang==="fr"?"Boutiques":"Stores")+'">'+links.map(url=>'<a class="btn" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(gameLinkLabel({url}))+' '+I.open+'</a>').join("")+'</div>':"";
 }
 function gameSourceCredit(item) {
   const id=String(item.externalIds?.rawg||"");
-  return /^[1-9]\d{0,14}$/.test(id)?'<p class="field-hint">'+(settings.lang==="fr"?"Données jeux : ":"Game data: ")+'<a href="https://rawg.io/games/'+id+'" target="_blank" rel="noopener noreferrer">RAWG</a></p>':"";
+  let source="https://rawg.io/";
+  try {const url=new URL(item.url);if(url.origin==="https://rawg.io"&&!url.username&&!url.password&&url.pathname.startsWith("/games/"))source=url.origin+url.pathname;}catch{}
+  return /^[1-9]\d{0,14}$/.test(id)?'<p class="field-hint">'+(settings.lang==="fr"?"Données jeux : ":"Game data: ")+'<a href="'+esc(source)+'" target="_blank" rel="noopener noreferrer">RAWG</a></p>':"";
 }
 function gameLinkLabel(i) {
   if (!i.url) return "Steam";
@@ -1871,7 +1872,7 @@ function addFromCatalog(m, btn) {
   const payload = {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, coverFallback: m.coverFallback || undefined, synopsis: m.synopsis || undefined,
     trailerUrl:m.trailerUrl, trailer:m.trailer, cast:m.cast, tags:m.tags||[], genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds, alternativeTitles:m.alternativeTitles, authors:m.authors, anilistId:m.anilistId,
-    source:m.source,storeLinks:Array.isArray(m.storeLinks)?m.storeLinks.map(safeStoreLink).filter(Boolean):[],gameEnrichedAt:m.gameEnrichedAt,
+    source:m.source,storeLinks:m.type==="game"?[...new Set([m.url,...(Array.isArray(m.storeLinks)?m.storeLinks:[])].map(safeStoreLink).filter(Boolean))].slice(0,24):[],gameEnrichedAt:m.gameEnrichedAt,
     format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
   };
