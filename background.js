@@ -126,7 +126,7 @@ function identityTitles(item) {
 function identityIds(item) {
   const ids={};
   for(const [key,value] of Object.entries(item?.externalIds||{})) {
-    if(["anilist","mal","mangaupdates","tvmaze","tmdb","openlibrary","steam"].includes(key)&&["string","number"].includes(typeof value)&&String(value).trim())ids[key]=String(value).trim();
+    if(["anilist","mal","mangaupdates","tvmaze","tmdb","openlibrary","steam","rawg"].includes(key)&&["string","number"].includes(typeof value)&&String(value).trim())ids[key]=String(value).trim();
   }
   if(item?.anilistId)ids.anilist=String(item.anilistId).trim();
   return ids;
@@ -810,6 +810,61 @@ async function catalogEpisodeGuide(item,seasonId) {
   return {supported:true,seasons,season,episodes};
 }
 
+
+function gameStoreUrl(value) {
+  if(typeof value!=="string"||value.length>2048)return "";
+  try {
+    const url=new URL(value);
+    const hosts=["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com","apps.apple.com","play.google.com"];
+    return url.protocol==="https:"&&hosts.includes(url.hostname)&&!url.port&&!url.username&&!url.password?url.href:"";
+  }catch{return "";}
+}
+function gameStoreLinks(...values) {
+  return [...new Set(values.flatMap(value=>Array.isArray(value)?value:[]).map(gameStoreUrl).filter(Boolean))].slice(0,24);
+}
+const rawgDetailsCache=new Map(),rawgDetailsInflight=new Map();
+async function rawgDetails(id,key,force=false) {
+  if(!/^[1-9]\d{0,14}$/.test(String(id))||typeof key!=="string"||!key.trim())throw Error("rawg_unavailable");
+  const cacheKey=key+":"+id,cached=rawgDetailsCache.get(cacheKey);
+  if(!force&&cached&&cached.expires>Date.now())return structuredClone(cached.value);
+  if(rawgDetailsInflight.has(cacheKey))return structuredClone(await rawgDetailsInflight.get(cacheKey));
+  if(rawgDetailsInflight.size>=4)throw Error("rawg_busy");
+  const task=(async()=>{
+    const base="https://api.rawg.io/api/games/"+id;
+    const response=await fetchRemote(base+"?key="+encodeURIComponent(key),{credentials:"omit",redirect:"error"});
+    if(!response.ok)throw Error("rawg_details_unavailable");
+    const game=await response.json();
+    if(String(game?.id)!==String(id))throw Error("catalog_identity_mismatch");
+    if(typeof game.name!=="string"||!game.name.trim())throw Error("rawg_response_invalid");
+    const names=rows=>[...new Set((Array.isArray(rows)?rows:[]).map(x=>typeof x?.name==="string"?x.name.trim().slice(0,100):"").filter(Boolean))].slice(0,80);
+    const platform=names((Array.isArray(game.platforms)?game.platforms:[]).map(x=>x?.platform)).join(" · ");
+    const synopsis=typeof game.description==="string"?stripHtml(game.description).slice(0,20000):"";
+    const date=typeof game.released==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(game.released)&&Number.isFinite(Date.parse(game.released))?game.released:"";
+    const detail={externalIds:{rawg:String(id)},source:"rawg",gameEnrichedAt:Date.now(),
+      ...(synopsis?{synopsis}:{}),...(platform?{platform}:{}),...(date?{releaseDate:date,year:Number(date.slice(0,4))}:{}),
+      genres:names(game.genres),tags:names(game.tags),authors:names(game.developers),
+      alternativeTitles:[...new Set([game.name,game.name_original,...(Array.isArray(game.alternative_names)?game.alternative_names:[])].filter(x=>typeof x==="string"&&x.trim()).map(x=>x.trim().slice(0,300)))].slice(0,60)};
+    try {const cover=new URL(game.background_image);if(cover.protocol==="https:"&&!cover.username&&!cover.password)detail.cover=cover.href;}catch{}
+    // Store availability must never discard a usable game description.
+    try {
+      const storesResponse=await fetchRemote(base+"/stores?key="+encodeURIComponent(key)+"&page_size=40",{credentials:"omit",redirect:"error"});
+      if(storesResponse.ok){const stores=await storesResponse.json();if(Array.isArray(stores?.results))detail.storeLinks=gameStoreLinks(stores.results.filter(row=>row&&(row.game_id===undefined||String(row.game_id)===String(id))).map(row=>row.url));}
+    }catch{}
+    rawgDetailsCache.delete(cacheKey);
+    while(rawgDetailsCache.size>=48)rawgDetailsCache.delete(rawgDetailsCache.keys().next().value);
+    rawgDetailsCache.set(cacheKey,{value:detail,expires:Date.now()+15*60*1000});
+    return detail;
+  })();
+  rawgDetailsInflight.set(cacheKey,task);
+  try{return structuredClone(await task);}finally{rawgDetailsInflight.delete(cacheKey);}
+}
+function mergeGameDetails(item,detail) {
+  const merged={...item,...detail,title:item.title,...identityMetadata(item,detail)};
+  for(const field of ["genres","tags"])merged[field]=[...new Set([...(Array.isArray(item[field])?item[field]:[]),...(Array.isArray(detail[field])?detail[field]:[])])];
+  merged.storeLinks=gameStoreLinks(item.storeLinks,detail.storeLinks,[item.url]);
+  return merged;
+}
+
 async function catalogDetail(item) {
   const ids=identityIds(item);
   if(/^\d+$/.test(ids.anilist||"")) {
@@ -830,6 +885,10 @@ async function catalogDetail(item) {
       alternativeTitles:[...new Set([...identityTitles(item),show.name,...akas.map(a=>a.name)].filter(Boolean))],
       cast:(show._embedded?.cast||[]).slice(0,20).map(c=>({name:c.person?.name,character:c.character?.name,image:c.person?.image?.medium||c.character?.image?.medium||""})).filter(c=>c.name)
     };
+  }
+  if(item.type==="game"&&/^[1-9]\d{0,14}$/.test(ids.rawg||"")) {
+    const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
+    return mergeGameDetails(item,await rawgDetails(ids.rawg,settings.rawgKey));
   }
   const steam=ids.steam||steamAppId(item.url);
   if(item.type==="game"&&/^\d+$/.test(steam||"")) {
@@ -975,6 +1034,7 @@ async function rawgSearch(query, key) {
     try { const image = new URL(g.background_image); if(image.protocol === "https:" && !image.username && !image.password) cover = image.href; } catch {}
     return {
       title: g.name.trim().slice(0,300), type: "game", source: "rawg", cover, synopsis: "",
+      externalIds: Number.isSafeInteger(g.id)&&g.id>0?{rawg:String(g.id)}:{},
       genres: names(g.genres), tags: names(g.tags), platforms,
       platform: platforms.join(" · "), releaseDate: date, year: date ? Number(date.slice(0,4)) : undefined,
       format: "Game", url: typeof g.slug === "string" && g.slug ? "https://rawg.io/games/" + encodeURIComponent(g.slug) : "",
@@ -1236,7 +1296,25 @@ function newMetadataJob() {return {jobId:crypto.randomUUID(),attempts:0,nextAtte
 async function enrichGame(id,force=false,lease=null) {
   const epoch=accountEpoch,items=await read(ITEMS_KEY,[]),it=items.find(x=>x.id===id);
   if(!it||it.type!=="game"||!metadataLeaseValid(it,lease))return {status:"stale"};
-  if(!force&&it.enrichedAt&&it.cover&&it.synopsis&&it.identityVersion===1)return {status:"matched",item:it};
+  if(!force&&it.gameEnrichedAt&&it.cover&&it.synopsis&&it.identityVersion===1)return {status:"matched",item:it};
+  const rawg=identityIds(it).rawg;
+  if(rawg) {
+    let detail;
+    try {const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);detail=await rawgDetails(rawg,settings.rawgKey,force);}catch{return {status:"retryable_error",error:"source_unavailable"};}
+    const data=mergeGameDetails(it,detail),patch={enrichedAt:Date.now(),gameEnrichedAt:Date.now(),identityVersion:1};
+    for(const field of ["storeLinks","genres","alternativeTitles","authors","source"])if(data[field]!==undefined)patch[field]=data[field];
+    for(const field of ["synopsis","platform","releaseDate","year"])if(data[field]&&!it[field])patch[field]=data[field];
+    if(!it.tags?.length)patch.tags=data.tags?.length?data.tags:data.genres;
+    if(data.cover&&!it.coverOverride)patch.cover=data.cover;
+    return serializeLibrary(async()=>{
+      if(epoch!==accountEpoch)return {status:"stale"};
+      const current=await read(ITEMS_KEY,[]),live=current.find(x=>x.id===id);
+      if(!metadataIdentityUnchanged(live,it)||!metadataLeaseValid(live,lease))return {status:"stale"};
+      const item=applyMetadataPatch(live,it,patch);
+      await writeData({[ITEMS_KEY]:current.map(x=>x.id===id?item:x)});
+      return {status:item.cover&&item.synopsis?"matched":"partial",item};
+    });
+  }
   const known=identityIds(it).steam||steamAppId(it.url);
   let match,detail,appid=known;
   try {
@@ -1931,29 +2009,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Lazy game enrichment: pull genres/tags + description from Steam when a
     // game fiche is opened without them. Best-effort; patches the item in place.
     case "GAME_ENRICH":
-      {const epoch=accountEpoch;
-      read(ITEMS_KEY, []).then(async (items) => {
-        const it = items.find((x) => x.id === message.id);
-        const appid = it ? steamAppId(it.url) : "";
-        if (!it || !appid) { sendResponse({ ok: false }); return; }
-        try {
-          const d = await steamAppDetails(appid);
-          if (!d) { sendResponse({ ok: false }); return; }
-          const patch = { gameEnrichedAt: Date.now() };
-          if (d.trailer) patch.trailer = d.trailer;
-          if (d.cover && !it.cover) patch.cover = d.cover;
-          if (d.news?.length) patch.news = d.news;
-          if (d.genres.length && !(it.tags && it.tags.length)) patch.tags = d.genres;
-          if (d.synopsis && !it.synopsis) patch.synopsis = d.synopsis;
-          if (d.releaseDate && !it.releaseDate) patch.releaseDate = d.releaseDate;
-          const next = await serializeLibrary(async()=>{if(epoch!==accountEpoch)throw Error("account_changed");const current=await read(ITEMS_KEY,[]);const next=current.map(x=>x.id===message.id?{...x,...patch}:x);await writeData({[ITEMS_KEY]:next});return next;});
-          sendResponse({ ok: true, item: next.find((x) => x.id === message.id) });
-          autoSync();
-        } catch { sendResponse({ ok: false }); }
-      });
+      enrichGame(message.id,message.force===true).then(result=>{sendResponse({ok:!!result.item,...result});if(result.item)autoSync();},()=>sendResponse({ok:false,error:"details_unavailable"}));
       return true;
 
-      }
     // Fresh recommendations for the Home page (cached ~6h).
     case "DISCOVER":
       getDiscover(message.force)
