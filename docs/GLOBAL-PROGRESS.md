@@ -10,9 +10,9 @@ Mise à jour : 20 septembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi re
 
 ## Preuves actuelles
 
-[CI #422](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/35099277368), commit 1248beb0b8cbe6ef460d51ba0e029c3b4561e0bd : 360 tests passent, parcours web incluant administration et guide réussi, contrôle PostgreSQL/capacité réussi. Le contrôle du paquet Chrome échoue sur une hauteur de popup de 629 px pour une limite de 600 px. Correction d’espacement publiée ensuite, validation en cours. Les derniers contrôles de recadrage/listes/vidéo n’ont pas été exécutés dans cette exécution après cet échec.
+[CI #455](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/35523972755), commit 60eeee3e7461bb562ae4eea7641702799f99f363 : 382 tests unitaires passent, ainsi que lint, TypeScript, compilation, contrôle de sécurité et audit des dépendances. Les parcours web, paquet Chrome, recadrage, listes et vidéo réussissent. La sonde PostgreSQL/capacité réussit également. Le précédent échec de hauteur du popup n'est plus présent sur cette exécution.
 
-La réussite historique du contrôle 12.2 reste une preuve de régressions exécutées sur la version citée dans son audit ; elle ne signifie pas que le dernier paquet est validé. Aucun pourcentage ne permet de publier une version dont les contrôles requis échouent.
+Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les contrôles d'identité Steam sont vérifiés avec des réponses fournisseur simulées. Ils ne prouvent ni l'exhaustivité du catalogue ni la disponibilité de chaque API réelle. La sonde de charge isolée ne certifie pas une capacité de production. La validation ci-dessus concerne le commit de code cité ; cette mise à jour documentaire ne modifie pas le produit.
 
 ## Critères produit et lancement
 
@@ -27,7 +27,7 @@ La réussite historique du contrôle 12.2 reste une preuve de régressions exéc
 | G07 | Saisons et épisodes nommés avec progression cohérente | P | Guide TVmaze disponible ; autres catalogues et saisons particulières à compléter. |
 | G08 | Recherche progressive rapide, pertinente et paginée au-delà des petits résultats | P | Cache et plusieurs sources ; plafond de résultats et couverture descriptions/titres à améliorer. |
 | G09 | Filtres type, genre, diffusion, dates futures et prix correctement combinés | P | Contrôles présents ; cohérence entre fournisseurs et distinction diffusion terminée/saison terminée restante. |
-| G10 | Jeux au-delà de Steam, boutiques officielles, prix et tags détaillés | P | Steam et RAWG avec clé personnelle ; couverture autres boutiques et détails insuffisante. |
+| G10 | Jeux au-delà de Steam, boutiques officielles, prix et tags détaillés | P | Steam et RAWG avec clé personnelle : repli sur identifiant connu, plateformes/boutiques fusionnées, genres conservés et refresh sans perte des modifications personnelles testés. Prix multi-boutiques, droits et couverture réelle restent partiels. |
 | G11 | Actualités récentes, codes et récompenses structurés avec expiration | NV | Ne pas confondre annonces génériques et codes actifs vérifiés. Flux officiels et expiration à réaliser. |
 | G12 | Notifications par œuvre/jeu, catégories et désactivation réellement vérifiées | P | Préférences présentes ; livraison et suppression des événements périmés à valider. |
 | G13 | Bibliothèque cohérente, compteurs, listes et actions rapides sans ajout invisible | P | Ajouts explicites, listes/imports/progression testés ; revue totale du tableau de bord et des compteurs restante. |
@@ -45,7 +45,7 @@ La réussite historique du contrôle 12.2 reste une preuve de régressions exéc
 
 ## Priorités de livraison
 
-1. Faire passer le paquet Chrome et les contrôles qui suivent ; tester le mode automatique depuis le popup réel.
+1. Maintenir les contrôles Chrome réussis ; tester le mode de traduction automatique depuis le popup réel.
 2. Étendre recherche/fiches/jeux multi-boutiques et corriger les écarts de présentation avec un corpus réel.
 3. Réconcilier avantages gratuits/Pro et limites de traduction avec une mesure de coûts. Tester paiement, annulation et révocation avant activation commerciale.
 4. Configurer et vérifier le propriétaire ; voir ADMINISTRATION.md. Aucune promotion réelle n’a été faite par simple modification du code.
