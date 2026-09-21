@@ -153,5 +153,33 @@ try {
  await p.evaluate(()=>{clearSearchResults();openDrawer("fixture0");});
  await p.locator("#dr-notify").uncheck();
  await p.waitForFunction(()=>items.find(i=>i.id==="fixture0").notifyUpdates===false);
+
+ await p.evaluate(()=>{
+   closeDrawer();query="";settings.homeCats=null;homeShowAll=false;items=[];
+   const art="data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450"><rect width="300" height="450" fill="#38586c"/><circle cx="150" cy="170" r="80" fill="#ded3b4"/><path d="M0 450L150 260L300 450" fill="#172631"/></svg>');
+   const works=(prefix,type)=>Array.from({length:8},(_,n)=>({title:prefix+" "+n,type,cover:art,year:2028,synopsis:"Un voyage, des rencontres et un nouveau départ.",genres:["Adventure"]}));
+   discover={manga:works("Manga","reading"),manhwa:works("Manhwa","reading"),anime:works("Anime","watching"),gamesHot:works("Game","game")};
+   switchView("home");spotPaused=true;renderHome();
+ });
+ assert.equal(await p.locator("#view-home .disco-wrap").count(),3,"Default home offers reading, watching and games");
+ assert.deepEqual(await p.evaluate(()=>homeFeaturedPools(discoPools()).map(pool=>pool.key)),["manhwa","anime","games"]);
+ assert.equal(await p.locator(".home-feature-backdrop").getAttribute("aria-hidden"),"true");
+ assert.equal(await p.locator(".home-feature-art img").evaluate(el=>getComputedStyle(el).objectFit),"contain");
+ await p.setViewportSize({width:1440,height:1000});
+ await p.screenshot({path:"test-results/home-desktop.png",fullPage:true});
+ const before=await p.locator(".home-feature h2").textContent();
+ await p.locator('[data-feature-step="1"]').click();
+ assert.notEqual(await p.locator(".home-feature h2").textContent(),before);
+ await p.locator(".home-feature-copy [data-feature-details]").click();
+ await p.locator("#preview-add").waitFor();
+ assert(await p.locator("#preview-add").isDisabled(),"Featured discoveries require an explicit list");
+ await p.evaluate(()=>closeDrawer());
+ await p.setViewportSize({width:390,height:844});
+ await p.screenshot({path:"test-results/home-mobile.png",fullPage:true});
+ assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Home must fit a narrow screen");
+ assert(await p.locator(".home-feature-art").isVisible());
+ await p.emulateMedia({reducedMotion:"reduce"});
+ await p.evaluate(()=>{spotPaused=false;renderHome();});
+ assert(await p.locator(".home-feature-copy [data-feature-details]").isVisible());
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
