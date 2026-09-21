@@ -1327,7 +1327,7 @@ function getDiscover(force) {
 async function refreshDiscover(force) {
   const now=Date.now(),stored=(await api.storage.local.get(DISCOVER_KEY))[DISCOVER_KEY];
   const cached=stored?.discoveryVersion===3?stored:null;
-  if(cached&&!force&&((!cached.stale&&now-cached.ts<DISCOVER_TTL)||(cached.stale&&now<cached.retryAfter)))return cached;
+  if(cached&&!force&&((!cached.stale&&Number.isFinite(cached.ts)&&cached.ts<=now&&now-cached.ts<DISCOVER_TTL)||(cached.stale&&now<cached.retryAfter)))return cached;
   let fresh;
   try{fresh=await buildDiscover();}catch{fresh=null;}
   const hasFresh=fresh&&DISCOVERY_CATEGORIES.some(key=>Array.isArray(fresh[key])&&fresh[key].length);
