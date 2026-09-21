@@ -186,8 +186,26 @@ const currentNum = (i) => (i.type === "watching" ? i.episode || 0 : i.chapter ||
 const STATUSES = ["current", "planned", "completed", "on_hold", "dropped"];
 const itemState = (i) => i.state || ((i.progress || 0) >= 100 ? "completed" : "current");
 const unseen = (i) => (i.type === "game" ? 0 : Math.max(0, (i.type==="watching" && i.releaseSeason===(Number(i.season)||1) && Number.isFinite(i.releasedTotal) ? i.releasedTotal : i.total || 0) - currentNum(i)));
-// "New for you": you have unseen released entries, OR it changed recently.
-const isNew = (i) => i.type !== "game" && itemState(i) !== "dropped" && ((i.recentEpisodes||[]).some(ep=>Date.now()-ep.at<NEW_WINDOW && ep.at<=Date.now() && (ep.season>(i.season||1)||(ep.season===(i.season||1)&&ep.episode>(i.episode||0)))) || (unseen(i)>0 && Number(i.lastReleaseAt)>0 && Date.now()-Number(i.lastReleaseAt)<NEW_WINDOW));
+// A new release needs a confirmed past date and remaining progress.
+function isNew(i,now=Date.now()) {
+  if(i.type==="game"||itemState(i)==="dropped")return false;
+  const season=Number(i.season)||1,episode=Number(i.episode)||0;
+  const recent=Array.isArray(i.recentEpisodes)?i.recentEpisodes:[];
+  if(i.type==="watching"&&recent.some(ep=>{
+    const at=Number(ep?.at),s=Number(ep?.season),n=Number(ep?.episode);
+    return Number.isFinite(at)&&at>0&&at<=now&&now-at<NEW_WINDOW&&Number.isInteger(s)&&s>0&&Number.isInteger(n)&&n>0&&(s>season||s===season&&n>episode);
+  }))return true;
+  const at=Number(i.lastReleaseAt);
+  return unseen(i)>0&&Number.isFinite(at)&&at>0&&at<=now&&now-at<NEW_WINDOW;
+}
+function homeActivity(source,now=Date.now()) {
+  const active=source.filter(i=>!i.homeHidden&&i.type!=="game"&&itemState(i)==="current");
+  const catchUp=active.filter(i=>isNew(i,now)).sort((a,b)=>(Number(b.lastReleaseAt)||0)-(Number(a.lastReleaseAt)||0)||unseen(b)-unseen(a));
+  const used=new Set(catchUp.map(i=>i.id));
+  const resume=active.filter(i=>(currentNum(i)>0||i.type==="watching"&&Number(i.position)>0)&&(i.progress||0)<100)
+    .sort((a,b)=>(b.activityAt||b.updatedAt||0)-(a.activityAt||a.updatedAt||0));
+  return {resume,catchUp,continuing:resume.filter(i=>!used.has(i.id)).slice(0,12)};
+}
 const parseDate = (s) => { if (!s) return null; const d = Date.parse(s); return Number.isFinite(d) ? d : null; };
 const isSoon = (i) => { const d = parseDate(i.releaseDate); return d && d > Date.now() && d - Date.now() < SOON_WINDOW; };
 const isReleased = (i) => { const d = parseDate(i.releaseDate); return i.released || (d && d <= Date.now()); };
@@ -520,11 +538,7 @@ function valueStrip() {
 function renderHome() {
   clearInterval(spotTimer);
   const fr=settings.lang==="fr",homeItems=items.filter(i=>!i.homeHidden),el=document.getElementById("view-home");
-  const active=homeItems.filter(i=>i.type!=="game"&&itemState(i)==="current");
-  const resume=active.filter(i=>currentNum(i)>0&&(i.progress||0)<100).sort((a,b)=>(b.activityAt||b.updatedAt||0)-(a.activityAt||a.updatedAt||0));
-  const catchUp=homeItems.filter(i=>i.type!=="game"&&!['dropped','on_hold','planned'].includes(itemState(i))&&(isNew(i)||unseen(i)>0&&currentNum(i)>0)).sort((a,b)=>Number(isNew(b))-Number(isNew(a))||(b.lastReleaseAt||0)-(a.lastReleaseAt||0)||unseen(b)-unseen(a));
-  const used=new Set(catchUp.map(i=>i.id));
-  const continuing=resume.filter(i=>!used.has(i.id)).slice(0,12);
+  const {resume,catchUp,continuing}=homeActivity(homeItems);
   const pools=discover?discoPools():[];
   const first=resume[0]||catchUp[0];
   spotItems=first?[{item:first,catalog:false,label:fr?"Reprendre là où vous en étiez":"Pick up where you left off"}]:[];
@@ -540,7 +554,7 @@ function renderHome() {
   const personal=continuing.length||catchUp.length;
   el.innerHTML='<div class="home-heading"><div><h1>'+(fr?"À découvrir aujourd’hui":"Discover today")+'</h1><p class="sub">'+(fr?"Vos lectures, vos séries et les tendances du moment.":"Your reading, your shows and what’s trending now.")+'</p></div><button class="btn" id="home-library">'+(fr?"Ma bibliothèque":"My library")+'</button></div>'+
     (spotItems.length?'<section id="spot-wrap" class="home-feature-wrap" aria-label="'+(fr?"À la une":"Featured")+'">'+spotHtml(spotItems[spotIdx])+spotControls()+'</section>':(!items.length?'<div class="home-welcome"><h2>'+t("welcomeTitle")+'</h2><p class="sub">'+(fr?"Explorez les tendances ci-dessous ou recherchez une œuvre avec la barre en haut.":"Explore the trends below or search for a title using the bar above.")+'</p></div>':""))+
-    (personal?'<section class="home-personal" aria-label="'+(fr?"Votre suivi":"Your activity")+'">'+row(fr?"À rattraper":"Catch up",catchUp.slice(0,12),fr?"Les sorties que vous n’avez pas encore vues ou lues":"Releases you have not watched or read yet")+row(t("continue"),continuing)+'</section>':"")+renderDiscover();
+    (personal?'<section class="home-personal" aria-label="'+(fr?"Votre suivi":"Your activity")+'">'+row(fr?"À rattraper":"Catch up",catchUp.slice(0,12),fr?"Sorties récentes que vous n’avez pas encore vues ou lues":"Recent releases you have not watched or read yet")+row(t("continue"),continuing)+'</section>':"")+renderDiscover();
   bindHome();bindDisco();startSpot();
 }
 function spotHtml(entry) {
