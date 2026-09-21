@@ -1449,3 +1449,52 @@ describe("game alerts across store destinations",()=>{
     expect(w.data["dasi.notifications"][0].message).toBe("est disponible");
   });
 });
+
+describe("complementary search catalogs",()=>{
+  it("combines successful catalogs and merges confirmed shared identities",async()=>{
+    const w=worker();
+    w.run('anilistSearch=async()=>[{title:"Alpha",type:"reading",externalIds:{anilist:"1",mal:"10"},genres:["Action"]}];jikanSearch=async()=>[{title:"Alpha translated",type:"reading",externalIds:{mal:"10"},genres:["Mystery"]},{title:"Beta",type:"reading",externalIds:{mal:"20"}}]');
+    const results=await w.run('mangaSearchResilient("query")');
+    expect(results).toHaveLength(2);
+    expect(results.find((r:any)=>r.externalIds.mal==="10").genres).toEqual(["Action","Mystery"]);
+    expect(results.some((r:any)=>r.title==="Beta")).toBe(true);
+  });
+  it("publishes the second catalog while AniList is still pending",async()=>{
+    const w=worker();
+    w.run('var finishPrimary;anilistSearch=()=>new Promise(resolve=>{finishPrimary=resolve});jikanSearch=async()=>[{title:"Fast manga",type:"reading"}];steamSearch=openLibrarySearch=tvmazeSearch=wikipediaSearch=async()=>[];var partial=[]');
+    const pending=w.run('catalogSearchAll("query",results=>{partial=results})');
+    for(let n=0;n<50&&!w.run('partial.length');n++)await new Promise(r=>setTimeout(r,2));
+    expect(w.run('partial.map(r=>r.title)')).toEqual(["Fast manga"]);
+    w.run('finishPrimary([{title:"Slow manga",type:"reading"}])');
+    expect((await pending).map((r:any)=>r.title)).toEqual(["Fast manga","Slow manga"]);
+  });
+  it("keeps primary results during a secondary outage and rejects a total outage",async()=>{
+    const w=worker();
+    w.run('anilistSearch=async()=>[{title:"Available",type:"reading"}];jikanSearch=async()=>{throw Error("offline")}');
+    expect((await w.run('mangaSearchResilient("query")'))[0].title).toBe("Available");
+    w.run('anilistSearch=async()=>{throw Error("offline")}');
+    await expect(w.run('mangaSearchResilient("query")')).rejects.toThrow("manga_catalogs_unavailable");
+  });
+  it("bounds the secondary queue and frees slots after requests finish",async()=>{
+    const w=worker();
+    w.run('setTimeout=fn=>{fn();return 0};fetchRemote=async()=>({ok:true,json:async()=>({data:[]})})');
+    const results=await w.run('Promise.allSettled(Array.from({length:9},(_,i)=>jikanRequest("manga?q="+i)))');
+    expect(results.filter((r:any)=>r.status==="fulfilled")).toHaveLength(8);
+    expect(results.filter((r:any)=>r.status==="rejected")[0].reason.message).toBe("jikan_queue_full");
+    await expect(w.run('jikanRequest("manga?q=again")')).resolves.toEqual({data:[]});
+  });
+  it("retains provider results beyond the former six-item TV limit",async()=>{
+    const w=worker();
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>Array.from({length:15},(_,i)=>({show:{id:i+1,name:"Show "+i}}))})');
+    expect(await w.run('tvmazeSearch("query")')).toHaveLength(15);
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>({results:[{media_type:"person",name:"Actor"},...Array.from({length:15},(_,i)=>({id:i+1,media_type:"tv",name:"Show "+i}))]})})');
+    const films=await w.run('tmdbSearch("query","fixture")');
+    expect(films).toHaveLength(15);
+    expect(films.some((r:any)=>r.title==="Actor")).toBe(false);
+  });
+  it("retains more than 120 unique results while keeping an explicit upper bound",()=>{
+    const w=worker();
+    w.ctx.catalog=Array.from({length:320},(_,i)=>({title:"Distinct title "+i,type:"reading",externalIds:{mal:String(i+1)}}));
+    expect(w.run("mergeCatalogResults(catalog)")).toHaveLength(300);
+  });
+});
