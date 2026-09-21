@@ -1498,3 +1498,44 @@ describe("complementary search catalogs",()=>{
     expect(w.run("mergeCatalogResults(catalog)")).toHaveLength(300);
   });
 });
+
+describe("consistent regional series classification",()=>{
+  it("recognizes streaming dramas and preserves genres beyond four",async()=>{
+    const w=worker();w.ctx.show={id:1,name:"Streaming drama",type:"Scripted",webChannel:{country:{code:"KR"}},genres:["Drama","Romance","Comedy","Mystery","Thriller","Drama"]};
+    w.run("fetchRemote=async()=>({ok:true,json:async()=>[{show}]})");
+    const results=await w.run('tvmazeSearch("drama")');
+    expect(results[0]).toMatchObject({format:"KDRAMA",country:"KR",genres:["Drama","Romance","Comedy","Mystery","Thriller"]});
+  });
+  it("keeps reality shows and animations out of regional drama filters",()=>{
+    const w=worker();
+    for(const country of ["KR","CN","TW","HK","JP"]){
+      w.ctx.country=country;
+      expect(w.run('tvmazeFormat({type:"Reality",network:{country:{code:country}}})')).toBe("SERIES");
+      expect(w.run('tvmazeFormat({type:"Animation",network:{country:{code:country}}})')).toBe(country==="JP"?"ANIME":"ANIMATION");
+    }
+  });
+  it("uses the same regional mapping for broadcast and streaming scripted shows",()=>{
+    const w=worker();
+    for(const [country,format] of [["KR","KDRAMA"],["CN","CDRAMA"],["TW","CDRAMA"],["HK","CDRAMA"],["JP","JDRAMA"],["US","SERIES"]]){
+      w.ctx.country=country;
+      for(const field of ["network","webChannel"]){
+        w.ctx.field=field;
+        expect(w.run('tvmazeFormat({type:"Scripted",[field]:{country:{code:country}}})')).toBe(format);
+      }
+    }
+  });
+  it("does not invent an origin or drama classification when metadata is missing",()=>{
+    const w=worker();
+    expect(w.run("tvmazeCountry({})")).toBe("");
+    expect(w.run('tvmazeFormat({network:{country:{code:"KR"}}})')).toBe("SERIES");
+    expect(w.run('tvmazeFormat({type:"Animation",genres:"invalid"})')).toBe("ANIMATION");
+  });
+  it("keeps search and home categories consistent for streaming drama and reality",async()=>{
+    const w=worker();
+    w.ctx.shows=[{id:1,name:"Drama",type:"Scripted",status:"Running",webChannel:{country:{code:"KR"}},image:{medium:"cover"}},{id:2,name:"Reality",type:"Reality",network:{country:{code:"KR"}},image:{medium:"cover"}}];
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>shows.map(show=>({show,season:1,number:1,airstamp:new Date(Date.now()-1000).toISOString()}))})');
+    const home=await w.run("tvmazeTrending()");
+    expect(home.find((r:any)=>r.title==="Drama")).toMatchObject({cat:"kdrama",format:"KDRAMA",country:"KR",releaseStatus:"Running"});
+    expect(home.find((r:any)=>r.title==="Reality")).toMatchObject({cat:"series",format:"SERIES"});
+  });
+});
