@@ -995,7 +995,7 @@ describe("ambiguous saves and placeholder progress",()=>{
 describe("durable metadata outcomes",()=>{
   const pending=(attempts=0)=>({jobId:"job",attempts,nextAttemptAt:0});
   it("uses a known Steam identity directly and completes the persisted job",async()=>{
-    const w=worker({"dasi.items":[{id:"game",title:"Translated game",type:"game",externalIds:{steam:"620"},metadataPending:pending()}]});
+    const w=worker({"dasi.items":[{id:"game",title:"Translated game",type:"game",released:true,externalIds:{steam:"620"},metadataPending:pending()}]});
     w.run('var requested=[];steamSearch=async()=>{throw Error("title search forbidden")};steamAppDetails=async id=>{requested.push(id);return {cover:"art",synopsis:"summary",genres:["Puzzle"],comingSoon:false}}');
     await w.run("runImportEnrichment()");
     expect(w.run("requested")).toEqual(["620"]);
