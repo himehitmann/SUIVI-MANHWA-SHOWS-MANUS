@@ -1539,3 +1539,30 @@ describe("consistent regional series classification",()=>{
     expect(home.find((r:any)=>r.title==="Reality")).toMatchObject({cat:"series",format:"SERIES"});
   });
 });
+
+describe("catalog publication years",()=>{
+  it("uses the publication year for manga including future releases",()=>{
+    const w=worker();
+    const result=w.run('mediaToResult({id:1,title:{english:"Future manga"},format:"MANGA",status:"NOT_YET_RELEASED",startDate:{year:2028}})');
+    expect(result).toMatchObject({year:2028,releaseStatus:"NOT_YET_RELEASED"});
+    expect(result.season).toBeUndefined();
+  });
+  it("uses the first release year before the broadcast season year",()=>{
+    const w=worker();
+    expect(w.run('mediaToResult({title:{english:"Anime"},format:"TV",startDate:{year:2027},seasonYear:2028}).year')).toBe(2027);
+    expect(w.run('mediaToResult({title:{english:"Anime"},format:"TV",startDate:{year:null},seasonYear:2028}).year')).toBe(2028);
+    expect(w.run('mediaToResult({title:{english:"Unknown"},format:"MANGA"}).year')).toBeUndefined();
+  });
+  it("requests publication years in search, details and trending queries",async()=>{
+    const w=worker();
+    w.run('var queries=[];fetchRemote=async(url,options)=>{queries.push(JSON.parse(options.body).query);return {ok:true,json:async()=>({data:{Page:{media:[]},Media:{id:1,title:{english:"Title"},format:"MANGA",startDate:{year:2028}}}})}}');
+    await w.run('anilistSearch("title")');
+    expect((await w.run('anilistDetail(1)')).year).toBe(2028);
+    await w.run('anilistTrending("MANGA")');
+    expect(w.run('queries.every(q=>q.includes("startDate{year}"))')).toBe(true);
+  });
+  it("retains all supplied genres beyond six and removes duplicates",()=>{
+    const w=worker();w.ctx.genres=["Action","Comedy","Drama","Fantasy","Horror","Mystery","Romance","Action"];
+    expect(w.run('mediaToResult({title:{english:"Title"},format:"MANGA",genres}).genres')).toEqual(["Action","Comedy","Drama","Fantasy","Horror","Mystery","Romance"]);
+  });
+});
