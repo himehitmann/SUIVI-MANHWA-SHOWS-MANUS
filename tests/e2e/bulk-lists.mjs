@@ -212,5 +212,35 @@ try {
  assert.equal(await p.locator(".home-feature").count(),0,"No fabricated feature when catalogs are unavailable");
  await p.locator("#home-library").click();
  assert.equal(await p.evaluate(()=>view),"library");
+
+ const taste=await p.evaluate(()=>{
+   const original=items;
+   items=[
+     {type:"reading",favorite:true,genres:[" Mystery ","Mystery"],tags:["mystery"],synopsis:"An investigation inside a mountain monastery.",activityAt:Date.now()},
+     {type:"reading",favorite:true,homeHidden:true,tags:["Hidden"]},
+     {type:"reading",favorite:true,state:"dropped",tags:["Dropped"]},
+     {type:"reading",rating:1,tags:["Disliked"]}
+   ];
+   const weights=tasteWeights();
+   const relevant=scoreTaste({tags:["Mystery"],synopsis:"An investigation at the monastery."},weights);
+   const unrelated=scoreTaste({genres:["Sports"],synopsis:"A championship tournament."},weights);
+   const duplicate=scoreTaste({genres:["Mystery"],tags:["mystery"," Mystery "]},weights);
+   const single=scoreTaste({genres:["Mystery"]},weights);
+   items=original;
+   return {keys:Object.keys(weights),relevant,unrelated,duplicate,single};
+ });
+ assert(taste.keys.includes("genre:mystery"));
+ assert(!taste.keys.some(key=>["genre:hidden","genre:dropped","genre:disliked"].includes(key)));
+ assert(taste.relevant>taste.unrelated,"Synopsis and provider tags should improve matching");
+ assert.equal(taste.duplicate,taste.single,"Repeated tags must not inflate recommendations");
+ await p.evaluate(()=>{
+   settings.homeCats=null;discover={manga:[{title:"One",type:"reading",cover:"cover"},{title:"Two",type:"reading",cover:"cover"}],anime:[{title:"Anime",type:"watching",cover:"cover"}]};
+   switchView("home");spotPaused=true;renderHome();
+ });
+ await p.locator('[data-feature-step="1"]').focus();
+ await p.keyboard.press("Enter");
+ assert.equal(await p.evaluate(()=>document.activeElement?.getAttribute("data-feature-step")),"1","Carousel keeps keyboard focus");
+ await p.locator("#feature-pause").focus();await p.keyboard.press("Enter");
+ assert.equal(await p.evaluate(()=>document.activeElement?.id),"feature-pause");
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
