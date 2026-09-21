@@ -465,7 +465,16 @@ function loadDiscover(force) {
     discoverTried = true;
     if (r && r.ok && r.data) {
       discover = r.data;
-    } else if(discover) { discover={...discover,stale:true}; }
+    } else if(discover) {
+      const now=Date.now(),retained={...discover,stale:true};
+      let usable=false;
+      for(const key of ["manga","manhwa","manhua","anime","kdrama","cdrama","jdrama","series","gamesSoon","gamesHot","gamesNew"]){
+        const at=Number(discover.categoryUpdatedAt?.[key]??discover.ts);
+        if(!Number.isFinite(at)||at>now||now-at>=3*86400000)retained[key]=[];
+        if(retained[key]?.length)usable=true;
+      }
+      discover=usable?retained:null;
+    }
     if (view === "home") renderHome();
     else if (view === "games") renderGames();
   });
