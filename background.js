@@ -966,6 +966,15 @@ async function steamSearch(query) {
   return steamGames(parseSteamSearch(data.results_html || ''),false).map(g=>({...g,released:undefined,externalIds:{steam:steamAppId(g.url)}}));
 }
 /** Live-action TV series via TVMaze (keyless) — covers Western/American shows. */
+function tvmazeCountry(show) {
+  return show.network?.country?.code||show.webChannel?.country?.code||"";
+}
+function tvmazeFormat(show) {
+  const country=tvmazeCountry(show), genres=Array.isArray(show.genres)?show.genres:[];
+  if(!liveActionShow(show))return country==="JP"||genres.some(g=>/^anime$/i.test(g))?"ANIME":"ANIMATION";
+  if(show.type!=="Scripted")return "SERIES";
+  return country==="KR"?"KDRAMA":["CN","TW","HK"].includes(country)?"CDRAMA":country==="JP"?"JDRAMA":"SERIES";
+}
 async function tvmazeSearch(query) {
   const url = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`;
   const res = await fetchRemote(url);
@@ -978,11 +987,11 @@ async function tvmazeSearch(query) {
     type: "watching",
     cover: (sh.image && (sh.image.original || sh.image.medium)) || "",
     synopsis: stripHtml(sh.summary).slice(0, 500),
-    genres: Array.isArray(sh.genres) ? sh.genres.slice(0, 4) : [],
+    genres: Array.isArray(sh.genres) ? [...new Set(sh.genres.filter(g=>typeof g==="string"&&g.trim()))].slice(0,80) : [],
     season: (sh.premiered || "").slice(0, 4) || undefined,
-    country: (sh.network && sh.network.country && sh.network.country.code) || (sh.webChannel && sh.webChannel.country && sh.webChannel.country.code) || undefined,
+    country: tvmazeCountry(sh) || undefined,
     total: (sh.episodes || undefined),
-    format: (sh.network && sh.network.country && sh.network.country.code === "KR") ? "KDRAMA" : (sh.network && sh.network.country && ["CN", "TW", "HK"].includes(sh.network.country.code)) ? "CDRAMA" : (sh.network && sh.network.country && sh.network.country.code === "JP") ? "JDRAMA" : "SERIES",
+    format: tvmazeFormat(sh),
     url: sh.url || "",
   }));
 }
@@ -1261,7 +1270,7 @@ async function steamDiscover() {
   return { soon, hot };
 }
 // Live-action drama/series discovery (keyless, via TVMaze). Split by country sources.
-function liveActionShow(show) { return !/animation|anime/i.test([show.type,...(show.genres||[])].join(" ")); }
+function liveActionShow(show) { return !/animation|anime/i.test([show.type,...(Array.isArray(show.genres)?show.genres:[])].join(" ")); }
 async function tvmazeTrending() {
   const dates=[0,1,2,3,4,5,6].map(n=>new Date(Date.now()-n*86400000).toISOString().slice(0,10));
   const pages=await Promise.allSettled(dates.flatMap(date=>["https://api.tvmaze.com/schedule?country=US&date=","https://api.tvmaze.com/schedule/web?date="].map(base=>fetchRemote(base+date).then(r=>r.ok?r.json():[]))));
@@ -1277,12 +1286,11 @@ async function tvmazeTrending() {
       shows.set(show.id,existing);
     }
   }
-  const cc=s=>s.network?.country?.code||s.webChannel?.country?.code||"";
-  const bucket=code=>code==="KR"?"kdrama":["CN","TW","HK"].includes(code)?"cdrama":code==="JP"?"jdrama":"series";
+  const bucket=show=>tvmazeFormat(show).toLowerCase();
   return [...shows.values()].filter(s=>s.recentEpisodes.length).sort((a,b)=>(b.weight||0)-(a.weight||0)).slice(0,80).map(s=>({
-    title:s.name,type:"watching",cat:bucket(cc(s)),externalIds:{tvmaze:String(s.id)},cover:s.image.original||s.image.medium,coverFallback:s.image.medium,
+    title:s.name,type:"watching",cat:bucket(s),externalIds:{tvmaze:String(s.id)},cover:s.image.original||s.image.medium,coverFallback:s.image.medium,
     synopsis:stripHtml(s.summary).slice(0,700),genres:s.genres||[],year:s.premiered?Number(s.premiered.slice(0,4)):undefined,
-    format:bucket(cc(s))==="series"?"SERIES":bucket(cc(s)).toUpperCase(),url:s.url||"",recentEpisodes:s.recentEpisodes
+    format:tvmazeFormat(s),country:tvmazeCountry(s)||undefined,releaseStatus:s.status||undefined,url:s.url||"",recentEpisodes:s.recentEpisodes
   }));
 }
 async function buildDiscover() {
