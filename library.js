@@ -370,9 +370,44 @@ function discoRow(titleText, list, opts = {}) {
 // Build the ordered list of discovery categories that actually have content.
 // Order matches the user's ask: manga/manhwa/manhua, anime, then dramas &
 // series, and games LAST · no duplicated rows on the same subject.
+function discoverySavedMatcher(saved) {
+  const ids=item=>({...item.externalIds,...(item.anilistId?{anilist:String(item.anilistId)}:{})});
+  const titles=item=>[...new Set([item.title,...(Array.isArray(item.alternativeTitles)?item.alternativeTitles:[])].map(normTitle).filter(Boolean))].slice(0,40);
+  const index=new Map();
+  const keys=item=>[...Object.entries(ids(item)).filter(([,id])=>id).map(([provider,id])=>item.type+":id:"+provider+":"+id),...titles(item).map(t=>item.type+":title:"+t)];
+  for(const item of saved)for(const key of keys(item)){if(!index.has(key))index.set(key,[]);index.get(key).push(item);}
+  return candidate=>{
+    const matches=new Set(keys(candidate).flatMap(key=>index.get(key)||[])),candidateIds=ids(candidate);
+    for(const saved of matches){
+      const savedIds=ids(saved),shared=Object.keys(candidateIds).filter(key=>savedIds[key]);
+      if(shared.some(key=>String(candidateIds[key])!==String(savedIds[key])))continue;
+      if(shared.length)return true;
+      const a=String(candidate.format||"").toUpperCase(),b=String(saved.format||"").toUpperCase();
+      const family=f=>/NOVEL|BOOK/.test(f)?"book":/MANGA|MANHWA|MANHUA|COMIC|WEBTOON/.test(f)?"comic":/MOVIE|FILM/.test(f)?"film":/ANIME|OVA|ONA|TV_SHORT/.test(f)?"anime":/DRAMA|SERIES/.test(f)?"series":"";
+      if(family(a)&&family(b)&&family(a)!==family(b))continue;
+      if(candidate.year&&saved.year&&Number(candidate.year)!==Number(saved.year))continue;
+      return true;
+    }
+    return false;
+  };
+}
+function homeRecommendations(pools,weights) {
+  const groups=new Map(),seen=new Set();
+  for(const pool of pools)for(const item of pool.list){
+    const key=item.type+":"+normTitle(item.title),score=scoreTaste(item,weights);
+    if(score<=0||seen.has(key))continue;
+    seen.add(key);
+    if(!groups.has(item.type))groups.set(item.type,[]);
+    groups.get(item.type).push({item,score});
+  }
+  const ranked=[...groups.entries()].map(([type,entries])=>({type,entries:entries.sort((a,b)=>b.score-a.score)}))
+    .sort((a,b)=>b.entries[0].score-a.entries[0].score);
+  const best=ranked[0];
+  return best?{type:best.type,items:best.entries.slice(0,12).map(e=>e.item)}:{type:"",items:[]};
+}
 function discoPools() {
-  const lib = libTitleSet();
-  const fresh = (arr) => (arr || []).filter((m) => m && m.title && m.cover && !lib.has(normTitle(m.title)));
+  const saved = discoverySavedMatcher(items);
+  const fresh = (arr) => (arr || []).filter((m) => m && m.title && m.cover && !saved(m));
   const pools = [];
   const add = (key, list) => { const l = fresh(list); if (l.length > 0) pools.push({ key, label: t("cat" + key[0].toUpperCase() + key.slice(1)), list: l, game: key === "games" }); };
   add("manhwa", discover.manhwa);
@@ -413,10 +448,10 @@ function renderDiscover() {
   if(!pools.length)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Aucune tendance disponible pour cette sélection.":"No trends available for this selection.")+'</p>';
   const weights=tasteWeights(),recommended=new Set();
   if(Object.keys(weights).length) {
-    const seen=new Set();
-    const picks=pools.filter(p=>!p.game).flatMap(p=>p.list).map(m=>({m,score:scoreTaste(m,weights)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).filter(x=>{const key=x.m.type+":"+normTitle(x.m.title);if(seen.has(key))return false;seen.add(key);return true;}).slice(0,14).map(x=>x.m);
+    const selection=homeRecommendations(pools,weights),picks=selection.items;
     for(const pick of picks)recommended.add(pick.type+":"+normTitle(pick.title));
-    if(picks.length)out+=discoRow(t("forYou"),picks,{forYou:true});
+    const labels=settings.lang==="fr"?{reading:"Lectures pour vous",watching:"À regarder pour vous",game:"Jeux pour vous"}:{reading:"Reading for you",watching:"Shows for you",game:"Games for you"};
+    if(picks.length)out+=discoRow(labels[selection.type]||t("forYou"),picks,{forYou:true,sub:settings.lang==="fr"?"D’après vos goûts":"Based on your interests"});
   }
   for(const pool of (homeShowAll?pools:homeFeaturedPools(pools)))out+=discoRow(pool.label,pool.list.filter(m=>!recommended.has(m.type+":"+normTitle(m.title))).slice(0,12),{sub:pool.game?"Steam":pool.key==="series"||pool.key.endsWith("drama")?(settings.lang==="fr"?"Diffusions récentes":"Recently airing"):(settings.lang==="fr"?"Tendances du moment":"Trending now")});
   if(pools.length>3)out+='<button class="btn" id="home-more">'+(settings.lang==="fr"?(homeShowAll?"Réduire les catégories":"Voir les autres catégories"):(homeShowAll?"Show fewer categories":"Show more categories"))+'</button>';
