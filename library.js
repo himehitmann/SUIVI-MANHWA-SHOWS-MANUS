@@ -374,6 +374,15 @@ function discoPools() {
 // what currently has content.
 const HOME_CAT_KEYS = ["manhwa", "manga", "manhua", "anime", "kdrama", "cdrama", "jdrama", "series", "games"];
 function homeCatAllowed(key) { const a = settings.homeCats; return !Array.isArray(a) || a.includes(key); }
+function homeFeaturedPools(pools) {
+  const chosen=[];
+  for(const group of [["manhwa","manga","manhua"],["anime","kdrama","cdrama","jdrama","series"],["games"]]){
+    const pool=pools.find(p=>group.includes(p.key));
+    if(pool)chosen.push(pool);
+  }
+  for(const pool of pools)if(chosen.length<3&&!chosen.includes(pool))chosen.push(pool);
+  return chosen;
+}
 function renderDiscover() {
   if(!discover)return `<div class="section-h"><h2>${settings.lang==="fr"?"Découvrir":"Discover"}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div><p class="sub" role="status">${discoverTried?(settings.lang==="fr"?"Les tendances sont momentanément indisponibles. Réessaie ou utilise la recherche.":"Trends are temporarily unavailable. Retry or use search."):t("loadingReco")}</p>`;
   discoItems=[];
@@ -388,7 +397,7 @@ function renderDiscover() {
     for(const pick of picks)recommended.add(pick.type+":"+normTitle(pick.title));
     if(picks.length)out+=discoRow(t("forYou"),picks,{forYou:true});
   }
-  for(const pool of pools.slice(0,homeShowAll?9:3))out+=discoRow(pool.label,pool.list.filter(m=>!recommended.has(m.type+":"+normTitle(m.title))).slice(0,12),{sub:pool.game?"Steam":pool.key==="series"||pool.key.endsWith("drama")?(settings.lang==="fr"?"Diffusions récentes":"Recently airing"):(settings.lang==="fr"?"Tendances du moment":"Trending now")});
+  for(const pool of (homeShowAll?pools:homeFeaturedPools(pools)))out+=discoRow(pool.label,pool.list.filter(m=>!recommended.has(m.type+":"+normTitle(m.title))).slice(0,12),{sub:pool.game?"Steam":pool.key==="series"||pool.key.endsWith("drama")?(settings.lang==="fr"?"Diffusions récentes":"Recently airing"):(settings.lang==="fr"?"Tendances du moment":"Trending now")});
   if(pools.length>3)out+='<button class="btn" id="home-more">'+(settings.lang==="fr"?(homeShowAll?"Réduire les catégories":"Voir les autres catégories"):(homeShowAll?"Show fewer categories":"Show more categories"))+'</button>';
   return out;
 }
@@ -518,9 +527,9 @@ function renderHome() {
   const continuing=resume.filter(i=>!used.has(i.id)).slice(0,12);
   const pools=discover?discoPools():[];
   const first=resume[0]||catchUp[0];
-  spotItems=first?[{item:first,catalog:false,label:fr?"Votre prochaine lecture ou séance":"Pick up where you left off"}]:[];
+  spotItems=first?[{item:first,catalog:false,label:fr?"Reprendre là où vous en étiez":"Pick up where you left off"}]:[];
   const seen=new Set(first?[first.type+":"+normTitle(first.title)]:[]);
-  for(const pool of pools){
+  for(const pool of homeFeaturedPools(pools)){
     const candidate=pool.list.find(m=>!seen.has(m.type+":"+normTitle(m.title)));
     if(!candidate)continue;
     seen.add(candidate.type+":"+normTitle(candidate.title));
@@ -529,7 +538,7 @@ function renderHome() {
   }
   spotIdx=spotIdx%Math.max(1,spotItems.length);
   const personal=continuing.length||catchUp.length;
-  el.innerHTML='<div class="home-heading"><div><h1>'+(fr?"À votre rythme":"Your next chapter")+'</h1><p class="sub">'+(fr?"Reprenez vos favoris. Découvrez votre prochaine obsession.":"Continue your favorites. Find your next obsession.")+'</p></div><button class="btn" id="home-library">'+(fr?"Ma bibliothèque":"My library")+'</button></div>'+
+  el.innerHTML='<div class="home-heading"><div><h1>'+(fr?"À découvrir aujourd’hui":"Discover today")+'</h1><p class="sub">'+(fr?"Vos lectures, vos séries et les tendances du moment.":"Your reading, your shows and what’s trending now.")+'</p></div><button class="btn" id="home-library">'+(fr?"Ma bibliothèque":"My library")+'</button></div>'+
     (spotItems.length?'<section id="spot-wrap" class="home-feature-wrap" aria-label="'+(fr?"À la une":"Featured")+'">'+spotHtml(spotItems[spotIdx])+spotControls()+'</section>':(!items.length?'<div class="home-welcome"><h2>'+t("welcomeTitle")+'</h2><p class="sub">'+(fr?"Explorez les tendances ci-dessous ou recherchez une œuvre avec la barre en haut.":"Explore the trends below or search for a title using the bar above.")+'</p></div>':""))+
     (personal?'<section class="home-personal" aria-label="'+(fr?"Votre suivi":"Your activity")+'">'+row(fr?"À rattraper":"Catch up",catchUp.slice(0,12),fr?"Les sorties que vous n’avez pas encore vues ou lues":"Releases you have not watched or read yet")+row(t("continue"),continuing)+'</section>':"")+renderDiscover();
   bindHome();bindDisco();startSpot();
@@ -537,8 +546,15 @@ function renderHome() {
 function spotHtml(entry) {
   if(!entry)return "";
   const i=entry.item,fr=settings.lang==="fr",u=coverUrl(i),catalog=entry.catalog;
-  return '<article class="home-feature"><div class="home-feature-copy"><span class="home-eyebrow">'+esc(entry.label)+'</span><h2>'+esc(i.title||"Untitled")+'</h2><p class="home-feature-meta">'+esc([catLabel(i),...(i.genres||i.tags||[]).slice(0,3)].filter(Boolean).join(" · "))+'</p><p class="home-feature-synopsis">'+esc(i.synopsis?i.synopsis.slice(0,230)+(i.synopsis.length>230?"…":""):catalog?(fr?"Découvrez la fiche et choisissez une liste pour garder cette œuvre de côté.":"Explore the details and choose a list to save this title."):marker(i))+'</p><div class="spot-cta">'+(!catalog&&safeNavigationUrl(i.url)?'<a class="btn-glass" href="'+esc(safeNavigationUrl(i.url))+'" target="_blank" rel="noopener noreferrer">'+I.play+' '+t("resume")+'</a>':"")+'<button class="btn-glass '+(!catalog&&safeNavigationUrl(i.url)?'ghost':'')+'" data-feature-details>'+t("details")+'</button></div></div>'+(u?'<button class="home-feature-art" data-feature-details aria-label="'+esc(t("details")+": "+i.title)+'">'+covImg(u,i.coverFallback)+'</button>':"")+'</article>';
+  const synopsis=i.synopsis?i.synopsis.slice(0,260)+(i.synopsis.length>260?"…":""):catalog?(fr?"Ouvrez la fiche pour en savoir plus et choisir où garder cette découverte.":"Open the details to explore this title and choose where to save it."):marker(i);
+  const destination=!catalog&&safeNavigationUrl(i.url);
+  return '<article class="home-feature">'+(u?'<div class="home-feature-backdrop" aria-hidden="true">'+covImg(u,i.coverFallback)+'</div>':"")+
+    '<div class="home-feature-copy"><span class="home-eyebrow">'+esc(entry.label)+'</span><h2>'+esc(i.title||"Untitled")+'</h2><p class="home-feature-meta">'+esc([catLabel(i),i.year||i.seasonYear,...(i.genres||i.tags||[]).slice(0,2)].filter(Boolean).join(" · "))+'</p><p class="home-feature-synopsis">'+esc(synopsis)+'</p><div class="spot-cta">'+
+    (destination?'<a class="btn-glass" href="'+esc(destination)+'" target="_blank" rel="noopener noreferrer">'+I.play+' '+t("resume")+'</a>':"")+
+    '<button class="btn-glass '+(destination?'ghost':'')+'" data-feature-details>'+(fr?"Voir la fiche":"Explore title")+'</button></div></div>'+
+    (u?'<button class="home-feature-art" data-feature-details aria-label="'+esc(t("details")+": "+i.title)+'">'+covImg(u,i.coverFallback)+'</button>':"")+'</article>';
 }
+
 let spotPaused=false;
 function spotControls(){
   if(spotItems.length<2)return "";
