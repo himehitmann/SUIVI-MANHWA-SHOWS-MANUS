@@ -13,4 +13,4 @@
 export const EDITION: "private" | "public" = "public";
 
 /** When true, all Pro-gated features are unlocked regardless of plan. */
-export const UNLOCK_ALL = EDITION === "private";
+export const UNLOCK_ALL = (["private"] as readonly string[]).includes(EDITION);

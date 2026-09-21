@@ -1,0 +1,592 @@
+import { chromium } from "playwright";
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
+const root = process.env.YOMU_EXTENSION_DIR || process.cwd(),
+  profile = await fs.mkdtemp(path.join(os.tmpdir(), "yomu-e2e-"));
+const artifactDir = path.resolve("test-results");
+await fs.mkdir(artifactDir, { recursive: true });
+const context = await chromium.launchPersistentContext(profile, {
+  channel: "chromium",
+  headless: true,
+  args: [`--disable-extensions-except=${root}`, `--load-extension=${root}`],
+  viewport: { width: 1440, height: 1000 },
+});
+try {
+  const worker =
+    context.serviceWorkers()[0] ||
+    (await context.waitForEvent("serviceworker"));
+  const id = new URL(worker.url()).host,
+    base = `chrome-extension://${id}/`;
+  // Service worker visibility precedes completion of asynchronous alarm setup.
+  const alarmDeadline = Date.now() + 5000;
+  let syncAlarmReady = false;
+  while (!syncAlarmReady && Date.now() < alarmDeadline) {
+    syncAlarmReady = await worker.evaluate(async()=>Boolean(await chrome.alarms.get("yomu-sync-retry")));
+    if (!syncAlarmReady) await new Promise(resolve=>setTimeout(resolve,100));
+  }
+  assert(syncAlarmReady,"Durable sync alarm missing after startup");
+  const releaseAlarm=await worker.evaluate(async()=>{
+    await ensureReleaseAlarm();const before=await chrome.alarms.get("dasi-daily");await ensureReleaseAlarm();const after=await chrome.alarms.get("dasi-daily");return {before:before.scheduledTime,after:after.scheduledTime,period:after.periodInMinutes};
+  });
+  assert.equal(releaseAlarm.before,releaseAlarm.after,"Release alarm was postponed");assert.equal(releaseAlarm.period,720);
+  const image = await context.newPage();
+  await image.setViewportSize({ width: 720, height: 1000 });
+  await image.setContent(
+    '<body style="margin:0;background:#dde1e9"><div style="margin:180px 100px;border:3px solid black;border-radius:50%;background:white;height:240px;display:flex;align-items:center;justify-content:center;font:38px Arial;text-align:center">HELLO WORLD<br>WELCOME HOME</div></body>'
+  );
+  const png = await image.screenshot();
+  const dataUrl = "data:image/png;base64," + png.toString("base64");
+  await image.close();
+  await worker.evaluate(async cover => {
+    await chrome.storage.local.set({
+      "dasi.schema": 2,
+      "dasi.settings": { lang: "fr", profile: { name: "Test Reader" } },
+      "dasi.items": [
+        {
+          id: "alchemy-of-souls",
+          title: "Alchemy of Souls",
+          type: "watching",
+          episode: 1,
+          total: 20,
+          enrichedAt: 1,
+          cover,
+          updatedAt: 1,
+        },
+      ],
+      "dasi.lists": [
+        { id: "favorites", name: "À découvrir", itemIds: ["alchemy-of-souls"] },
+      ],
+    });
+    globalThis.testCover = cover;
+    catalogSearchAll = async query => {
+      await new Promise(r => setTimeout(r, query === "old" ? 900 : 30));
+      return [
+        {
+          title: query === "old" ? "Old result" : "Aniimo",
+          type: "game",
+          cover: globalThis.testCover,
+          url: "https://store.steampowered.com/app/4126040/Aniimo/",
+          genres: ["RPG"],
+          synopsis: "Catalog fixture.",
+        },
+      ];
+    };
+    getDiscover = async () => ({
+      manga: [],
+      anime: [],
+      manhwa: [],
+      manhua: [],
+      series: [],
+      gamesHot: [],
+      gamesSoon: [],
+    });
+  }, dataUrl);
+  // Official non-Steam pages use their own media metadata; no invented release date.
+  for (const [url, title] of [
+    ["https://www.aniimo.com/fr", "Aniimo"],
+    ["https://chronoodyssey.kakaogames.com/", "Chrono Odyssey"],
+  ]) {
+    const game = await context.newPage();
+    await game.route("**/*", r =>
+      r.fulfill({
+        contentType: "text/html",
+        body:
+          "<title>" +
+          title +
+          ' | Official</title><meta property="og:title" content="' +
+          title +
+          ' | Official"><h1>' +
+          title +
+          "</h1>",
+      })
+    );
+    await game.goto(url);
+    // Exercise the real DOM detector with a transport stub: automated pages do
+    // not receive Chrome's user-gesture activeTab grant.
+    await game.evaluate(() => {
+      globalThis.chrome = {
+        runtime: {
+          sendMessage: m => {
+            if (m.type === "DETECTION_UPDATED")
+              globalThis.testDetection = m.payload;
+          },
+          onMessage: { addListener() {} },
+        },
+      };
+    });
+    await game.addScriptTag({ path: path.join(root, "content.js") });
+    await game.waitForFunction(() => globalThis.testDetection);
+    const detected = await game.evaluate(() => globalThis.testDetection);
+    assert.equal(detected.title, title);
+    assert.equal(detected.type, "game");
+    assert(!detected.releaseDate);
+    await game.close();
+  }
+
+  for (const domain of ["reader-one.example","reader-two.example"]) {
+    const reading=await context.newPage();
+    await reading.route("**/*",r=>r.fulfill({contentType:"text/html",body:'<title>Miraculoushub | Watch online</title><meta property="og:site_name" content="Miraculoushub"><meta property="og:title" content="Miraculoushub"><h1>Miraculous Season 6 Episode 26 English Dub</h1>'}));
+    await reading.goto("https://"+domain+"/miraculous/season-6/episode-26");
+    await reading.evaluate(()=>{globalThis.chrome={runtime:{sendMessage:m=>{if(m.type==="DETECTION_UPDATED")globalThis.testDetection=m.payload;},onMessage:{addListener(){}}}};});
+    await reading.addScriptTag({path:path.join(root,"content.js")});
+    await reading.waitForFunction(()=>globalThis.testDetection);
+    const detection=await reading.evaluate(()=>globalThis.testDetection);
+    assert.equal(detection.title,"Miraculous","Site branding must not replace the series title");
+    assert.equal(detection.season,6);assert.equal(detection.episode,26);
+    await reading.close();
+  }
+  const page = await context.newPage(),
+    errors = [];
+  page.on("pageerror", e => errors.push(e.message));
+  await page.goto(base + "library.html");
+  await page.locator("#avatar").waitFor();
+  // Home cards must open their own details, preserve artwork ratios and hide idle arrows.
+  await worker.evaluate(cover=>{
+    getDiscover=async()=>({manga:[{title:"Home fixture",type:"reading",format:"MANGA",cover,genres:["Adventure"],synopsis:"Home preview"}],anime:[],manhwa:[],manhua:[],series:[],gamesHot:[],gamesSoon:[]});
+    catalogDetail=async item=>item;
+  },dataUrl);
+  await page.evaluate(()=>loadDiscover(true));
+  await page.locator('#view-home [data-preview-disco]').first().waitFor();
+  await page.waitForFunction(()=>{const im=document.querySelector('#view-home .disco img.cov');return im&&im.complete&&im.naturalWidth>0;});
+  const artRatio=await page.locator('#view-home .disco img.cov').first().evaluate(im=>({rendered:im.clientWidth/im.clientHeight,native:im.naturalWidth/im.naturalHeight,frameHeight:im.parentElement.clientHeight,height:im.clientHeight}));
+  assert(Math.abs(artRatio.rendered-artRatio.native)<0.02,"Discovery artwork distorted");
+  assert(Math.abs(artRatio.frameHeight-artRatio.height)<2,"Artificial bands around discovery artwork");
+  assert.equal(await page.locator('#view-home .carousel-arrow:visible').count(),0,"Arrows shown without overflowing content");
+  await page.locator('#view-home [data-preview-disco]').first().click();
+  await page.locator('#preview-close').waitFor();
+  assert.equal(await page.locator('#drawer .drawer-title').innerText(),"Home fixture");
+  await page.locator('#preview-close').click();
+  await page.locator('[data-home-category="manga"]').click();
+  await page.waitForFunction(()=>!document.querySelector('#view-home .disco'));
+  await page.locator('[data-home-category="manga"]').click();
+  await page.locator('#view-home .disco').waitFor();
+  await page.screenshot({path:path.join(artifactDir,"home-discovery.png")});
+
+
+
+
+  // Metadata work belongs to the durable worker, not the settings page lifetime.
+  const beforeMetadata=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
+  await worker.evaluate(()=>{
+    globalThis.metadataOriginalSearch=catalogSearchAll;
+    globalThis.metadataSearchStarted=false;
+    catalogSearchAll=()=>{globalThis.metadataSearchStarted=true;return new Promise(resolve=>{globalThis.finishMetadataSearch=resolve;});};
+    return chrome.storage.local.set({"dasi.items":[{id:"metadata-e2e",title:"Imported fixture",type:"reading",chapter:8,metadataStatus:{state:"failed"}}],"dasi.lists":[]});
+  });
+  await page.evaluate(async()=>{const state=await chrome.runtime.sendMessage({type:"GET_STATE"});items=state.items;lists=state.lists;switchView("settings");});
+  await page.locator("#complete-metadata").click();
+  await page.waitForFunction(async()=>{const state=await chrome.runtime.sendMessage({type:"GET_STATE"});return state.items[0]?.metadataPending?.state==="running";});
+  await page.evaluate(()=>switchView("library"));
+  await page.locator("#library-metadata-status:not([hidden])").waitFor();
+  assert.match(await page.locator("#library-metadata-status").innerText(),/being completed|en cours de recherche/);
+  await worker.evaluate(()=>globalThis.finishMetadataSearch([{title:"Imported fixture",type:"reading",cover:"https://example.org/cover.jpg",synopsis:"Recovered description",externalIds:{mal:"77"}}]));
+  await page.waitForFunction(async()=>{const state=await chrome.runtime.sendMessage({type:"GET_STATE"});return state.items[0]?.metadataStatus?.state==="matched";});
+  const completedMetadata=await worker.evaluate(async()=>{await importEnrichmentQueue;return (await chrome.storage.local.get("dasi.items"))["dasi.items"][0];});
+  assert.equal(completedMetadata.chapter,8);assert.equal(completedMetadata.synopsis,"Recovered description");assert.equal(completedMetadata.metadataPending,null);
+  await page.locator("#library-metadata-status").waitFor({state:"hidden"});
+  await worker.evaluate(()=>chrome.storage.local.set({"dasi.items":[{id:"missing-e2e",title:"No match",type:"reading",metadataStatus:{state:"not_found",attempts:3}}]}));
+  await page.locator("#retry-library-metadata").waitFor();
+  assert.match(await page.locator("#library-metadata-status").innerText(),/uncertain match|correspondance certaine/);
+  await worker.evaluate(data=>{catalogSearchAll=globalThis.metadataOriginalSearch;return chrome.storage.local.set(data);},beforeMetadata);
+  await page.waitForFunction(ids=>items.length===ids.length&&ids.every(id=>items.some(item=>item.id===id)),beforeMetadata["dasi.items"].map(item=>item.id));
+  await page.evaluate(()=>switchView("home"));
+
+  // Empty accounts start with discoveries, not a large instruction screen.
+  const homeState=await page.evaluate(()=>({items,discover,settings}));
+  await page.evaluate(()=>{items=[];renderHome();});
+  await page.locator(".home-feature").waitFor();
+  assert.equal(await page.locator("#view-home .onboard, #view-home .value-strip").count(),0);
+  await page.locator("[data-feature-details]").first().click();
+  assert.equal(await page.locator("#drawer .drawer-title").innerText(),"Home fixture");
+  await page.locator("#preview-close").click();
+  await page.evaluate(()=>{
+    items=[{id:"resume-fixture",title:"Continue fixture",type:"reading",chapter:3,total:10,state:"current",status:"in_progress",updatedAt:Date.now(),synopsis:"Continue the story"}];
+    renderHome();
+  });
+  await page.locator("[data-feature-step='1']").click();
+  assert.equal(await page.locator(".home-feature h2").innerText(),"Home fixture");
+  await page.locator("#feature-pause").click();
+  assert.equal(await page.locator("#feature-pause").getAttribute("aria-pressed"),"true");
+  await page.locator("[data-feature-details]").first().click();
+  assert.equal(await page.locator("#drawer .drawer-title").innerText(),"Home fixture");
+  await page.locator("#preview-close").click();
+  const catchUpCards=await page.locator(".home-personal [data-open='resume-fixture']").count();
+  assert.equal(catchUpCards,1,"A work must not repeat across personal rows");
+  await page.evaluate(()=>{items[0].chapter=10;items[0].progress=100;items[0].state="completed";renderHome();});
+  assert.equal(await page.locator(".home-personal [data-open='resume-fixture']").count(),0,"Caught-up work should leave the catch-up row");
+  await page.evaluate(state=>{items=state.items;discover=state.discover;settings=state.settings;spotIdx=0;spotPaused=false;renderHome();},homeState);
+  await page.setViewportSize({width:390,height:844});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Home should fit a narrow viewport");
+  await page.screenshot({path:path.join(artifactDir,"home-mobile.png")});
+  await page.setViewportSize({width:1440,height:1000});
+
+  // A delayed response for the previous season must never overwrite the selected one.
+  await worker.evaluate(()=>{
+    catalogEpisodeGuide=async(item,seasonId)=>{
+      const seasons=[{id:"10",number:1,name:"Origins",episodeCount:2},{id:"20",number:2,name:"Return",episodeCount:1}];
+      if(seasonId===undefined)return {supported:true,seasons};
+      await new Promise(resolve=>setTimeout(resolve,seasonId==="10"?900:20));
+      return {supported:true,seasons,season:seasons.find(s=>s.id===seasonId),episodes:[{id:"100",number:1,name:seasonId==="10"?"Old season episode":"New season episode",airdate:"2028-01-01",runtime:42,special:false}]};
+    };
+  });
+  await page.evaluate(()=>openCatalogPreview({title:"Series guide fixture",type:"watching",format:"SERIES",externalIds:{tvmaze:"7"}}));
+  await page.locator("#guide-season").waitFor();
+  assert((await page.locator("#guide-season").innerText()).includes("Origins"));
+  await page.locator("#guide-season").selectOption("20");
+  await page.getByText("New season episode",{exact:true}).waitFor();
+  await page.waitForTimeout(1000);
+  assert(!(await page.locator("#episode-guide").innerText()).includes("Old season episode"));
+  assert((await page.locator("#episode-guide").innerText()).includes("2028-01-01"));
+  await page.screenshot({path:path.join(artifactDir,"series-episode-guide.png")});
+  await page.locator("#preview-close").click();
+
+
+  // Search labels and previews must use the same identity decisions as saves.
+  const identitySavedState=await worker.evaluate(()=>chrome.storage.local.get('dasi.items'));
+  await worker.evaluate(()=>chrome.storage.local.set({'dasi.items':[{id:'identity-saved',title:'Titre conservé',type:'reading',format:'MANGA',year:2020,chapter:12.5,enrichedAt:1,externalIds:{anilist:'987654'},alternativeTitles:['English fixture']}]}));
+  await page.evaluate(()=>{
+    switchView('library');
+    lastResults=[{title:'English fixture',type:'reading',format:'MANGA',year:2021,externalIds:{anilist:'987654'}},{title:'English fixture',type:'reading',format:'MANGA',year:2021,externalIds:{anilist:'987655'}}];
+    renderSearchResults('identity fixture');
+  });
+  await page.waitForFunction(()=>document.querySelector('[data-saved-label="0"]')?.textContent==='Dans la bibliothèque');
+  assert.equal(await page.locator('[data-saved-label="1"]').innerText(),await page.evaluate(()=>t('details')));
+  await page.locator('[data-saved-label="0"]').click();
+  await page.locator('#dr-close').waitFor();
+  assert.equal(await page.locator('#drawer .drawer-title').innerText(),'Titre conservé');
+  await page.locator('#dr-close').click();
+  await page.locator('[data-saved-label="1"]').click();
+  await page.locator('#preview-add').waitFor();
+  assert.equal(await page.locator('#drawer .drawer-title').innerText(),'English fixture');
+  assert.equal(await page.locator('#preview-add').isDisabled(),true);
+  await page.locator('#preview-close').click();
+  await worker.evaluate(state=>chrome.storage.local.set(state),identitySavedState);
+  await page.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:'GET_STATE'},state=>{hydrate(state);resolve();})));
+
+  await page.locator("#q").fill("old");
+  await page.waitForTimeout(350);
+  await page.locator("#q").fill("Aniimo");
+  await page.locator("[data-preview]").first().waitFor();
+  await page.waitForTimeout(1000);
+  assert(
+    !(await page.locator("#search-results").innerText()).includes("Old result")
+  );
+  await page.locator("[data-preview]").first().click();
+  await page.locator("#preview-add").waitFor();
+  assert.equal(
+    await page.locator("#drawer .drawer-title").innerText(),
+    "Aniimo"
+  );
+  await page.locator("#preview-list").selectOption("favorites");
+  await page.locator("#preview-add").click();
+  await page.locator("#dr-close").waitFor();
+  const saved = await worker.evaluate(() =>
+    chrome.storage.local.get(["dasi.items", "dasi.lists"])
+  );
+  assert(saved["dasi.items"].some(i => i.title === "Aniimo"));
+  assert(saved["dasi.lists"][0].itemIds.includes("aniimo"));
+  await page.locator("#dr-close").click();
+
+  // Games remain scannable; manual entry must never save before explicit list selection.
+  await page.locator('[data-v="games"]').click();
+  assert.equal(await page.locator('#add-game').count(),0);
+  assert.equal(await page.locator('#view-games .game-card iframe, #view-games .game-card video, #view-games .game-card a').count(),0);
+  await page.locator('#search-games').click();
+  await page.locator('#q').fill('Unlisted game fixture');
+  await page.locator('#manual-game').waitFor();
+  await page.locator('#manual-game').click();
+  assert.equal(await page.locator('#g-title').inputValue(),'Unlisted game fixture');
+  await page.locator('#g-url').fill('https://example.com/not-a-store');
+  await page.locator('#manual-game-form button[type=submit]').click();
+  assert((await page.locator('#manual-error').innerText()).includes('HTTPS'));
+  assert.equal(await page.locator('#preview-add').count(),0);
+  await page.locator('#g-url').fill('https://store.steampowered.com/app/1234/');
+  await page.locator('#manual-game-form button[type=submit]').click();
+  assert.equal(await page.locator('#preview-add').isDisabled(),true);
+  assert.equal(await page.locator('#preview-status').innerText(),'');
+  const manualBeforeChoice=await worker.evaluate(()=>chrome.storage.local.get('dasi.items'));
+  assert(!manualBeforeChoice['dasi.items'].some(i=>i.title==='Unlisted game fixture'));
+  await page.locator('#preview-list').selectOption('favorites');
+  assert.equal(await page.locator('#preview-add').isEnabled(),true);
+  await page.locator('#preview-close').click();
+  await page.locator('[data-v="games"]').click();
+  await page.setViewportSize({width:390,height:844});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Games should fit a narrow viewport');
+  await page.screenshot({path:path.join(artifactDir,'games-mobile.png')});
+  await page.setViewportSize({width:1440,height:1000});
+
+  await page.locator('[data-v="home"]').click();
+  await page.locator('[data-v="library"]').click();
+  assert.equal(await page.locator("#search-results").innerText(), "");
+  await page.locator('#grid [data-open="alchemy-of-souls"]').first().click();
+  await page.locator("#dr-num").fill("847");
+  await page.locator("#dr-num").press("Tab");
+  await page.waitForTimeout(250);
+  assert.equal(await page.locator("#dr-num").inputValue(), "20");
+  await page.locator("#dr-close").click();
+  await page.screenshot({
+    path: path.join(artifactDir, "library-desktop.png"),
+  });
+
+  const libraryTitle=page.locator('#grid button[data-open="alchemy-of-souls"]');
+  await libraryTitle.focus();await libraryTitle.press("Enter");
+  await page.waitForFunction(()=>document.getElementById("drawer").contains(document.activeElement));
+  await page.keyboard.press("Escape");
+  assert(await libraryTitle.evaluate(el=>document.activeElement===el),"Drawer did not restore keyboard focus");
+  assert(await page.locator("#drawer").evaluate(el=>el.inert),"Hidden drawer remained keyboard-accessible");
+  assert(await page.locator("#q").getAttribute("aria-label"));
+  assert.equal(await page.locator('#nav [aria-current="page"]').getAttribute("data-v"),"library");
+  assert((await page.title()).startsWith("Yomu · "));
+  const markupCheck=await page.evaluate(()=>{
+    const id='bad"><img id="injected" src="x" onerror="alert(1)">';
+    const holder=document.createElement("div");holder.innerHTML=cardHtml({id,title:'<script>alert(1)</script>',type:"reading",tags:['<img onerror="alert(1)">'],accent:'red" onmouseover="alert(1)'});
+    return {id:holder.querySelector(".card").dataset.open,bad:holder.querySelectorAll("script,[onerror],[onmouseover],#injected").length,color:holder.querySelector(".cover").style.background,expected:id};
+  });
+  assert.equal(markupCheck.bad,0);assert.equal(markupCheck.id,markupCheck.expected);assert(markupCheck.color);
+  for(const width of [320,375,480]){
+    await page.setViewportSize({width,height:844});
+    for(const target of ["home","library","games"]){
+      await page.locator('[data-v="'+target+'"]').click();
+      const bounds=await page.evaluate(()=>({page:document.documentElement.scrollWidth,width:innerWidth,search:document.getElementById("q").getBoundingClientRect().right,nav:document.getElementById("nav").getBoundingClientRect().right}));
+      assert(bounds.page<=bounds.width&&bounds.search<=bounds.width&&bounds.nav<=bounds.width,"Narrow layout overflow: "+width+" "+target);
+    }
+  }
+  await page.setViewportSize({width:1440,height:1000});await page.locator('[data-v="library"]').click();
+
+  const boxes = await page
+    .locator("img.cov")
+    .evaluateAll(ims =>
+      ims.map(im => ({
+        width: im.clientWidth,
+        height: im.clientHeight,
+        parent: im.offsetParent?.className,
+      }))
+    );
+  assert(
+    boxes.every(b => b.width <= 350 && b.height <= 500),
+    "Cover escaped its frame"
+  );
+  await page.locator("#avatar").click();
+  assert(
+    await page
+      .locator("#view-settings")
+      .evaluate(el => el.classList.contains("active"))
+  );
+
+  // Export a real downloaded backup: personal service keys and endpoints stay local.
+  await page.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"SET_SETTINGS",patch:{ocrKey:"export-test-ocr",tmdbKey:"export-test-tmdb",rawgKey:"export-test-rawg",imgServer:"https://service.example?token=export-private"}},result=>{settings=result.settings;resolve(result);})));
+  await page.waitForFunction(()=>settings.ocrKey==="export-test-ocr");
+
+  const invalidLinks=await page.evaluate(()=>{
+    const rejected=[];
+    for(const value of ["javascript:alert(1)","data:text/html,unsafe","file:///private","https://user:pass@reader.example/"]) {
+      const anchor=document.createElement("a");anchor.href=value;document.body.append(anchor);
+      rejected.push(!anchor.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true})));
+      anchor.remove();
+    }
+    return {rejected,valid:safeNavigationUrl("https://reader.example/chapter/1")};
+  });
+  assert(invalidLinks.rejected.every(Boolean),"An unsafe imported link was allowed");assert.equal(invalidLinks.valid,"https://reader.example/chapter/1");
+
+  const backupDownload=page.waitForEvent("download");
+  await page.locator("#export").click();
+  const backup=await backupDownload;
+  const backupText=await fs.readFile(await backup.path(),"utf8"), backupData=JSON.parse(backupText);
+  for(const key of ["ocrKey","tmdbKey","rawgKey","imgServer"])assert.equal(backupData.settings[key],undefined,"Backup exposed "+key);
+  assert(!backupText.includes("export-private"));assert(backupData.items.length>0);assert.equal(backupData.settings.lang,"fr");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  );
+  await page.screenshot({
+    path: path.join(artifactDir, "settings-mobile.png"),
+  });
+  await worker.evaluate(() => {
+    detectTab = async () => ({
+      title: "Alchemy of Souls",
+      type: "watching",
+      season: 1,
+      episode: 2,
+      confidence: 0.6,
+      hasVideo: true,
+      duration: 3600,
+      position: 900,
+      domain: "a-long-streaming-site.example",
+      enrichedAt: 1,
+    });
+  });
+  const popup = await context.newPage();
+  await popup.setViewportSize({ width: 400, height: 600 });
+  await popup.goto(base + "popup.html");
+  await popup.waitForTimeout(600);
+  await popup.locator("#save:not([disabled])").waitFor();
+  await popup.locator("#list-sel").selectOption("__new__");
+  await popup.locator("#list-new").fill("New list");
+  await popup
+    .locator("#title")
+    .evaluate(
+      el =>
+        (el.textContent =
+          "A very long series title that wraps onto two lines in the popup header for this regression")
+    );
+  let bounds = await popup.evaluate(() => ({
+    body: document.body.scrollHeight,
+    page: document.documentElement.scrollHeight,
+  }));
+  assert(bounds.body <= 600, JSON.stringify(bounds));
+  await popup.screenshot({ path: path.join(artifactDir, "popup.png") });
+  // Real bundled OCR; only the network translation response is deterministic in CI.
+  const ocr = await worker.evaluate(async d => {
+    await ensureOffscreen();
+    return await ocrViaTesseract(d, "eng");
+  }, dataUrl);
+  assert(ocr.blocks.some(b => b.text.includes("HELLO WORLD")));
+  assert(
+    ocr.blocks.every(b => b.bbox.x1 <= ocr.width && b.bbox.y1 <= ocr.height)
+  );
+  const colored=await context.newPage();await colored.setViewportSize({width:720,height:500});await colored.setContent('<body style="margin:0;background:#f6e6c3"><p style="position:absolute;top:140px;left:120px;font:44px Arial;color:#171923">HELLO WORLD</p></body>');
+  const coloredData='data:image/png;base64,'+(await colored.screenshot()).toString('base64');const coloredOcr=await worker.evaluate(async d=>ocrViaTesseract(d,'eng'),coloredData);const coloredBlock=coloredOcr.blocks.find(b=>b.text.includes('HELLO WORLD'));assert(coloredBlock,'Colored panel OCR failed');assert.equal(coloredBlock.background,'#f6e6c3');await colored.close();
+  const tall = await context.newPage();
+  await tall.setViewportSize({ width: 720, height: 2800 });
+  await tall.setContent(
+    '<body style="margin:0;background:white;font:44px Arial"><p style="position:absolute;top:150px;left:150px">HELLO WORLD</p><p style="position:absolute;top:2400px;left:150px">WELCOME HOME</p></body>'
+  );
+  const tallData =
+    "data:image/png;base64," + (await tall.screenshot()).toString("base64");
+  const tallOcr = await worker.evaluate(
+    async d => ocrViaTesseract(d, "eng"),
+    tallData
+  );
+  assert(
+    tallOcr.blocks.some(
+      b => b.text.includes("WELCOME HOME") && b.bbox.y0 > 2300
+    ),
+    "Tall image lost its bottom text"
+  );
+  // Fixed raster inputs keep OCR assertions independent of OS font substitution.
+  const japanese = "data:image/png;base64," +
+    (await fs.readFile(new URL("../fixtures/japanese-fixture.png", import.meta.url))).toString("base64");
+  const verticalJapanese = "data:image/png;base64," +
+    (await fs.readFile(new URL("../fixtures/japanese-vertical-fixture.png", import.meta.url))).toString("base64");
+  const verticalOcr=await worker.evaluate(async d=>ocrViaTesseract(d,'jpn'),verticalJapanese);
+  console.log('Vertical Japanese OCR:',JSON.stringify(verticalOcr.lines));
+  assert(verticalOcr.lines.join('').includes('世界'),'Japanese vertical text was not recognized');
+  assert(verticalOcr.blocks.some(b=>b.orientation==='vertical'),'Vertical model did not contribute a region');
+  await tall.close();
+  const japaneseOcr = await worker.evaluate(
+    async d => ocrViaTesseract(d, "jpn"),
+    japanese
+  );
+  console.log("Japanese OCR:",JSON.stringify(japaneseOcr.lines));
+  assert(
+    japaneseOcr.lines.join(" ").includes("世界"),
+    "Japanese model did not recognize the sample"
+  );
+  await worker.evaluate(() => {
+    translateTexts = async texts =>
+      texts.map(t =>
+        t.includes("HELLO") ? "BONJOUR LE MONDE" : "BIENVENUE À LA MAISON"
+      );
+  });
+  const reader = await context.newPage();
+  reader.on("pageerror", e => errors.push(e.message));
+  await reader.goto(base + "tests/fixtures/reader.html");
+  await reader.locator("#panel").evaluate((im, src) => {
+    im.src = src;
+  }, dataUrl);
+  await reader.waitForFunction(
+    () => document.querySelector("#panel").naturalWidth > 0
+  );
+  await page.evaluate(() =>
+    chrome.runtime.sendMessage({
+      type: "DASI_TRANSLATE",
+      lang: "fr",
+      src: "eng",
+    })
+  );
+  await reader.locator("[data-yomu-overlay]").waitFor({ timeout: 45000 });
+  assert(
+    (await reader.locator("[data-yomu-overlay]").innerText()).includes(
+      "BONJOUR"
+    )
+  );
+  await reader.screenshot({
+    path: path.join(artifactDir, "translation-in-place.png"),
+  });
+  await reader.locator("#yomu-translation-status button").first().click();
+  assert.equal(await reader.locator("[data-yomu-overlay]").count(), 0);
+  assert.equal(await reader.locator("#panel").getAttribute("src"), dataUrl);
+  // A transient image failure can be retried without restarting the page.
+  await worker.evaluate(() => {
+    globalThis.savedPanelTranslator = translateImageText;
+    globalThis.panelAttempts = 0;
+    translateImageText = async (...args) => {
+      if (++globalThis.panelAttempts === 1) throw new Error("img_503");
+      return globalThis.savedPanelTranslator(...args);
+    };
+  });
+  await page.evaluate(() => chrome.runtime.sendMessage({type:"DASI_TRANSLATE",lang:"fr",src:"eng"}));
+  await reader.locator("#yomu-translation-retry:not([hidden])").waitFor();
+  await reader.locator("#yomu-translation-retry").click();
+  await reader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  assert.equal(await worker.evaluate(()=>globalThis.panelAttempts),2);
+  await reader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
+  // CDN blocks extension downloads; page-origin fetch supplies the image to local OCR.
+  await reader.route("https://reader-images.example/panel.png",r=>r.fulfill({contentType:"image/png",headers:{"access-control-allow-origin":"*"},body:png}));
+  await reader.locator("#panel").evaluate(async im=>{im.src="https://reader-images.example/panel.png";await im.decode();});
+  await worker.evaluate(()=>{
+    globalThis.fallbackCalls=[];
+    translateImageText=async(url,...args)=>{globalThis.fallbackCalls.push(url.startsWith("data:")?"data":"remote");if(url==="https://reader-images.example/panel.png")throw new Error("img_403");return globalThis.savedPanelTranslator(url,...args);};
+  });
+  await page.evaluate(()=>chrome.runtime.sendMessage({type:"DASI_TRANSLATE",lang:"fr",src:"eng"}));
+  await reader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  assert.deepEqual(await worker.evaluate(()=>globalThis.fallbackCalls),["remote","data"]);
+  await reader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
+  let trailerRequests=0;
+  await page.route('https://www.youtube-nocookie.com/embed/*',async route=>{trailerRequests++;await route.fulfill({contentType:'text/html',body:'<title>Fixture trailer</title><p>Trailer fixture</p>'});});
+  await page.evaluate(()=>{const probe=document.createElement('div');probe.id='trailer-consent-probe';probe.innerHTML=embeddedTrailer('https://www.youtube.com/watch?v=abcdefghijk');document.body.append(probe);});
+  assert.equal(await page.locator('#trailer-consent-probe iframe').count(),0);assert.equal(trailerRequests,0);
+  await page.locator('#trailer-consent-probe button').focus();await page.keyboard.press('Enter');
+  await page.locator('#trailer-consent-probe iframe').waitFor();
+  assert.equal(await page.locator('#trailer-consent-probe iframe').getAttribute('src'),'https://www.youtube-nocookie.com/embed/abcdefghijk');
+  await page.evaluate(()=>document.getElementById('trailer-consent-probe').remove());
+  assert.deepEqual(errors, []);
+  console.log(
+    JSON.stringify(
+      {
+        ok: true,
+        journeys: [
+          "search race",
+          "preview before save",
+          "save to list",
+          "navigation reset",
+          "bounded progress",
+          "profile",
+          "mobile width",
+          "popup <=600px",
+          "real OCR",
+          "tall image OCR",
+          "Japanese OCR",
+          "in-place translation",
+          "restore",
+        ],
+        popup: bounds,
+        covers: boxes.length,
+        ocr: ocr.lines,
+        japanese: japaneseOcr.lines,
+      },
+      null,
+      2
+    )
+  );
+} finally {
+  await context.close();
+  await fs.rm(profile, { recursive: true, force: true });
+}

@@ -1,3 +1,10 @@
+importScripts("sync-core.js", "auto-translation.js");
+async function fetchRemote(input, init = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try { return await fetch(input, {...init, signal: init.signal ? AbortSignal.any([init.signal,controller.signal]) : controller.signal}); }
+  finally {clearTimeout(timeout);}
+}
 /*
  * Dasi service worker — local-first storage and merge policy.
  *
@@ -13,6 +20,60 @@ const SITES_KEY = "dasi.sites";
 const NOTIF_KEY = "dasi.notifications";
 const LISTS_KEY = "dasi.lists";
 const SETTINGS_KEY = "dasi.settings";
+const TOMBSTONES_KEY="yomu.tombstones.v1";
+
+// Only extension documents may read accounts, edit the library or configure services.
+const PAGE_MESSAGES = new Set(["DETECTION_UPDATED","VIDEO_PROGRESS","DASI_MT","TRANSLATE_IMAGE_TEXT"]);
+function trustedExtensionSender(sender) {
+  if(sender?.id!==api.runtime.id || typeof sender.url!=="string")return false;
+  try {const url=new URL(sender.url);return url.protocol==="chrome-extension:"&&url.host===api.runtime.id;}catch{return false;}
+}
+function pageSender(sender) {
+  if(sender?.id!==api.runtime.id || !Number.isInteger(sender.tab?.id))return false;
+  try {return ["http:","https:"].includes(new URL(sender.url).protocol);}catch{return false;}
+}
+function pageDetection(payload,sender) {
+  if(!payload || typeof payload.title!=="string" || !payload.title.trim() || payload.title.length>500 || !["reading","watching","game"].includes(payload.type))throw Error("invalid_detection");
+  const pageUrl=sender.tab?.url||sender.url;
+  if(!["http:","https:"].includes(new URL(pageUrl).protocol))throw Error("invalid_detection");
+  const clean={title:payload.title,type:payload.type,url:pageUrl,domain:new URL(pageUrl).hostname};
+  for(const key of ["chapter","episode","season","page","position","duration","confidence","total","year"])if(Number.isFinite(payload[key])&&payload[key]>=0&&payload[key]<=1e9)clean[key]=payload[key];
+  for(const key of ["format","cover","synopsis","episodeTitle","releaseDate","platform","price","trailer"])if(typeof payload[key]==="string")clean[key]=payload[key].slice(0,key==="synopsis"?20000:2048);
+  for(const key of ["alternativeTitles","authors","tags"])if(Array.isArray(payload[key]))clean[key]=payload[key].filter(x=>typeof x==="string").slice(0,100).map(x=>x.slice(0,500));
+  clean.externalIds=identityIds(payload);
+  return clean;
+}
+function sharedSettings(value={}) {
+  const result={};
+  for(const key of ["notifyNew","lang","autoTrack","translateLang","homeCats","librarySort"])if(Object.hasOwn(value,key))result[key]=value[key];
+  if(value.profile&&typeof value.profile==="object")result.profile=Object.fromEntries(["name","bio","avatar","banner","updatedAt"].filter(key=>Object.hasOwn(value.profile,key)).map(key=>[key,value.profile[key]]));
+  return result;
+}
+async function protectExtensionStorage() {
+  for(const area of [api.storage.local,api.storage.sync])if(area.setAccessLevel)await area.setAccessLevel({accessLevel:"TRUSTED_CONTEXTS"});
+}
+const storageProtection=protectExtensionStorage();
+storageProtection.catch(()=>{});
+async function scrubLegacySyncedSettings() {
+  await storageProtection;
+  return serializeLibrary(async()=>{
+    const synced=(await api.storage.sync.get(SETTINGS_KEY))[SETTINGS_KEY];
+    if(!synced)return;
+    const safe=sharedSettings(synced);
+    if(JSON.stringify(safe)===JSON.stringify(synced))return;
+    const local=(await api.storage.local.get(SETTINGS_KEY))[SETTINGS_KEY];
+    // Preserve a pre-upgrade user's own keys locally before removing the synced copy.
+    await api.storage.local.set({[SETTINGS_KEY]:{...synced,...local}});
+    await api.storage.sync.set({[SETTINGS_KEY]:safe});
+  });
+}
+function syncEndpoint(value) {
+  let url;try {url=new URL(value);}catch{throw Error("invalid_sync_url");}
+  const loopback=["localhost","127.0.0.1","[::1]"].includes(url.hostname);
+  if((url.protocol!=="https:"&&!(url.protocol==="http:"&&loopback))||url.username||url.password||url.search||url.hash)throw Error("secure_sync_url_required");
+  return url.href.replace(/\/+$/,"");
+}
+
 const DEFAULT_SETTINGS = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" }, tmdbKey: "", rawgKey: "", imgServer: "", ocrKey: "", ocrSrc: "" };
 
 // Canonical work id + fuzzy matching — MUST mirror the web app's item.ts
@@ -49,12 +110,109 @@ const sameWork = (a, b) => {
   const na = normalizeTitle(a), nb = normalizeTitle(b);
   if (!na || !nb) return false;
   if (na === nb) return true;
+  // Numbered sequels and remakes must never be auto-merged as a spelling variant.
+  if ((na.match(/\d+|\b[ivx]+\b/g) || []).join(',') !== (nb.match(/\d+|\b[ivx]+\b/g) || []).join(',')) return false;
   const ta = new Set(na.split(" ").filter(Boolean)), tb = new Set(nb.split(" ").filter(Boolean));
   if (ta.size === tb.size && [...ta].every((x) => tb.has(x))) return true;
   const [small, big] = ta.size <= tb.size ? [ta, tb] : [tb, ta];
-  if (small.size >= 2) { let inter = 0; small.forEach((x) => big.has(x) && inter++); if (inter === small.size && small.size / big.size >= 0.6) return true; }
+  if (small.size >= 2) { let inter = 0; small.forEach((x) => big.has(x) && inter++); if (inter === small.size && small.size / big.size >= 0.6) return false; }
   return editRatio(na, nb) >= 0.9;
 };
+
+
+function identityTitles(item) {
+  return [...new Set([item?.title,...(Array.isArray(item?.alternativeTitles)?item.alternativeTitles:[])].filter(x=>typeof x==="string"&&x.trim()).map(x=>x.trim()))];
+}
+function identityIds(item) {
+  const ids={};
+  for(const [key,value] of Object.entries(item?.externalIds||{})) {
+    if(["anilist","mal","mangaupdates","tvmaze","tmdb","openlibrary","steam","rawg"].includes(key)&&["string","number"].includes(typeof value)&&String(value).trim())ids[key]=String(value).trim();
+  }
+  if(item?.anilistId)ids.anilist=String(item.anilistId).trim();
+  return ids;
+}
+function identityFamily(item) {
+  const f=String(item?.format||"").toUpperCase();
+  if(item?.type==="reading")return /NOVEL|BOOK/.test(f)?"novel":/MANGA|MANHWA|MANHUA|COMIC|WEBTOON/.test(f)?"comic":"";
+  if(item?.type==="watching")return /ANIME|OVA|ONA/.test(f)?"animation":/MOVIE|FILM/.test(f)?"film":/SERIES|DRAMA|TV/.test(f)?"series":"";
+  return item?.type==="game"?"game":"";
+}
+function identityEvidence(a,b) {
+  const ai=identityIds(a),bi=identityIds(b);
+  return {shared:Object.keys(ai).some(k=>bi[k]===ai[k]),conflict:Object.keys(ai).some(k=>bi[k]&&ai[k]!==bi[k])};
+}
+function identityCompatible(a,b) {
+  if(a.type!==b.type)return false;
+  const evidence=identityEvidence(a,b);if(evidence.conflict)return false;
+  const af=identityFamily(a),bf=identityFamily(b);
+  if(af&&bf&&af!==bf)return false;
+  // Identifiers refer to a work; release years and catalog subtypes can drift.
+  if(evidence.shared)return true;
+  if(a.format&&b.format&&String(a.format).toUpperCase()!==String(b.format).toUpperCase())return false;
+  if(a.year&&b.year&&Number(a.year)!==Number(b.year))return false;
+  const parts=item=>identityTitles(item).map(title=>(title.toLowerCase().match(/\b(?:part|arc|cour)\s+(?:\d+|[ivx]+)\b/g)||[]).join("|")).filter(Boolean);
+  const ap=parts(a),bp=parts(b);
+  if((ap.length||bp.length)&&!ap.some(x=>bp.includes(x)))return false;
+  return true;
+}
+function sharedCreator(a,b) {
+  const key=name=>String(name).normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").trim();
+  const aa=(Array.isArray(a.authors)?a.authors:[]).filter(x=>typeof x==="string").map(key).filter(Boolean);
+  const ba=(Array.isArray(b.authors)?b.authors:[]).filter(x=>typeof x==="string").map(key).filter(Boolean);
+  return aa.some(x=>ba.includes(x));
+}
+function sameIdentity(a,b,fuzzy=false) {
+  if(!identityCompatible(a,b))return false;
+  if(identityEvidence(a,b).shared)return true;
+  const exact=identityTitles(a).some(x=>identityTitles(b).some(y=>normalizeTitle(x)&&normalizeTitle(x)===normalizeTitle(y)));
+  if(exact)return true;
+  // A single similar spelling is not proof: require creator corroboration.
+  return fuzzy&&sharedCreator(a,b)&&identityTitles(a).some(x=>identityTitles(b).some(y=>sameWork(x,y)));
+}
+function sharedCatalogIdentity(a,b) {return identityCompatible(a,b)&&identityEvidence(a,b).shared;}
+function selectIdentityMatch(matches,payload) {
+  if(matches.length===1)return matches[0];
+  if(payload.type==="watching"&&Number.isInteger(Number(payload.season))&&Number(payload.season)>0) {
+    const season=matches.filter(i=>Number(i.season||1)===Number(payload.season));
+    if(season.length===1)return season[0];
+  }
+  const creators=matches.filter(i=>sharedCreator(i,payload));
+  return creators.length===1?creators[0]:null;
+}
+function findIdentity(items,payload) {
+  const shared=items.filter(i=>i.type===payload.type&&identityEvidence(i,payload).shared&&(!identityFamily(i)||!identityFamily(payload)||identityFamily(i)===identityFamily(payload)));
+  // Do not bridge inconsistent mappings from two providers by falling back to a title.
+  if(shared.some(i=>!identityCompatible(i,payload)))return null;
+  if(shared.some(a=>shared.some(b=>identityEvidence(a,b).conflict)))return null;
+  if(shared.length)return selectIdentityMatch(shared,payload);
+  const exact=items.filter(i=>sameIdentity(i,payload));
+  if(exact.length)return selectIdentityMatch(exact,payload);
+  const fuzzy=items.filter(i=>sameIdentity(i,payload,true));
+  return fuzzy.length===1?fuzzy[0]:null;
+}
+function identityAmbiguous(items,payload) {
+  if(findIdentity(items,payload))return false;
+  const shared=items.filter(i=>i.type===payload.type&&identityEvidence(i,payload).shared&&(!identityFamily(i)||!identityFamily(payload)||identityFamily(i)===identityFamily(payload)));
+  return shared.length>0||items.filter(i=>sameIdentity(i,payload)).length>1;
+}
+function identityMetadata(a,b) {
+  return {
+    alternativeTitles:[...new Set([...identityTitles(a),...identityTitles(b)])].slice(0,100),
+    authors:[...new Set([...(Array.isArray(a?.authors)?a.authors:[]),...(Array.isArray(b?.authors)?b.authors:[])].filter(x=>typeof x==="string"&&x.trim()))].slice(0,30),
+    externalIds:{...identityIds(a),...identityIds(b)},
+  };
+}
+async function resolveIncomingIdentity(payload) {
+  if(!payload?.title||!["reading","watching"].includes(payload.type))return payload;
+  const saved=await read(ITEMS_KEY,[]);
+  if(!saved.some(i=>i.type===payload.type)||findIdentity(saved,payload))return payload;
+  try {
+    const results=await (payload.type==="reading"?mangaSearchResilient(payload.title):catalogSearchAll(payload.title));
+    const matches=results.filter(r=>sameIdentity(r,payload));
+    if(matches.length===1)return {...payload,...identityMetadata(payload,matches[0])};
+  } catch { /* Offline saving remains available. */ }
+  return payload;
+}
 
 const numericProgress = (p) =>
   p.chapter || p.episode || p.page || (p.duration && p.position ? p.position / p.duration : 0) || 0;
@@ -74,6 +232,7 @@ const percent = (p) => {
  * Transient values (current detection, last conflict) stay local-only.
  */
 const read = async (key, fallback) => {
+  await storageProtection;
   const local = (await api.storage.local.get(key))[key];
   if (local !== undefined) return local;
   try {
@@ -89,10 +248,24 @@ const read = async (key, fallback) => {
 };
 
 /** Write data keys to local (authoritative) and mirror to sync when it fits. */
-const writeData = async (obj) => {
+const DATA_KEYS={items:ITEMS_KEY,lists:LISTS_KEY,sites:SITES_KEY,notifications:NOTIF_KEY};
+const writeData = async (obj, downloaded=false) => {
+  if(!downloaded){
+    const before={},after={};
+    for(const [kind,key] of Object.entries(DATA_KEYS))if(obj[key]){before[kind]=await read(key,[]);after[kind]=obj[key];}
+    if(obj[SETTINGS_KEY]?.profile){before.profile=(await read(SETTINGS_KEY,{})).profile;after.profile=obj[SETTINGS_KEY].profile;}
+    before.tombstones=await read(TOMBSTONES_KEY,[]);
+    const stamped=YomuSync.stampChanges(before,after);
+    for(const [kind,key] of Object.entries(DATA_KEYS))if(stamped[kind])obj[key]=stamped[kind];
+    if(stamped.profile)obj[SETTINGS_KEY]={...obj[SETTINGS_KEY],profile:stamped.profile};
+    if(stamped.tombstones)obj[TOMBSTONES_KEY]=stamped.tombstones;
+  }
   await api.storage.local.set(obj);
+  if((await getSyncConfig())?.token)return;
   try {
-    await api.storage.sync.set(obj);
+    const shared={...obj};
+    if(shared[SETTINGS_KEY])shared[SETTINGS_KEY]=sharedSettings(shared[SETTINGS_KEY]);
+    await api.storage.sync.set(shared);
   } catch {
     /* over quota or unavailable: local-only is fine */
   }
@@ -135,7 +308,7 @@ async function systemNotify(title, message, id) {
 const SYNC_CFG_KEY = "dasi.sync.config";
 const SYNC_META_KEY = "dasi.sync.meta";
 const AUTO_SYNC_COOLDOWN_MS = 8000;
-let lastAutoSync = 0;
+let lastAutoSync = 0, autoSyncTimer = null, accountEpoch = 0;
 
 const apiBase = (url) => (url || "").replace(/\/+$/, "");
 const getSyncConfig = async () => (await api.storage.local.get(SYNC_CFG_KEY))[SYNC_CFG_KEY] || null;
@@ -146,8 +319,9 @@ const setSyncMeta = async (meta) => {
 };
 
 async function apiCall(cfg, path, init = {}) {
-  return fetch(apiBase(cfg.apiUrl) + path, {
+  return fetchRemote(syncEndpoint(cfg.apiUrl) + path, {
     ...init,
+    redirect: "error", credentials: "omit",
     headers: {
       "Content-Type": "application/json",
       ...(cfg.token ? { Authorization: `Bearer ${cfg.token}` } : {}),
@@ -156,9 +330,23 @@ async function apiCall(cfg, path, init = {}) {
   });
 }
 
+const ACCOUNT_CACHE_KEY='yomu.accountCaches.v1';
+const scopeOf=cfg=>cfg?.token?apiBase(cfg.apiUrl)+'|'+(cfg.userId || 'legacy:'+String(cfg.email||'').toLowerCase()):'guest';
+async function switchSyncAccount(nextConfig){
+  const previous=await getSyncConfig(), caches=await read(ACCOUNT_CACHE_KEY,{});
+  const keys=[ITEMS_KEY,LISTS_KEY,SITES_KEY,NOTIF_KEY,SETTINGS_KEY,TOMBSTONES_KEY];
+  const previousData={};for(const key of keys)previousData[key]=await read(key,key===SETTINGS_KEY?DEFAULT_SETTINGS:[]);
+  caches[scopeOf(previous)]=previousData;
+  const sameLegacy=previous?.token && !previous.userId && nextConfig?.token && previous.apiUrl===nextConfig.apiUrl && previous.email?.toLowerCase()===nextConfig.email?.toLowerCase();
+  const nextData=(sameLegacy?previousData:caches[scopeOf(nextConfig)]) || {[ITEMS_KEY]:[],[LISTS_KEY]:[],[SITES_KEY]:[],[NOTIF_KEY]:[],[TOMBSTONES_KEY]:[],[SETTINGS_KEY]:{...DEFAULT_SETTINGS,lang:previousData[SETTINGS_KEY]?.lang||'en'}};
+  await api.storage.local.set({...nextData,[ACCOUNT_CACHE_KEY]:caches,[SYNC_CFG_KEY]:nextConfig,[SYNC_META_KEY]:{},'dasi.lastConflict':null,'dasi.currentDetection':null});
+  ++accountEpoch;clearTimeout(autoSyncTimer);autoSyncTimer=null;lastAutoSync=0;
+}
+
 /** Sign in / sign up against the backend and persist the resulting config. */
 async function syncAuth(path, apiUrl, email, password) {
-  const res = await fetch(apiBase(apiUrl) + path, {
+  const res = await fetchRemote(syncEndpoint(apiUrl) + path, {
+    redirect: "error", credentials: "omit",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -168,8 +356,8 @@ async function syncAuth(path, apiUrl, email, password) {
     throw new Error(err.error || `http_${res.status}`);
   }
   const data = await res.json();
-  const cfg = { apiUrl: apiBase(apiUrl), token: data.token, email: data.user.email, plan: data.user.plan };
-  await api.storage.local.set({ [SYNC_CFG_KEY]: cfg });
+  const cfg = { apiUrl: apiBase(apiUrl), token: data.token, userId:data.user.id, email: data.user.email, plan: data.user.plan };
+  await serializeLibrary(()=>switchSyncAccount(cfg));
   await setSyncMeta({ lastError: null });
   return cfg;
 }
@@ -200,82 +388,140 @@ async function syncNow() {
 
   const getRes = await apiCall(cfg, "/sync");
   if (getRes.status === 401) {
-    await setSyncMeta({ lastError: "unauthorized" });
+    if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({ lastError: "unauthorized" });
     throw new Error("unauthorized");
   }
-  const remote = getRes.ok ? await getRes.json().catch(() => ({ blob: null })) : { blob: null };
+  if(!getRes.ok)throw new Error(`pull_${getRes.status}`);
+  const remote = await getRes.json();
   const rb = remote.blob || null;
 
-  const [items, sites, notifs, lists] = await Promise.all([
-    read(ITEMS_KEY, []),
-    read(SITES_KEY, []),
-    read(NOTIF_KEY, []),
-    read(LISTS_KEY, []),
-  ]);
-  const mergedItems = mergeItems(rb && rb.items, items);
-  const mergedSites = mergeById(rb && rb.sites, sites);
-  const mergedNotifs = mergeById(rb && rb.notifications, notifs);
-  const mergedLists = mergeById(rb && rb.lists, lists);
-  await writeData({ [ITEMS_KEY]: mergedItems, [SITES_KEY]: mergedSites, [NOTIF_KEY]: mergedNotifs, [LISTS_KEY]: mergedLists });
-
-  // Push the merged library, preserving web-only slices (learn/plan) that the
-  // extension doesn't own so a push never wipes them.
-  const blob = {
-    items: mergedItems,
-    sites: mergedSites,
-    notifications: mergedNotifs,
-    lists: mergedLists,
-    updatedAt: Date.now(),
-  };
-  if (rb) {
-    if (rb.learn) blob.learn = rb.learn;
-    if (rb.plan) blob.plan = rb.plan;
-  }
+  const blob=await serializeLibrary(async()=>{
+    if((await getSyncConfig())?.token!==cfg.token)throw new Error('account_changed');
+    const localSettings=await read(SETTINGS_KEY,{});
+    const local={updatedAt:0,tombstones:await read(TOMBSTONES_KEY,[]),profile:localSettings.profile};
+    for(const [kind,key] of Object.entries(DATA_KEYS))local[kind]=await read(key,[]);
+    const merged=YomuSync.mergeBlobs(rb,local),values={[TOMBSTONES_KEY]:merged.tombstones||[]};
+    for(const [kind,key] of Object.entries(DATA_KEYS))values[key]=merged[kind]||[];
+    if(merged.profile)values[SETTINGS_KEY]={...localSettings,profile:merged.profile};
+    await writeData(values,true);return merged;
+  });
   const putRes = await apiCall(cfg, "/sync", { method: "PUT", body: JSON.stringify({ blob }) });
   if (!putRes.ok) {
-    await setSyncMeta({ lastError: `push_${putRes.status}` });
+    if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({ lastError: `push_${putRes.status}` });
     throw new Error(`push_${putRes.status}`);
   }
-  await setSyncMeta({ lastSyncAt: Date.now(), lastError: null });
-  return { items: mergedItems.length, sites: mergedSites.length, notifications: mergedNotifs.length };
+  if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({ lastSyncAt: Date.now(), lastError: null });
+  return { items: blob.items.length, sites: blob.sites.length, notifications: blob.notifications.length };
 }
 
-/** Fire-and-forget sync after a local change, rate-limited so saves stay cheap. */
+/** Short-delay saves plus a durable alarm for suspension/network recovery. */
+const SYNC_ALARM='yomu-sync-retry';
+let syncInFlight=null;
+async function runAutoSync(){
+ if(syncInFlight)return syncInFlight;
+ syncInFlight=(async()=>{
+ const cfg=await getSyncConfig();if(!cfg?.token)return;
+ const meta=await read(SYNC_META_KEY,{});if(Date.now()<(meta.nextRetryAt||0))return;
+  lastAutoSync=Date.now();
+  try{await syncNow();if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({retryCount:0,nextRetryAt:0});}
+  catch(error){if((await getSyncConfig())?.token===cfg.token){const retryCount=Math.min(8,(meta.retryCount||0)+1);await setSyncMeta({lastError:String(error.message),retryCount,nextRetryAt:Date.now()+Math.min(900000,30000*2**(retryCount-1))});}}
+ })();try{return await syncInFlight;}finally{syncInFlight=null;}
+}
+async function ensureSyncAlarm(){
+ try{if(api.alarms?.get&&!await api.alarms.get(SYNC_ALARM))await api.alarms.create(SYNC_ALARM,{periodInMinutes:5});}catch{/* Local saves remain available if alarms are unavailable. */}
+}
 function autoSync() {
-  getSyncConfig().then((cfg) => {
-    if (!cfg || !cfg.token) return;
-    const now = Date.now();
-    if (now - lastAutoSync < AUTO_SYNC_COOLDOWN_MS) return;
-    lastAutoSync = now;
-    syncNow().catch(() => {
-      /* best-effort; error is recorded in sync meta */
-    });
-  });
+ void ensureSyncAlarm();
+ if(autoSyncTimer)return;
+ autoSyncTimer=setTimeout(()=>{autoSyncTimer=null;void runAutoSync();},Math.max(0,AUTO_SYNC_COOLDOWN_MS-(Date.now()-lastAutoSync)));
+}
+void ensureSyncAlarm();
+
+let libraryWriteQueue = Promise.resolve();
+function serializeLibrary(task) {
+  const result = libraryWriteQueue.then(task);
+  libraryWriteQueue = result.catch(() => {});
+  return result;
+}
+function boundedProgress(item) {
+  const out = { ...item };
+  const n = value => Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
+  const total = n(out.total);
+  if (out.total !== undefined) out.total = total || undefined;
+  for (const key of ['episode','page','season','volume','latestEpisode']) {
+    if(out[key] !== undefined) out[key] = n(out[key]);
+  }
+  for(const field of ['chapter','latestChapter'])if(out[field]!==undefined)out[field]=Number.isFinite(Number(out[field]))?Math.max(0,Number(out[field])):0;
+  const key = out.type === 'watching' ? 'episode' : 'chapter';
+  if (total && out[key] !== undefined) out[key] = Math.min(total,out[key]);
+  if (out.progress !== undefined) out.progress = Math.max(0,Math.min(100,Number(out.progress) || 0));
+  return out;
+}
+function automaticProgress(existing,raw) {
+  const p={...raw},positive=value=>Number.isFinite(Number(value))&&Number(value)>0;
+  const watching=p.type==="watching";
+  const playback=watching&&Number.isFinite(p.position)&&p.position>=3&&Number.isFinite(p.duration)&&p.duration>0;
+  const active=positive(watching?p.episode:p.chapter)||(!watching&&positive(p.page))||playback;
+  if(!existing)return {payload:p,active,advanced:false};
+  const oldSeason=Number(existing.season)||1;
+  const season=positive(p.season)?Number(p.season):oldSeason;
+  if(!active) {
+    // Overview pages may report zero or their first season. They are metadata,
+    // never a request to reset the user's viewing or reading context.
+    for(const key of ["season","episode","chapter","page","volume","position","duration","progress","status","state","activityAt","url"])p[key]=existing[key];
+    const known=Number(watching?existing.episode:existing.chapter)||0;
+    if((watching&&season!==oldSeason)||!positive(p.total)||Number(p.total)<known)p.total=existing.total;
+    return {payload:p,active:false,advanced:false};
+  }
+  p.state=existing.state;
+  if(watching)p.season=season;
+  const key=watching?"episode":"chapter",old=Number(existing[key])||0;
+  if((!watching||season===oldSeason)&&positive(p.total)&&Number(p.total)<old)p.total=Number(existing.total)>=old?existing.total:undefined;
+  if(!positive(p[key])&&(!watching||season===oldSeason))p[key]=existing[key];
+  const advanced=(watching&&season>oldSeason)||((!watching||season===oldSeason)&&Number(p[key])>old);
+  if(advanced) {
+    if(!positive(p[key]))p[key]=undefined;
+    for(const field of ["position","duration","page"])if(!positive(p[field]))p[field]=undefined;
+    if(watching&&season>oldSeason&&!positive(p.total))p.total=undefined;
+    p.progress=playback?percent(p):0;
+  } else {
+    for(const field of ["position","duration","page"])if(!positive(p[field]))p[field]=existing[field];
+  }
+  return {payload:p,active:true,advanced};
 }
 
-async function writeItem(payload) {
+async function writeItem(payload) { const epoch=accountEpoch; const resolved=await resolveIncomingIdentity(payload); return serializeLibrary(() => {if(epoch!==accountEpoch)throw new Error("account_changed");return writeItemUnlocked(resolved);}); }
+async function writeItemUnlocked(payload) {
+  if (!payload || typeof payload.title !== 'string' || !payload.title.trim()) throw new Error('missing_title');
+  payload = Object.fromEntries(Object.entries(payload).filter(([k,v]) => v !== undefined && !['__proto__','constructor','prototype','id','createdAt'].includes(k)));
   const items = await read(ITEMS_KEY, []);
   let key = workKey(payload);
-  let existing = items.find((i) => i.id === key);
-  // Cross-site merge: no exact id match → look for the same work saved under a
-  // slightly different title on another site, and keep its id so they converge.
-  if (!existing && payload.type !== "game") {
-    const fuzzy = items.find((i) => i.type === payload.type && i.id !== key && sameWork(i.title, payload.title));
-    if (fuzzy) { existing = fuzzy; key = fuzzy.id; }
-  }
+  let existing=findIdentity(items,payload);
+  if(!existing&&identityAmbiguous(items,payload))throw new Error("ambiguous_identity");
+  if(existing)key=existing.id;
+  else if(items.some(i=>i.id===key)){const base=key+'-'+(payload.type||'reading');let n=2;key=base;while(items.some(i=>i.id===key))key=base+'-'+n++;}
+  const incomingIsSeriesLevel=!(payload.chapter||payload.episode||payload.season||payload.volume);
+  const sourceUrl=payload.url;
+  const progressChange=automaticProgress(existing,payload);payload=progressChange.payload;
+  const sameSeason = !existing || (Number(payload.season) || 1) === (Number(existing.season) || 1);
+  payload = boundedProgress({ ...payload, total: payload.total || (sameSeason ? existing?.total : undefined) });
   const incomingScore = numericProgress(payload);
   const existingScore = existing ? numericProgress(existing) : -1;
 
   const incoming = {
     ...payload,
     id: key,
+    activityAt: existing&&!progressChange.active?existing.activityAt:Date.now(),
     updatedAt: Date.now(),
-    progress: percent(payload) ?? existing?.progress ?? 0,
-    status: percent(payload) && percent(payload) > 92 ? "completed" : "in_progress",
+    progress: existing&&!progressChange.active?existing.progress:percent(payload) ?? (progressChange.advanced?0:existing?.progress) ?? 0,
+    status: existing&&!progressChange.active?existing.status:percent(payload)&&percent(payload)>92?"completed":"in_progress",
   };
 
   // Regression guard: keep the furthest position, flag the conflict.
-  if (existing && existingScore > incomingScore && incomingScore > 0) {
+  const earlierSeason=existing && payload.type==="watching" && (Number(payload.season)||1)<(Number(existing.season)||1);
+  const earlierPosition=existing && sameSeason && incomingScore===existingScore && Number.isFinite(payload.position) && (Number(existing.position)||0)>payload.position;
+  const earlierPage=existing&&payload.type==="reading"&&incomingScore===existingScore&&Number.isFinite(payload.page)&&(Number(existing.page)||0)>payload.page;
+  if (existing && (earlierSeason || earlierPosition || earlierPage || (sameSeason && existingScore > incomingScore && incomingScore > 0))) {
     await api.storage.local.set({ "dasi.lastConflict": { existing, incoming, reason: "lower_progress" } });
     return { item: existing, conflict: true, kept: "existing" };
   }
@@ -284,30 +530,32 @@ async function writeItem(payload) {
   // a save comes from a series/overview page (no chapter/episode marker), which
   // carries the real series art rather than an episode thumbnail. A manual
   // coverOverride always wins at render time.
-  const incomingIsSeriesLevel = !(payload.chapter || payload.episode || payload.season || payload.volume);
   let cover = existing?.cover || "";
   if (payload.cover && (!cover || incomingIsSeriesLevel)) cover = payload.cover;
 
   const merged = {
     ...existing,
     ...incoming,
+    ...identityMetadata(existing,payload),
+    title: existing?.title || payload.title,
     cover,
     coverOverride: existing?.coverOverride || undefined,
     synopsis: payload.synopsis || existing?.synopsis || "",
     // Auto-tags: seed from detected genres on first save, then user-owned.
-    tags: existing?.tags ?? (Array.isArray(payload.genres) ? payload.genres : []),
+    tags: existing?.tags ?? (Array.isArray(payload.tags)&&payload.tags.length?payload.tags:Array.isArray(payload.genres)?payload.genres:[]),
     // Furthest point ever reached (for "mark all up to here", progress display).
     latestChapter: Math.max(existing?.latestChapter || 0, payload.chapter || 0) || undefined,
-    latestEpisode: Math.max(existing?.latestEpisode || 0, payload.episode || 0) || undefined,
+    latestEpisode: Math.max(sameSeason ? existing?.latestEpisode || 0 : 0, payload.episode || 0) || undefined,
     // How many entries are released (auto-detected from the page, never lowered).
-    total: Math.max(existing?.total || 0, payload.available || 0, payload.chapter || 0, payload.episode || 0) || existing?.total || undefined,
+    total: payload.total || payload.available || (sameSeason ? existing?.total : undefined),
     createdAt: existing?.createdAt || Date.now(),
     favorite: existing?.favorite || false,
     rating: existing?.rating || 0,
     sources: [...new Set([...(existing?.sources || []), payload.domain].filter(Boolean))],
+    sourceUrls:[...new Set([...(existing?.sourceUrls||[]),existing?.url,sourceUrl].filter(u=>typeof u==="string"&&/^https?:\/\//i.test(u)))].slice(-100),
   };
 
-  const next = [merged, ...items.filter((i) => i.id !== key)].slice(0, 800);
+  const next = [boundedProgress(merged), ...items.filter((i) => i.id !== key)];
   await writeData({ [ITEMS_KEY]: next });
   await api.storage.local.set({ "dasi.lastConflict": null });
 
@@ -315,7 +563,7 @@ async function writeItem(payload) {
   if (existing && merged.type !== "game") {
     const cur = merged.type === "watching" ? merged.episode || 0 : merged.chapter || 0;
     const newTotal = merged.total || 0;
-    if (newTotal > (existing.total || 0) && newTotal > cur) {
+    if (merged.notifyUpdates!==false && newTotal > (existing.total || 0) && newTotal > cur) {
       const n = newTotal - cur;
       const unit = merged.type === "watching" ? "episode" : "chapter";
       const msg = `${n} new ${unit}${n > 1 ? "s" : ""} available`;
@@ -326,7 +574,7 @@ async function writeItem(payload) {
   // First time we see this work → enrich it from AniList in the background so
   // it gets a real series cover, synopsis, tags and released count.
   if (merged.type !== "game" && !merged.enrichedAt) enrichWork(key).then(() => autoSync()).catch(() => {});
-  return { item: merged, conflict: Boolean(existing), kept: "incoming" };
+  return { item: boundedProgress(merged), conflict: false, kept: "incoming" };
 }
 
 // Add an item to a list, creating the list when only a name is given. Membership
@@ -336,6 +584,7 @@ async function addItemToList(itemId, listId, listName) {
   if (!itemId) return null;
   const lists = await read(LISTS_KEY, []);
   let target = listId ? lists.find((l) => l.id === listId) : null;
+  if(listId&&!target)throw new Error("list_unavailable");
   let next;
   if (!target) {
     const name = (listName || "New list").toString().slice(0, 60);
@@ -361,30 +610,25 @@ async function addItemToList(itemId, listId, listName) {
  * cross-origin fetch uses the extension's host permissions instead of the
  * page's CSP. Best-effort: a failed segment returns the original text.
  */
+let translationRetryAt=0, translationRetryLoaded=false;
 async function gtxTranslate(text, target) {
+  if(!translationRetryLoaded){translationRetryAt=Math.max(translationRetryAt,Number(await read("yomu.translationRetryAt",0))||0);translationRetryLoaded=true;}
+  if(Date.now()<translationRetryAt)throw new Error("translation_rate_limited");
   const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(text)}`;
-  const r = await fetch(url);
+  const r = await fetchRemote(url);
+  if(r.status===429){const retry=r.headers.get("retry-after");const seconds=Number(retry);const delay=retry?(Number.isFinite(seconds)?seconds*1000:Date.parse(retry)-Date.now()):60000;translationRetryAt=Date.now()+Math.max(60000,Number.isFinite(delay)?delay:60000);await api.storage.local.set({"yomu.translationRetryAt":translationRetryAt});throw new Error("translation_rate_limited");}
   if (!r.ok) throw new Error(`gtx_${r.status}`);
   const j = await r.json();
-  return Array.isArray(j && j[0]) ? j[0].map((s) => (s && s[0]) || "").join("") : text;
+  if(!Array.isArray(j && j[0])) throw new Error("translation_response_invalid");
+  return j[0].map(s => (s && s[0]) || "").join("");
 }
 async function mymemoryTranslate(text, target) {
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0, 480))}&langpair=${encodeURIComponent("en|" + target)}`;
-  const r = await fetch(url);
+  const r = await fetchRemote(url);
   const j = await r.json();
   return (j && j.responseData && j.responseData.translatedText) || text;
 }
-async function translateOne(text, target) {
-  try {
-    return await gtxTranslate(text, target);
-  } catch {
-    try {
-      return await mymemoryTranslate(text, target);
-    } catch {
-      return text;
-    }
-  }
-}
+async function translateOne(text,target) { return gtxTranslate(text,target); }
 /** Translate an array of strings, batching with a newline join to cut calls. */
 async function translateTexts(texts, target) {
   const out = new Array(texts.length);
@@ -400,8 +644,9 @@ async function translateTexts(texts, target) {
         const tr = await gtxTranslate(joined, target);
         const parts = tr.split(SEP);
         if (parts.length === chunk.length) { parts.forEach((p, k) => (out[i + k] = p)); ok = true; }
-      } catch {
-        /* fall through to per-item */
+      } catch(error) {
+        if(error.message==="translation_rate_limited")throw error;
+        /* fall through to per-item only for other failures */
       }
     }
     if (!ok) for (let k = 0; k < chunk.length; k++) out[i + k] = await translateOne(chunk[k], target);
@@ -431,14 +676,18 @@ function mediaToResult(m) {
   return {
     title,
     type,
+    releaseStatus:m.status||undefined,
     anilistId: m.id || undefined,
+    externalIds: { ...(m.id?{anilist:String(m.id)}:{}), ...(m.idMal?{mal:String(m.idMal)}:{}) },
+    alternativeTitles: [...new Set([...Object.values(m.title||{}),...(m.synonyms||[])].filter(x=>typeof x==="string"&&x.trim()))],
+    authors: [...new Set((m.staff?.edges||[]).filter(e=>/^(story|art|story & art|original creator|original story)$/i.test(e.role||"")).map(e=>e.node?.name?.full||e.node?.name?.native).filter(Boolean))],
     cover: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large || m.coverImage.medium)) || "",
     // Smaller AniList size the UI can fall back to if the big one 404s/blocks.
     coverFallback: (m.coverImage && (m.coverImage.medium || m.coverImage.large)) || undefined,
     synopsis: stripHtml(m.description).slice(0, 700),
-    genres: Array.isArray(m.genres) ? m.genres.slice(0, 6) : [],
+    genres: Array.isArray(m.genres) ? [...new Set(m.genres.filter(g=>typeof g==="string"&&g.trim()))].slice(0,80) : [],
     total: type === "reading" ? m.chapters || undefined : m.episodes || undefined,
-    season: m.seasonYear || undefined,
+    year: Number.isInteger(m.startDate?.year)&&m.startDate.year>0?m.startDate.year:(Number.isInteger(m.seasonYear)&&m.seasonYear>0?m.seasonYear:undefined),
     country: m.countryOfOrigin || undefined,
     format,
     url: m.siteUrl || "",
@@ -455,8 +704,8 @@ function trailerUrl(tr) {
 // from search so the list query stays light. Best-effort; throws are swallowed
 // by the caller.
 async function anilistDetail(id) {
-  const gql = `query($id:Int){Media(id:$id){episodes chapters volumes seasonYear status trailer{id site} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{name{full} image{large}}}}}}`;
-  const res = await fetch(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { id } }) });
+  const gql = `query($id:Int){Media(id:$id){id idMal title{romaji english native} synonyms staff(perPage:25){edges{role node{name{full native}}}} coverImage{extraLarge large medium} description genres format countryOfOrigin siteUrl episodes chapters volumes seasonYear startDate{year} status trailer{id site} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{name{full} image{large}}}}}}`;
+  const res = await fetchRemote(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { id } }) });
   if (!res.ok) throw new Error(`anilist_detail_${res.status}`);
   const data = await res.json();
   const m = data && data.data && data.data.Media;
@@ -466,6 +715,7 @@ async function anilistDetail(id) {
     .filter((c) => c.name)
     .slice(0, 12);
   return {
+    ...mediaToResult(m),
     episodes: m.episodes || undefined,
     chapters: m.chapters || undefined,
     volumes: m.volumes || undefined,
@@ -475,9 +725,212 @@ async function anilistDetail(id) {
     cast,
   };
 }
+
+
+let jikanQueue=Promise.resolve(),jikanPending=0;
+function jikanRequest(path) {
+  if(jikanPending>=8)return Promise.reject(Error("jikan_queue_full"));
+  jikanPending++;
+  const request=jikanQueue.then(async()=>{
+    const response=await fetchRemote("https://api.jikan.moe/v4/"+path);
+    if(!response.ok)throw Error("jikan_"+response.status);
+    return response.json();
+  });
+  jikanQueue=request.catch(()=>{}).then(()=>new Promise(resolve=>setTimeout(resolve,400)));
+  return request.finally(()=>{jikanPending--;});
+}
+function jikanMedia(m,type) {
+  if(!m||!Number.isInteger(m.mal_id)||m.mal_id<1)return null;
+  const formats={Manga:"MANGA",Manhwa:"MANHWA",Manhua:"MANHUA",Novel:"NOVEL","Light Novel":"NOVEL"};
+  return {title:m.title_english||m.title||m.title_japanese||"",type,
+    releaseStatus:m.status||undefined,year:m.year||m.aired?.prop?.from?.year||m.published?.prop?.from?.year,
+    externalIds:{mal:String(m.mal_id)},alternativeTitles:[...new Set([m.title,m.title_english,m.title_japanese,...(m.title_synonyms||[]),...(m.titles||[]).map(t=>t.title)].filter(Boolean))],
+    authors:(m.authors||[]).map(a=>a.name).filter(Boolean),
+    cover:m.images?.jpg?.large_image_url||m.images?.jpg?.image_url||"",
+    coverFallback:m.images?.jpg?.image_url||"",synopsis:stripHtml(m.synopsis),
+    genres:[...new Set([...(m.genres||[]),...(m.themes||[]),...(m.demographics||[])].map(g=>g.name).filter(Boolean))],
+    format:type==="reading"?(formats[m.type]||"MANGA"):(m.type==="Movie"?"MOVIE":"ANIME"),
+    total:type==="reading"?m.chapters||undefined:m.episodes||undefined,
+    trailerUrl:m.trailer?.url||"",url:m.url||"",source:"myanimelist"};
+}
+async function jikanSearch(query) {
+  const settled=await Promise.allSettled(["manga","anime"].map(async kind=>{
+    const data=await jikanRequest(kind+"?q="+encodeURIComponent(query)+"&limit=25&sfw=true");
+    return (data.data||[]).map(m=>jikanMedia(m,kind==="manga"?"reading":"watching")).filter(Boolean);
+  }));
+  if(settled.every(r=>r.status==="rejected"))throw Error("manga_catalogs_unavailable");
+  return settled.flatMap(r=>r.status==="fulfilled"?r.value:[]);
+}
+async function mangaSearchResilient(query,onProgress) {
+  const out=[];
+  const settled=await Promise.allSettled([anilistSearch(query),jikanSearch(query)].map(task=>Promise.resolve(task).then(results=>{
+    out.push(...results);
+    if(onProgress)onProgress(results);
+    return results;
+  })));
+  if(settled.every(r=>r.status==="rejected"))throw Error("manga_catalogs_unavailable");
+  return mergeCatalogResults(out);
+}
+async function jikanDetail(item) {
+  const id=identityIds(item).mal;
+  if(!/^[1-9]\d*$/.test(id||"")||!["reading","watching"].includes(item.type))throw Error("missing_catalog_identity");
+  const result=await jikanRequest((item.type==="reading"?"manga/":"anime/")+id+"/full");
+  if(String(result.data?.mal_id)!==id)throw Error("catalog_identity_mismatch");
+  return jikanMedia(result.data,item.type);
+}
+
+
+// Public episode metadata is fetched only when a detail panel requests it.
+const episodeGuideCache=new Map();
+async function guideResource(path) {
+  const cached=episodeGuideCache.get(path);
+  if(cached&&Date.now()-cached.at<600000)return cached.task;
+  const entry={at:Date.now(),task:null};
+  entry.task=fetchRemote("https://api.tvmaze.com"+path).then(async response=>{
+    if(!response.ok)throw Error("episode_guide_unavailable");
+    const data=await response.json();
+    if(!Array.isArray(data))throw Error("invalid_episode_guide");
+    return data;
+  }).catch(error=>{if(episodeGuideCache.get(path)===entry)episodeGuideCache.delete(path);throw error;});
+  episodeGuideCache.set(path,entry);
+  if(episodeGuideCache.size>40)episodeGuideCache.delete(episodeGuideCache.keys().next().value);
+  return entry.task;
+}
+async function catalogEpisodeGuide(item,seasonId) {
+  const showId=identityIds(item).tvmaze;
+  if(item.type!=="watching"||! /^[1-9]\d*$/.test(showId||""))return {supported:false,seasons:[]};
+  const raw=await guideResource("/shows/"+showId+"/seasons");
+  const seasons=raw.filter(s=>s&&Number.isSafeInteger(s.id)&&s.id>0&&Number.isInteger(s.number)&&s.number>=0).map(s=>({
+    id:String(s.id),number:s.number,name:typeof s.name==="string"?s.name.slice(0,300):"",
+    episodeCount:Number.isInteger(s.episodeOrder)&&s.episodeOrder>=0?s.episodeOrder:null,
+    premiereDate:typeof s.premiereDate==="string"?s.premiereDate:""
+  })).sort((a,b)=>a.number-b.number);
+  if(seasonId===undefined||seasonId===null)return {supported:true,seasons};
+  const season=seasons.find(s=>s.id===String(seasonId));
+  if(!season)throw Error("season_not_in_show");
+  const episodes=(await guideResource("/seasons/"+season.id+"/episodes")).filter(e=>e&&e.season===season.number&&Number.isSafeInteger(e.id)&&e.id>0).map(e=>({
+    id:String(e.id),number:Number.isInteger(e.number)&&e.number>0?e.number:null,
+    name:typeof e.name==="string"?e.name.slice(0,300):"",
+    airdate:typeof e.airdate==="string"?e.airdate:"",
+    runtime:Number.isFinite(e.runtime)&&e.runtime>0?e.runtime:null,
+    special:e.type!=="regular"&&e.type!==undefined
+  }));
+  return {supported:true,seasons,season,episodes};
+}
+
+
+function gameStoreUrl(value) {
+  if(typeof value!=="string"||value.length>2048)return "";
+  try {
+    const url=new URL(value);
+    const hosts=["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com","apps.apple.com","play.google.com"];
+    return url.protocol==="https:"&&hosts.includes(url.hostname)&&!url.port&&!url.username&&!url.password?url.href:"";
+  }catch{return "";}
+}
+function gameStoreLinks(...values) {
+  return [...new Set(values.flatMap(value=>Array.isArray(value)?value:[]).map(gameStoreUrl).filter(Boolean))].slice(0,24);
+}
+const rawgDetailsCache=new Map(),rawgDetailsInflight=new Map();
+async function rawgDetails(id,key,force=false) {
+  if(!/^[1-9]\d{0,14}$/.test(String(id))||typeof key!=="string"||!key.trim())throw Error("rawg_unavailable");
+  const cacheKey=key+":"+id,cached=rawgDetailsCache.get(cacheKey);
+  if(!force&&cached&&cached.expires>Date.now())return structuredClone(cached.value);
+  if(rawgDetailsInflight.has(cacheKey))return structuredClone(await rawgDetailsInflight.get(cacheKey));
+  if(rawgDetailsInflight.size>=4)throw Error("rawg_busy");
+  const task=(async()=>{
+    const base="https://api.rawg.io/api/games/"+id;
+    const response=await fetchRemote(base+"?key="+encodeURIComponent(key),{credentials:"omit",redirect:"error"});
+    if(!response.ok)throw Error("rawg_details_unavailable");
+    const game=await response.json();
+    if(String(game?.id)!==String(id))throw Error("catalog_identity_mismatch");
+    if(typeof game.name!=="string"||!game.name.trim())throw Error("rawg_response_invalid");
+    const names=rows=>[...new Set((Array.isArray(rows)?rows:[]).map(x=>typeof x?.name==="string"?x.name.trim().slice(0,100):"").filter(Boolean))].slice(0,80);
+    const platform=names((Array.isArray(game.platforms)?game.platforms:[]).map(x=>x?.platform)).join(" · ");
+    const synopsis=typeof game.description==="string"?stripHtml(game.description).slice(0,20000):"";
+    const date=typeof game.released==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(game.released)&&Number.isFinite(Date.parse(game.released))?game.released:"";
+    const detail={externalIds:{rawg:String(id)},source:"rawg",gameEnrichedAt:Date.now(),
+      ...(synopsis?{synopsis}:{}),...(platform?{platform}:{}),...(date?{releaseDate:date,year:Number(date.slice(0,4))}:{}),
+      genres:names(game.genres),tags:names(game.tags),authors:names(game.developers),
+      alternativeTitles:[...new Set([game.name,game.name_original,...(Array.isArray(game.alternative_names)?game.alternative_names:[])].filter(x=>typeof x==="string"&&x.trim()).map(x=>x.trim().slice(0,300)))].slice(0,60)};
+    try {const cover=new URL(game.background_image);if(cover.protocol==="https:"&&!cover.username&&!cover.password)detail.cover=cover.href;}catch{}
+    // Store availability must never discard a usable game description.
+    try {
+      const storesResponse=await fetchRemote(base+"/stores?key="+encodeURIComponent(key)+"&page_size=40",{credentials:"omit",redirect:"error"});
+      if(storesResponse.ok){const stores=await storesResponse.json();if(Array.isArray(stores?.results))detail.storeLinks=gameStoreLinks(stores.results.filter(row=>row&&(row.game_id===undefined||String(row.game_id)===String(id))).map(row=>row.url));}
+    }catch{}
+    rawgDetailsCache.delete(cacheKey);
+    while(rawgDetailsCache.size>=48)rawgDetailsCache.delete(rawgDetailsCache.keys().next().value);
+    rawgDetailsCache.set(cacheKey,{value:detail,expires:Date.now()+15*60*1000});
+    return detail;
+  })();
+  rawgDetailsInflight.set(cacheKey,task);
+  try{return structuredClone(await task);}finally{rawgDetailsInflight.delete(cacheKey);}
+}
+function gamePlatforms(...items) {
+  const names=items.flatMap(item=>[
+    ...(Array.isArray(item?.platforms)?item.platforms:[]),
+    ...(typeof item?.platform==="string"?item.platform.split(" · "):[])
+  ]).filter(x=>typeof x==="string").map(x=>x.trim().slice(0,100)).filter(x=>x&&x!=="Steam");
+  return [...new Set(names)].slice(0,80);
+}
+function mergeGameDetails(item,detail) {
+  const fields=Object.fromEntries(Object.entries(detail).filter(([,value])=>value!==undefined&&value!==null&&value!==""));
+  const merged={...item,...fields,title:item.title,...identityMetadata(item,detail)};
+  for(const field of ["genres","tags"])merged[field]=[...new Set([...(Array.isArray(item[field])?item[field]:[]),...(Array.isArray(detail[field])?detail[field]:[])])];
+  merged.platforms=gamePlatforms(item,detail);
+  if(merged.platforms.length)merged.platform=merged.platforms.join(" · ");
+  merged.storeLinks=gameStoreLinks(item.storeLinks,detail.storeLinks,[item.url,detail.url]);
+  return merged;
+}
+/** Use only established provider IDs; a failed source never triggers a title guess. */
+async function knownGameDetails(item,force=false) {
+  const ids=identityIds(item),urlId=steamAppId(item.url);
+  if(ids.steam&&urlId&&ids.steam!==urlId)throw Error("catalog_identity_mismatch");
+  const steam=ids.steam||urlId,tasks=[];
+  if(/^[1-9]\d{0,14}$/.test(steam||""))tasks.push((async()=>{
+    const detail=await steamAppDetails(steam);
+    if(!detail)throw Error("details_unavailable");
+    return {...detail,externalIds:{steam},storeLinks:["https://store.steampowered.com/app/"+steam+"/"]};
+  })());
+  if(ids.rawg)tasks.push((async()=>{
+    const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
+    return rawgDetails(ids.rawg,settings.rawgKey,force);
+  })());
+  if(!tasks.length)throw Error("details_unavailable");
+  const outcomes=await Promise.allSettled(tasks);
+  const details=outcomes.filter(result=>result.status==="fulfilled").map(result=>result.value);
+  if(!details.length)throw outcomes.find(result=>result.status==="rejected").reason;
+  return details.reduce((merged,detail)=>mergeGameDetails(merged,detail),item);
+}
+
+async function catalogDetail(item) {
+  const ids=identityIds(item);
+  if(/^\d+$/.test(ids.anilist||"")) {
+    let detail;
+    try {detail=await anilistDetail(Number(ids.anilist));if(!detail)throw Error("details_unavailable");}
+    catch(error) {if(!ids.mal)throw error;detail=await jikanDetail(item);}
+    return detail?{...item,...detail,title:item.title||detail.title,...identityMetadata(item,detail)}:item;
+  }
+  if(!ids.anilist&&/^[1-9]\d*$/.test(ids.mal||""))return {...item,...await jikanDetail(item),title:item.title};
+  if(/^\d+$/.test(ids.tvmaze||"")) {
+    const base="https://api.tvmaze.com/shows/"+ids.tvmaze;
+    const [show,akas]=await Promise.all([
+      fetchRemote(base+"?embed=cast").then(r=>{if(!r.ok)throw Error("details_unavailable");return r.json();}),
+      fetchRemote(base+"/akas").then(r=>r.ok?r.json():[]).catch(()=>[])
+    ]);
+    if(String(show.id)!==ids.tvmaze)throw Error("catalog_identity_mismatch");
+    return {...item,genres:Array.isArray(show.genres)?show.genres:[],synopsis:stripHtml(show.summary).slice(0,1500)||item.synopsis,cover:show.image?.original||item.cover,coverFallback:show.image?.medium||item.coverFallback,
+      alternativeTitles:[...new Set([...identityTitles(item),show.name,...akas.map(a=>a.name)].filter(Boolean))],
+      cast:(show._embedded?.cast||[]).slice(0,20).map(c=>({name:c.person?.name,character:c.character?.name,image:c.person?.image?.medium||c.character?.image?.medium||""})).filter(c=>c.name)
+    };
+  }
+  if(item.type==="game"&&(ids.rawg||ids.steam||steamAppId(item.url)))return knownGameDetails(item);
+  return item;
+}
+
 async function anilistSearch(query) {
-  const gql = `query($s:String){Page(perPage:10){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
-  const res = await fetch(ANILIST_URL, {
+  const gql = `query($s:String){Page(perPage:50){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres status seasonYear startDate{year} format countryOfOrigin siteUrl episodes chapters}}}`;
+  const res = await fetchRemote(ANILIST_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ query: gql, variables: { s: query } }),
@@ -490,7 +943,7 @@ async function anilistSearch(query) {
 /** Books via OpenLibrary (keyless). */
 async function openLibrarySearch(query) {
   const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=5&fields=title,author_name,cover_i,first_publish_year,subject`;
-  const res = await fetch(url);
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`openlibrary_${res.status}`);
   const data = await res.json();
   return (data.docs || []).filter((d) => d.title).map((d) => ({
@@ -507,38 +960,38 @@ async function openLibrarySearch(query) {
 }
 /** Games via the Steam storefront search (keyless). */
 async function steamSearch(query) {
-  const url = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&cc=us&l=en`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`steam_${res.status}`);
-  const data = await res.json();
-  return (data.items || []).filter((g) => g.name).slice(0, 10).map((g) => ({
-    title: g.name,
-    type: "game",
-    cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/header.jpg`,
-    synopsis: "",
-    genres: [],
-    price: g.price ? `$${(g.price.final / 100).toFixed(2)}` : undefined,
-    platform: "Steam",
-    format: "Game",
-    url: `https://store.steampowered.com/app/${g.id}`,
-  }));
+  const url = 'https://store.steampowered.com/search/results/?term='+encodeURIComponent(query)+'&start=0&count=20&category1=998&infinite=1&json=1&cc=us&l=en';
+  const res=await fetchRemote(url); if(!res.ok) throw new Error('steam_'+res.status);
+  const data=await res.json();
+  return steamGames(parseSteamSearch(data.results_html || ''),false).map(g=>({...g,released:undefined,externalIds:{steam:steamAppId(g.url)}}));
 }
 /** Live-action TV series via TVMaze (keyless) — covers Western/American shows. */
+function tvmazeCountry(show) {
+  return show.network?.country?.code||show.webChannel?.country?.code||"";
+}
+function tvmazeFormat(show) {
+  const country=tvmazeCountry(show), genres=Array.isArray(show.genres)?show.genres:[];
+  if(!liveActionShow(show))return country==="JP"||genres.some(g=>/^anime$/i.test(g))?"ANIME":"ANIMATION";
+  if(show.type!=="Scripted")return "SERIES";
+  return country==="KR"?"KDRAMA":["CN","TW","HK"].includes(country)?"CDRAMA":country==="JP"?"JDRAMA":"SERIES";
+}
 async function tvmazeSearch(query) {
   const url = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`;
-  const res = await fetch(url);
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`tvmaze_${res.status}`);
   const data = await res.json();
-  return (data || []).slice(0, 6).map((row) => row.show).filter((sh) => sh && sh.name).map((sh) => ({
+  return (data || []).slice(0, 30).map((row) => row.show).filter((sh) => sh && sh.name).map((sh) => ({
     title: sh.name,
+    releaseStatus:sh.status||undefined,
+    externalIds:{tvmaze:String(sh.id)},
     type: "watching",
     cover: (sh.image && (sh.image.original || sh.image.medium)) || "",
     synopsis: stripHtml(sh.summary).slice(0, 500),
-    genres: Array.isArray(sh.genres) ? sh.genres.slice(0, 4) : [],
+    genres: Array.isArray(sh.genres) ? [...new Set(sh.genres.filter(g=>typeof g==="string"&&g.trim()))].slice(0,80) : [],
     season: (sh.premiered || "").slice(0, 4) || undefined,
-    country: (sh.network && sh.network.country && sh.network.country.code) || (sh.webChannel && sh.webChannel.country && sh.webChannel.country.code) || undefined,
+    country: tvmazeCountry(sh) || undefined,
     total: (sh.episodes || undefined),
-    format: (sh.network && sh.network.country && sh.network.country.code === "KR") ? "KDRAMA" : (sh.network && sh.network.country && ["CN", "TW", "HK"].includes(sh.network.country.code)) ? "CDRAMA" : (sh.network && sh.network.country && sh.network.country.code === "JP") ? "JDRAMA" : "SERIES",
+    format: tvmazeFormat(sh),
     url: sh.url || "",
   }));
 }
@@ -548,6 +1001,7 @@ async function tvmazeSearch(query) {
 // description we use to classify the type and country.
 function classifyWiki(desc) {
   const d = (desc || "").toLowerCase();
+  if (/\b(actor|actress|director|singer|writer|author|producer|musician|politician|actrice|acteur|réalisateur|réalisatrice|chanteur|chanteuse|écrivain|auteur)\b/.test(d)) return {type:"",format:"",country:""};
   const country = /south korea|korean/.test(d) ? "KR" : /chinese|china|taiwan|hong kong/.test(d) ? "CN" : /japanese|japan/.test(d) ? "JP" : /american|united states|british|french|european/.test(d) ? "US" : "";
   if (/manhwa|webtoon/.test(d)) return { type: "reading", format: "MANHWA", country: country || "KR" };
   if (/manhua/.test(d)) return { type: "reading", format: "MANHUA", country: country || "CN" };
@@ -558,17 +1012,17 @@ function classifyWiki(desc) {
     return { type: "watching", format: country === "KR" ? "KDRAMA" : country === "CN" ? "CDRAMA" : country === "JP" ? "JDRAMA" : "SERIES", country };
   if (/video game|mobile game|role-playing game|gacha|first-person shooter|platform game|indie game/.test(d)) return { type: "game", format: "Game", country };
   if (/\bnovel\b|book|comic/.test(d)) return { type: "reading", format: "BOOK", country };
-  return { type: "watching", format: "", country };
+  return { type: "", format: "", country };
 }
 async function wikipediaSearch(query, lang) {
   const host = `https://${lang || "en"}.wikipedia.org`;
   const url = `${host}/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=10&prop=pageimages|description|extracts&piprop=thumbnail&pithumbsize=400&exintro=1&explaintext=1&exlimit=10`;
-  const res = await fetch(url);
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`wiki_${res.status}`);
   const data = await res.json();
   const pages = (data.query && data.query.pages) ? Object.values(data.query.pages) : [];
   pages.sort((a, b) => (a.index || 99) - (b.index || 99));
-  return pages.filter((p) => p.title && !/^(List of|Category:)/i.test(p.title)).map((p) => {
+  return pages.filter((p) => p.title && !/^(List of|Category:)/i.test(p.title) && classifyWiki(p.description).type).map((p) => {
     const c = classifyWiki(p.description);
     return {
       title: p.title,
@@ -587,12 +1041,12 @@ async function wikipediaSearch(query, lang) {
 /** Films & TV via TMDB (needs the user's free API key from settings). */
 async function tmdbSearch(query, key) {
   const url = `https://api.themoviedb.org/3/search/multi?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(query)}&include_adult=false`;
-  const res = await fetch(url);
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`tmdb_${res.status}`);
   const data = await res.json();
   return (data.results || [])
     .filter((r) => (r.media_type === "movie" || r.media_type === "tv") && (r.title || r.name))
-    .slice(0, 6)
+    .slice(0, 20)
     .map((r) => ({
       title: r.title || r.name,
       type: "watching",
@@ -606,48 +1060,86 @@ async function tmdbSearch(query, key) {
 }
 /** Games via RAWG (needs the user's free API key from settings). */
 async function rawgSearch(query, key) {
-  const url = `https://api.rawg.io/api/games?key=${encodeURIComponent(key)}&search=${encodeURIComponent(query)}&page_size=6`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`rawg_${res.status}`);
+  const url = "https://api.rawg.io/api/games?key=" + encodeURIComponent(key) + "&search=" + encodeURIComponent(query) + "&page_size=30";
+  const res = await fetchRemote(url);
+  if (!res.ok) throw new Error("rawg_" + res.status);
   const data = await res.json();
-  return (data.results || []).filter((g) => g.name).map((g) => ({
-    title: g.name,
-    type: "game",
-    cover: g.background_image || "",
-    synopsis: "",
-    genres: (g.genres || []).map((x) => x.name).slice(0, 4),
-    releaseDate: g.released || undefined,
-    platform: (g.platforms && g.platforms[0] && g.platforms[0].platform && g.platforms[0].platform.name) || "PC",
-    format: "Game",
-    url: g.slug ? `https://rawg.io/games/${g.slug}` : "",
-  }));
+  if (!Array.isArray(data?.results)) throw new Error("rawg_response_invalid");
+  const names = rows => [...new Set((Array.isArray(rows) ? rows : []).map(x => typeof x?.name === "string" ? x.name.trim().slice(0,100) : "").filter(Boolean))].slice(0,80);
+  return data.results.slice(0,30).filter(g => typeof g?.name === "string" && g.name.trim()).map(g => {
+    const platforms = names((Array.isArray(g.platforms) ? g.platforms : []).map(x => x?.platform));
+    const date = typeof g.released === "string" && /^\d{4}-\d{2}-\d{2}$/.test(g.released) && Number.isFinite(Date.parse(g.released)) ? g.released : undefined;
+    let cover = "";
+    try { const image = new URL(g.background_image); if(image.protocol === "https:" && !image.username && !image.password) cover = image.href; } catch {}
+    return {
+      title: g.name.trim().slice(0,300), type: "game", source: "rawg", cover, synopsis: "",
+      externalIds: Number.isSafeInteger(g.id)&&g.id>0?{rawg:String(g.id)}:{},
+      genres: names(g.genres), tags: names(g.tags), platforms,
+      platform: platforms.join(" · "), releaseDate: date, year: date ? Number(date.slice(0,4)) : undefined,
+      format: "Game", url: typeof g.slug === "string" && g.slug ? "https://rawg.io/games/" + encodeURIComponent(g.slug) : "",
+    };
+  });
 }
 /** Unified catalog search across AniList (anime/manga), Steam & RAWG (games),
  * OpenLibrary (books) and TMDB (films/TV). Keyless sources always run; TMDB and
  * RAWG run only when a key is configured. Each source is best-effort. */
-async function catalogSearchAll(query) {
+
+const catalogJobs=new Map();
+async function catalogSearchProgress(query,retry=false) {
+  const text=String(query||"").trim().slice(0,200);
+  if(!text)return {ok:true,results:[],pending:false};
+  const key=accountEpoch+":"+text.toLowerCase();
+  let job=catalogJobs.get(key);
+  if(!job||(job.error&&retry)||(!job.pending&&Date.now()-job.started>60000)) {
+    job={started:Date.now(),results:[],pending:true,error:null};
+    catalogJobs.set(key,job);
+    if(catalogJobs.size>20)catalogJobs.delete(catalogJobs.keys().next().value);
+    job.task=catalogSearchAll(text,results=>{job.results=results;}).then(results=>{job.results=results;},()=>{job.error="catalog_unavailable";}).finally(()=>{job.pending=false;});
+  }
+  return {ok:!job.error,results:job.results,pending:job.pending,error:job.error};
+}
+
+async function catalogSearchAll(query,onProgress) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-  const tasks = [anilistSearch(query), steamSearch(query), openLibrarySearch(query), tvmazeSearch(query), wikipediaSearch(query, "en")];
+  const out=[];
+  const publish=results=>{out.push(...results);if(onProgress)onProgress(mergeCatalogResults(out));};
+  const tasks = [mangaSearchResilient(query,publish), steamSearch(query), openLibrarySearch(query), tvmazeSearch(query), wikipediaSearch(query, "en")];
   // Also query the user's own-language Wikipedia so local titles (e.g. a French
   // or Korean film) surface even if the English page is thin.
   const wl = (s && s.lang || "en").slice(0, 2);
   if (wl && wl !== "en") tasks.push(wikipediaSearch(query, wl));
   if (s && s.tmdbKey) tasks.push(tmdbSearch(query, s.tmdbKey));
   if (s && s.rawgKey) tasks.push(rawgSearch(query, s.rawgKey));
-  const settled = await Promise.allSettled(tasks);
-  const out = [];
-  for (const r of settled) if (r.status === "fulfilled") out.push(...r.value);
-  // De-dup by normalized title+type. Prefer the entry that has a cover, and
-  // prefer a structured source (AniList/Steam/TVMaze) over a Wikipedia stub.
-  const seen = new Map();
-  for (const r of out) {
-    const k = normalizeTitle(r.title) + "|" + r.type;
-    const prev = seen.get(k);
-    if (!prev) { seen.set(k, r); continue; }
-    const better = (!prev.cover && r.cover) || (prev.source === "wikipedia" && r.source !== "wikipedia" && r.cover);
-    if (better) seen.set(k, r);
+  const settled=await Promise.allSettled(tasks.map(task=>Promise.resolve(task).then(results=>{publish(results);return results;})));
+  if(settled.every(r=>r.status==="rejected"))throw new Error("catalog_unavailable");
+  return mergeCatalogResults(out);
+}
+function combineCatalogEntries(a,b) {
+  const preferred=(!a.cover&&b.cover)||(a.source==="wikipedia"&&b.source!=="wikipedia")?b:a;
+  const other=preferred===a?b:a,out={...other,...preferred,...identityMetadata(a,b)};
+  for(const field of ["cover","coverFallback","synopsis","trailer","trailerUrl","releaseDate","price","platform","format","country","year","total"])if(!out[field]&&other[field])out[field]=other[field];
+  for(const field of ["genres","tags"])out[field]=[...new Set([...(a[field]||[]),...(b[field]||[])])];
+  if(out.type==="game") {
+    out.platforms=gamePlatforms(a,b);
+    if(out.platforms.length)out.platform=out.platforms.join(" · ");
+    out.storeLinks=gameStoreLinks(a.storeLinks,b.storeLinks,[a.url,b.url]);
   }
-  return [...seen.values()].slice(0, 40);
+  if(!out.cast?.length&&other.cast?.length)out.cast=other.cast;
+  out.catalogSources=[...new Set([...(a.catalogSources||[]),a.source,...(b.catalogSources||[]),b.source].filter(Boolean))];
+  return out;
+}
+function mergeCatalogResults(out) {
+  const merged=[];
+  for(const raw of out) {
+    if(!raw||typeof raw.title!=="string"||!raw.title.trim())continue;
+    // Older providers used season for the release year, never a viewing season.
+    const year=raw.year||(Number(raw.season)>=1900?Number(raw.season):undefined);
+    const r={...raw,...(year?{year}:{} )};
+    const previous=findIdentity(merged,r);
+    if(!previous){merged.push(r);continue;}
+    merged[merged.indexOf(previous)]=combineCatalogEntries(previous,r);
+  }
+  return merged.slice(0,300);
 }
 
 /*
@@ -656,11 +1148,11 @@ async function catalogSearchAll(query) {
  * Steam storefront. All keyless. Cached ~6h so the Home stays snappy and we
  * never hammer the services.
  */
-const DISCOVER_KEY = "dasi.discover.cache";
+const DISCOVER_KEY = "dasi.discover.cache.v2";
 const DISCOVER_TTL = 6 * 3600 * 1000;
 async function anilistTrending(type, country) {
-  const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id title{romaji english native} coverImage{extraLarge large medium} description genres seasonYear format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
-  const res = await fetch(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { t: type, c: country || undefined } }) });
+  const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres status seasonYear startDate{year} format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
+  const res = await fetchRemote(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { t: type, c: country || undefined } }) });
   if (!res.ok) throw new Error(`anilist_${res.status}`);
   const data = await res.json();
   return ((data && data.data && data.data.Page && data.data.Page.media) || []).map(mediaToResult).filter((r) => r.title && r.cover);
@@ -681,7 +1173,7 @@ function steamItems(list, released) {
 }
 // Non-games / hardware / filler to keep out of discovery.
 const STEAM_SKIP = new Set(["1675200", "1531210", "353370", "353380"]); // Steam Deck, Index, controllers
-const STEAM_JUNK = /(soundtrack|ost|artbook|art ?book|season pass|- pack|bundle|demo|playtest|dedicated server|wallpaper|steam deck|valve index|controller|hardware)/i;
+const STEAM_JUNK = /\b(soundtrack|ost|artbook|art book|season pass|bundle|demo|playtest|dedicated server|wallpaper|steam deck|valve index|controller|hardware)\b/i;
 // Parse the Steam store search "results_html" into {id, name, price}.
 function parseSteamSearch(html) {
   const out = [];
@@ -693,7 +1185,8 @@ function parseSteamSearch(html) {
     if (!idm || !tm) continue;
     const pm = chunk.match(/discount_final_price[^>]*>([^<]+)</i) || chunk.match(/search_price[^>]*>\s*([^<\r\n]+?)\s*</i);
     const name = tm[1].trim().replace(/&amp;/g, "&").replace(/&#0?39;/g, "'");
-    out.push({ id: idm[1], name, price: pm ? pm[1].trim().replace(/&nbsp;/g, "") : "" });
+    const image=chunk.match(/<img[^>]+src=["\']([^"\']+)["\']/i);
+    out.push({ id: idm[1], name, cover:image?image[1].replace(/&amp;/g,"&"):undefined, price: pm ? pm[1].trim().replace(/&nbsp;/g, "") : "" });
   }
   return out;
 }
@@ -701,77 +1194,105 @@ function parseSteamSearch(html) {
 // by wishlists / top-sellers — these are the AAA titles users expect. Portrait
 // capsules (library_600x900) fit the cards cleanly (no cropped landscape banners).
 async function steamSearchList(filter) {
-  const url = `https://store.steampowered.com/search/results/?query&start=0&count=40&dynamic_data=&sort_by=_ASC&filter=${filter}&infinite=1&json=1&cc=us&l=en`;
-  const res = await fetch(url);
+  const url = `https://store.steampowered.com/search/results/?query&start=0&count=40&dynamic_data=&category1=998&filter=${filter}&infinite=1&json=1&cc=us&l=en`;
+  const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`steam_search_${res.status}`);
   const j = await res.json();
   return parseSteamSearch(j.results_html || "");
 }
 function steamGames(list, soon) {
+  const seen = new Set();
   return (list || [])
+    .filter(g => g && !seen.has(g.id) && seen.add(g.id))
     .filter((g) => g && g.id && g.name && !STEAM_SKIP.has(g.id) && !STEAM_JUNK.test(g.name))
     .slice(0, 14)
     .map((g) => ({
       title: g.name,
       type: "game",
       cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/library_600x900.jpg`,
-      coverFallback: `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/header.jpg`,
+      coverFallback: g.cover || `https://cdn.cloudflare.steamstatic.com/steam/apps/${g.id}/header.jpg`,
       price: g.price || undefined,
       platform: "Steam",
       format: "Game",
-      released: !soon,
+      released: soon === true ? false : undefined,
       releaseDate: soon ? "Coming soon" : undefined,
       url: `https://store.steampowered.com/app/${g.id}`,
     }));
 }
 // Genres/tags + a proper description for one Steam app (lazy: only when a game
 // fiche is opened without tags). Keyless appdetails endpoint.
-function steamAppId(url) { const m = String(url || "").match(/\/app\/(\d+)/); return m ? m[1] : ""; }
+function steamAppId(value) {
+  try {
+    const url=new URL(value);
+    if(!["https:","http:"].includes(url.protocol)||url.hostname!=="store.steampowered.com"||url.port||url.username||url.password)return "";
+    return url.pathname.match(/^\/app\/([1-9]\d{0,14})(?:\/|$)/)?.[1]||"";
+  }catch{return "";}
+}
+async function steamNews(appid) {
+  const url = `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appid}&count=8&maxlength=500&format=json`;
+  const res = await fetchRemote(url);
+  if (!res.ok) throw new Error(`steam_news_${res.status}`);
+  const data = await res.json();
+  return (data?.appnews?.newsitems || []).filter((entry) => entry?.title).slice(0, 8).map((entry) => ({
+    id: String(entry.gid || entry.url || entry.title),
+    title: String(entry.title).trim(),
+    author: String(entry.author || "").trim(),
+    summary: stripHtml(entry.contents || "").slice(0, 500),
+    publishedAt: Number(entry.date || 0) * 1000 || undefined,
+    category: String(entry.feedlabel || "").trim(),
+  }));
+}
 async function steamAppDetails(appid) {
-  const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&filters=basic,genres,release_date`;
-  const res = await fetch(url);
+  const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&filters=basic,genres,release_date,movies`;
+  const [res, news] = await Promise.all([
+    fetchRemote(url),
+    steamNews(appid).catch(() => []),
+  ]);
   if (!res.ok) throw new Error(`steam_details_${res.status}`);
   const data = await res.json();
   const d = data && data[appid] && data[appid].success && data[appid].data;
   if (!d) return null;
+  if(d.steam_appid!==undefined&&String(d.steam_appid)!==String(appid))throw Error("catalog_identity_mismatch");
   return {
-    genres: Array.isArray(d.genres) ? d.genres.map((g) => g.description).filter(Boolean).slice(0, 6) : [],
+    genres: Array.isArray(d.genres) ? [...new Set(d.genres.map((g) => typeof g?.description==="string"?g.description.trim():"").filter(Boolean))].slice(0,80) : [],
     synopsis: (d.short_description || "").trim(),
     releaseDate: d.release_date && d.release_date.date ? d.release_date.date : undefined,
-    comingSoon: !!(d.release_date && d.release_date.coming_soon),
+    cover:d.header_image||undefined,
+    trailer: d.movies?.find(m=>m.mp4?.max||m.webm?.max)?.mp4?.max || d.movies?.find(m=>m.webm?.max)?.webm?.max,
+    comingSoon: typeof d.release_date?.coming_soon === "boolean" ? d.release_date.coming_soon : undefined,
+    news,
   };
 }
 async function steamDiscover() {
-  const [soonR, hotR] = await Promise.allSettled([steamSearchList("popularcomingsoon"), steamSearchList("topsellers")]);
+  const [soonR, hotR] = await Promise.allSettled([steamSearchList("popularwishlist"), steamSearchList("topsellers")]);
   const soon = soonR.status === "fulfilled" ? steamGames(soonR.value, true) : [];
   const hot = hotR.status === "fulfilled" ? steamGames(hotR.value, false) : [];
-  return { soon, hot };
+  return { soon, hot, failedCategories:[...(soonR.status==="rejected"?["gamesSoon"]:[]),...(hotR.status==="rejected"?["gamesHot","gamesNew"]:[])] };
 }
-// Live-action drama/series discovery (keyless, via TVMaze). Split by country so
-// the Home can offer K-Drama / C-Drama / J-Drama / Series tabs like Webtoon.
+// Live-action drama/series discovery (keyless, via TVMaze). Split by country sources.
+function liveActionShow(show) { return !/animation|anime/i.test([show.type,...(Array.isArray(show.genres)?show.genres:[])].join(" ")); }
 async function tvmazeTrending() {
-  const pages = await Promise.allSettled([
-    fetch("https://api.tvmaze.com/shows?page=0").then((r) => (r.ok ? r.json() : [])),
-    fetch("https://api.tvmaze.com/shows?page=1").then((r) => (r.ok ? r.json() : [])),
-  ]);
-  const shows = pages.flatMap((p) => (p.status === "fulfilled" && Array.isArray(p.value) ? p.value : []));
-  const cc = (s) => (s.network && s.network.country && s.network.country.code) || (s.webChannel && s.webChannel.country && s.webChannel.country.code) || "";
-  const bucket = (code) => (code === "KR" ? "kdrama" : code === "CN" || code === "TW" || code === "HK" ? "cdrama" : code === "JP" ? "jdrama" : "series");
-  return shows
-    .filter((s) => s && s.name && s.image && s.image.original)
-    .sort((a, b) => (b.weight || 0) - (a.weight || 0) || (((b.rating && b.rating.average) || 0) - ((a.rating && a.rating.average) || 0)))
-    .slice(0, 80)
-    .map((s) => ({
-      title: s.name,
-      type: "watching",
-      cat: bucket(cc(s)),
-      cover: s.image.original,
-      synopsis: (s.summary || "").replace(/<[^>]+>/g, "").slice(0, 400),
-      genres: Array.isArray(s.genres) ? s.genres.slice(0, 4) : [],
-      season: s.premiered ? Number(String(s.premiered).slice(0, 4)) : undefined,
-      format: bucket(cc(s)) === "series" ? "SERIES" : "DRAMA",
-      url: s.officialSite || (s.url || ""),
-    }));
+  const dates=[0,1,2,3,4,5,6].map(n=>new Date(Date.now()-n*86400000).toISOString().slice(0,10));
+  const pages=await Promise.allSettled(dates.flatMap(date=>["https://api.tvmaze.com/schedule?country=US&date=","https://api.tvmaze.com/schedule/web?date="].map(base=>fetchRemote(base+date).then(async r=>{if(!r.ok)throw Error("tvmaze_schedule_"+r.status);const data=await r.json();if(!Array.isArray(data))throw Error("invalid_schedule");return data;}))));
+  if(pages.every(r=>r.status==="rejected"))throw Error("tvmaze_discovery_unavailable");
+  const shows=new Map();
+  for(const result of pages) {
+    if(result.status!=="fulfilled"||!Array.isArray(result.value))continue;
+    for(const episode of result.value) {
+      const show=episode.show||episode._embedded?.show;
+      if(!show?.id||!show.name||!show.image||!liveActionShow(show))continue;
+      const existing=shows.get(show.id)||{...show,recentEpisodes:[]};
+      const at=Date.parse(episode.airstamp||episode.airdate);
+      if(Number.isFinite(at)&&at<=Date.now())existing.recentEpisodes.push({season:episode.season,episode:episode.number,at});
+      shows.set(show.id,existing);
+    }
+  }
+  const bucket=show=>tvmazeFormat(show).toLowerCase();
+  return [...shows.values()].filter(s=>s.recentEpisodes.length).sort((a,b)=>(b.weight||0)-(a.weight||0)).slice(0,80).map(s=>({
+    title:s.name,type:"watching",cat:bucket(s),externalIds:{tvmaze:String(s.id)},cover:s.image.original||s.image.medium,coverFallback:s.image.medium,
+    synopsis:stripHtml(s.summary).slice(0,700),genres:s.genres||[],year:s.premiered?Number(s.premiered.slice(0,4)):undefined,
+    format:tvmazeFormat(s),country:tvmazeCountry(s)||undefined,releaseStatus:s.status||undefined,url:s.url||"",recentEpisodes:s.recentEpisodes
+  }));
 }
 async function buildDiscover() {
   const [manga, manhwa, manhua, anime, games, drama] = await Promise.allSettled([
@@ -781,7 +1302,8 @@ async function buildDiscover() {
   const val = (r) => (r.status === "fulfilled" ? r.value : []);
   const dramas = val(drama);
   return {
-    ts: Date.now(),
+    ts: Date.now(), discoveryVersion:3,
+    failedCategories:[...[["manga",manga],["manhwa",manhwa],["manhua",manhua],["anime",anime]].filter(([,r])=>r.status==="rejected").map(([key])=>key),...(games.status==="rejected"?["gamesSoon","gamesHot","gamesNew"]:(games.value.failedCategories||[])),...(drama.status==="rejected"?["kdrama","cdrama","jdrama","series"]:[])],
     manga: val(manga),
     manhwa: val(manhwa),
     manhua: val(manhua),
@@ -795,39 +1317,206 @@ async function buildDiscover() {
     gamesNew: games.status === "fulfilled" ? games.value.hot : [],
   };
 }
-async function getDiscover(force) {
-  if (!force) {
-    const c = (await api.storage.local.get(DISCOVER_KEY))[DISCOVER_KEY];
-    if (c && Date.now() - c.ts < DISCOVER_TTL) return c;
+const DISCOVERY_CATEGORIES=["manga","manhwa","manhua","anime","kdrama","cdrama","jdrama","series","gamesSoon","gamesHot","gamesNew"];
+const DISCOVERY_STALE_LIMIT=3*86400000;
+let discoveryTask=null;
+function getDiscover(force) {
+  if(discoveryTask)return discoveryTask;
+  discoveryTask=refreshDiscover(force).finally(()=>{discoveryTask=null;});
+  return discoveryTask;
+}
+async function refreshDiscover(force) {
+  const now=Date.now(),stored=(await api.storage.local.get(DISCOVER_KEY))[DISCOVER_KEY];
+  const cached=stored?.discoveryVersion===3?stored:null;
+  if(cached&&!force&&((!cached.stale&&Number.isFinite(cached.ts)&&cached.ts<=now&&now-cached.ts<DISCOVER_TTL)||(cached.stale&&now<cached.retryAfter)))return cached;
+  let fresh;
+  try{fresh=await buildDiscover();}catch{fresh=null;}
+  const hasFresh=fresh&&DISCOVERY_CATEGORIES.some(key=>Array.isArray(fresh[key])&&fresh[key].length);
+  const failed=new Set(hasFresh?(fresh.failedCategories||[]):DISCOVERY_CATEGORIES);
+  const next={...(fresh||{}),ts:hasFresh?now:cached?.ts,discoveryVersion:3,categoryUpdatedAt:{},staleCategories:[]};
+  for(const key of DISCOVERY_CATEGORIES){
+    const previousAt=Number(cached?.categoryUpdatedAt?.[key]??cached?.ts);
+    if(failed.has(key)){
+      const usable=Number.isFinite(previousAt)&&previousAt<=now&&now-previousAt<DISCOVERY_STALE_LIMIT&&Array.isArray(cached?.[key])&&cached[key].length;
+      next[key]=usable?cached[key]:[];
+      if(usable){next.categoryUpdatedAt[key]=previousAt;next.staleCategories.push(key);}
+    }else{
+      next[key]=Array.isArray(fresh[key])?fresh[key]:[];
+      next.categoryUpdatedAt[key]=now;
+    }
   }
-  const fresh = await buildDiscover();
-  await api.storage.local.set({ [DISCOVER_KEY]: fresh });
-  return fresh;
+  if(!DISCOVERY_CATEGORIES.some(key=>next[key].length))throw Error("discovery_unavailable");
+  next.stale=failed.size>0;
+  next.retryAfter=next.stale?now+60000:0;
+  next.failedCategories=[...failed];
+  await api.storage.local.set({[DISCOVER_KEY]:next});
+  return next;
+}
+
+/** Enrich one imported game with Steam artwork, price, store link and synopsis. */
+function metadataLeaseValid(item,lease) {
+  return !lease||(item?.metadataPending?.jobId===lease.jobId&&item?.metadataPending?.attemptId===lease.attemptId);
+}
+function metadataIdentityUnchanged(live,before) {
+  return live&&live.title===before.title&&live.type===before.type&&JSON.stringify(identityIds(live))===JSON.stringify(identityIds(before));
+}
+function applyMetadataPatch(live,before,patch) {
+  const safe={...live};
+  for(const [key,value] of Object.entries(patch)) {
+    if(key==="cover"&&live.coverOverride)continue;
+    if(["alternativeTitles","authors"].includes(key)){safe[key]=[...new Set([...(live[key]||[]),...(value||[])])];continue;}
+    if(["enrichedAt","identityVersion","gameEnrichedAt"].includes(key)||JSON.stringify(live[key])===JSON.stringify(before[key]))safe[key]=value;
+  }
+  return boundedProgress(safe);
+}
+function newMetadataJob() {return {jobId:crypto.randomUUID(),attempts:0,nextAttemptAt:0,state:"queued"};}
+
+async function enrichGame(id,force=false,lease=null) {
+  const epoch=accountEpoch,items=await read(ITEMS_KEY,[]),it=items.find(x=>x.id===id);
+  if(!it||it.type!=="game"||!metadataLeaseValid(it,lease))return {status:"stale"};
+  if(!force&&it.gameEnrichedAt&&it.cover&&it.synopsis&&it.identityVersion===1)return {status:"matched",item:it};
+  const ids=identityIds(it),known=ids.steam||steamAppId(it.url);
+  let match,data;
+  try {
+    if(!known&&!ids.rawg) {
+      const candidates=(await steamSearch(it.title)).filter(r=>sameIdentity(r,it));
+      if(candidates.length!==1)return {status:candidates.length?"ambiguous":"not_found"};
+      match=candidates[0];
+    }
+    const candidate=match?{...it,...identityMetadata(it,match),externalIds:{...identityIds(it),...identityIds(match),steam:identityIds(match).steam||steamAppId(match.url)}}:it;
+    data=await knownGameDetails(candidate,force);
+  }catch{return {status:"retryable_error",error:"source_unavailable"};}
+  const patch={enrichedAt:Date.now(),gameEnrichedAt:Date.now(),identityVersion:1,externalIds:identityIds(data),format:it.format||"Game"};
+  for(const field of ["storeLinks","genres","platforms","alternativeTitles","authors","source"])if(data[field]!==undefined)patch[field]=data[field];
+  for(const field of ["synopsis","price","platform","releaseDate","year","coverFallback","trailer","trailerUrl"])if(data[field]&&!it[field])patch[field]=data[field];
+  if(data.cover&&!it.coverOverride)patch.cover=data.cover;
+  if(!it.url&&(match?.url||known))patch.url=match?.url||"https://store.steampowered.com/app/"+known+"/";
+  if(data.platforms?.length)patch.platform=data.platforms.join(" · ");
+  if(!it.platform&&!patch.platform&&known)patch.platform="Steam";
+  if(!it.tags?.length)patch.tags=[...new Set([...(data.tags||[]),...(data.genres||[])])];
+  if(Array.isArray(data.news))patch.news=data.news;
+  if(data.comingSoon!==undefined&&it.released===undefined)patch.released=!data.comingSoon;
+  return serializeLibrary(async()=>{
+    if(epoch!==accountEpoch)return {status:"stale"};
+    const current=await read(ITEMS_KEY,[]),live=current.find(x=>x.id===id);
+    if(!metadataIdentityUnchanged(live,it)||!metadataLeaseValid(live,lease)||steamAppId(live.url)!==steamAppId(it.url))return {status:"stale"};
+    const item=applyMetadataPatch(live,it,patch);
+    await writeData({[ITEMS_KEY]:current.map(x=>x.id===id?item:x)});
+    return {status:item.cover&&item.synopsis?"matched":"partial",item};
+  });
 }
 
 /** Enrich one stored work in place from AniList (once per work). */
-async function enrichWork(id) {
+
+/** Consolidate only confirmed reading identities, never title-only matches.
+ * Keep original records inside the surviving item so custom imported fields
+ * remain recoverable in exports. writeData stamps deletions and memberships.
+ * Caller must hold serializeLibrary's lock.
+ */
+async function consolidateReadingIdentity(items,id) {
+  const target=items.find(i=>i.id===id);
+  const unchanged={items,item:target,mergedIds:[]};
+  if(!target||!["reading","watching"].includes(target.type))return unchanged;
+  const watching=target.type==="watching";
+  const group=items.filter(i=>i.type===target.type&&sharedCatalogIdentity(i,target)&&(!watching||Number(i.season||1)===Number(target.season||1)));
+  if(group.length<2)return unchanged;
+  // A shared alias or inconsistent cross-catalog mapping must not bridge works.
+  if(group.some(a=>group.some(b=>!sharedCatalogIdentity(a,b))))return unchanged;
+  // Distinct user-selected covers or ratings need a deliberate user decision.
+  for(const key of ["coverOverride","rating","notes"]) {
+    if(new Set(group.map(i=>i[key]).filter(Boolean)).size>1)return unchanged;
+  }
+  group.sort((a,b)=>(Number(a.createdAt)||Number(a.updatedAt)||0)-(Number(b.createdAt)||Number(b.updatedAt)||0)||String(a.id).localeCompare(String(b.id)));
+  const primary=group[0];
+  const byRecent=[...group].sort((a,b)=>(Number(a.updatedAt)||0)-(Number(b.updatedAt)||0));
+  let merged={};
+  for(const entry of byRecent)merged={...merged,...entry};
+  for(const entry of group)merged={...merged,...identityMetadata(merged,entry)};
+  const furthest=[...group].sort((a,b)=>watching?((Number(b.episode)||0)-(Number(a.episode)||0)||(Number(b.position)||0)-(Number(a.position)||0)||(Number(b.updatedAt)||0)-(Number(a.updatedAt)||0)):(Number(b.chapter)||0)-(Number(a.chapter)||0)||(Number(b.page)||0)-(Number(a.page)||0)||(Number(b.updatedAt)||0)-(Number(a.updatedAt)||0))[0];
+  const mergedIds=group.filter(i=>i.id!==primary.id).map(i=>i.id), removed=new Set(mergedIds);
+  const chapter=Math.max(...group.map(i=>Number(i.chapter)||0));
+  const total=Math.max(...group.map(i=>Number(i.total)||0));
+  const unique=key=>[...new Set(group.flatMap(i=>Array.isArray(i[key])?i[key]:[]))];
+  merged={
+    ...merged,id:primary.id,title:primary.title,createdAt:primary.createdAt||Date.now(),updatedAt:Date.now(),
+    chapter,total:total>=chapter?total||undefined:undefined,
+    page:furthest.page,position:furthest.position,duration:furthest.duration,progress:furthest.progress,
+    url:furthest.url||primary.url||merged.url,
+    latestChapter:Math.max(chapter,...group.map(i=>Number(i.latestChapter)||0)),
+    favorite:group.some(i=>i.favorite),rating:group.find(i=>i.rating)?.rating||0,
+    notes:group.find(i=>i.notes)?.notes,
+    coverOverride:group.find(i=>i.coverOverride)?.coverOverride,
+    cover:group.find(i=>i.coverOverride)?.cover||primary.cover||merged.cover,
+    synopsis:primary.synopsis||merged.synopsis,
+    tags:unique("tags"),sources:unique("sources"),
+    sourceUrls:[...new Set([...unique("sourceUrls"),...group.map(i=>i.url).filter(Boolean)])],
+    mergedFrom:group.flatMap(i=>{const {mergedFrom,...snapshot}=i;return [...(Array.isArray(mergedFrom)?mergedFrom:[]),snapshot];}),
+  };
+  if(watching) {
+    const episode=Math.max(...group.map(i=>Number(i.episode)||0));
+    merged={...merged,season:Number(primary.season||1),episode,
+      total:total>=episode?total||undefined:undefined,
+      recentEpisodes:normalizeReleaseEpisodes(group.flatMap(i=>i.recentEpisodes||[])),
+      activityAt:Math.max(...group.map(i=>Number(i.activityAt||i.updatedAt)||0))};
+    delete merged.chapter;delete merged.latestChapter;delete merged.page;
+  }
+  const next=items.filter(i=>!removed.has(i.id)).map(i=>i.id===primary.id?merged:i);
+  const lists=(await read(LISTS_KEY,[])).map(l=>({...l,itemIds:[...new Set((l.itemIds||[]).map(key=>removed.has(key)?primary.id:key))]}));
+  const notifications=(await read(NOTIF_KEY,[])).map(n=>removed.has(n.itemId)?{...n,itemId:primary.id}:n);
+  return {items:next,item:merged,mergedIds,lists,notifications};
+}
+
+async function enrichWork(id,force=false,lease=null) {
+  const epoch=accountEpoch;
   const items = await read(ITEMS_KEY, []);
   const it = items.find((x) => x.id === id);
-  if (!it || it.type === "game" || it.enrichedAt) return;
-  let results;
-  try {
-    results = await anilistSearch(it.title);
-  } catch {
-    return;
+  if (!it || it.type === "game" || !metadataLeaseValid(it,lease)) return {status:"stale"};
+  if(!force && it.enrichedAt && it.cover && it.synopsis && it.identityVersion===1) {
+    return serializeLibrary(async()=>{
+      if(epoch!==accountEpoch)return {status:"stale"};
+      const current=await read(ITEMS_KEY,[]),live=current.find(i=>i.id===id);
+      if(!metadataIdentityUnchanged(live,it)||!metadataLeaseValid(live,lease))return {status:"stale"};
+      const result=await consolidateReadingIdentity(current,id);
+      if(lease&&result.item)result.item.metadataPending=live.metadataPending;
+      if(result.mergedIds.length)await writeData({[ITEMS_KEY]:result.items,[LISTS_KEY]:result.lists,[NOTIF_KEY]:result.notifications});
+      return {...result,status:"matched"};
+    });
   }
-  const match = results.find((r) => sameWork(r.title, it.title) && (r.type === it.type || !it.type));
-  const patch = { enrichedAt: Date.now() };
+  let match;
+  const ids=identityIds(it);
+  const known= /^[1-9]\d*$/.test(ids.anilist||"") || /^[1-9]\d*$/.test(ids.tvmaze||"") || /^[1-9]\d*$/.test(ids.mal||"");
+  if(known) {
+    // A confirmed identifier remains authoritative when the displayed title changes.
+    // A failed exact lookup must not silently select another similarly named work.
+    try {
+      const detail=await catalogDetail(it);
+      if(!detail||!sharedCatalogIdentity(it,detail))return {status:"ambiguous"};
+      match=detail;
+    } catch {return {status:"retryable_error",error:"source_unavailable"};}
+  } else {
+    let results;
+    try {results=await catalogSearchAll(it.title);} catch {return {status:"retryable_error",error:"source_unavailable"};}
+    const candidates=results.filter(r=>sameIdentity(r,it)&&
+      (!it.year||!(r.year||r.season)||Number(it.year)===Number(r.year||r.season)));
+    if(candidates.length!==1)return {status:candidates.length?"ambiguous":"not_found"};
+    match=candidates[0];
+  }
+  const patch = { enrichedAt: Date.now(), identityVersion:1, ...identityMetadata(it,match) };
   if (match) {
     if (!it.coverOverride && match.cover) patch.cover = match.cover; // real series cover (fixes episode-thumbnail covers)
+    if (!it.coverFallback && match.coverFallback) patch.coverFallback = match.coverFallback;
     if (!it.synopsis && match.synopsis) patch.synopsis = match.synopsis;
-    if ((!it.tags || !it.tags.length) && match.genres.length) patch.tags = match.genres;
+    if ((!it.tags || !it.tags.length) && match.genres?.length) patch.tags = match.genres;
     if (match.total && match.total > (it.total || 0)) patch.total = match.total;
-    if (!it.season && it.type === "watching" && match.season) patch.season = match.season;
+    // Catalog seasonYear is a release year, never a viewing-season number.
     if (!it.format && match.format) patch.format = match.format;
+    if(match.trailerUrl&&!it.trailerUrl)patch.trailerUrl=match.trailerUrl;
+    if(match.cast?.length&&!it.cast?.length)patch.cast=match.cast;
+    if(match.volumes&&it.type==="reading"&&!it.volumesTotal)patch.volumesTotal=match.volumes;
+    if(match.status&&!it.releaseStatus)patch.releaseStatus=match.status;
     // Second pass: trailer, cast and exact released counts (real limits, so the
     // drawer can't run past the true episode/chapter count).
-    if (match.anilistId) {
+    if (match.anilistId && !known) {
       try {
         const d = await anilistDetail(match.anilistId);
         if (d) {
@@ -841,8 +1530,17 @@ async function enrichWork(id) {
       } catch {}
     }
   }
-  const next = items.map((x) => (x.id === id ? { ...x, ...patch } : x));
-  await writeData({ [ITEMS_KEY]: next });
+  return serializeLibrary(async () => {
+    if(epoch!==accountEpoch)return {status:"stale"};
+    const current = await read(ITEMS_KEY, []);
+    const live=current.find(x=>x.id===id);
+    if(!metadataIdentityUnchanged(live,it)||!metadataLeaseValid(live,lease))return {status:"stale"};
+    const next = current.map(x => x.id === id ? applyMetadataPatch(x,it,patch) : x);
+    const result=await consolidateReadingIdentity(next,id);
+    if(lease&&result.item)result.item.metadataPending=live.metadataPending;
+    await writeData({[ITEMS_KEY]:result.items,...(result.mergedIds.length?{[LISTS_KEY]:result.lists,[NOTIF_KEY]:result.notifications}:{})});
+    return {...result,status:result.item?.cover&&result.item?.synopsis?"matched":"partial"};
+  });
 }
 
 /*
@@ -855,10 +1553,23 @@ async function enrichWork(id) {
  *     for the translation mask, then composite mask over the original here.
  * Best-effort: any failure returns {ok:false} and the page is left untouched.
  */
+function safePanelSource(value) {
+  if(typeof value!=="string")throw Error("invalid_image_url");
+  if(/^data:image\/(?:png|jpe?g|webp|gif|bmp|avif);base64,[a-z0-9+/=\s]+$/i.test(value)) {
+    if(value.length>35*1024*1024)throw Error("image_too_large");return value;
+  }
+  let url;try{url=new URL(value);}catch{throw Error("invalid_image_url");}
+  const host=url.hostname.toLowerCase().replace(/\.$/,"");
+  if(!["https:","http:"].includes(url.protocol)||url.username||url.password||!host.includes(".")||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.startsWith("[")||/^(?:0|10|127)\./.test(host)||/^169\.254\./.test(host)||/^192\.168\./.test(host)||/^172\.(?:1[6-9]|2\d|3[01])\./.test(host))throw Error("invalid_image_url");
+  return url.href;
+}
 async function fetchBlob(url) {
-  const r = await fetch(url);
+  const r = await fetchRemote(safePanelSource(url),{credentials:"omit",redirect:"error"});
   if (!r.ok) throw new Error(`img_${r.status}`);
-  return await r.blob();
+  const length=Number(r.headers.get("content-length"));if(length>25*1024*1024)throw Error("image_too_large");
+  const blob=await r.blob();if(blob.size>25*1024*1024)throw Error("image_too_large");
+  if(!/^image\/(?:png|jpe?g|webp|gif|bmp|avif)$/i.test(blob.type))throw Error("invalid_image_type");
+  return blob;
 }
 async function blobToDataUrl(blob) {
   const buf = new Uint8Array(await blob.arrayBuffer());
@@ -881,7 +1592,7 @@ async function selfHostImage(server, imageUrl, code) {
     const fd = new FormData();
     fd.append("image", file, "panel");
     fd.append("config", config);
-    const res = await fetch(base + "/translate/with-form/image", { method: "POST", body: fd });
+    const res = await fetchRemote(base + "/translate/with-form/image", { method: "POST", body: fd });
     if (res.ok) {
       const blob = await res.blob();
       if (blob.type.indexOf("image") === 0) return await blobToDataUrl(blob);
@@ -893,7 +1604,7 @@ async function selfHostImage(server, imageUrl, code) {
     // fetch/CORS issue on the form path — try the legacy URL path below.
   }
   // Legacy servers: JSON with the image URL.
-  const res2 = await fetch(base + "/translate/with-url/image", {
+  const res2 = await fetchRemote(base + "/translate/with-url/image", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url: imageUrl, config: { translator: { translator: "google", target_lang: code } } }),
@@ -944,7 +1655,7 @@ async function ocrSpaceImage(imageUrl, target, key, src) {
   fd.append("isOverlayRequired", "true");
   fd.append("OCREngine", "1");
   fd.append("scale", "true");
-  const res = await fetch("https://api.ocr.space/parse/image", { method: "POST", headers: { apikey: key || "helloworld" }, body: fd });
+  const res = await fetchRemote("https://api.ocr.space/parse/image", { method: "POST", headers: { apikey: key || "helloworld" }, body: fd });
   if (!res.ok) throw new Error(`ocr_${res.status}`);
   const j = await res.json();
   if (j.IsErroredOnProcessing) throw new Error(Array.isArray(j.ErrorMessage) ? j.ErrorMessage[0] : "ocr_err");
@@ -996,7 +1707,7 @@ async function ocrSpaceText(imageUrl, target, key, src) {
   fd.append("language", src || "jpn");
   fd.append("OCREngine", "1");
   fd.append("scale", "true");
-  const res = await fetch("https://api.ocr.space/parse/image", { method: "POST", headers: { apikey: key || "helloworld" }, body: fd });
+  const res = await fetchRemote("https://api.ocr.space/parse/image", { method: "POST", headers: { apikey: key || "helloworld" }, body: fd });
   if (!res.ok) throw new Error(`ocr_${res.status}`);
   const j = await res.json();
   if (j.IsErroredOnProcessing) throw new Error(Array.isArray(j.ErrorMessage) ? j.ErrorMessage[0] : "ocr_err");
@@ -1009,7 +1720,7 @@ async function ocrSpaceText(imageUrl, target, key, src) {
 // ---- Bundled offline OCR (Tesseract.js in an offscreen document) -----------
 // The primary translation path: fully local, no key, no server, no CDN. The
 // service worker can't run WASM/Workers, so OCR happens in offscreen.js.
-const TESS_LANG = { kor: "kor", jpn: "jpn", chs: "chi_sim", chi_sim: "chi_sim", zh: "chi_sim" };
+const TESS_LANG = { fr:"fra",fra:"fra", eng: "eng", en: "eng", ja: "jpn", ko: "kor", kor: "kor", jpn: "jpn", chs: "chi_sim", chi_sim: "chi_sim", zh: "chi_sim" };
 let offscreenReady = null;
 async function ensureOffscreen() {
   if (!api.offscreen) throw new Error("no_offscreen");
@@ -1027,34 +1738,28 @@ function ocrViaTesseract(dataUrl, lang) {
   return new Promise((resolve, reject) => {
     api.runtime.sendMessage({ type: "OCR_OFFSCREEN", dataUrl, lang }, (r) => {
       void api.runtime.lastError;
-      if (r && r.ok) resolve(r.lines || []);
+      if (r && r.ok) resolve(r);
       else reject(new Error((r && r.error) || "ocr_offscreen_failed"));
     });
   });
 }
-async function ocrTextTesseract(imageUrl, target, src) {
+const translatedPanels = new Map();
+async function ocrTextTesseract(imageUrl,target,src) {
+  const key=JSON.stringify([imageUrl,target,src]);
+  const cached=translatedPanels.get(key); if(cached && Date.now()-cached.at<10*60*1000)return cached.value;
   await ensureOffscreen();
-  const raw = await fetchBlob(imageUrl);
-  let s = await scaledJpeg(raw, 1800, 0.85);
-  if (s.blob.size > 4000000) s = await scaledJpeg(raw, 1400, 0.7);
-  const dataUrl = await blobToDataUrl(s.blob);
-  const lang = TESS_LANG[src] || TESS_LANG[(src || "").slice(0, 3)] || "kor";
-  const raw2 = await ocrViaTesseract(dataUrl, lang);
-  const cleaned = raw2.map((x) => x.trim()).filter((x) => x.length >= 1);
-  if (!cleaned.length) return { lines: [] };
-  const tr = await translateTexts(cleaned, target || "en");
-  return { lines: cleaned.map((sl, i) => ({ src: sl, tr: tr[i] || sl })) };
+  const blob=await fetchBlob(imageUrl); if(blob.size>25*1024*1024)throw new Error('image_too_large');
+  const dataUrl=await blobToDataUrl(blob);
+  const lang=TESS_LANG[src] || 'eng';
+  const ocr=await ocrViaTesseract(dataUrl,lang);
+  const blocks=ocr.blocks || [];
+  if(!blocks.length)return {lines:[],blocks:[],width:ocr.width,height:ocr.height};
+  const translated=await translateTexts(blocks.map(b=>b.text),target || 'en');
+  const value={width:ocr.width,height:ocr.height,blocks:blocks.map((b,i)=>({...b,translation:translated[i]})),lines:blocks.map((b,i)=>({src:b.text,tr:translated[i]}))};
+  if(translatedPanels.size>=24)translatedPanels.delete(translatedPanels.keys().next().value);
+  translatedPanels.set(key,{at:Date.now(),value});return value;
 }
-async function translateImageText(imageUrl, target, src) {
-  const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-  const srcLang = src || (s && s.ocrSrc) || "kor";
-  // 1) Bundled Tesseract (offline, always available). 2) OCR.space fallback.
-  try {
-    const r = await ocrTextTesseract(imageUrl, target || "en", srcLang);
-    if (r.lines.length) return r;
-  } catch (e) { void e; }
-  return ocrSpaceText(imageUrl, target || "en", (s && s.ocrKey) || "helloworld", srcLang === "chi_sim" ? "chs" : srcLang);
-}
+async function translateImageText(imageUrl,target,src) { return ocrTextTesseract(imageUrl,target,src); }
 // Lightweight reachability check: any HTTP response from the base or its docs
 // means the server is up (endpoints differ by version, so we don't require 200).
 async function testImgServer(url) {
@@ -1065,7 +1770,7 @@ async function testImgServer(url) {
   try {
     for (const path of ["/docs", "/"]) {
       try {
-        const r = await fetch(base + path, { signal: ctrl.signal });
+        const r = await fetchRemote(base + path, { signal: ctrl.signal });
         if (r && (r.ok || r.status === 404 || r.status === 405)) return true;
       } catch (e) { /* try next path */ }
     }
@@ -1075,6 +1780,7 @@ async function testImgServer(url) {
   }
 }
 async function translateImage(imageUrl, code, target, src) {
+  imageUrl=safePanelSource(imageUrl);
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
   // Advanced (best quality): a self-hosted manga-image-translator server.
   if (s && s.imgServer) return selfHostImage(s.imgServer, imageUrl, code);
@@ -1098,33 +1804,180 @@ async function detectTab(tabId) {
   });
 }
 
+
+// Every read-modify-write of user data shares one queue, including imports.
+function mutateAndReply(task, respond) {
+  serializeLibrary(task).then(result=>{respond(result);autoSync();},error=>respond({ok:false,error:String(error.message || error)}));
+}
+const IMPORT_ENRICH_ALARM="yomu-import-enrichment";
+let importEnrichmentQueue=null;
+async function ensureImportEnrichmentAlarm() {
+  if(!api.alarms?.get)return;
+  const pending=(await read(ITEMS_KEY,[])).some(i=>i.metadataPending);
+  if(pending) {
+    if(!await api.alarms.get(IMPORT_ENRICH_ALARM))await api.alarms.create(IMPORT_ENRICH_ALARM,{periodInMinutes:1});
+  } else if(api.alarms.clear)await api.alarms.clear(IMPORT_ENRICH_ALARM);
+}
+function runImportEnrichment() {
+  if(importEnrichmentQueue)return importEnrichmentQueue;
+  importEnrichmentQueue=runImportEnrichmentBatch().finally(()=>{importEnrichmentQueue=null;});
+  return importEnrichmentQueue;
+}
+async function queueMissingMetadata(ids) {
+  const selected=Array.isArray(ids)?new Set(ids):null;
+  const items=await read(ITEMS_KEY,[]);
+  let queued=0;
+  const next=items.map(item=>{
+    if(selected&&!selected.has(item.id)||item.metadataPending)return item;
+    if(!["reading","watching","game"].includes(item.type))return item;
+    if(!selected&&item.cover&&item.synopsis&&item.identityVersion===1&&!['failed','not_found','ambiguous','partial'].includes(item.metadataStatus?.state))return item;
+    queued++;
+    return {...item,metadataPending:newMetadataJob(),metadataStatus:{state:"queued",attempts:0,updatedAt:Date.now()}};
+  });
+  if(queued)await writeData({[ITEMS_KEY]:next});
+  return {ok:true,queued,items:next};
+}
+async function runImportEnrichmentBatch() {
+  const epoch=accountEpoch;
+  // Claims survive worker suspension. Tokens also invalidate late results from
+  // an earlier import or attempt, even when the attempt counts happen to match.
+  for(let count=0;count<2;count++) {
+    const candidate=await serializeLibrary(async()=>{
+      if(epoch!==accountEpoch)return;
+      const items=await read(ITEMS_KEY,[]);
+      const item=items.filter(i=>i.metadataPending&&(Number(i.metadataPending.nextAttemptAt)||0)<=Date.now())
+        .sort((a,b)=>(Number(a.metadataPending.nextAttemptAt)||0)-(Number(b.metadataPending.nextAttemptAt)||0))[0];
+      if(!item)return;
+      const pending={...item.metadataPending,jobId:item.metadataPending.jobId||crypto.randomUUID(),attemptId:crypto.randomUUID(),
+        attempts:(Number(item.metadataPending.attempts)||0)+1,nextAttemptAt:Date.now()+120000,state:"running"};
+      const updated={...item,metadataPending:pending,metadataStatus:{state:"running",attempts:pending.attempts,updatedAt:Date.now()}};
+      await writeData({[ITEMS_KEY]:items.map(i=>i.id===item.id?updated:i)});
+      return updated;
+    });
+    if(!candidate)break;
+    let completion;
+    try {completion=await(candidate.type==="game"?enrichGame(candidate.id,false,candidate.metadataPending):enrichWork(candidate.id,false,candidate.metadataPending));}
+    catch {completion={status:"retryable_error"};}
+    await serializeLibrary(async()=>{
+      if(epoch!==accountEpoch)return;
+      const items=await read(ITEMS_KEY,[]), id=completion?.item?.id||candidate.id;
+      const current=items.find(i=>i.id===id);
+      if(!current?.metadataPending||!metadataLeaseValid(current,candidate.metadataPending))return;
+      const attempts=candidate.metadataPending.attempts;
+      const outcome=completion?.status||"retryable_error";
+      const terminal=["matched","partial","ambiguous"].includes(outcome)||(outcome==="not_found"?attempts>=3:attempts>=5);
+      const state=terminal?(outcome==="retryable_error"||outcome==="stale"?"failed":outcome):"retrying";
+      const next={...current,metadataStatus:{state,attempts,updatedAt:Date.now()},metadataPending:terminal?null:{
+        jobId:candidate.metadataPending.jobId,attempts,state:"queued",nextAttemptAt:Date.now()+Math.min(900000,60000*2**(attempts-1))
+      }};
+      await writeData({[ITEMS_KEY]:items.map(i=>i.id===id?next:i)});
+    });
+    if(epoch!==accountEpoch)break;
+  }
+  await ensureImportEnrichmentAlarm();
+  if(epoch===accountEpoch)autoSync();
+}
+
+async function mergeImport(payload) {
+  const items=await read(ITEMS_KEY,[]), byId=new Map(items.map(i=>[i.id,i])), ids=new Map(), enrichIds=new Set();
+  let added=0,updated=0;
+  for(const raw of (Array.isArray(payload.items)?payload.items:[])) {
+    if(!raw || typeof raw.title!=='string' || !raw.title.trim())continue;
+    const p=Object.fromEntries(Object.entries(raw).filter(([k,v])=>v!==undefined&&!['__proto__','constructor','prototype'].includes(k)));
+    const type=['reading','watching','game'].includes(p.type)?p.type:'watching';
+    p.type=type;
+    let key=p.id || workKey(p), ex=findIdentity([...byId.values()],p);
+    if(ex)key=ex.id;
+    else {const base=key||'imported-work';let n=1;while(byId.has(key))key=base+'-'+type+'-'+n++;}
+    if(p.id)ids.set(p.id,key);
+    const season=Math.max(Number(ex?.season)||1,Number(p.season)||1);
+    const episode=(Number(ex?.season)||1)>(Number(p.season)||1)?ex.episode:(Number(p.season)||1)>(Number(ex?.season)||1)?p.episode:Math.max(ex?.episode||0,p.episode||0);
+    const sameSeason=!ex||(Number(ex.season)||1)===(Number(p.season)||1);
+    const item=boundedProgress({...p,...ex,...identityMetadata(ex,p),id:key,title:ex?.title||p.title,type,season:type==='watching'?season:undefined,
+      episode:type==='watching'?episode:undefined,chapter:type==='reading'?Math.max(ex?.chapter||0,p.chapter||0):undefined,
+      total:sameSeason?(ex?.total||p.total):season===(Number(p.season)||1)?p.total:ex?.total,
+      rating:ex?.rating||p.rating||0,cover:ex?.cover||p.cover||'',url:ex?.url||p.url||'',favorite:ex?.favorite||p.favorite||false,
+      tags:[...new Set([...(ex?.tags||[]),...(p.tags||[])])],sources:[...new Set([...(ex?.sources||[]),...(p.sources||[])])],
+      createdAt:ex?.createdAt||p.createdAt||Date.now(),updatedAt:Date.now(),imported:true});
+    byId.set(key,item);
+    // Imported exports often contain progress but omit artwork and synopsis.
+    // Queue a best-effort lookup after the atomic import is safely stored.
+    if(!item.enrichedAt || !item.cover || !item.synopsis || (item.type==="reading" && item.identityVersion!==1)) {enrichIds.add(key);item.metadataPending=newMetadataJob();item.metadataStatus={state:"queued",attempts:0,updatedAt:Date.now()};}
+    if(ex)updated++;else added++;
+  }
+  const patch={[ITEMS_KEY]:[...byId.values()]};
+  if(Array.isArray(payload.lists)) {
+    const lists=new Map((await read(LISTS_KEY,[])).map(l=>[l.id,l]));
+    for(const l of payload.lists) {
+      if(!l || !l.id)continue;
+      const previous=lists.get(l.id), members=(l.itemIds||[]).map(id=>ids.get(id)||id).filter(id=>byId.has(id));
+      lists.set(l.id,{...l,...previous,itemIds:[...new Set([...(previous?.itemIds||[]),...members])],updatedAt:Date.now()});
+    }
+    patch[LISTS_KEY]=[...lists.values()];
+  }
+  if(Array.isArray(payload.sites))patch[SITES_KEY]=mergeById(payload.sites,await read(SITES_KEY,[]));
+  if(Array.isArray(payload.notifications))patch[NOTIF_KEY]=mergeById(payload.notifications.map(n=>({...n,itemId:ids.get(n.itemId)||n.itemId})),await read(NOTIF_KEY,[]));
+  if(payload.settings)patch[SETTINGS_KEY]={...DEFAULT_SETTINGS,...sharedSettings(payload.settings),...await read(SETTINGS_KEY,{})};
+  await writeData(patch);
+  // Queue state was saved atomically with the imported works. The periodic
+  // alarm resumes remaining records even after Chrome suspends this worker.
+  void ensureImportEnrichmentAlarm().then(()=>runImportEnrichment()).catch(()=>{});
+  return {ok:true,added,updated,total:byId.size,enrichmentQueued:enrichIds.size};
+}
+
 api.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if(!message || typeof message!=="object" || typeof message.type!=="string") {sendResponse({ok:false,error:"invalid_message"});return false;}
+  const trusted=trustedExtensionSender(sender);
+  if(!trusted) {
+    if(!pageSender(sender)||!PAGE_MESSAGES.has(message.type)){sendResponse({ok:false,error:"forbidden_message"});return false;}
+    try {
+      if(["DETECTION_UPDATED","VIDEO_PROGRESS"].includes(message.type))message={...message,payload:pageDetection(message.payload,sender)};
+      if(message.type==="DASI_MT"&&(!Array.isArray(message.texts)||message.texts.length>400||message.texts.some(x=>typeof x!=="string"||x.length>10000)||message.texts.join("").length>60000))throw Error("invalid_translation");
+      if(message.type==="TRANSLATE_IMAGE_TEXT"&&(typeof message.url!=="string"||message.url.length>35*1024*1024))throw Error("invalid_image");
+    }catch(error){sendResponse({ok:false,error:error.message});return false;}
+  }
   switch (message.type) {
     case "DETECTION_UPDATED":
-      api.storage.local.set({ "dasi.currentDetection": { ...message.payload, tabId: sender.tab?.id } });
-      return;
+      api.storage.local.set({ "dasi.currentDetection": { ...message.payload, tabId: sender.tab?.id } }).then(()=>sendResponse({ok:true}),()=>sendResponse({ok:false,error:"storage_unavailable"}));
+      return true;
 
     case "VIDEO_PROGRESS":
-    case "SAVE_PROGRESS":
-      writeItem(message.payload).then(async (result) => {
-        // Optional: assign the saved work to a list (in-page bubble / popup ask
-        // "which list?"). Accepts an existing listId, or a new list by name.
-        if (result && result.item && (message.listId || message.listName)) {
-          try {
-            await addItemToList(result.item.id, message.listId, message.listName);
-          } catch {}
-        }
-        sendResponse(result);
-        autoSync();
-      });
+      serializeLibrary(async()=>{
+        const p=message.payload;
+        if(!p || p.type!=="watching" || !Number.isFinite(p.position) || p.position<3 || !(Number(p.confidence)>=.75))return {ok:true,skipped:"uncertain_video"};
+        const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
+        if(settings.autoTrack===false)return {ok:true,skipped:"disabled"};
+        const saved=await read(ITEMS_KEY,[]);
+        const existing=findIdentity(saved,p);
+        if(!existing)return {ok:true,skipped:"not_tracked_or_ambiguous"};
+        return writeItemUnlocked(p);
+      }).then(r=>{sendResponse(trusted?r:{ok:r.ok!==false,skipped:r.skipped});if(r.item)autoSync();},e=>sendResponse({ok:false,error:String(e.message)}));
       return true;
+    case "SAVE_PROGRESS":
+      {const epoch=accountEpoch;
+      resolveIncomingIdentity(message.payload).then(payload=>serializeLibrary(async()=>{
+        if(epoch!==accountEpoch)throw Error("account_changed");
+        if(message.listId&&!(await read(LISTS_KEY,[])).some(l=>l.id===message.listId))throw Error("list_unavailable");
+        const result=await writeItemUnlocked(payload);
+        if(result?.item&&(message.listId||message.listName)) {
+          try {await addItemToList(result.item.id,message.listId,message.listName);}
+          catch {return {ok:false,error:"list_save_failed",item:result.item};}
+        }
+        return result;
+      })).then(result=>{sendResponse(result);autoSync();},error=>sendResponse({ok:false,error:String(error.message)}));
+      return true;}
 
     // Look up (without saving) whether this work already has a saved position, so
     // the popup can show the previous marker and ask before overwriting.
+    case "CHECK_EXISTING_BATCH":
+      read(ITEMS_KEY,[]).then(items=>sendResponse({ok:true,matches:(Array.isArray(message.items)?message.items:[]).slice(0,200).map(item=>findIdentity(items,item||{})?.id||null)}),()=>sendResponse({ok:false,matches:[]}));
+      return true;
+
     case "CHECK_EXISTING":
       read(ITEMS_KEY, []).then((items) => {
-        const key = workKey(message.payload || {});
-        sendResponse({ existing: items.find((i) => i.id === key) || null, key });
+        const existing = findIdentity(items,message.payload || {});
+        const key = existing?.id || workKey(message.payload || {});
+        sendResponse({ existing, key });
       });
       return true;
 
@@ -1138,6 +1991,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case "GET_STATE":
+      void checkTrackedReleases().catch(()=>{});
       Promise.all([
         read(ITEMS_KEY, []),
         read(SITES_KEY, []),
@@ -1159,207 +2013,63 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case "NOTIF_READ_ALL":
-      read(NOTIF_KEY, []).then((list) => {
-        const next = list.map((n) => ({ ...n, read: true }));
-        writeData({ [NOTIF_KEY]: next }).then(() => sendResponse({ notifications: next }));
-      });
-      return true;
-
     case "NOTIF_CLEAR":
-      writeData({ [NOTIF_KEY]: [] }).then(() => sendResponse({ notifications: [] }));
-      return true;
-
+      mutateAndReply(async()=>{const notifications=message.type==='NOTIF_CLEAR'?[]:(await read(NOTIF_KEY,[])).map(n=>({...n,read:true}));await writeData({[NOTIF_KEY]:notifications});return {notifications};},sendResponse);return true;
     case "SET_SETTINGS":
-      read(SETTINGS_KEY, DEFAULT_SETTINGS).then((s) => {
-        const next = { ...DEFAULT_SETTINGS, ...(s || {}), ...(message.patch || {}) };
-        writeData({ [SETTINGS_KEY]: next }).then(() => {
-          sendResponse({ settings: next });
-          autoSync();
-        });
-      });
-      return true;
-
-    // ---- Custom lists (collections) ------------------------------------------
+      mutateAndReply(async()=>{const settings={...DEFAULT_SETTINGS,...await read(SETTINGS_KEY,{}),...message.patch};await writeData({[SETTINGS_KEY]:settings});return {settings};},sendResponse);return true;
+    case "LIST_DUPLICATE":
     case "LIST_CREATE":
-      read(LISTS_KEY, []).then((lists) => {
-        const list = {
-          id: "l_" + Math.random().toString(36).slice(2, 10),
-          name: (message.name || "New list").slice(0, 60),
-          cover: message.cover || "#EDE6FF",
-          itemIds: [],
-          createdAt: Date.now(),
-        };
-        const next = [...lists, list];
-        writeData({ [LISTS_KEY]: next }).then(() => {
-          sendResponse({ lists: next, list });
-          autoSync();
-        });
-      });
-      return true;
-
-    case "LIST_UPDATE": // rename / change cover
-      read(LISTS_KEY, []).then((lists) => {
-        const next = lists.map((l) => (l.id === message.id ? { ...l, ...(message.patch || {}) } : l));
-        writeData({ [LISTS_KEY]: next }).then(() => {
-          sendResponse({ lists: next });
-          autoSync();
-        });
-      });
-      return true;
-
+    case "LIST_UPDATE":
     case "LIST_DELETE":
-      read(LISTS_KEY, []).then((lists) => {
-        const next = lists.filter((l) => l.id !== message.id);
-        writeData({ [LISTS_KEY]: next }).then(() => {
-          sendResponse({ lists: next });
-          autoSync();
-        });
-      });
-      return true;
-
-    case "LIST_SET_ITEMS": // assign membership + order in one shot
-      read(LISTS_KEY, []).then((lists) => {
-        const next = lists.map((l) => (l.id === message.id ? { ...l, itemIds: message.itemIds || [] } : l));
-        writeData({ [LISTS_KEY]: next }).then(() => {
-          sendResponse({ lists: next });
-          autoSync();
-        });
-      });
-      return true;
-
+    case "LIST_SET_ITEMS":
+      mutateAndReply(async()=>{
+        let lists=await read(LISTS_KEY,[]),list;
+        if(message.type==='LIST_CREATE') {list={id:'l_'+Math.random().toString(36).slice(2,10),name:String(message.name||'New list').slice(0,60),cover:message.cover||'#EDE6FF',itemIds:[],createdAt:Date.now(),updatedAt:Date.now()};lists=[...lists,list];}
+        if(message.type==='LIST_DUPLICATE'){const old=lists.find(l=>l.id===message.id);if(!old)throw Error('list_not_found');list={...old,id:'l_'+crypto.randomUUID(),name:String(old.name+' (copy)').slice(0,100),itemIds:[...(old.itemIds||[])],archived:false,createdAt:Date.now(),updatedAt:Date.now()};delete list.memberships;lists=[...lists,list];}
+        if(message.type==='LIST_DELETE')lists=lists.filter(l=>l.id!==message.id);
+        if(message.type==='LIST_UPDATE'){const patch=Object.fromEntries(Object.entries(message.patch||{}).filter(([k])=>!['id','createdAt','itemIds','__proto__','constructor','prototype'].includes(k)));lists=lists.map(l=>l.id===message.id?{...l,...patch,updatedAt:Date.now()}:l);}
+        if(message.type==='LIST_SET_ITEMS'){const valid=new Set((await read(ITEMS_KEY,[])).map(i=>i.id));lists=lists.map(l=>l.id===message.id?{...l,itemIds:[...new Set((message.itemIds||[]).filter(id=>valid.has(id)))],updatedAt:Date.now()}:l);}
+        await writeData({[LISTS_KEY]:lists});return {ok:true,lists,list};
+      },sendResponse);return true;
     case "ADD_SITE":
-      read(SITES_KEY, []).then((sites) => {
-        const site = message.payload;
-        const next = sites.some((s) => s.url === site.url) ? sites : [...sites, site];
-        writeData({ [SITES_KEY]: next }).then(() => sendResponse({ sites: next }));
-      });
-      return true;
-
     case "REMOVE_SITE":
-      read(SITES_KEY, []).then((sites) => {
-        const next = sites.filter((s) => (s.id || s.url) !== message.id);
-        writeData({ [SITES_KEY]: next }).then(() => { sendResponse({ sites: next }); autoSync(); });
-      });
-      return true;
-
-    case "IMPORT_STATE":
-      {
-        const payload = message.payload || {};
-        const patch = {};
-        if (Array.isArray(payload.items)) patch[ITEMS_KEY] = payload.items;
-        if (Array.isArray(payload.sites)) patch[SITES_KEY] = payload.sites;
-        if (Array.isArray(payload.notifications)) patch[NOTIF_KEY] = payload.notifications;
-        if (Array.isArray(payload.lists)) patch[LISTS_KEY] = payload.lists;
-        if (payload.settings) patch[SETTINGS_KEY] = { ...DEFAULT_SETTINGS, ...payload.settings };
-        writeData(patch).then(() => sendResponse({ ok: true }));
-      }
-      return true;
-
-    // Additive import: merge parsed works into the library (never wipes it).
-    // Dedups against existing items by work key / fuzzy title, keeps the
-    // furthest progress and any rating. Used by the universal importer.
-    case "IMPORT_MERGE":
-      read(ITEMS_KEY, []).then(async (items) => {
-        const incoming = Array.isArray(message.items) ? message.items : [];
-        const byId = new Map(items.map((i) => [i.id, i]));
-        let added = 0, updated = 0;
-        for (const p of incoming) {
-          if (!p || !p.title) continue;
-          const type = p.type || "watching";
-          const key = workKey({ title: p.title }) || (p.title.toLowerCase().replace(/\s+/g, "-"));
-          let ex = byId.get(key);
-          if (!ex) ex = items.find((i) => i.type === type && sameWork(i.title, p.title));
-          if (ex) {
-            const merged = {
-              ...ex,
-              episode: Math.max(ex.episode || 0, p.episode || 0) || ex.episode,
-              chapter: Math.max(ex.chapter || 0, p.chapter || 0) || ex.chapter,
-              latestEpisode: Math.max(ex.latestEpisode || 0, p.episode || 0) || ex.latestEpisode,
-              latestChapter: Math.max(ex.latestChapter || 0, p.chapter || 0) || ex.latestChapter,
-              season: ex.season || p.season,
-              rating: ex.rating || p.rating || 0,
-              status: ex.status || p.status || ex.status,
-              url: ex.url || p.url || "",
-              cover: ex.cover || p.cover || "",
-              updatedAt: ex.updatedAt || Date.now(),
-            };
-            byId.set(ex.id, merged); updated++;
-          } else {
-            byId.set(key, {
-              id: key,
-              title: p.title,
-              type,
-              episode: type === "watching" ? p.episode || 0 : undefined,
-              chapter: type === "reading" ? p.chapter || 0 : undefined,
-              season: p.season || undefined,
-              latestEpisode: p.episode || undefined,
-              latestChapter: p.chapter || undefined,
-              total: undefined,
-              rating: p.rating || 0,
-              tags: [],
-              status: p.status || "in_progress",
-              url: p.url || "",
-              cover: p.cover || "",
-              year: p.year || undefined,
-              favorite: false,
-              progress: 0,
-              sources: [],
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-              imported: true,
-            });
-            added++;
-          }
-        }
-        const next = [...byId.values()].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 2000);
-        await writeData({ [ITEMS_KEY]: next });
-        sendResponse({ ok: true, added, updated, total: next.length });
+      mutateAndReply(async()=>{const previous=await read(SITES_KEY,[]);const sites=message.type==='REMOVE_SITE'?previous.filter(s=>(s.id||s.url)!==message.id):previous.some(s=>s.url===message.payload.url)?previous:[...previous,message.payload];await writeData({[SITES_KEY]:sites});return {sites};},sendResponse);return true;
+    case "QUEUE_MISSING_METADATA":
+      serializeLibrary(()=>queueMissingMetadata(message.ids)).then(result=>{sendResponse(result);void ensureImportEnrichmentAlarm().then(()=>runImportEnrichment()).catch(()=>{});},error=>sendResponse({ok:false,error:String(error.message)}));return true;
+    case "COMPLETE_ITEM_METADATA": {
+      const epoch = accountEpoch;
+      read(ITEMS_KEY, []).then(async saved => {
+        const item = saved.find(x => x.id === message.id);
+        if (!item || epoch !== accountEpoch) return {ok:false,error:"item_unavailable"};
+        const completion=await (item.type === "game" ? enrichGame(item.id,message.force===true) : enrichWork(item.id,message.force===true));
+        if (epoch !== accountEpoch) return {ok:false,error:"account_changed"};
+        const current = (await read(ITEMS_KEY, [])).find(x => x.id === (completion?.item?.id||item.id));
         autoSync();
-      });
+        return {ok:true,item:current,mergedIds:completion?.mergedIds||[],lists:completion?.lists,status:completion?.status,matched:completion?.status==="matched"};
+      }).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));
       return true;
-
+    }
+    case "IMPORT_STATE":
+    case "IMPORT_MERGE":
+      mutateAndReply(()=>mergeImport(message.payload||{items:message.items}),sendResponse);return true;
     case "REMOVE_ITEM":
-      read(ITEMS_KEY, []).then((items) => {
-        const next = items.filter((i) => i.id !== message.id);
-        writeData({ [ITEMS_KEY]: next }).then(() => {
-          sendResponse({ items: next });
-          autoSync();
-        });
-      });
-      return true;
+      mutateAndReply(async()=>{const items=(await read(ITEMS_KEY,[])).filter(i=>i.id!==message.id);const lists=(await read(LISTS_KEY,[])).map(l=>({...l,itemIds:(l.itemIds||[]).filter(id=>id!==message.id)}));await writeData({[ITEMS_KEY]:items,[LISTS_KEY]:lists});return {items,lists};},sendResponse);return true;
 
     // Patch a saved item (favorite, rating, tags, status…) from the library page.
     case "UPDATE_ITEM":
-      read(ITEMS_KEY, []).then((items) => {
-        const patch = message.patch || {};
-        const next = items.map((i) => (i.id === message.id ? { ...i, ...patch, updatedAt: Date.now() } : i));
-        writeData({ [ITEMS_KEY]: next }).then(() => {
-          sendResponse({ items: next });
-          autoSync();
-        });
-      });
+      serializeLibrary(async () => {
+        const items = await read(ITEMS_KEY, []);
+        const patch = Object.fromEntries(Object.entries(message.patch || {}).filter(([k]) => !['id','createdAt','__proto__','constructor','prototype'].includes(k)));
+        const next = items.map(i => i.id === message.id ? boundedProgress({...i,...patch,activityAt:Date.now(),updatedAt:Date.now()}) : i);
+        await writeData({[ITEMS_KEY]:next});
+        sendResponse({items:next}); autoSync();
+      }).catch(e => sendResponse({ok:false,error:String(e.message)}));
       return true;
 
     // Lazy game enrichment: pull genres/tags + description from Steam when a
     // game fiche is opened without them. Best-effort; patches the item in place.
     case "GAME_ENRICH":
-      read(ITEMS_KEY, []).then(async (items) => {
-        const it = items.find((x) => x.id === message.id);
-        const appid = it ? steamAppId(it.url) : "";
-        if (!it || !appid) { sendResponse({ ok: false }); return; }
-        try {
-          const d = await steamAppDetails(appid);
-          if (!d) { sendResponse({ ok: false }); return; }
-          const patch = { gameEnrichedAt: Date.now() };
-          if (d.genres.length && !(it.tags && it.tags.length)) patch.tags = d.genres;
-          if (d.synopsis && !it.synopsis) patch.synopsis = d.synopsis;
-          if (d.releaseDate && !it.releaseDate) patch.releaseDate = d.releaseDate;
-          const next = items.map((x) => (x.id === message.id ? { ...x, ...patch } : x));
-          await writeData({ [ITEMS_KEY]: next });
-          sendResponse({ ok: true, item: next.find((x) => x.id === message.id) });
-          autoSync();
-        } catch { sendResponse({ ok: false }); }
-      });
+      enrichGame(message.id,message.force===true).then(result=>{sendResponse({ok:!!result.item,...result});if(result.item)autoSync();},()=>sendResponse({ok:false,error:"details_unavailable"}));
       return true;
 
     // Fresh recommendations for the Home page (cached ~6h).
@@ -1370,7 +2080,12 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     // Online search-to-add (AniList): returns catalog results for a title.
+    case "CATALOG_EPISODE_GUIDE":
+      catalogEpisodeGuide(message.item||{},message.seasonId).then(data=>sendResponse({ok:true,...data}),()=>sendResponse({ok:false,error:"episode_guide_unavailable"}));return true;
+    case "CATALOG_DETAIL":
+      catalogDetail(message.item||{}).then(item=>sendResponse({ok:true,item}),()=>sendResponse({ok:false,error:"details_unavailable"}));return true;
     case "CATALOG_SEARCH":
+      if(message.progressive===true){catalogSearchProgress(message.query,message.retry===true).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));return true;}
       catalogSearchAll(message.query || "")
         .then((results) => sendResponse({ ok: true, results }))
         .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
@@ -1392,7 +2107,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case "TRANSLATE_IMAGE_TEXT":
       translateImageText(message.url, message.target || "en", message.src || "")
-        .then((r) => sendResponse({ ok: true, lines: r.lines }))
+        .then((r) => sendResponse({ ok: true, ...r }))
         .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));
       return true;
 
@@ -1404,6 +2119,12 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     // Inject the in-page translator into the active tab and run it.
+    case "GET_TRANSLATION_RULE":
+      YomuAutoTranslation.getRule(message.url).then(sendResponse);return true;
+    case "SET_TRANSLATION_RULE":
+      YomuAutoTranslation.setRule(message.url,{enabled:message.enabled,target:message.target,source:message.source}).then(sendResponse);return true;
+    case "STOP_TRANSLATION":
+      api.tabs.query({active:true,currentWindow:true}).then(tabs=>tabs[0]?.id?YomuAutoTranslation.stop(tabs[0].id):{ok:false,status:"no_tab"}).then(sendResponse);return true;
     case "TRANSLATE_PAGE":
       api.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
         const tab = tabs[0];
@@ -1416,9 +2137,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
         api.tabs.sendMessage(tab.id, { type: "DASI_TRANSLATE", lang: message.lang || "en", src: message.src || "", imgServer: (s && s.imgServer) || "" }, () => {
           void api.runtime.lastError;
-          sendResponse({ ok: true });
+          const error = api.runtime.lastError; sendResponse(error ? {ok:false,error:"translation_start_failed"} : {ok:true,started:true});
         });
-      });
+      }).catch(e => sendResponse({ok:false,error:String(e.message)}));
       return true;
 
     case "SYNC_STATUS":
@@ -1452,9 +2173,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       getSyncConfig().then(async (cfg) => {
         if (!cfg || !cfg.token) return sendResponse({ ok: false, error: "not_signed_in" });
         try {
-          const res = await apiCall(cfg, "/auth/email", { method: "POST", body: JSON.stringify({ email: message.email }) });
+          const res = await apiCall(cfg, "/auth/email", { method: "POST", body: JSON.stringify({ email: message.email,current:message.current }) });
           if (!res.ok) { const e = await res.json().catch(() => ({})); return sendResponse({ ok: false, error: e.error || `http_${res.status}` }); }
-          await api.storage.local.set({ [SYNC_CFG_KEY]: { ...cfg, email: message.email } });
+          await serializeLibrary(async()=>{if((await getSyncConfig())?.token!==cfg.token)throw Error("account_changed");await api.storage.local.set({ [SYNC_CFG_KEY]: { ...cfg, email: message.email } });});
           sendResponse({ ok: true });
         } catch (e) { sendResponse({ ok: false, error: String(e && e.message) }); }
       });
@@ -1466,13 +2187,28 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         try {
           const res = await apiCall(cfg, "/auth/password", { method: "POST", body: JSON.stringify({ current: message.current, next: message.next }) });
           if (!res.ok) { const e = await res.json().catch(() => ({})); return sendResponse({ ok: false, error: e.error || `http_${res.status}` }); }
+          const data=await res.json();
+          await serializeLibrary(async()=>{if((await getSyncConfig())?.token!==cfg.token)throw Error('account_changed');await api.storage.local.set({[SYNC_CFG_KEY]:{...cfg,token:data.token}});});
           sendResponse({ ok: true });
         } catch (e) { sendResponse({ ok: false, error: String(e && e.message) }); }
       });
       return true;
 
+    case 'SYNC_LOGOUT_ALL':
+    case 'SYNC_DELETE_ACCOUNT':
+      (async()=>{
+        const cfg=await getSyncConfig();if(!cfg?.token)throw Error('not_signed_in');
+        const res=await apiCall(cfg,message.type==='SYNC_DELETE_ACCOUNT'?'/auth/delete':'/auth/logout-all',{method:'POST',body:JSON.stringify({current:message.current})});
+        if(!res.ok)throw Error((await res.json()).error||'account_change_failed');
+        await serializeLibrary(async()=>{if((await getSyncConfig())?.token!==cfg.token)throw Error('account_changed');await switchSyncAccount(null);});
+        sendResponse({ok:true});
+      })().catch(error=>sendResponse({ok:false,error:String(error.message)}));return true;
     case "SYNC_SIGN_OUT":
-      api.storage.local.set({ [SYNC_CFG_KEY]: null, [SYNC_META_KEY]: {} }).then(() => sendResponse({ ok: true }));
+      mutateAndReply(async()=>{
+        const cfg=await getSyncConfig();
+        if(cfg?.token){const res=await apiCall(cfg,'/auth/logout',{method:'POST'});if(!res.ok)throw Error('sign_out_failed');}
+        await switchSyncAccount(null);return {ok:true};
+      },sendResponse);
       return true;
 
     case "SYNC_NOW":
@@ -1493,66 +2229,221 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
  * backward-compatible migrations for future breaking changes, so publishing a
  * new version never wipes existing users' libraries.
  */
-const SCHEMA_VERSION = 2;
-api.runtime.onInstalled.addListener(async () => {
-  // DATA SAFETY (guarantee): updating the extension NEVER wipes a user's
-  // library, progress, lists, settings or account. Chrome preserves
-  // chrome.storage across version updates (only an uninstall clears it), our
-  // storage keys are permanently `dasi.*` (kept stable through the Yomu
-  // rebrand), and migrations here are strictly ADDITIVE — never clear/remove.
-  // The whole block is wrapped so a future migration bug can neither crash the
-  // worker nor leave data half-written.
-  try {
-    const stored = (await api.storage.local.get("dasi.schema"))["dasi.schema"] || 0;
-    if (stored >= SCHEMA_VERSION) return;
-    // v2: re-key existing items to the web-app-aligned work id (spaces →
-    // hyphens) so cross-surface sync merges the same work instead of
-    // duplicating it. Deterministic and update-safe; furthest progress wins on
-    // any collision. Only ever writes a set at least as large as before.
-    if (stored < 2) {
-      const items = (await api.storage.local.get(ITEMS_KEY))[ITEMS_KEY] || [];
-      if (items.length) {
-        const byId = new Map();
-        for (const it of items) {
-          const nid = (it.id || "").replace(/\s+/g, "-");
-          const prev = byId.get(nid);
-          if (!prev || numericProgress(it) > numericProgress(prev)) byId.set(nid, { ...it, id: nid });
-        }
-        const next = [...byId.values()];
-        if (next.length) await writeData({ [ITEMS_KEY]: next }); // never write an empty over a non-empty
-      }
-    }
-    await api.storage.local.set({ "dasi.schema": SCHEMA_VERSION });
-  } catch (e) {
-    // Leave existing data exactly as-is; a failed migration must not lose data.
-  }
-});
+const SCHEMA_VERSION = 3;
+async function migrateStorage() {
+  const stored=(await api.storage.local.get('dasi.schema'))['dasi.schema'] || 0;
+  if(stored>=SCHEMA_VERSION)return;
+  if(stored<2){
+    const items=await read(ITEMS_KEY,[]), lists=await read(LISTS_KEY,[]), notifications=await read(NOTIF_KEY,[]);
+    const ids=new Map(), used=new Set();
+    const next=items.map((item,index)=>{
+      const base=String(item.id || 'legacy-'+index).replace(/\s+/g,'-');let id=base;
+      while(used.has(id))id=base+'-'+index+'-'+used.size;
+      used.add(id);ids.set(item.id,id);return {...item,id};
+    });
+    // Backup is local only. All records and references change in one storage operation.
+    await api.storage.local.set({'dasi.migrationBackup.v1':{items,lists,notifications,at:Date.now()},[ITEMS_KEY]:next,[LISTS_KEY]:lists.map(l=>({...l,itemIds:(l.itemIds || []).map(id=>ids.get(id) || id)})),[NOTIF_KEY]:notifications.map(n=>({...n,itemId:ids.get(n.itemId) || n.itemId})),'dasi.schema':SCHEMA_VERSION});
+  }else await api.storage.local.set({'dasi.schema':SCHEMA_VERSION});
+}
+api.runtime.onInstalled.addListener(()=>serializeLibrary(migrateStorage).catch(error=>api.storage.local.set({'dasi.migrationError':String(error.message)})));
 
 /*
- * Awaited games: once a day (and on startup) flip any game whose release date
- * has passed from "upcoming" to released, and notify. No network — purely the
- * dates you already saved.
+ * Check Steam-confirmed releases every twelve hours. Calendar dates alone
+ * never establish availability. Requests are coalesced and account-scoped.
  */
-async function checkGameReleases() {
-  const items = await read(ITEMS_KEY, []);
-  let changed = false;
-  for (const i of items) {
-    if (i.type === "game" && !i.released && i.releaseDate) {
-      const d = Date.parse(i.releaseDate);
-      if (Number.isFinite(d) && d <= Date.now()) {
-        i.released = true;
-        i.updatedAt = Date.now();
-        changed = true;
-        await pushNotification({ itemId: i.id, title: i.title, message: "is out now", url: i.url });
-        systemNotify(i.title, "is out now", "dasi_game_" + i.id);
-      }
-    }
-  }
-  if (changed) await writeData({ [ITEMS_KEY]: items });
+
+const TRACKED_RELEASE_ALARM="yomu-tracked-releases";
+const TRACKED_RELEASE_INTERVAL=6*3600*1000;
+let trackedReleaseTask=null,lastTrackedReleaseBatch=0;
+function releaseIdentity(item) {
+  const ids=identityIds(item);
+  if(item.type!=="watching")return "";
+  if(/^\d+$/.test(ids.tvmaze||""))return "tvmaze:"+ids.tvmaze;
+  // An AniList anime record identifies a specific season, not a whole TV series.
+  if(/^\d+$/.test(ids.anilist||"")&&Number(item.season||1)===1)return "anilist:"+ids.anilist;
+  return "";
 }
+function normalizeReleaseEpisodes(episodes,now=Date.now()) {
+  const unique=new Map();
+  for(const ep of episodes||[]) {
+    const season=Number(ep.season),episode=Number(ep.episode),at=Number(ep.at);
+    if(!Number.isInteger(season)||season<1||!Number.isInteger(episode)||episode<1||!Number.isFinite(at)||at<=0||at>now)continue;
+    const key=season+":"+episode;
+    const old=unique.get(key);
+    if(!old||at<old.at)unique.set(key,{season,episode,at});
+  }
+  return [...unique.values()].sort((a,b)=>b.at-a.at);
+}
+async function fetchTrackedReleases(item) {
+  const identity=releaseIdentity(item);
+  if(!identity)return null;
+  const [source,id]=identity.split(":");
+  if(source==="tvmaze") {
+    const r=await fetchRemote("https://api.tvmaze.com/shows/"+id+"/episodes");
+    if(!r.ok)throw Error("releases_unavailable");
+    const episodes=await r.json();
+    if(!Array.isArray(episodes))throw Error("invalid_release_data");
+    return normalizeReleaseEpisodes(episodes.map(ep=>({season:ep.season,episode:ep.number,at:Date.parse(ep.airstamp||(ep.airdate<new Date().toISOString().slice(0,10)?ep.airdate:""))})));
+  }
+  const query='query($id:Int,$since:Int,$now:Int){Page(perPage:50){airingSchedules(mediaId:$id,airingAt_greater:$since,airingAt_lesser:$now){airingAt episode}}}';
+  const r=await fetchRemote(ANILIST_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query,variables:{id:Number(id),since:Math.floor((Date.now()-7*86400000)/1000),now:Math.floor(Date.now()/1000)}})});
+  if(!r.ok)throw Error("releases_unavailable");
+  const data=await r.json(),episodes=data.data?.Page?.airingSchedules;
+  if(!Array.isArray(episodes)||data.errors?.length)throw Error("invalid_release_data");
+  return normalizeReleaseEpisodes(episodes.map(ep=>({season:1,episode:ep.episode,at:ep.airingAt*1000})));
+}
+async function ensureTrackedReleaseAlarm() {
+  if(api.alarms?.get&&!await api.alarms.get(TRACKED_RELEASE_ALARM))await api.alarms.create(TRACKED_RELEASE_ALARM,{periodInMinutes:15});
+}
+function checkTrackedReleases() {
+  if(trackedReleaseTask)return trackedReleaseTask;
+  if(Date.now()-lastTrackedReleaseBatch<60000)return Promise.resolve();
+  lastTrackedReleaseBatch=Date.now();
+  trackedReleaseTask=checkTrackedReleasesOnce().finally(()=>{trackedReleaseTask=null;});
+  return trackedReleaseTask;
+}
+function freshTrackedReleases(item, episodes, settings, now=Date.now()) {
+  if (!Number.isFinite(item.releaseCheckedAt) || item.releaseCheckedAt<=0 ||
+      item.notifyUpdates===false || settings.notifyNew===false ||
+      ["dropped","on_hold"].includes(item.status)) return [];
+  const season=Number(item.season)||1, episode=Number(item.episode)||0;
+  const seen=new Set();
+  return episodes.filter(ep=>{
+    const key=ep.season+":"+ep.episode;
+    if(seen.has(key)||ep.at<=item.releaseCheckedAt||ep.at>now||now-ep.at>7*86400000)return false;
+    seen.add(key);
+    return ep.season>season || ep.season===season&&ep.episode>episode;
+  });
+}
+async function checkTrackedReleasesOnce() {
+  const epoch=accountEpoch;
+  const candidates=(await read(ITEMS_KEY,[])).filter(i=>releaseIdentity(i)&&i.status!=="dropped"&&Date.now()-(i.releaseCheckedAt||0)>=TRACKED_RELEASE_INTERVAL).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,6);
+  for(const candidate of candidates) {
+    if(epoch!==accountEpoch)return;
+    let episodes;
+    try{episodes=await fetchTrackedReleases(candidate);}catch{continue;}
+    if(!episodes)continue;
+    await serializeLibrary(async()=>{
+      if(epoch!==accountEpoch)return;
+      const current=await read(ITEMS_KEY,[]),live=current.find(i=>i.id===candidate.id);
+      if(!live||releaseIdentity(live)!==releaseIdentity(candidate))return;
+      const season=Number(live.season)||1;
+      const confirmed=normalizeReleaseEpisodes(episodes);
+      const recentEpisodes=confirmed.filter(ep=>Date.now()-ep.at<7*86400000);
+      const aired=confirmed.filter(ep=>ep.season===season).map(ep=>ep.episode);
+      const updated={...live,recentEpisodes,releaseCheckedAt:Date.now(),activityAt:live.activityAt||live.updatedAt||live.createdAt||0};
+      if(aired.length) {updated.releasedTotal=Math.max(...aired);updated.releaseSeason=season;}
+      const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
+      const fresh=freshTrackedReleases(live,confirmed,settings);
+      const changes={[ITEMS_KEY]:current.map(i=>i.id===live.id?updated:i)};
+      let message="";
+      if(fresh.length){
+        message=settings.lang==="fr"
+          ? fresh.length+(fresh.length>1?" nouveaux épisodes disponibles":" nouvel épisode disponible")
+          : fresh.length+" new episode"+(fresh.length>1?"s":"")+" available";
+        changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:live.id,title:live.title,message,url:live.url,read:false,ts:Date.now()},...await read(NOTIF_KEY,[])].slice(0,120);
+      }
+      await writeData(changes);
+      if(message)await systemNotify(live.title,message,"yomu_release_"+live.id);
+    });
+  }
+  if(epoch===accountEpoch&&candidates.length)autoSync();
+}
+
+async function ensureReleaseAlarm(){if(api.alarms?.get && !await api.alarms.get("dasi-daily"))await api.alarms.create("dasi-daily",{periodInMinutes:720});}
+let gameReleaseCheck=null;
+function checkGameReleases() {
+  if(gameReleaseCheck)return gameReleaseCheck;
+  gameReleaseCheck=checkGameReleasesOnce().finally(()=>{gameReleaseCheck=null;});
+  return gameReleaseCheck;
+}
+function trackedSteamId(item) {
+  if(item?.type!=="game")return "";
+  const explicit=identityIds(item).steam, fromUrl=steamAppId(item.url);
+  if(explicit && !/^[1-9]\d{0,14}$/.test(explicit))return "";
+  if(explicit && fromUrl && explicit!==fromUrl)return "";
+  return explicit||fromUrl||"";
+}
+async function checkGameReleasesOnce() {
+  const epoch=accountEpoch;
+  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==='game' && i.status!=='dropped' && !i.released && trackedSteamId(i)).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,8);
+  for(const candidate of candidates){
+    if(epoch!==accountEpoch)return;
+    try{
+      const details=await steamAppDetails(trackedSteamId(candidate));if(!details)continue;
+      await serializeLibrary(async()=>{
+        if(epoch!==accountEpoch)return;
+        const items=await read(ITEMS_KEY,[]), current=items.find(i=>i.id===candidate.id);if(!current||current.status==='dropped'||trackedSteamId(current)!==trackedSteamId(candidate))return;
+        const released=details.comingSoon===false?true:details.comingSoon===true?false:current.released;
+        const next=items.map(i=>i.id===current.id?{...i,released,releaseDate:details.releaseDate||i.releaseDate,releaseCheckedAt:Date.now(),updatedAt:Date.now()}:i);
+        const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
+        const alert=released&&!current.released&&current.notifyUpdates!==false&&settings.notifyNew!==false;
+        const message=settings.lang==="fr"?"est disponible":"is out now";
+        const changes={[ITEMS_KEY]:next};
+        if(alert)changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:current.id,title:current.title,message,url:current.url,read:false,ts:Date.now()},...await read(NOTIF_KEY,[])].slice(0,120);
+        await writeData(changes);
+        if(alert)await systemNotify(current.title,message,'dasi_game_'+current.id);
+      });
+    }catch{/* A failed source never turns an expected date into a confirmed release. */}
+  }
+}
+
+
+// Only new publisher news creates alerts; the first fetch establishes a baseline.
+function gameNewsCategory(entry) {
+  const title=String(entry.title||"");
+  if (/\b(redeem|redemption|reward|rewards|giveaway|drops|gift code|promo code)\b/i.test(title)) return "rewards";
+  if (/\b(patch|hotfix|update|changelog|maintenance)\b/i.test(title)) return "updates";
+  return "events";
+}
+function freshGameNews(item,news,settings,now=Date.now()) {
+  if (!item.gameNewsCheckedAt || item.notifyUpdates===false || settings.notifyNew===false) return [];
+  const seen=new Set(item.gameNewsSeenIds||[]);
+  const fields={updates:"notifyGameUpdates",events:"notifyGameEvents",rewards:"notifyGameRewards"};
+  return news.filter(entry=>{
+    const at=Number(entry.publishedAt);
+    if (!entry.id || seen.has(entry.id) || !Number.isFinite(at) || at<=item.gameNewsCheckedAt || at>now || now-at>7*86400000) return false;
+    seen.add(entry.id);
+    return item[fields[gameNewsCategory(entry)]]!==false;
+  }).sort((a,b)=>b.publishedAt-a.publishedAt).slice(0,3);
+}
+let gameNewsTask=null;
+function checkGameNews() {
+  if(gameNewsTask)return gameNewsTask;
+  gameNewsTask=checkGameNewsOnce().finally(()=>{gameNewsTask=null;});
+  return gameNewsTask;
+}
+async function checkGameNewsOnce() {
+  const epoch=accountEpoch;
+  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==="game"&&i.status!=="dropped"&&trackedSteamId(i)&&Date.now()-(i.gameNewsCheckedAt||0)>=6*3600000).sort((a,b)=>(a.gameNewsCheckedAt||0)-(b.gameNewsCheckedAt||0)).slice(0,8);
+  for(const candidate of candidates) {
+    if(epoch!==accountEpoch)return;
+    try {
+      const news=await steamNews(trackedSteamId(candidate));
+      await serializeLibrary(async()=>{
+        if(epoch!==accountEpoch)return;
+        const items=await read(ITEMS_KEY,[]),live=items.find(i=>i.id===candidate.id);
+        if(!live||live.status==="dropped"||trackedSteamId(live)!==trackedSteamId(candidate))return;
+        const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS),now=Date.now();
+        const fresh=freshGameNews(live,news,settings,now);
+        const updated={...live,news,gameNewsCheckedAt:now,gameNewsSeenIds:[...new Set([...news.map(n=>n.id),...(live.gameNewsSeenIds||[])])].slice(0,100)};
+        const changes={[ITEMS_KEY]:items.map(i=>i.id===live.id?updated:i)};
+        if(fresh.length) {
+          const message=fresh.map(n=>n.title).join(" · ");
+          changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:live.id,title:live.title,message,url:live.url,read:false,ts:now},...await read(NOTIF_KEY,[])].slice(0,120);
+        }
+        await writeData(changes);
+        if(fresh.length)await systemNotify(live.title,fresh.map(n=>n.title).join(" · "),"yomu_news_"+live.id);
+      });
+    } catch { /* Retry a failed source without advancing its baseline. */ }
+  }
+}
+
 try {
-  api.alarms?.create("dasi-daily", { periodInMinutes: 720 });
-  api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") checkGameReleases(); });
+  void ensureReleaseAlarm().catch(()=>{});
+  void ensureTrackedReleaseAlarm().catch(()=>{});
+  void ensureImportEnrichmentAlarm().catch(()=>{});
+  api.alarms?.onAlarm.addListener((a) => { if (a.name === "dasi-daily") return checkGameReleases();if(a.name===SYNC_ALARM)return runAutoSync();if(a.name===IMPORT_ENRICH_ALARM)return runImportEnrichment();if(a.name===TRACKED_RELEASE_ALARM)return Promise.allSettled([checkTrackedReleases(),checkGameNews()]); });
 } catch {
   /* alarms unavailable */
 }
@@ -1581,3 +2472,5 @@ api.commands.onCommand.addListener(async (command) => {
     }
   }
 });
+const startupSecurity=scrubLegacySyncedSettings();
+startupSecurity.catch(()=>{});
