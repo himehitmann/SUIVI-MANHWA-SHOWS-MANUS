@@ -313,22 +313,25 @@ function tasteTerms(text) {
   const stop=new Set("about after again also avec dans cette comme pour plus leur leurs mais tout une des les est sont elle elles avec his her the and that this from with into when where which their they them then than have been will were story series manga anime".split(" "));
   return [...new Set(String(text||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").split(/[^\p{L}\p{N}]+/u).filter(w=>w.length>3&&!stop.has(w)))].slice(0,100);
 }
+function tasteGenres(item) {
+  return [...new Set([...(Array.isArray(item.genres)?item.genres:[]),...(Array.isArray(item.tags)?item.tags:[])].filter(g=>typeof g==="string").map(g=>g.trim().toLowerCase()).filter(Boolean))].slice(0,80);
+}
 function tasteWeights() {
   const weights={};
   for(const item of items) {
-    if(itemState(item)==="dropped"||(item.rating&&item.rating<=2))continue;
+    if(item.homeHidden||itemState(item)==="dropped"||(item.rating&&item.rating<=2))continue;
     if(!item.favorite&&!item.rating&&!currentNum(item))continue;
     const age=(Date.now()-(item.activityAt||item.updatedAt||0))/86400000;
     const strength=(item.favorite?3:1)+(Number(item.rating)||0)/2;
     const factor=strength/(1+Math.max(0,age)/90);
-    for(const genre of item.tags||[]) {const key="genre:"+String(genre).toLowerCase();weights[key]=(weights[key]||0)+factor*3;}
+    for(const genre of tasteGenres(item)) {const key="genre:"+genre;weights[key]=(weights[key]||0)+factor*3;}
     for(const term of tasteTerms(item.synopsis))weights[term]=(weights[term]||0)+factor;
   }
   return weights;
 }
 function scoreTaste(m,weights) {
   let score=0;
-  for(const genre of m.genres||[])score+=weights["genre:"+String(genre).toLowerCase()]||0;
+  for(const genre of tasteGenres(m))score+=weights["genre:"+genre]||0;
   const terms=tasteTerms(m.synopsis);
   for(const term of terms)score+=(weights[term]||0)/Math.sqrt(Math.max(1,terms.length));
   return score;
