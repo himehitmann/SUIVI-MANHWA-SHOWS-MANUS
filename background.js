@@ -2313,20 +2313,32 @@ function checkGameReleases() {
   gameReleaseCheck=checkGameReleasesOnce().finally(()=>{gameReleaseCheck=null;});
   return gameReleaseCheck;
 }
+function trackedSteamId(item) {
+  if(item?.type!=="game")return "";
+  const explicit=identityIds(item).steam, fromUrl=steamAppId(item.url);
+  if(explicit && !/^[1-9]\d{0,14}$/.test(explicit))return "";
+  if(explicit && fromUrl && explicit!==fromUrl)return "";
+  return explicit||fromUrl||"";
+}
 async function checkGameReleasesOnce() {
   const epoch=accountEpoch;
-  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==='game' && !i.released && steamAppId(i.url)).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,8);
+  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==='game' && i.status!=='dropped' && !i.released && trackedSteamId(i)).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,8);
   for(const candidate of candidates){
     if(epoch!==accountEpoch)return;
     try{
-      const details=await steamAppDetails(steamAppId(candidate.url));if(!details)continue;
+      const details=await steamAppDetails(trackedSteamId(candidate));if(!details)continue;
       await serializeLibrary(async()=>{
         if(epoch!==accountEpoch)return;
-        const items=await read(ITEMS_KEY,[]), current=items.find(i=>i.id===candidate.id);if(!current||steamAppId(current.url)!==steamAppId(candidate.url))return;
+        const items=await read(ITEMS_KEY,[]), current=items.find(i=>i.id===candidate.id);if(!current||current.status==='dropped'||trackedSteamId(current)!==trackedSteamId(candidate))return;
         const released=details.comingSoon===false?true:details.comingSoon===true?false:current.released;
         const next=items.map(i=>i.id===current.id?{...i,released,releaseDate:details.releaseDate||i.releaseDate,releaseCheckedAt:Date.now(),updatedAt:Date.now()}:i);
-        await writeData({[ITEMS_KEY]:next});
-        if(released && !current.released && current.notifyUpdates!==false){await pushNotification({itemId:current.id,title:current.title,message:'is out now',url:current.url});systemNotify(current.title,'is out now','dasi_game_'+current.id);}
+        const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
+        const alert=released&&!current.released&&current.notifyUpdates!==false&&settings.notifyNew!==false;
+        const message=settings.lang==="fr"?"est disponible":"is out now";
+        const changes={[ITEMS_KEY]:next};
+        if(alert)changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:current.id,title:current.title,message,url:current.url,read:false,ts:Date.now()},...await read(NOTIF_KEY,[])].slice(0,120);
+        await writeData(changes);
+        if(alert)await systemNotify(current.title,message,'dasi_game_'+current.id);
       });
     }catch{/* A failed source never turns an expected date into a confirmed release. */}
   }
@@ -2359,15 +2371,15 @@ function checkGameNews() {
 }
 async function checkGameNewsOnce() {
   const epoch=accountEpoch;
-  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==="game"&&i.status!=="dropped"&&steamAppId(i.url)&&Date.now()-(i.gameNewsCheckedAt||0)>=6*3600000).sort((a,b)=>(a.gameNewsCheckedAt||0)-(b.gameNewsCheckedAt||0)).slice(0,8);
+  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==="game"&&i.status!=="dropped"&&trackedSteamId(i)&&Date.now()-(i.gameNewsCheckedAt||0)>=6*3600000).sort((a,b)=>(a.gameNewsCheckedAt||0)-(b.gameNewsCheckedAt||0)).slice(0,8);
   for(const candidate of candidates) {
     if(epoch!==accountEpoch)return;
     try {
-      const news=await steamNews(steamAppId(candidate.url));
+      const news=await steamNews(trackedSteamId(candidate));
       await serializeLibrary(async()=>{
         if(epoch!==accountEpoch)return;
         const items=await read(ITEMS_KEY,[]),live=items.find(i=>i.id===candidate.id);
-        if(!live||live.status==="dropped"||steamAppId(live.url)!==steamAppId(candidate.url))return;
+        if(!live||live.status==="dropped"||trackedSteamId(live)!==trackedSteamId(candidate))return;
         const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS),now=Date.now();
         const fresh=freshGameNews(live,news,settings,now);
         const updated={...live,news,gameNewsCheckedAt:now,gameNewsSeenIds:[...new Set([...news.map(n=>n.id),...(live.gameNewsSeenIds||[])])].slice(0,100)};
