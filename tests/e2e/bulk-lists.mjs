@@ -181,5 +181,36 @@ try {
  await p.emulateMedia({reducedMotion:"reduce"});
  await p.evaluate(()=>{spotPaused=false;renderHome();});
  assert(await p.locator(".home-feature-copy [data-feature-details]").isVisible());
+
+ const activity=await p.evaluate(()=>{
+   const now=Date.now();
+   const base={type:"reading",chapter:2,total:10,state:"current"};
+   const source=[
+     {...base,id:"old",lastReleaseAt:now-30*86400000},
+     {...base,id:"future",lastReleaseAt:now+86400000},
+     {...base,id:"new",lastReleaseAt:now-1000},
+     {...base,id:"caught",chapter:10,lastReleaseAt:now-1000},
+     {...base,id:"completed",state:"completed",lastReleaseAt:now-1000},
+     {...base,id:"hidden",homeHidden:true,lastReleaseAt:now-1000},
+     {...base,id:"paused",state:"on_hold",lastReleaseAt:now-1000},
+     {id:"video",type:"watching",episode:0,position:45,state:"current"},
+     {id:"next-season",type:"watching",season:"1",episode:12,state:"current",recentEpisodes:[{season:"2",episode:"1",at:now-1000}]}
+   ];
+   const result=homeActivity(source,now);
+   return {catchUp:result.catchUp.map(i=>i.id),continuing:result.continuing.map(i=>i.id),future:isNew(source[1],now),malformed:isNew({type:"watching",recentEpisodes:[null,{season:2,episode:1,at:now+1}]},now)};
+ });
+ assert.deepEqual([...activity.catchUp].sort(),["new","next-season"]);
+ assert(activity.continuing.includes("old"),"Old backlog stays in continue, not recent releases");
+ assert(activity.continuing.includes("video"),"An unfinished first episode can be resumed");
+ assert(!activity.continuing.includes("completed"));
+ assert(!activity.continuing.includes("hidden"));
+ assert.equal(activity.future,false);
+ assert.equal(activity.malformed,false);
+ await p.evaluate(()=>{closeDrawer();items=[];discover=null;discoverTried=true;switchView("home");});
+ assert(await p.locator(".home-welcome").isVisible());
+ assert(await p.locator("#disco-refresh").isVisible());
+ assert.equal(await p.locator(".home-feature").count(),0,"No fabricated feature when catalogs are unavailable");
+ await p.locator("#home-library").click();
+ assert.equal(await p.evaluate(()=>view),"library");
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
