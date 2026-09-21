@@ -1566,3 +1566,46 @@ describe("catalog publication years",()=>{
     expect(w.run('mediaToResult({title:{english:"Title"},format:"MANGA",genres}).genres')).toEqual(["Action","Comedy","Drama","Fantasy","Horror","Mystery","Romance"]);
   });
 });
+
+describe("discovery outage continuity",()=>{
+  const key="dasi.discover.cache.v2";
+  const cache=(at=Date.now()-7*3600000)=>({discoveryVersion:3,ts:at,manga:[{title:"Saved trend"}]});
+  it("retains recent cached trends during a complete outage without renewing their age",async()=>{
+    const old=cache(),w=worker({[key]:old});w.run('buildDiscover=async()=>{throw Error("offline")}');
+    const result=await w.run("getDiscover(true)");
+    expect(result).toMatchObject({stale:true,ts:old.ts,manga:old.manga});
+    expect(result.categoryUpdatedAt.manga).toBe(old.ts);
+  });
+  it("rejects expired and future-dated caches",async()=>{
+    for(const ts of [Date.now()-4*86400000,Date.now()+86400000]){
+      const w=worker({[key]:cache(ts)});w.run('buildDiscover=async()=>{throw Error("offline")}');
+      await expect(w.run("getDiscover(true)")).rejects.toThrow("discovery_unavailable");
+    }
+  });
+  it("keeps a failed category while replacing successfully refreshed categories",async()=>{
+    const old=cache(),w=worker({[key]:old});
+    w.run('buildDiscover=async()=>({anime:[{title:"Fresh anime"}],failedCategories:["manga"]})');
+    const result=await w.run("getDiscover(true)");
+    expect(result.manga).toEqual(old.manga);
+    expect(result.anime[0].title).toBe("Fresh anime");
+    expect(result.categoryUpdatedAt.manga).toBe(old.ts);
+    expect(result.categoryUpdatedAt.anime).toBeGreaterThan(old.ts);
+    expect(result.staleCategories).toEqual(["manga"]);
+  });
+  it("does not extend an old category through repeated partial successes",async()=>{
+    const old:any=cache();old["categoryUpdatedAt"]={manga:Date.now()-4*86400000};
+    const w=worker({[key]:old});w.run('buildDiscover=async()=>({anime:[{title:"Fresh"}],failedCategories:["manga"]})');
+    const result=await w.run("getDiscover(true)");
+    expect(result.manga).toEqual([]);
+    expect(result.stale).toBe(true);
+  });
+  it("coalesces refreshes and honors the brief outage retry delay",async()=>{
+    const w=worker({[key]:cache()});
+    w.run('var refreshes=0;buildDiscover=async()=>{refreshes++;throw Error("offline")}');
+    await Promise.all([w.run("getDiscover(true)"),w.run("getDiscover(true)")]);
+    await w.run("getDiscover(false)");
+    expect(w.run("refreshes")).toBe(1);
+    w.run('buildDiscover=async()=>({manga:[{title:"Recovered"}],failedCategories:[]})');
+    expect((await w.run("getDiscover(true)")).stale).toBe(false);
+  });
+});
