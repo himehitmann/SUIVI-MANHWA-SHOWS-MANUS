@@ -727,15 +727,17 @@ async function anilistDetail(id) {
 }
 
 
-let jikanQueue=Promise.resolve();
+let jikanQueue=Promise.resolve(),jikanPending=0;
 function jikanRequest(path) {
+  if(jikanPending>=8)return Promise.reject(Error("jikan_queue_full"));
+  jikanPending++;
   const request=jikanQueue.then(async()=>{
     const response=await fetchRemote("https://api.jikan.moe/v4/"+path);
     if(!response.ok)throw Error("jikan_"+response.status);
     return response.json();
   });
   jikanQueue=request.catch(()=>{}).then(()=>new Promise(resolve=>setTimeout(resolve,400)));
-  return request;
+  return request.finally(()=>{jikanPending--;});
 }
 function jikanMedia(m,type) {
   if(!m||!Number.isInteger(m.mal_id)||m.mal_id<1)return null;
@@ -759,9 +761,15 @@ async function jikanSearch(query) {
   if(settled.every(r=>r.status==="rejected"))throw Error("manga_catalogs_unavailable");
   return settled.flatMap(r=>r.status==="fulfilled"?r.value:[]);
 }
-async function mangaSearchResilient(query) {
-  try {const results=await anilistSearch(query);if(results.length)return results;}catch{}
-  return jikanSearch(query);
+async function mangaSearchResilient(query,onProgress) {
+  const out=[];
+  const settled=await Promise.allSettled([anilistSearch(query),jikanSearch(query)].map(task=>Promise.resolve(task).then(results=>{
+    out.push(...results);
+    if(onProgress)onProgress(results);
+    return results;
+  })));
+  if(settled.every(r=>r.status==="rejected"))throw Error("manga_catalogs_unavailable");
+  return mergeCatalogResults(out);
 }
 async function jikanDetail(item) {
   const id=identityIds(item).mal;
@@ -963,7 +971,7 @@ async function tvmazeSearch(query) {
   const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`tvmaze_${res.status}`);
   const data = await res.json();
-  return (data || []).slice(0, 6).map((row) => row.show).filter((sh) => sh && sh.name).map((sh) => ({
+  return (data || []).slice(0, 30).map((row) => row.show).filter((sh) => sh && sh.name).map((sh) => ({
     title: sh.name,
     releaseStatus:sh.status||undefined,
     externalIds:{tvmaze:String(sh.id)},
@@ -1029,7 +1037,7 @@ async function tmdbSearch(query, key) {
   const data = await res.json();
   return (data.results || [])
     .filter((r) => (r.media_type === "movie" || r.media_type === "tv") && (r.title || r.name))
-    .slice(0, 6)
+    .slice(0, 20)
     .map((r) => ({
       title: r.title || r.name,
       type: "watching",
@@ -1084,15 +1092,16 @@ async function catalogSearchProgress(query,retry=false) {
 
 async function catalogSearchAll(query,onProgress) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-  const tasks = [mangaSearchResilient(query), steamSearch(query), openLibrarySearch(query), tvmazeSearch(query), wikipediaSearch(query, "en")];
+  const out=[];
+  const publish=results=>{out.push(...results);if(onProgress)onProgress(mergeCatalogResults(out));};
+  const tasks = [mangaSearchResilient(query,publish), steamSearch(query), openLibrarySearch(query), tvmazeSearch(query), wikipediaSearch(query, "en")];
   // Also query the user's own-language Wikipedia so local titles (e.g. a French
   // or Korean film) surface even if the English page is thin.
   const wl = (s && s.lang || "en").slice(0, 2);
   if (wl && wl !== "en") tasks.push(wikipediaSearch(query, wl));
   if (s && s.tmdbKey) tasks.push(tmdbSearch(query, s.tmdbKey));
   if (s && s.rawgKey) tasks.push(rawgSearch(query, s.rawgKey));
-  const out=[];
-  const settled=await Promise.allSettled(tasks.map(task=>Promise.resolve(task).then(results=>{out.push(...results);if(onProgress)onProgress(mergeCatalogResults(out));return results;})));
+  const settled=await Promise.allSettled(tasks.map(task=>Promise.resolve(task).then(results=>{publish(results);return results;})));
   if(settled.every(r=>r.status==="rejected"))throw new Error("catalog_unavailable");
   return mergeCatalogResults(out);
 }
@@ -1121,7 +1130,7 @@ function mergeCatalogResults(out) {
     if(!previous){merged.push(r);continue;}
     merged[merged.indexOf(previous)]=combineCatalogEntries(previous,r);
   }
-  return merged.slice(0,120);
+  return merged.slice(0,300);
 }
 
 /*
