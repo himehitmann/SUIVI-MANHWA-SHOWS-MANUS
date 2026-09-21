@@ -1406,3 +1406,46 @@ describe("tracked episode notification delivery",()=>{
     }
   });
 });
+
+describe("game alerts across store destinations",()=>{
+  const game=()=>({id:"g",title:"Game",type:"game",url:"https://www.gog.com/en/game/example",externalIds:{steam:"123"},released:true,gameNewsCheckedAt:Date.now()-86400000});
+  it("uses a known Steam identity independently of the saved destination",async()=>{
+    const w=worker({"dasi.items":[game()]});
+    w.run("steamNews=async id=>{if(id!=='123')throw Error('wrong id');return [{id:'post',title:'Patch 2',publishedAt:Date.now()-1000}]}");
+    await w.run("checkGameNewsOnce()");
+    expect(w.data["dasi.notifications"]).toHaveLength(1);
+    expect(w.data["dasi.items"][0].url).toBe(game().url);
+  });
+  it("rejects contradictory, malformed and non-game identities",()=>{
+    const w=worker();
+    for(const item of [{...game(),url:"https://store.steampowered.com/app/456/"},{...game(),externalIds:{steam:"123fake"}},{...game(),type:"reading"}]){
+      w.ctx.item=item;expect(w.run("trackedSteamId(item)")).toBe("");
+    }
+  });
+  it("does not save delayed news after the provider identity changes",async()=>{
+    const w=worker({"dasi.items":[game()]});
+    w.run("steamNews=async()=>{await chrome.storage.local.set({'dasi.items':[{... (await chrome.storage.local.get('dasi.items'))['dasi.items'][0],externalIds:{steam:'456'}}]});return [{id:'post',title:'Patch',publishedAt:Date.now()-1000}]}");
+    await w.run("checkGameNewsOnce()");
+    expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+    expect(w.data["dasi.items"][0].news).toBeUndefined();
+  });
+  it("updates a confirmed release but honors global notification mute",async()=>{
+    const w=worker({"dasi.items":[game()],"dasi.settings":{notifyNew:false}});
+    await w.run("checkGameReleases()");
+    w.data["dasi.items"][0].released=false;
+    w.run("steamAppDetails=async()=>({comingSoon:false,releaseDate:'Today'})");
+    await w.run("checkGameReleases()");
+    expect(w.data["dasi.items"][0].released).toBe(true);
+    expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+  });
+  it("emits a localized release once for a game saved outside Steam",async()=>{
+    const w=worker({"dasi.items":[game()],"dasi.settings":{lang:"fr"}});
+    await w.run("checkGameReleases()");
+    w.data["dasi.items"][0].released=false;
+    w.run("steamAppDetails=async()=>({comingSoon:false,releaseDate:'Today'})");
+    await w.run("checkGameReleases()");
+    await w.run("checkGameReleases()");
+    expect(w.data["dasi.notifications"]).toHaveLength(1);
+    expect(w.data["dasi.notifications"][0].message).toBe("est disponible");
+  });
+});
