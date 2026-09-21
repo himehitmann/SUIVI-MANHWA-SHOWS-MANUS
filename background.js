@@ -1302,6 +1302,7 @@ async function buildDiscover() {
   const dramas = val(drama);
   return {
     ts: Date.now(), discoveryVersion:3,
+    failedCategories:[...[["manga",manga],["manhwa",manhwa],["manhua",manhua],["anime",anime]].filter(([,r])=>r.status==="rejected").map(([key])=>key),...(games.status==="rejected"?["gamesSoon","gamesHot","gamesNew"]:[]),...(drama.status==="rejected"?["kdrama","cdrama","jdrama","series"]:[])],
     manga: val(manga),
     manhwa: val(manhwa),
     manhua: val(manhua),
@@ -1315,15 +1316,40 @@ async function buildDiscover() {
     gamesNew: games.status === "fulfilled" ? games.value.hot : [],
   };
 }
-async function getDiscover(force) {
-  if (!force) {
-    const c = (await api.storage.local.get(DISCOVER_KEY))[DISCOVER_KEY];
-    if (c && c.discoveryVersion===3 && Date.now() - c.ts < DISCOVER_TTL) return c;
+const DISCOVERY_CATEGORIES=["manga","manhwa","manhua","anime","kdrama","cdrama","jdrama","series","gamesSoon","gamesHot","gamesNew"];
+const DISCOVERY_STALE_LIMIT=3*86400000;
+let discoveryTask=null;
+function getDiscover(force) {
+  if(discoveryTask)return discoveryTask;
+  discoveryTask=refreshDiscover(force).finally(()=>{discoveryTask=null;});
+  return discoveryTask;
+}
+async function refreshDiscover(force) {
+  const now=Date.now(),stored=(await api.storage.local.get(DISCOVER_KEY))[DISCOVER_KEY];
+  const cached=stored?.discoveryVersion===3?stored:null;
+  if(cached&&!force&&((!cached.stale&&now-cached.ts<DISCOVER_TTL)||(cached.stale&&now<cached.retryAfter)))return cached;
+  let fresh;
+  try{fresh=await buildDiscover();}catch{fresh=null;}
+  const hasFresh=fresh&&DISCOVERY_CATEGORIES.some(key=>Array.isArray(fresh[key])&&fresh[key].length);
+  const failed=new Set(hasFresh?(fresh.failedCategories||[]):DISCOVERY_CATEGORIES);
+  const next={...(fresh||{}),ts:hasFresh?now:cached?.ts,discoveryVersion:3,categoryUpdatedAt:{},staleCategories:[]};
+  for(const key of DISCOVERY_CATEGORIES){
+    const previousAt=Number(cached?.categoryUpdatedAt?.[key]??cached?.ts);
+    if(failed.has(key)){
+      const usable=Number.isFinite(previousAt)&&previousAt<=now&&now-previousAt<DISCOVERY_STALE_LIMIT&&Array.isArray(cached?.[key])&&cached[key].length;
+      next[key]=usable?cached[key]:[];
+      if(usable){next.categoryUpdatedAt[key]=previousAt;next.staleCategories.push(key);}
+    }else{
+      next[key]=Array.isArray(fresh[key])?fresh[key]:[];
+      next.categoryUpdatedAt[key]=now;
+    }
   }
-  const fresh = await buildDiscover();
-  if(!Object.values(fresh).some(value=>Array.isArray(value)&&value.length))throw Error("discovery_unavailable");
-  await api.storage.local.set({ [DISCOVER_KEY]: fresh });
-  return fresh;
+  if(!DISCOVERY_CATEGORIES.some(key=>next[key].length))throw Error("discovery_unavailable");
+  next.stale=failed.size>0;
+  next.retryAfter=next.stale?now+60000:0;
+  next.failedCategories=[...failed];
+  await api.storage.local.set({[DISCOVER_KEY]:next});
+  return next;
 }
 
 /** Enrich one imported game with Steam artwork, price, store link and synopsis. */
