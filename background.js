@@ -1267,13 +1267,14 @@ async function steamDiscover() {
   const [soonR, hotR] = await Promise.allSettled([steamSearchList("popularwishlist"), steamSearchList("topsellers")]);
   const soon = soonR.status === "fulfilled" ? steamGames(soonR.value, true) : [];
   const hot = hotR.status === "fulfilled" ? steamGames(hotR.value, false) : [];
-  return { soon, hot };
+  return { soon, hot, failedCategories:[...(soonR.status==="rejected"?["gamesSoon"]:[]),...(hotR.status==="rejected"?["gamesHot","gamesNew"]:[])] };
 }
 // Live-action drama/series discovery (keyless, via TVMaze). Split by country sources.
 function liveActionShow(show) { return !/animation|anime/i.test([show.type,...(Array.isArray(show.genres)?show.genres:[])].join(" ")); }
 async function tvmazeTrending() {
   const dates=[0,1,2,3,4,5,6].map(n=>new Date(Date.now()-n*86400000).toISOString().slice(0,10));
-  const pages=await Promise.allSettled(dates.flatMap(date=>["https://api.tvmaze.com/schedule?country=US&date=","https://api.tvmaze.com/schedule/web?date="].map(base=>fetchRemote(base+date).then(r=>r.ok?r.json():[]))));
+  const pages=await Promise.allSettled(dates.flatMap(date=>["https://api.tvmaze.com/schedule?country=US&date=","https://api.tvmaze.com/schedule/web?date="].map(base=>fetchRemote(base+date).then(async r=>{if(!r.ok)throw Error("tvmaze_schedule_"+r.status);const data=await r.json();if(!Array.isArray(data))throw Error("invalid_schedule");return data;}))));
+  if(pages.every(r=>r.status==="rejected"))throw Error("tvmaze_discovery_unavailable");
   const shows=new Map();
   for(const result of pages) {
     if(result.status!=="fulfilled"||!Array.isArray(result.value))continue;
@@ -1302,7 +1303,7 @@ async function buildDiscover() {
   const dramas = val(drama);
   return {
     ts: Date.now(), discoveryVersion:3,
-    failedCategories:[...[["manga",manga],["manhwa",manhwa],["manhua",manhua],["anime",anime]].filter(([,r])=>r.status==="rejected").map(([key])=>key),...(games.status==="rejected"?["gamesSoon","gamesHot","gamesNew"]:[]),...(drama.status==="rejected"?["kdrama","cdrama","jdrama","series"]:[])],
+    failedCategories:[...[["manga",manga],["manhwa",manhwa],["manhua",manhua],["anime",anime]].filter(([,r])=>r.status==="rejected").map(([key])=>key),...(games.status==="rejected"?["gamesSoon","gamesHot","gamesNew"]:(games.value.failedCategories||[])),...(drama.status==="rejected"?["kdrama","cdrama","jdrama","series"]:[])],
     manga: val(manga),
     manhwa: val(manhwa),
     manhua: val(manhua),
