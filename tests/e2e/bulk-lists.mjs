@@ -242,5 +242,29 @@ try {
  assert.equal(await p.evaluate(()=>document.activeElement?.getAttribute("data-feature-step")),"1","Carousel keeps keyboard focus");
  await p.locator("#feature-pause").focus();await p.keyboard.press("Enter");
  assert.equal(await p.evaluate(()=>document.activeElement?.id),"feature-pause");
+
+ const recognition=await p.evaluate(()=>{
+   const saved=discoverySavedMatcher([
+     {title:"Titre français",type:"reading",format:"MANGA",externalIds:{anilist:"123",mal:"456"},alternativeTitles:["English title"]},
+     {title:"Shared name",type:"reading",format:"MANGA"},
+     {title:"Novel",type:"reading",format:"NOVEL",year:2020}
+   ]);
+   return [
+     saved({title:"Autre traduction",type:"reading",externalIds:{mal:"456"}}),
+     saved({title:"English title",type:"reading",format:"MANGA"}),
+     saved({title:"Shared name",type:"watching",format:"ANIME"}),
+     saved({title:"English title",type:"reading",externalIds:{anilist:"999"}}),
+     saved({title:"Novel",type:"reading",format:"MANGA",year:2020}),
+     saved({title:"Novel",type:"reading",format:"NOVEL",year:2028})
+   ];
+ });
+ assert.deepEqual(recognition,[true,true,false,false,false,false],"Discover recognizes aliases without hiding adaptations or conflicting identities");
+ const recommendations=await p.evaluate(()=>{
+   const pools=[{list:[{title:"Book",type:"reading",genres:["Mystery"]},{title:"Anime",type:"watching",genres:["Mystery"]},{title:"Game",type:"game",tags:["Puzzle"]}]}];
+   return homeRecommendations(pools,{"genre:mystery":1,"genre:puzzle":3});
+ });
+ assert.equal(recommendations.type,"game");
+ assert.deepEqual(recommendations.items.map(item=>item.title),["Game"]);
+ assert(await p.evaluate(()=>homeRecommendations([{list:[{title:"Unrelated",type:"reading",genres:["Sport"]}]}],{"genre:mystery":1}).items.length===0));
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
