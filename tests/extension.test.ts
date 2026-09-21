@@ -1609,3 +1609,30 @@ describe("discovery outage continuity",()=>{
     expect((await w.run("getDiscover(true)")).stale).toBe(false);
   });
 });
+
+describe("discovery provider failure reporting",()=>{
+  it("reports Steam lists independently instead of treating a failure as an empty success",async()=>{
+    const w=worker();
+    w.run('steamSearchList=async kind=>{if(kind==="popularwishlist")throw Error("offline");return []}');
+    expect((await w.run("steamDiscover()")).failedCategories).toEqual(["gamesSoon"]);
+    w.run('steamSearchList=async kind=>{if(kind==="topsellers")throw Error("offline");return []}');
+    expect((await w.run("steamDiscover()")).failedCategories).toEqual(["gamesHot","gamesNew"]);
+  });
+  it("propagates Steam category failures to the discovery cache",async()=>{
+    const w=worker();
+    w.run('anilistTrending=tvmazeTrending=async()=>[];steamDiscover=async()=>({soon:[],hot:[],failedCategories:["gamesSoon"]})');
+    expect((await w.run("buildDiscover()")).failedCategories).toEqual(["gamesSoon"]);
+  });
+  it("distinguishes a TVMaze outage from a valid empty schedule",async()=>{
+    const w=worker();
+    w.run('fetchRemote=async()=>({ok:false,status:503})');
+    await expect(w.run("tvmazeTrending()")).rejects.toThrow("tvmaze_discovery_unavailable");
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>[]})');
+    expect(await w.run("tvmazeTrending()")).toEqual([]);
+  });
+  it("keeps available schedules during a partial TVMaze outage",async()=>{
+    const w=worker();
+    w.run('fetchRemote=async url=>({ok:url.includes("/web?"),status:503,json:async()=>[{season:1,number:1,airstamp:new Date(Date.now()-1000).toISOString(),show:{id:7,name:"Available",type:"Scripted",image:{medium:"cover"}}}]})');
+    expect((await w.run("tvmazeTrending()"))[0].title).toBe("Available");
+  });
+});
