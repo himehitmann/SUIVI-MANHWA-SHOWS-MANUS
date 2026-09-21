@@ -685,9 +685,9 @@ function mediaToResult(m) {
     // Smaller AniList size the UI can fall back to if the big one 404s/blocks.
     coverFallback: (m.coverImage && (m.coverImage.medium || m.coverImage.large)) || undefined,
     synopsis: stripHtml(m.description).slice(0, 700),
-    genres: Array.isArray(m.genres) ? m.genres.slice(0, 6) : [],
+    genres: Array.isArray(m.genres) ? [...new Set(m.genres.filter(g=>typeof g==="string"&&g.trim()))].slice(0,80) : [],
     total: type === "reading" ? m.chapters || undefined : m.episodes || undefined,
-    season: m.seasonYear || undefined,
+    year: Number.isInteger(m.startDate?.year)&&m.startDate.year>0?m.startDate.year:(Number.isInteger(m.seasonYear)&&m.seasonYear>0?m.seasonYear:undefined),
     country: m.countryOfOrigin || undefined,
     format,
     url: m.siteUrl || "",
@@ -704,7 +704,7 @@ function trailerUrl(tr) {
 // from search so the list query stays light. Best-effort; throws are swallowed
 // by the caller.
 async function anilistDetail(id) {
-  const gql = `query($id:Int){Media(id:$id){id idMal title{romaji english native} synonyms staff(perPage:25){edges{role node{name{full native}}}} coverImage{extraLarge large medium} description genres format countryOfOrigin siteUrl episodes chapters volumes seasonYear status trailer{id site} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{name{full} image{large}}}}}}`;
+  const gql = `query($id:Int){Media(id:$id){id idMal title{romaji english native} synonyms staff(perPage:25){edges{role node{name{full native}}}} coverImage{extraLarge large medium} description genres format countryOfOrigin siteUrl episodes chapters volumes seasonYear startDate{year} status trailer{id site} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{name{full} image{large}}}}}}`;
   const res = await fetchRemote(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { id } }) });
   if (!res.ok) throw new Error(`anilist_detail_${res.status}`);
   const data = await res.json();
@@ -929,7 +929,7 @@ async function catalogDetail(item) {
 }
 
 async function anilistSearch(query) {
-  const gql = `query($s:String){Page(perPage:50){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres status seasonYear format countryOfOrigin siteUrl episodes chapters}}}`;
+  const gql = `query($s:String){Page(perPage:50){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres status seasonYear startDate{year} format countryOfOrigin siteUrl episodes chapters}}}`;
   const res = await fetchRemote(ANILIST_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -1151,7 +1151,7 @@ function mergeCatalogResults(out) {
 const DISCOVER_KEY = "dasi.discover.cache.v2";
 const DISCOVER_TTL = 6 * 3600 * 1000;
 async function anilistTrending(type, country) {
-  const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres status seasonYear format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
+  const gql = `query($t:MediaType,$c:CountryCode){Page(perPage:18){media(sort:TRENDING_DESC,type:$t,isAdult:false,countryOfOrigin:$c){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres status seasonYear startDate{year} format countryOfOrigin siteUrl episodes chapters averageScore}}}`;
   const res = await fetchRemote(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { t: type, c: country || undefined } }) });
   if (!res.ok) throw new Error(`anilist_${res.status}`);
   const data = await res.json();
