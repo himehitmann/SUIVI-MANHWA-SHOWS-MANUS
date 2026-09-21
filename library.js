@@ -444,6 +444,7 @@ function renderDiscover() {
   discoItems=[];
   const pools=discoPools();
   let out=`<div class="section-h discover-h"><h2>${settings.lang==="fr"?"À découvrir maintenant":"Discover now"}</h2><div class="disco-h-actions"><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div></div>`;
+  if(discover.stale)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Certains catalogues sont indisponibles. Les derniers résultats disponibles sont conservés temporairement.":"Some catalogs are unavailable. Recent cached results are temporarily retained.")+'</p>';
   out+='<div class="home-category-chips">'+HOME_CAT_KEYS.map(key=>'<button class="chip-toggle '+(homeCatAllowed(key)?'on':'')+'" data-home-category="'+key+'" aria-pressed="'+homeCatAllowed(key)+'">'+esc(t("cat"+key[0].toUpperCase()+key.slice(1)))+'</button>').join("")+'</div>';
   if(!pools.length)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Aucune tendance disponible pour cette sélection.":"No trends available for this selection.")+'</p>';
   const weights=tasteWeights(),recommended=new Set();
@@ -464,8 +465,7 @@ function loadDiscover(force) {
     discoverTried = true;
     if (r && r.ok && r.data) {
       discover = r.data;
-
-    }
+    } else if(discover) { discover={...discover,stale:true}; }
     if (view === "home") renderHome();
     else if (view === "games") renderGames();
   });
