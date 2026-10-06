@@ -493,13 +493,15 @@ function loadDiscover(force) {
 // Fresh game recommendations for the Games tab (upcoming + new on Steam),
 // excluding games already tracked.
 function renderGamesDiscover() {
-  if (!discover) return "";
+  const fr=settings.lang==="fr";
+  let out=`<div class="section-h discover-h"><h2>${I.compass} ${t("discoverGames")}</h2>${discoverRefreshButton()}</div>`;
   discoItems = [];
-  const lib = libTitleSet();
-  const fresh = (arr) => (arr || []).filter((m) => m && m.title && m.cover && !lib.has(normTitle(m.title)));
-  const soon = fresh(discover.gamesSoon), hot = fresh(discover.gamesHot && discover.gamesHot.length ? discover.gamesHot : discover.gamesNew);
-  if (!soon.length && !hot.length) return "";
-  let out = `<div class="section-h discover-h"><h2>${I.compass} ${t("discoverGames")}</h2>${discoverRefreshButton()}</div>`;
+  if(!discover)return out+'<p class="sub" role="status">'+(discoverLoading||!discoverTried?t("loadingReco"):(fr?"Les tendances sont momentanément indisponibles. Réessaie ou recherche un jeu.":"Trends are temporarily unavailable. Retry or search for a game."))+'</p>';
+  const saved=discoverySavedMatcher(items);
+  const fresh=arr=>(arr||[]).filter(m=>m&&m.title&&!saved(m));
+  const soon=fresh(discover.gamesSoon), hot=fresh(discover.gamesHot?.length?discover.gamesHot:discover.gamesNew);
+  if(discover.stale)out+='<p class="sub" role="status">'+(fr?"Certains catalogues sont indisponibles. Les derniers résultats disponibles sont conservés temporairement.":"Some catalogs are unavailable. Recent cached results are temporarily retained.")+'</p>';
+  if(!soon.length&&!hot.length)return out+'<p class="sub" role="status">'+(fr?"Aucune nouvelle suggestion pour le moment. Tes jeux restent accessibles ci-dessus et la recherche est disponible.":"No new suggestions right now. Your saved games remain available above, and you can still search.")+'</p>';
   out += rankRow(t("mostAnticipated"), soon, { soon: true, sub: "Steam" });
   out += discoRow(t("hotGames"), hot, { rev: true, sub: "Steam" });
   return out;
@@ -539,7 +541,7 @@ function bindDisco(root = "#view-home") {
     });
   });
   const rf = document.querySelector(`${root} #disco-refresh`);
-  if (rf) rf.onclick = () => { rf.classList.add("spin"); loadDiscover(true); };
+  if (rf) rf.onclick = () => loadDiscover(true);
   const cb = document.querySelector(`${root} #disco-cats`);
   if (cb) cb.onclick = (e) => { e.stopPropagation(); openHomeCats(cb); };
   // Category tabs (webtoon-style): clicking filters the ranking in place.
