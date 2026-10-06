@@ -209,7 +209,7 @@ try {
  assert.equal(activity.malformed,false);
  await p.evaluate(()=>{closeDrawer();items=[];discover=null;discoverTried=true;switchView("home");});
  assert(await p.locator(".home-welcome").isVisible());
- assert(await p.locator("#disco-refresh").isVisible());
+ assert(await p.locator("[data-discover-refresh]").isVisible());
  assert.equal(await p.locator(".home-feature").count(),0,"No fabricated feature when catalogs are unavailable");
  await p.locator("#home-library").click();
  assert.equal(await p.evaluate(()=>view),"library");
@@ -280,19 +280,19 @@ try {
      discoverLoading=false;discoverTried=true;
      discover={ts:Date.now(),manga:[{title:"Refresh fixture",type:"reading",cover:"cover"}]};
      switchView("home");
-     document.querySelector("#view-home #disco-refresh").click();
+     document.querySelector("#view-home [data-discover-refresh]").click();
      loadDiscover(true);
      result.calls=calls;
-     result.busy=document.querySelector("#view-home #disco-refresh").disabled;
+     result.busy=document.querySelector("#view-home [data-discover-refresh]").disabled;
      renderHome();
-     result.busyAfterRender=document.querySelector("#view-home #disco-refresh").getAttribute("aria-busy");
+     result.busyAfterRender=document.querySelector("#view-home [data-discover-refresh]").getAttribute("aria-busy");
      pending({ok:false});
-     result.recovered=!discoverLoading&&!document.querySelector("#view-home #disco-refresh").disabled;
+     result.recovered=!discoverLoading&&!document.querySelector("#view-home [data-discover-refresh]").disabled;
      result.retained=discover.stale&&discover.manga[0].title==="Refresh fixture";
-     document.querySelector("#view-home #disco-refresh").click();
+     document.querySelector("#view-home [data-discover-refresh]").click();
      pending({ok:true,data:{ts:Date.now(),manga:[{title:"Fresh fixture",type:"reading",cover:"cover"}]}});
      result.fresh=discover.manga[0].title;
-     result.ready=!discoverLoading&&!document.querySelector("#view-home #disco-refresh").disabled;
+     result.ready=!discoverLoading&&!document.querySelector("#view-home [data-discover-refresh]").disabled;
    }finally{api.runtime.sendMessage=original;}
    return result;
  });
@@ -305,7 +305,7 @@ try {
    items=[{id:"saved-game",title:"Titre traduit",type:"game",externalIds:{steam:"123"},alternativeTitles:["English game"]},{id:"book",title:"Shared title",type:"reading"}];
    discover={stale:true,gamesSoon:[{title:"English game",type:"game",externalIds:{steam:"123"}},{title:"Shared title",type:"game"},{title:"No artwork yet",type:"game"}]};
    const available=renderGamesDiscover();
-   return {retry:offline.includes('id="disco-refresh"'),offline:offline.includes('role="status"'),busy:loading.includes('aria-busy="true"'),titles:discoItems.map(i=>i.title),warning:available.includes('role="status"')};
+   return {retry:offline.includes('data-discover-refresh'),offline:offline.includes('role="status"'),busy:loading.includes('aria-busy="true"'),titles:discoItems.map(i=>i.title),warning:available.includes('role="status"')};
  });
  assert.deepEqual(gameDiscovery,{retry:true,offline:true,busy:true,titles:["Shared title","No artwork yet"],warning:true},"Game discovery stays usable offline and matches identities across languages without hiding other formats");
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
