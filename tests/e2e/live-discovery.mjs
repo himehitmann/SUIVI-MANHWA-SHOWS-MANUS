@@ -61,6 +61,8 @@ try{
     assert.equal(screen.overflow,false,"Live home must fit the viewport");
     assert(screen.rows<=3,"An empty account should see at most three category rows");
     await page.screenshot({path:`test-results/home-live-${width}.png`,fullPage:true});
+    const preview=await page.screenshot({type:"jpeg",quality:55,fullPage:true});
+    console.log("HOME_VISUAL_"+width+" "+preview.toString("base64"));
   }
   report.observation=data&&Object.values(report.categories).some(c=>c.count)?"data_received":"catalog_unavailable";
 }finally{
