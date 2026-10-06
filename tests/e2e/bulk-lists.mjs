@@ -56,7 +56,7 @@ try {
  assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].length),7,"Browsing must not save");
  await p.locator("#preview-list").selectOption("destination");
  await p.locator("#preview-add").click();
- await p.waitForFunction(()=>items.length===8&&document.querySelectorAll("#grid .card").length===8);
+ await p.waitForFunction(()=>items.length===8&&document.querySelectorAll("#grid .card").length===8).catch(async error=>{console.log("SAVE_DIAGNOSTIC",await p.evaluate(()=>({items:items.map(i=>({id:i.id,title:i.title,externalIds:i.externalIds})),toast:document.querySelector("#toast")?.textContent,status:document.querySelector("#preview-status")?.textContent,grid:document.querySelectorAll("#grid .card").length,query,filter,currentListId})));throw error;});
  assert(await p.evaluate(()=>!document.getElementById("lib-main").classList.contains("searching")));
  const savedId=await p.evaluate(()=>items.find(i=>i.title==="Unsaved fixture").id);
  assert(await p.evaluate(id=>lists.find(l=>l.id==="destination").itemIds.includes(id),savedId));
