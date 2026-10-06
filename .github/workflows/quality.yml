@@ -37,6 +37,9 @@ jobs:
       - run: node tests/e2e/crop.mjs
       - run: node tests/e2e/bulk-lists.mjs
       - run: node tests/e2e/video.mjs
+      - name: Observe live homepage catalogs
+        if: github.event_name == 'pull_request'
+        run: node tests/e2e/live-discovery.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
