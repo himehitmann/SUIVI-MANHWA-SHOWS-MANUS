@@ -1,6 +1,6 @@
 # Suivi global Yomu
 
-Mise à jour : 20 septembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 6 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
@@ -8,9 +8,19 @@ Mise à jour : 20 septembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi re
 
 **18 / 60 = 30 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 4 V. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Pourquoi le compteur reste à 30 %
+
+Le compteur attribue un point uniquement à un critère entièrement vérifié. Plusieurs corrections peuvent donc améliorer un même critère partiel sans ajouter de point. Il ne mesure pas le travail réalisé ni le temps restant. Les preuves documentaires étaient aussi restées au 20 septembre : elles sont désormais actualisées.
+
+La livraison a été trop fragmentée en petits correctifs. Priorité : terminer des parcours cohérents, puis les comparer aux critères de réception. Ne pas ajouter de critères plus faciles ni reclasser un critère uniquement pour augmenter le score.
+
+Pour le prochain point G03, il reste une revue visuelle sur données réelles et une vérification de pertinence/fraîcheur du catalogue. Les scénarios automatisés ci-dessous sont nécessaires mais ne remplacent pas cette revue.
+
 ## Preuves actuelles
 
-[CI #455](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/35523972755), commit 60eeee3e7461bb562ae4eea7641702799f99f363 : 382 tests unitaires passent, ainsi que lint, TypeScript, compilation, contrôle de sécurité et audit des dépendances. Les parcours web, paquet Chrome, recadrage, listes et vidéo réussissent. La sonde PostgreSQL/capacité réussit également. Le précédent échec de hauteur du popup n'est plus présent sur cette exécution.
+[CI #533](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37456852013), commit 01852faff0d6ac06ec476f7b7e341ab0f6ee9491 : contrôles du code, compilation, sécurité, audit des dépendances, parcours web et Chrome, images, listes, vidéo et sonde PostgreSQL réussis. Les catégories de l’accueil sont testées depuis les boutons réels : sélection vide sauvegardée dans Chrome, choix d’une catégorie, maintien du focus clavier, refus de double enregistrement et récupération après erreur. Les filtres restent accessibles pendant une panne de catalogue.
+
+Trois dépendances signalées par l’audit du 6 octobre ont été corrigées : proxy-addr 2.0.8, source-map-js 1.2.2 et postcss-selector-parser 7.1.6. Les empreintes et dépendances ont été vérifiées auprès du registre npm, puis l’installation verrouillée, l’audit et les tests ont réussi. Cette mise à jour documentaire ne modifie pas le produit testé.
 
 Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les contrôles d'identité Steam sont vérifiés avec des réponses fournisseur simulées. Ils ne prouvent ni l'exhaustivité du catalogue ni la disponibilité de chaque API réelle. La sonde de charge isolée ne certifie pas une capacité de production. La validation ci-dessus concerne le commit de code cité ; cette mise à jour documentaire ne modifie pas le produit.
 
@@ -20,7 +30,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 |---|---|---|---|
 | G01 | Identité entre sites et langues, titres alternatifs et auteurs sur une collection représentative | P | Fusions confirmées et conflits testés ; mesurer rappel/précision sur corpus réel multilingue. Ne pas fusionner adaptations/remakes sur le seul titre. |
 | G02 | Couverture multi-fournisseur et fonctionnement dégradé sans AniList | P | Sources/replis disponibles selon média ; sources demandées non toutes intégrées. Aucune exhaustivité revendiquée. |
-| G03 | Accueil actuel, catégories pertinentes et recommandations texte/goûts | P | Tendances/carrousels présents ; contrôler fraîcheur, catégories régionales et pertinence sur données réelles. |
+| G03 | Accueil actuel, catégories pertinentes et recommandations texte/goûts | P | Accueil limité à trois rangées variées, recommandations par tags et synopsis, identité multilingue des suggestions, actualisation et cache de secours testés. Revue visuelle finale, catégories régionales et pertinence sur données réelles restantes. |
 | G04 | Nouveautés à rattraper disparaissant après lecture/visionnage | P | Données épisodes compatibles ; chapitres manga et calendrier global incomplets. |
 | G05 | Fiches internes complètes avec tags, personnages, acteurs et titres lisibles | P | Fiches internes présentes ; complétude des fournisseurs et présentation à élargir. |
 | G06 | Images et bandes-annonces robustes, sans recadrage gênant | P | Replis, proportions et activation volontaire présents ; vidéos indisponibles et portrait réel à vérifier. |
@@ -43,9 +53,20 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G23 | Déploiement robuste, conformité, sauvegarde restaurable et charge prolongée | P | Sonde CI PostgreSQL réussie ; ce n’est pas une capacité de production. Informations exploitant, droits sources/images, sauvegarde/restore, endurance et coûts réels restent ouverts. |
 | G24 | Publication Chrome Web Store et site prêt à encaisser | NV | Pas de fiche Store réelle validée ni de cycle paiement réel. Parité web/extension, revue visuelle finale, informations légales et consentements restent requis. |
 
+## Accueil : résultat concret et limite de validation
+
+- Trois familles de découvertes par défaut : lecture, visionnage, jeux. Les autres catégories restent accessibles volontairement.
+- Fiches internes et choix explicite d'une liste ; consulter une découverte ne l'enregistre pas.
+- Recommandations fondées sur les genres, tags et mots du synopsis, sans mélanger les types dans une même rangée.
+- Reprise et sorties récentes séparées ; les éléments rattrapés disparaissent du bloc des nouveautés.
+- Actualisation verrouillée pendant la requête, conservation bornée des résultats récents en cas de panne et reprise après erreur.
+- Suggestions de jeux accessibles sans image, identité multilingue et absence de masquage d'un jeu homonyme d'un manga.
+- Choix des catégories sauvegardé, sélection vide expliquée, filtres disponibles hors catalogue, navigation clavier préservée et échec de sauvegarde récupérable.
+- Images synthétiques, petits écrans et clavier couverts par des tests ; rendu des affiches réelles et couverture complète des fournisseurs restent à contrôler.
+
 ## Priorités de livraison
 
-1. Maintenir les contrôles Chrome réussis ; tester le mode de traduction automatique depuis le popup réel.
+1. Terminer G03 : contrôler visuellement l’accueil sur données réelles, sur ordinateur et écran étroit, puis vérifier fraîcheur et pertinence régionale. Maintenir les contrôles Chrome réussis.
 2. Étendre recherche/fiches/jeux multi-boutiques et corriger les écarts de présentation avec un corpus réel.
 3. Réconcilier avantages gratuits/Pro et limites de traduction avec une mesure de coûts. Tester paiement, annulation et révocation avant activation commerciale.
 4. Configurer et vérifier le propriétaire ; voir ADMINISTRATION.md. Aucune promotion réelle n’a été faite par simple modification du code.
