@@ -569,17 +569,30 @@ main:focus{outline:none}
       #view-home .disco .art{border-radius:7px}
       #view-home .disco h4{font-size:13px;margin-top:12px}
       #view-home .disco small{font-size:11px;line-height:1.7}
-      #view-home .carousel-arrow{top:42%;width:38px;height:68px;border:0;border-radius:7px;background:#181c22ed;color:#fff;box-shadow:none;opacity:0;transition:opacity .15s,background .15s}
-      #view-home .carousel-arrow.prev{left:0}
-      #view-home .carousel-arrow.next{right:0}
-      #view-home .carousel-shell:hover .carousel-arrow,#view-home .carousel-shell:focus-within .carousel-arrow{opacity:1}
-      #view-home .carousel-arrow:focus-visible{outline:2px solid #171b20;outline-offset:3px;opacity:1}
+      :is(#view-home,#view-games) .carousel-arrow{top:42%;width:38px;height:68px;border:0;border-radius:7px;background:#181c22ed;color:#fff;box-shadow:none;opacity:0;transition:opacity .15s,background .15s}
+      :is(#view-home,#view-games) .carousel-arrow.prev{left:0}
+      :is(#view-home,#view-games) .carousel-arrow.next{right:0}
+      :is(#view-home,#view-games) .carousel-shell:hover .carousel-arrow,:is(#view-home,#view-games) .carousel-shell:focus-within .carousel-arrow{opacity:1}
+      :is(#view-home,#view-games) .carousel-arrow:focus-visible{outline:2px solid #171b20;outline-offset:3px;opacity:1}
       #view-home #home-more{display:block;margin:24px auto 0;border-radius:8px;background:transparent;box-shadow:none}
-      @media(hover:none){#view-home .carousel-arrow{opacity:1}}
-      @media(max-width:760px){#view-home .home-feature{padding:30px 28px 70px;gap:24px;min-height:380px}#view-home .home-feature-controls{left:24px;right:24px}#view-home .home-feature h2{font-size:32px}#view-home .home-feature-synopsis{font-size:13px}#view-home .home-feature-art img.cov{max-height:265px}#view-home .carousel-arrow{opacity:1;width:32px;height:52px}}
+      @media(hover:none){:is(#view-home,#view-games) .carousel-arrow{opacity:1}}
+      @media(max-width:760px){#view-home .home-feature{padding:30px 28px 70px;gap:24px;min-height:380px}#view-home .home-feature-controls{left:24px;right:24px}#view-home .home-feature h2{font-size:32px}#view-home .home-feature-synopsis{font-size:13px}#view-home .home-feature-art img.cov{max-height:265px}:is(#view-home,#view-games) .carousel-arrow{opacity:1;width:32px;height:52px}}
       @media(max-width:480px){#view-home .home-heading{gap:12px}#view-home .home-heading .sub{font-size:12px}#view-home .home-feature{grid-template-columns:minmax(0,1fr);padding:24px 22px 72px;gap:22px}#view-home .home-feature-art{grid-row:1;max-width:160px}#view-home .home-feature-art img.cov{max-height:210px}#view-home .home-feature h2{font-size:29px;margin:12px 0}#view-home .home-feature-synopsis{-webkit-line-clamp:3;margin:12px 0 18px}#view-home .home-feature-controls{left:18px;right:18px}#view-home .home-eyebrow{font-size:9px}#view-home .home-category-chips{gap:6px}#view-home .chip-toggle{padding:6px 10px}#view-home .section-h{gap:12px;align-items:start}#view-home .section-h h2{font-size:18px}#view-home .section-h span{max-width:44%;text-align:right}#view-home .disco-track{gap:14px}}
-      @media(prefers-reduced-motion:reduce){#view-home .home-feature-art,#view-home .carousel-arrow{transition:none}}
+      @media(prefers-reduced-motion:reduce){#view-home .home-feature-art,:is(#view-home,#view-games) .carousel-arrow{transition:none}}
 
+
+      /* Preserve complete artwork without letterboxing in activity and detail cards. */
+      #view-home .poster .art{height:auto;min-height:0;display:block;border-radius:7px;box-shadow:none;background:transparent!important}
+      #view-home .poster .art img.cov{position:relative;inset:auto;width:100%;height:auto;max-height:none;background:transparent;object-fit:contain}
+      #view-home .poster .art .cover-ph{position:absolute;inset:0;background:var(--lav);color:var(--lav-ink)}
+      #view-home .poster .art:has(img.cov:not(.failed)) .cover-ph{visibility:hidden}
+      #view-home .poster .art:not(:has(img.cov:not(.failed))){height:214px}
+      .drawer-cover{display:block;width:fit-content;max-width:min(100%,240px);height:auto;min-height:0;background:transparent;border-radius:7px;box-shadow:none}
+      .drawer-cover img.cov{position:relative;inset:auto;display:block;width:auto;height:auto;max-width:100%;max-height:280px;object-fit:contain;background:transparent}
+      .drawer-cover img.cov.failed{display:none}
+      .drawer-cover .cover-ph{position:absolute;inset:0;background:var(--lav);color:var(--lav-ink)}
+      .drawer-cover:has(img.cov:not(.failed)) .cover-ph{visibility:hidden}
+      .drawer-cover:not(:has(img.cov:not(.failed))){width:112px;height:150px}
     </style>
   </head>
   <body>
