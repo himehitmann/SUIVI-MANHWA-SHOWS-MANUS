@@ -266,5 +266,35 @@ try {
  assert.equal(recommendations.type,"game");
  assert.deepEqual(recommendations.items.map(item=>item.title),["Game"]);
  assert(await p.evaluate(()=>homeRecommendations([{list:[{title:"Unrelated",type:"reading",genres:["Sport"]}]}],{"genre:mystery":1}).items.length===0));
+
+ const refresh=await p.evaluate(()=>{
+   const original=api.runtime.sendMessage;
+   let pending,calls=0;
+   const result={};
+   try{
+     api.runtime.sendMessage=(message,callback)=>{
+       if(message.type==="DISCOVER"){calls++;pending=callback;return;}
+       return original.call(api.runtime,message,callback);
+     };
+     discoverLoading=false;discoverTried=true;
+     discover={ts:Date.now(),manga:[{title:"Refresh fixture",type:"reading",cover:"cover"}]};
+     switchView("home");
+     document.querySelector("#view-home #disco-refresh").click();
+     loadDiscover(true);
+     result.calls=calls;
+     result.busy=document.querySelector("#view-home #disco-refresh").disabled;
+     renderHome();
+     result.busyAfterRender=document.querySelector("#view-home #disco-refresh").getAttribute("aria-busy");
+     pending({ok:false});
+     result.recovered=!discoverLoading&&!document.querySelector("#view-home #disco-refresh").disabled;
+     result.retained=discover.stale&&discover.manga[0].title==="Refresh fixture";
+     document.querySelector("#view-home #disco-refresh").click();
+     pending({ok:true,data:{ts:Date.now(),manga:[{title:"Fresh fixture",type:"reading",cover:"cover"}]}});
+     result.fresh=discover.manga[0].title;
+     result.ready=!discoverLoading&&!document.querySelector("#view-home #disco-refresh").disabled;
+   }finally{api.runtime.sendMessage=original;}
+   return result;
+ });
+ assert.deepEqual(refresh,{calls:1,busy:true,busyAfterRender:"true",recovered:true,retained:true,fresh:"Fresh fixture",ready:true},"Refresh coalesces clicks, survives redraw, and recovers after failure");
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
