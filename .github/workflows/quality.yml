@@ -25,6 +25,9 @@ jobs:
           cache: pnpm
       - run: node scripts/security-check.mjs
       - run: pnpm install --frozen-lockfile
+      - run: npm view proxy-addr@2.0.8 dist.integrity dependencies engines --json
+      - run: npm view source-map-js@1.2.2 dist.integrity dependencies engines --json
+      - run: npm view postcss-selector-parser@7.1.6 dist.integrity dependencies engines --json
       - run: pnpm lint
       - run: pnpm check
       - run: pnpm test
