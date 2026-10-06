@@ -460,12 +460,12 @@ function renderDiscover() {
 }
 let homeShowAll=false;
 function discoverRefreshButton() {
-  return `<button class="refresh-btn" id="disco-refresh" aria-busy="${discoverLoading}" ${discoverLoading?"disabled":""}>${I.refresh}${discoverLoading?(settings.lang==="fr"?"Actualisation…":"Refreshing…"):t("refresh")}</button>`;
+  return `<button class="refresh-btn" data-discover-refresh aria-busy="${discoverLoading}" ${discoverLoading?"disabled":""}>${I.refresh}${discoverLoading?(settings.lang==="fr"?"Actualisation…":"Refreshing…"):t("refresh")}</button>`;
 }
 function loadDiscover(force) {
   if(discoverLoading)return;
   discoverLoading=true;
-  document.querySelectorAll("#disco-refresh").forEach(button=>{
+  document.querySelectorAll("[data-discover-refresh]").forEach(button=>{
     button.disabled=true;
     button.setAttribute("aria-busy","true");
     button.innerHTML=I.refresh+(settings.lang==="fr"?"Actualisation…":"Refreshing…");
@@ -540,7 +540,7 @@ function bindDisco(root = "#view-home") {
       settings=r.settings;renderHome();
     });
   });
-  const rf = document.querySelector(`${root} #disco-refresh`);
+  const rf = document.querySelector(`${root} [data-discover-refresh]`);
   if (rf) rf.onclick = () => loadDiscover(true);
   const cb = document.querySelector(`${root} #disco-cats`);
   if (cb) cb.onclick = (e) => { e.stopPropagation(); openHomeCats(cb); };
