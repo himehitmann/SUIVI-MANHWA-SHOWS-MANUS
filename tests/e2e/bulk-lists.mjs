@@ -209,7 +209,7 @@ try {
  assert.equal(activity.malformed,false);
  await p.evaluate(()=>{closeDrawer();items=[];discover=null;discoverTried=true;switchView("home");});
  assert(await p.locator(".home-welcome").isVisible());
- assert(await p.locator("[data-discover-refresh]").isVisible());
+ assert(await p.locator("#view-home [data-discover-refresh]").isVisible());
  assert.equal(await p.locator(".home-feature").count(),0,"No fabricated feature when catalogs are unavailable");
  await p.locator("#home-library").click();
  assert.equal(await p.evaluate(()=>view),"library");
