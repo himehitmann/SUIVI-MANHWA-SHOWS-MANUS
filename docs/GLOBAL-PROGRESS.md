@@ -53,6 +53,16 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G23 | Déploiement robuste, conformité, sauvegarde restaurable et charge prolongée | P | Sonde CI PostgreSQL réussie ; ce n’est pas une capacité de production. Informations exploitant, droits sources/images, sauvegarde/restore, endurance et coûts réels restent ouverts. |
 | G24 | Publication Chrome Web Store et site prêt à encaisser | NV | Pas de fiche Store réelle validée ni de cycle paiement réel. Parité web/extension, revue visuelle finale, informations légales et consentements restent requis. |
 
+## Observation des catalogues réels du 6 octobre 2026
+
+[CI #543](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37498625950), commit b79ddd53c87f627bc8ed7eed93e748c304d73f7b : tous les contrôles réussissent, y compris un nouveau parcours Chromium avec les fournisseurs réels et captures à 1440 et 390 pixels.
+
+Le premier contrôle réel (#538) recevait zéro K-Drama, C-Drama et J-Drama. La collecte ne consultait que le calendrier américain et web, puis appliquait une limite globale favorisant les séries américaines. Elle consulte désormais US/KR/CN/JP et le calendrier web sur sept jours, avec quatre requêtes simultanées au maximum et vingt œuvres par catégorie régionale.
+
+Après correction : 8 K-Dramas, 20 C-Dramas, 11 J-Dramas, 20 séries, 18 œuvres dans chacune des quatre catégories AniList, 14 jeux attendus et 14 jeux populaires. Ces nombres décrivent cette observation et ne sont pas une garantie d’exhaustivité. Aucun échec de catégorie signalé ; collecte observée en 2008 ms. Trois rangées et aucun débordement horizontal aux deux largeurs.
+
+Deux images n’étaient pas chargées au moment du dernier relevé mobile ; cela ne suffit pas à conclure qu’elles sont définitivement cassées. Les captures sont produites mais n’ont pas encore fait l’objet d’une revue visuelle manuelle. G03/G06 restent partiels. Les tests d’interaction avec données fictives sont isolés des réponses réelles afin qu’une réponse tardive ne remplace pas les données du scénario.
+
 ## Accueil : résultat concret et limite de validation
 
 - Trois familles de découvertes par défaut : lecture, visionnage, jeux. Les autres catégories restent accessibles volontairement.
