@@ -6,7 +6,7 @@ let items = [], sites = [], notifications = [], lists = [];
 let settings = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" } };
 let filter = "all", query = "", currentListId = null, view = "home";
 let spotIdx = 0, spotItems = [], spotTimer = null;
-let discover = null, discoverTried = false; // fresh recommendations pulled from the background
+let discover = null, discoverTried = false, discoverLoading = false; // fresh recommendations pulled from the background
 let discoCat = "all"; // active Discover category tab (webtoon-style)
 let planCycle = "year"; // billing cycle shown on the Plans page ("year" | "month")
 let userPlan = null; // "pro" | "lifetime" | null, from the sync backend
@@ -440,10 +440,10 @@ function homeFeaturedPools(pools) {
   return chosen;
 }
 function renderDiscover() {
-  if(!discover)return `<div class="section-h"><h2>${settings.lang==="fr"?"Découvrir":"Discover"}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div><p class="sub" role="status">${discoverTried?(settings.lang==="fr"?"Les tendances sont momentanément indisponibles. Réessaie ou utilise la recherche.":"Trends are temporarily unavailable. Retry or use search."):t("loadingReco")}</p>`;
+  if(!discover)return `<div class="section-h"><h2>${settings.lang==="fr"?"Découvrir":"Discover"}</h2>${discoverRefreshButton()}</div><p class="sub" role="status">${discoverTried?(settings.lang==="fr"?"Les tendances sont momentanément indisponibles. Réessaie ou utilise la recherche.":"Trends are temporarily unavailable. Retry or use search."):t("loadingReco")}</p>`;
   discoItems=[];
   const pools=discoPools();
-  let out=`<div class="section-h discover-h"><h2>${settings.lang==="fr"?"À découvrir maintenant":"Discover now"}</h2><div class="disco-h-actions"><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div></div>`;
+  let out=`<div class="section-h discover-h"><h2>${settings.lang==="fr"?"À découvrir maintenant":"Discover now"}</h2><div class="disco-h-actions">${discoverRefreshButton()}</div></div>`;
   if(discover.stale)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Certains catalogues sont indisponibles. Les derniers résultats disponibles sont conservés temporairement.":"Some catalogs are unavailable. Recent cached results are temporarily retained.")+'</p>';
   out+='<div class="home-category-chips">'+HOME_CAT_KEYS.map(key=>'<button class="chip-toggle '+(homeCatAllowed(key)?'on':'')+'" data-home-category="'+key+'" aria-pressed="'+homeCatAllowed(key)+'">'+esc(t("cat"+key[0].toUpperCase()+key.slice(1)))+'</button>').join("")+'</div>';
   if(!pools.length)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Aucune tendance disponible pour cette sélection.":"No trends available for this selection.")+'</p>';
@@ -459,9 +459,20 @@ function renderDiscover() {
   return out;
 }
 let homeShowAll=false;
+function discoverRefreshButton() {
+  return `<button class="refresh-btn" id="disco-refresh" aria-busy="${discoverLoading}" ${discoverLoading?"disabled":""}>${I.refresh}${discoverLoading?(settings.lang==="fr"?"Actualisation…":"Refreshing…"):t("refresh")}</button>`;
+}
 function loadDiscover(force) {
+  if(discoverLoading)return;
+  discoverLoading=true;
+  document.querySelectorAll("#disco-refresh").forEach(button=>{
+    button.disabled=true;
+    button.setAttribute("aria-busy","true");
+    button.innerHTML=I.refresh+(settings.lang==="fr"?"Actualisation…":"Refreshing…");
+  });
   api.runtime.sendMessage({ type: "DISCOVER", force: !!force }, (r) => {
     void api.runtime.lastError;
+    discoverLoading = false;
     discoverTried = true;
     if (r && r.ok && r.data) {
       discover = r.data;
@@ -488,7 +499,7 @@ function renderGamesDiscover() {
   const fresh = (arr) => (arr || []).filter((m) => m && m.title && m.cover && !lib.has(normTitle(m.title)));
   const soon = fresh(discover.gamesSoon), hot = fresh(discover.gamesHot && discover.gamesHot.length ? discover.gamesHot : discover.gamesNew);
   if (!soon.length && !hot.length) return "";
-  let out = `<div class="section-h discover-h"><h2>${I.compass} ${t("discoverGames")}</h2><button class="refresh-btn" id="disco-refresh">${I.refresh}${t("refresh")}</button></div>`;
+  let out = `<div class="section-h discover-h"><h2>${I.compass} ${t("discoverGames")}</h2>${discoverRefreshButton()}</div>`;
   out += rankRow(t("mostAnticipated"), soon, { soon: true, sub: "Steam" });
   out += discoRow(t("hotGames"), hot, { rev: true, sub: "Steam" });
   return out;
