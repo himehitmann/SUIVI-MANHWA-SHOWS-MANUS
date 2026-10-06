@@ -439,13 +439,18 @@ function homeFeaturedPools(pools) {
   for(const pool of pools)if(chosen.length<3&&!chosen.includes(pool))chosen.push(pool);
   return chosen;
 }
+let homeCategorySaving=false;
+function homeCategoryControls(){
+  return '<div class="home-category-chips" role="group" aria-label="'+(settings.lang==="fr"?"Catégories de l’accueil":"Home categories")+'" aria-busy="'+homeCategorySaving+'">'+HOME_CAT_KEYS.map(key=>'<button class="chip-toggle '+(homeCatAllowed(key)?'on':'')+'" data-home-category="'+key+'" aria-pressed="'+homeCatAllowed(key)+'"'+(homeCategorySaving?' disabled':'')+'>'+esc(t("cat"+key[0].toUpperCase()+key.slice(1)))+'</button>').join("")+'</div>';
+}
 function renderDiscover() {
-  if(!discover)return `<div class="section-h"><h2>${settings.lang==="fr"?"Découvrir":"Discover"}</h2>${discoverRefreshButton()}</div><p class="sub" role="status">${discoverTried?(settings.lang==="fr"?"Les tendances sont momentanément indisponibles. Réessaie ou utilise la recherche.":"Trends are temporarily unavailable. Retry or use search."):t("loadingReco")}</p>`;
+  if(!discover)return `<div class="section-h"><h2>${settings.lang==="fr"?"Découvrir":"Discover"}</h2>${discoverRefreshButton()}</div>${homeCategoryControls()}<p class="sub" role="status">${discoverTried&&!discoverLoading?(settings.lang==="fr"?"Les tendances sont momentanément indisponibles. Réessaie ou utilise la recherche.":"Trends are temporarily unavailable. Retry or use search."):t("loadingReco")}</p>`;
   discoItems=[];
   const pools=discoPools();
   let out=`<div class="section-h discover-h"><h2>${settings.lang==="fr"?"À découvrir maintenant":"Discover now"}</h2><div class="disco-h-actions">${discoverRefreshButton()}</div></div>`;
   if(discover.stale)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Certains catalogues sont indisponibles. Les derniers résultats disponibles sont conservés temporairement.":"Some catalogs are unavailable. Recent cached results are temporarily retained.")+'</p>';
-  out+='<div class="home-category-chips">'+HOME_CAT_KEYS.map(key=>'<button class="chip-toggle '+(homeCatAllowed(key)?'on':'')+'" data-home-category="'+key+'" aria-pressed="'+homeCatAllowed(key)+'">'+esc(t("cat"+key[0].toUpperCase()+key.slice(1)))+'</button>').join("")+'</div>';
+  out+=homeCategoryControls();
+  if(!HOME_CAT_KEYS.some(homeCatAllowed))return out+'<p class="sub" role="status">'+(settings.lang==="fr"?"Choisissez au moins une catégorie ci-dessus pour afficher vos découvertes. Votre suivi reste accessible.":"Choose at least one category above to see discoveries. Your activity remains available.")+'</p>';
   if(!pools.length)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Aucune tendance disponible pour cette sélection.":"No trends available for this selection.")+'</p>';
   const weights=tasteWeights(),recommended=new Set();
   if(Object.keys(weights).length) {
@@ -531,13 +536,24 @@ window.addEventListener("resize",()=>document.querySelectorAll(".carousel-shell"
 function bindDisco(root = "#view-home") {
   enhanceCarousels(root);
   const more=document.querySelector(root+" #home-more");
-  if(more)more.onclick=()=>{homeShowAll=!homeShowAll;renderHome();};
+  if(more)more.onclick=()=>{homeShowAll=!homeShowAll;renderHome();document.querySelector(root+" #home-more")?.focus();};
   document.querySelectorAll(root+" [data-home-category]").forEach(button=>button.onclick=()=>{
+    if(homeCategorySaving)return;
     const current=HOME_CAT_KEYS.filter(homeCatAllowed),key=button.dataset.homeCategory;
     const homeCats=current.includes(key)?current.filter(x=>x!==key):[...current,key];
+    homeCategorySaving=true;
+    const controls=document.querySelector(root+" .home-category-chips");
+    controls?.setAttribute("aria-busy","true");
+    controls?.querySelectorAll("button").forEach(el=>{el.disabled=true;});
     api.runtime.sendMessage({type:"SET_SETTINGS",patch:{homeCats}},r=>{
-      if(api.runtime.lastError||!r?.settings){toast(settings.lang==="fr"?"Filtre non enregistré.":"Filter could not be saved.");return;}
-      settings=r.settings;renderHome();
+      const failed=api.runtime.lastError||!r?.settings;
+      homeCategorySaving=false;
+      if(!failed)settings={...settings,homeCats:r.settings.homeCats};
+      if(view==="home"){
+        renderHome();
+        document.querySelector(root+' [data-home-category="'+key+'"]')?.focus();
+      }
+      if(failed)toast(settings.lang==="fr"?"Filtre non enregistré. Réessaie.":"Filter could not be saved. Try again.");
     });
   });
   const rf = document.querySelector(`${root} [data-discover-refresh]`);
