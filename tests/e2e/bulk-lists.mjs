@@ -297,5 +297,16 @@ try {
    return result;
  });
  assert.deepEqual(refresh,{calls:1,busy:true,busyAfterRender:"true",recovered:true,retained:true,fresh:"Fresh fixture",ready:true},"Refresh coalesces clicks, survives redraw, and recovers after failure");
+
+ const gameDiscovery=await p.evaluate(()=>{
+   discoverLoading=false;discoverTried=true;discover=null;
+   const offline=renderGamesDiscover();
+   discoverLoading=true;const loading=renderGamesDiscover();discoverLoading=false;
+   items=[{id:"saved-game",title:"Titre traduit",type:"game",externalIds:{steam:"123"},alternativeTitles:["English game"]},{id:"book",title:"Shared title",type:"reading"}];
+   discover={stale:true,gamesSoon:[{title:"English game",type:"game",externalIds:{steam:"123"}},{title:"Shared title",type:"game"},{title:"No artwork yet",type:"game"}]};
+   const available=renderGamesDiscover();
+   return {retry:offline.includes('id="disco-refresh"'),offline:offline.includes('role="status"'),busy:loading.includes('aria-busy="true"'),titles:discoItems.map(i=>i.title),warning:available.includes('role="status"')};
+ });
+ assert.deepEqual(gameDiscovery,{retry:true,offline:true,busy:true,titles:["Shared title","No artwork yet"],warning:true},"Game discovery stays usable offline and matches identities across languages without hiding other formats");
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
