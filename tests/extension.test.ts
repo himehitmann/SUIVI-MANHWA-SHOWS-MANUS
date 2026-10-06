@@ -1636,3 +1636,28 @@ describe("discovery provider failure reporting",()=>{
     expect((await w.run("tvmazeTrending()"))[0].title).toBe("Available");
   });
 });
+
+describe("regional home discovery coverage",()=>{
+  it("queries all drama countries with bounded concurrency and preserves their own quotas",async()=>{
+    const w=worker();
+    w.run(`
+      var visited=[],activeRequests=0,peakRequests=0;
+      fetchRemote=async url=>{
+        visited.push(url);activeRequests++;peakRequests=Math.max(peakRequests,activeRequests);
+        await Promise.resolve();activeRequests--;
+        const country=new URL(url).searchParams.get("country")||"US";
+        const count=country==="US"?90:2;
+        return {ok:true,json:async()=>Array.from({length:count},(_,n)=>({
+          season:1,number:1,airstamp:new Date(Date.now()-1000).toISOString(),
+          show:{id:country+":"+n,name:country+" show "+n,type:"Scripted",weight:country==="US"?100:1,network:{country:{code:country}},image:{medium:"cover"}}
+        }))};
+      };
+    `);
+    const result=await w.run("tvmazeTrending()");
+    expect(result.filter((x:any)=>x.cat==="series")).toHaveLength(20);
+    for(const cat of ["kdrama","cdrama","jdrama"])expect(result.filter((x:any)=>x.cat===cat)).toHaveLength(2);
+    expect(w.run("peakRequests")).toBeLessThanOrEqual(4);
+    expect(w.run("visited.length")).toBe(35);
+    for(const country of ["US","KR","CN","JP"])expect(w.run('visited.filter(url=>url.includes("country='+country+'")).length')).toBe(7);
+  });
+});
