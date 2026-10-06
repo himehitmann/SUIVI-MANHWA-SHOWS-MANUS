@@ -342,5 +342,31 @@ try {
  assert.deepEqual(preferenceFailure,{calls:1,busy:"true",categories:["anime"],ready:true,enabled:true},"Failed preference save preserves the selection and allows retry");
  await p.evaluate(()=>{discover=null;renderHome();});
  assert.equal(await p.locator("#view-home [data-home-category]").count(),9,"Preferences remain accessible during a catalog outage");
+
+ const landscapeArt="data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="240"><rect width="600" height="240" fill="#304657"/></svg>');
+ await p.evaluate(cover=>{
+   closeDrawer();items=[{id:"landscape-test",title:"Landscape artwork",type:"watching",episode:1,total:10,state:"current",cover}];discover=null;discoverTried=true;
+   switchView("home");
+ },landscapeArt);
+ const activityImage=p.locator("#view-home .poster .art img.cov");
+ await activityImage.evaluate(image=>image.decode());
+ const dimensions=await activityImage.evaluate(image=>{
+   const box=image.getBoundingClientRect(),frame=image.parentElement.getBoundingClientRect();
+   return {ratio:box.width/box.height,extraHeight:frame.height-box.height,background:getComputedStyle(image).backgroundImage};
+ });
+ assert(Math.abs(dimensions.ratio-2.5)<0.02,"Continue artwork keeps its full aspect ratio");
+ assert(Math.abs(dimensions.extraHeight)<1,"Continue artwork has no letterbox");
+ assert.equal(dimensions.background,"none");
+ await p.evaluate(cover=>openCatalogPreviewResolved({title:"Landscape detail",type:"game",cover,manual:true}),landscapeArt);
+ const detailImage=p.locator("#drawer .drawer-cover img.cov");
+ await detailImage.evaluate(image=>image.decode());
+ const detail=await detailImage.evaluate(image=>{
+   const box=image.getBoundingClientRect(),frame=image.parentElement.getBoundingClientRect();
+   return {ratio:box.width/box.height,extraHeight:frame.height-box.height,extraWidth:frame.width-box.width};
+ });
+ assert(Math.abs(detail.ratio-2.5)<0.02,"Detail artwork keeps its full aspect ratio");
+ assert(Math.abs(detail.extraHeight)<1&&Math.abs(detail.extraWidth)<1,"Detail artwork has no artificial frame");
+ await p.screenshot({path:"test-results/artwork-landscape-detail.png"});
+ await p.evaluate(()=>closeDrawer());
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
