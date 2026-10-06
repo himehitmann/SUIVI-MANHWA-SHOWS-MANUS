@@ -25,6 +25,7 @@ jobs:
           cache: pnpm
       - run: node scripts/security-check.mjs
       - run: pnpm install --frozen-lockfile
+      - run: npm view brace-expansion@5.0.12 dist.integrity dependencies engines --json
       - run: pnpm lint
       - run: pnpm check
       - run: pnpm test
