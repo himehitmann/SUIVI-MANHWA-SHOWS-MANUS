@@ -1273,7 +1273,23 @@ async function steamDiscover() {
 function liveActionShow(show) { return !/animation|anime/i.test([show.type,...(Array.isArray(show.genres)?show.genres:[])].join(" ")); }
 async function tvmazeTrending() {
   const dates=[0,1,2,3,4,5,6].map(n=>new Date(Date.now()-n*86400000).toISOString().slice(0,10));
-  const pages=await Promise.allSettled(dates.flatMap(date=>["https://api.tvmaze.com/schedule?country=US&date=","https://api.tvmaze.com/schedule/web?date="].map(base=>fetchRemote(base+date).then(async r=>{if(!r.ok)throw Error("tvmaze_schedule_"+r.status);const data=await r.json();if(!Array.isArray(data))throw Error("invalid_schedule");return data;}))));
+  const urls=dates.flatMap(date=>[
+    ...["US","KR","CN","JP"].map(country=>"https://api.tvmaze.com/schedule?country="+country+"&date="+date),
+    "https://api.tvmaze.com/schedule/web?date="+date
+  ]);
+  const pages=new Array(urls.length);let cursor=0;
+  await Promise.all(Array.from({length:4},async()=>{
+    while(cursor<urls.length){
+      const index=cursor++;
+      try{
+        const response=await fetchRemote(urls[index]);
+        if(!response.ok)throw Error("tvmaze_schedule_"+response.status);
+        const value=await response.json();
+        if(!Array.isArray(value))throw Error("invalid_schedule");
+        pages[index]={status:"fulfilled",value};
+      }catch(reason){pages[index]={status:"rejected",reason};}
+    }
+  }));
   if(pages.every(r=>r.status==="rejected"))throw Error("tvmaze_discovery_unavailable");
   const shows=new Map();
   for(const result of pages) {
@@ -1288,7 +1304,12 @@ async function tvmazeTrending() {
     }
   }
   const bucket=show=>tvmazeFormat(show).toLowerCase();
-  return [...shows.values()].filter(s=>s.recentEpisodes.length).sort((a,b)=>(b.weight||0)-(a.weight||0)).slice(0,80).map(s=>({
+  const counts=new Map();
+  return [...shows.values()].filter(s=>s.recentEpisodes.length).sort((a,b)=>(b.weight||0)-(a.weight||0)).filter(show=>{
+    const category=bucket(show),count=counts.get(category)||0;
+    if(count>=20)return false;
+    counts.set(category,count+1);return true;
+  }).map(s=>({
     title:s.name,type:"watching",cat:bucket(s),externalIds:{tvmaze:String(s.id)},cover:s.image.original||s.image.medium,coverFallback:s.image.medium,
     synopsis:stripHtml(s.summary).slice(0,700),genres:s.genres||[],year:s.premiered?Number(s.premiered.slice(0,4)):undefined,
     format:tvmazeFormat(s),country:tvmazeCountry(s)||undefined,releaseStatus:s.status||undefined,url:s.url||"",recentEpisodes:s.recentEpisodes
