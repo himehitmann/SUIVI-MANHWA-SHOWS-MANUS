@@ -39,17 +39,22 @@ try{
   },data);
   for(const width of [1440,390]){
     await page.setViewportSize({width,height:1000});
-    // Scroll images into view to exercise lazy loading rather than counting unrequested covers.
+    // Request lazy covers and wait for fallback URLs too: decode() can reject as src changes.
     await page.evaluate(async()=>{
       for(const image of document.querySelectorAll("#view-home img.cov")){
         image.loading="eager";
       }
-      await Promise.race([Promise.all([...document.querySelectorAll("#view-home img.cov")].map(image=>image.decode().catch(()=>{}))),new Promise(resolve=>setTimeout(resolve,12000))]);
+      const deadline=Date.now()+12000;
+      while(Date.now()<deadline){
+        const images=[...document.querySelectorAll("#view-home img.cov")];
+        if(images.every(image=>image.classList.contains("failed")||(image.complete&&image.naturalWidth>0)))break;
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
     });
     const screen=await page.evaluate(()=>({
       width:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth,
       rows:document.querySelectorAll("#view-home .disco-wrap").length,
-      covers:[...document.querySelectorAll("#view-home img.cov")].map(image=>({loaded:image.complete&&image.naturalWidth>0,failed:image.classList.contains("failed"),width:image.naturalWidth,height:image.naturalHeight})),
+      covers:[...document.querySelectorAll("#view-home img.cov")].map(image=>({source:image.currentSrc||image.src,fallback:image.dataset.fallback||null,title:image.closest(".disco")?.querySelector("h4")?.textContent||document.querySelector(".home-feature h2")?.textContent,loaded:image.complete&&image.naturalWidth>0,failed:image.classList.contains("failed"),width:image.naturalWidth,height:image.naturalHeight})),
       heading:document.querySelector("#view-home h1")?.textContent
     }));
     report.screens.push(screen);
