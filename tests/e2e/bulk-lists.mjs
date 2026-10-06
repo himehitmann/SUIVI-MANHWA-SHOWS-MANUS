@@ -308,5 +308,38 @@ try {
    return {retry:offline.includes('data-discover-refresh'),offline:offline.includes('role="status"'),busy:loading.includes('aria-busy="true"'),titles:discoItems.map(i=>i.title),warning:available.includes('role="status"')};
  });
  assert.deepEqual(gameDiscovery,{retry:true,offline:true,busy:true,titles:["Shared title","No artwork yet"],warning:true},"Game discovery stays usable offline and matches identities across languages without hiding other formats");
+
+ await p.evaluate(()=>{
+   items=[];settings.lang="fr";settings.homeCats=["manga"];discoverTried=true;discoverLoading=false;
+   discover={manga:[{title:"Manga filtre",type:"reading",cover:"cover"}],anime:[{title:"Anime filtre",type:"watching",cover:"cover"}]};
+   switchView("home");
+ });
+ await p.locator('#view-home [data-home-category="manga"]').focus();
+ await p.keyboard.press("Enter");
+ await p.waitForFunction(()=>!homeCategorySaving&&settings.homeCats.length===0);
+ assert.equal(await p.locator("#view-home .disco-wrap").count(),0,"Deselecting all removes every discovery row");
+ assert.equal(await p.evaluate(()=>document.activeElement?.dataset.homeCategory),"manga","Saving a category keeps keyboard focus");
+ assert(await p.locator("#view-home").textContent().then(text=>text.includes("Choisissez au moins une catégorie")));
+ assert.deepEqual(await w.evaluate(async()=>(await chrome.storage.local.get("dasi.settings"))["dasi.settings"].homeCats),[],"Empty preference persists");
+ await p.locator('#view-home [data-home-category="anime"]').click();
+ await p.waitForFunction(()=>!homeCategorySaving&&settings.homeCats.includes("anime"));
+ assert.deepEqual(await p.evaluate(()=>discoPools().map(pool=>pool.key)),["anime"]);
+ const preferenceFailure=await p.evaluate(()=>{
+   const original=api.runtime.sendMessage;let pending,calls=0;
+   try{
+     api.runtime.sendMessage=(message,cb)=>{
+       if(message.type==="SET_SETTINGS"){calls++;pending=cb;return;}
+       return original.call(api.runtime,message,cb);
+     };
+     document.querySelector('[data-home-category="anime"]').click();
+     document.querySelector('[data-home-category="manga"]').click();
+     const busy=document.querySelector(".home-category-chips").getAttribute("aria-busy");
+     pending({ok:false});
+     return {calls,busy,categories:settings.homeCats,ready:!homeCategorySaving,enabled:!document.querySelector('[data-home-category="anime"]').disabled};
+   }finally{api.runtime.sendMessage=original;}
+ });
+ assert.deepEqual(preferenceFailure,{calls:1,busy:"true",categories:["anime"],ready:true,enabled:true},"Failed preference save preserves the selection and allows retry");
+ await p.evaluate(()=>{discover=null;renderHome();});
+ assert.equal(await p.locator("#view-home [data-home-category]").count(),9,"Preferences remain accessible during a catalog outage");
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
