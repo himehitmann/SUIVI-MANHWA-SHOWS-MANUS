@@ -63,6 +63,12 @@ Après correction : 8 K-Dramas, 20 C-Dramas, 11 J-Dramas, 20 séries, 18 œuvres
 
 Deux images n’étaient pas chargées au moment du dernier relevé mobile ; cela ne suffit pas à conclure qu’elles sont définitivement cassées. Les captures sont produites mais n’ont pas encore fait l’objet d’une revue visuelle manuelle. G03/G06 restent partiels. Les tests d’interaction avec données fictives sont isolés des réponses réelles afin qu’une réponse tardive ne remplace pas les données du scénario.
 
+## Contrôle des images du 6 octobre à 17:31 UTC
+
+[CI #547](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37503997843), commit 62e12467f3c19176a2109a9b76cb8e4caaa6b0e7 : tous les contrôles passent. Le diagnostic attend les images de secours et consigne désormais le titre et la source des images non chargées.
+
+Sur l’échantillon observé, le premier relevé à 1440 pixels comptait 32 images chargées sur 38 ; le relevé suivant à 390 pixels comptait 38/38, sans débordement aux deux largeurs. Les affiches Steam ACE COMBAT 8 et Aniimo ont donc fini par charger. Ce résultat indique un chargement encore en cours au premier relevé, et non une preuve de panne définitive. Il ne garantit pas le résultat sur d’autres réseaux, œuvres ou dates, et ne remplace pas la revue visuelle des captures. Aucun changement du comportement produit n’a été nécessaire pour ce diagnostic.
+
 ## Accueil : résultat concret et limite de validation
 
 - Trois familles de découvertes par défaut : lecture, visionnage, jeux. Les autres catégories restent accessibles volontairement.
