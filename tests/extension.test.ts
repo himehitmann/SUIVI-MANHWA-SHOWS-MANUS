@@ -1661,3 +1661,36 @@ describe("regional home discovery coverage",()=>{
     for(const country of ["US","KR","CN","JP"])expect(w.run('visited.filter(url=>url.includes("country='+country+'")).length')).toBe(7);
   });
 });
+
+describe("search provider latency and coverage",()=>{
+  it("publishes manga while both anime catalogs are still pending",async()=>{
+    const w=worker();
+    w.run('var finishAnime, finishAniList; var batches=[]; anilistSearch=()=>new Promise(resolve=>{finishAniList=resolve;});jikanRequest=path=>path.startsWith("manga?")?Promise.resolve({data:[{mal_id:91,title:"Early manga",type:"Manga"}]}):new Promise(resolve=>{finishAnime=resolve;});');
+    const task=w.run('mangaSearchResilient("early",results=>batches.push(results))');
+    await new Promise(resolve=>setTimeout(resolve,0));
+    expect(w.run("batches.flat().map(x=>x.title)")).toEqual(["Early manga"]);
+    w.run('finishAnime({data:[{mal_id:92,title:"Later anime",type:"TV"}]});finishAniList([]);');
+    const results=await task;
+    expect(results.map((x:any)=>x.title)).toEqual(["Early manga","Later anime"]);
+    expect(w.run('batches.flat().filter(x=>x.title==="Early manga").length')).toBe(1);
+  });
+  it("keeps early manga when the anime endpoint fails",async()=>{
+    const w=worker();
+    w.run('var failAnime;var batches=[];anilistSearch=async()=>{throw Error("offline");};jikanRequest=path=>path.startsWith("manga?")?Promise.resolve({data:[{mal_id:91,title:"Available manga",type:"Manga"}]}):new Promise((resolve,reject)=>{failAnime=reject;});');
+    const task=w.run('mangaSearchResilient("available",results=>batches.push(results))');
+    await new Promise(resolve=>setTimeout(resolve,0));
+    expect(w.run("batches.flat().map(x=>x.title)")).toEqual(["Available manga"]);
+    w.run('failAnime(Error("timeout"));');
+    expect((await task).map((x:any)=>x.title)).toEqual(["Available manga"]);
+  });
+  it("retains the twenty Steam search matches without expanding homepage rows",async()=>{
+    const w=worker();
+    const html=Array.from({length:20},(_,i)=>'<a data-ds-appid="'+(100+i)+'"><span class="title">Game '+i+'</span></a>').join("");
+    w.ctx.searchHtml=html;
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>({results_html:searchHtml})});');
+    const results=await w.run('steamSearch("game")');
+    expect(results).toHaveLength(20);
+    expect(results[19]).toMatchObject({title:"Game 19",externalIds:{steam:"119"}});
+    expect(w.run('steamGames(parseSteamSearch(searchHtml),false)')).toHaveLength(14);
+  });
+});
