@@ -1,20 +1,20 @@
 # Suivi global Yomu
 
-Mise à jour : 6 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 7 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
-**18 / 60 = 30 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 4 V. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+**19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
-## Pourquoi le compteur reste à 30 %
+## Pourquoi le compteur est resté à 30 %, puis passe à 32 %
 
 Le compteur attribue un point uniquement à un critère entièrement vérifié. Plusieurs corrections peuvent donc améliorer un même critère partiel sans ajouter de point. Il ne mesure pas le travail réalisé ni le temps restant. Les preuves documentaires étaient aussi restées au 20 septembre : elles sont désormais actualisées.
 
 La livraison a été trop fragmentée en petits correctifs. Priorité : terminer des parcours cohérents, puis les comparer aux critères de réception. Ne pas ajouter de critères plus faciles ni reclasser un critère uniquement pour augmenter le score.
 
-Pour le prochain point G03, il reste une revue visuelle sur données réelles et une vérification de pertinence/fraîcheur du catalogue. Les scénarios automatisés ci-dessous sont nécessaires mais ne remplacent pas cette revue.
+G03 est désormais validé : la revue visuelle sur données réelles a été réalisée sur ordinateur et mobile, après correction des proportions des cartes Jeux. La collecte régionale réelle et les tests de fraîcheur, de panne et de recommandations complètent cette revue. Le dénominateur reste 60 ; aucun autre critère n'est reclassé.
 
 ## Preuves actuelles
 
@@ -30,7 +30,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 |---|---|---|---|
 | G01 | Identité entre sites et langues, titres alternatifs et auteurs sur une collection représentative | P | Fusions confirmées et conflits testés ; mesurer rappel/précision sur corpus réel multilingue. Ne pas fusionner adaptations/remakes sur le seul titre. |
 | G02 | Couverture multi-fournisseur et fonctionnement dégradé sans AniList | P | Sources/replis disponibles selon média ; sources demandées non toutes intégrées. Aucune exhaustivité revendiquée. |
-| G03 | Accueil actuel, catégories pertinentes et recommandations texte/goûts | P | Accueil limité à trois rangées variées, recommandations par tags et synopsis, identité multilingue des suggestions, actualisation et cache de secours testés. Revue visuelle finale, catégories régionales et pertinence sur données réelles restantes. |
+| G03 | Accueil actuel, catégories pertinentes et recommandations texte/goûts | V | Trois rangées variées, recommandations par tags et synopsis, catégories sauvegardées, cache borné et récupération après panne testés. Catalogues régionaux réels contrôlés ; revue visuelle à 1440 et 390 pixels et correction des cartes Jeux, CI #559. Cette validation ne couvre pas l'exhaustivité des sources ni toutes les fiches/vidéos. |
 | G04 | Nouveautés à rattraper disparaissant après lecture/visionnage | P | Données épisodes compatibles ; chapitres manga et calendrier global incomplets. |
 | G05 | Fiches internes complètes avec tags, personnages, acteurs et titres lisibles | P | Fiches internes présentes ; complétude des fournisseurs et présentation à élargir. |
 | G06 | Images et bandes-annonces robustes, sans recadrage gênant | P | Replis, proportions et activation volontaire présents ; vidéos indisponibles et portrait réel à vérifier. |
@@ -61,7 +61,7 @@ Le premier contrôle réel (#538) recevait zéro K-Drama, C-Drama et J-Drama. La
 
 Après correction : 8 K-Dramas, 20 C-Dramas, 11 J-Dramas, 20 séries, 18 œuvres dans chacune des quatre catégories AniList, 14 jeux attendus et 14 jeux populaires. Ces nombres décrivent cette observation et ne sont pas une garantie d’exhaustivité. Aucun échec de catégorie signalé ; collecte observée en 2008 ms. Trois rangées et aucun débordement horizontal aux deux largeurs.
 
-Deux images n’étaient pas chargées au moment du dernier relevé mobile ; cela ne suffit pas à conclure qu’elles sont définitivement cassées. Les captures sont produites mais n’ont pas encore fait l’objet d’une revue visuelle manuelle. G03/G06 restent partiels. Les tests d’interaction avec données fictives sont isolés des réponses réelles afin qu’une réponse tardive ne remplace pas les données du scénario.
+Deux images n’étaient pas chargées au moment du dernier relevé mobile ; cela ne suffit pas à conclure qu’elles sont définitivement cassées. À cette date, les captures n’avaient pas encore fait l’objet d’une revue visuelle manuelle et G03/G06 restaient partiels. La revue du 7 octobre ci-dessous remplace cette réserve pour G03 uniquement. Les tests d’interaction avec données fictives sont isolés des réponses réelles afin qu’une réponse tardive ne remplace pas les données du scénario.
 
 ## Contrôle des images du 6 octobre à 17:31 UTC
 
@@ -78,11 +78,23 @@ Sur l’échantillon observé, le premier relevé à 1440 pixels comptait 32 ima
 - Actualisation verrouillée pendant la requête, conservation bornée des résultats récents en cas de panne et reprise après erreur.
 - Suggestions de jeux accessibles sans image, identité multilingue et absence de masquage d'un jeu homonyme d'un manga.
 - Choix des catégories sauvegardé, sélection vide expliquée, filtres disponibles hors catalogue, navigation clavier préservée et échec de sauvegarde récupérable.
-- Images synthétiques, petits écrans et clavier couverts par des tests ; rendu des affiches réelles et couverture complète des fournisseurs restent à contrôler.
+- Images synthétiques, petits écrans et clavier couverts par des tests ; affiches réelles examinées sur ordinateur et mobile. La couverture complète des fournisseurs reste distincte et partielle.
+
+## Validation visuelle de l’accueil du 7 octobre 2026
+
+[CI #559](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37587014910), commit 2a40cd5cfb7020995c995112192e672210c98514 : tous les contrôles réussissent.
+
+Les captures Chromium à 1440 et 390 pixels ont été effectivement examinées. Une première revue avait révélé une rangée Jeux déséquilibrée, mélangeant de grandes affiches verticales et de petites bannières. Les cartes utilisent maintenant une hauteur d’image commune et une largeur suivant les proportions de l’image réellement chargée, y compris après un repli. Un test vérifie la hauteur commune et le respect des proportions sur deux formats différents.
+
+La seconde revue confirme une présentation cohérente : affiche entière dans le bandeau, titre et action interne lisibles, catégories accessibles, trois rangées distinctes et navigation sans débordement de page. Les images Jeux sont entières, sans bandes artificielles ; la découpe d’une carte en bord de carrousel indique le contenu suivant.
+
+Observation réelle : 18 résultats dans chacune des catégories manga/manhwa/manhua/anime, 8 K-Dramas, 20 C-Dramas, 12 J-Dramas, 20 séries et 14 jeux dans chacune des deux sélections. Images chargées : 37/38 au premier relevé ordinateur, puis 38/38 sur mobile. Aucun débordement de page. Ces chiffres sont un échantillon daté, pas une garantie d’exhaustivité ni de disponibilité permanente.
+
+G03 passe à V. G06 reste partiel pour les images et bandes-annonces de l’ensemble des fiches ; G16 reste partiel pour la traduction, notamment les synopsis fournisseurs encore en anglais dans une interface française. La publication, les paiements réels et la version installée chez l’utilisateur ne sont pas validés par ces captures.
 
 ## Priorités de livraison
 
-1. Terminer G03 : contrôler visuellement l’accueil sur données réelles, sur ordinateur et écran étroit, puis vérifier fraîcheur et pertinence régionale. Maintenir les contrôles Chrome réussis.
+1. Maintenir G03 validé : conserver les contrôles Chrome, la sonde de catalogues réels et les captures ordinateur/mobile lors des changements de l’accueil.
 2. Étendre recherche/fiches/jeux multi-boutiques et corriger les écarts de présentation avec un corpus réel.
 3. Réconcilier avantages gratuits/Pro et limites de traduction avec une mesure de coûts. Tester paiement, annulation et révocation avant activation commerciale.
 4. Configurer et vérifier le propriétaire ; voir ADMINISTRATION.md. Aucune promotion réelle n’a été faite par simple modification du code.
