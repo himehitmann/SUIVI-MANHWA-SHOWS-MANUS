@@ -511,6 +511,12 @@ function renderGamesDiscover() {
   out += discoRow(t("hotGames"), hot, { rev: true, sub: "Steam" });
   return out;
 }
+function fitDiscoveryArtwork(image){
+  const card=image.closest(".disco-game");
+  if(!card||!image.naturalWidth||!image.naturalHeight)return;
+  card.style.setProperty("--cover-aspect",String(image.naturalWidth/image.naturalHeight));
+  card.closest(".carousel-shell")?.refreshCarousel?.();
+}
 function enhanceCarousels(root) {
   document.querySelectorAll(root+" .scroll-x,"+root+" .disco-wrap").forEach(track=>{
     if(track.parentElement.classList.contains("carousel-shell"))return;
@@ -535,6 +541,7 @@ function enhanceCarousels(root) {
 window.addEventListener("resize",()=>document.querySelectorAll(".carousel-shell").forEach(shell=>shell.refreshCarousel?.()),{passive:true});
 function bindDisco(root = "#view-home") {
   enhanceCarousels(root);
+  document.querySelectorAll(root+" .disco-game img.cov").forEach(image=>{if(image.complete)fitDiscoveryArtwork(image);});
   const more=document.querySelector(root+" #home-more");
   if(more)more.onclick=()=>{homeShowAll=!homeShowAll;renderHome();document.querySelector(root+" #home-more")?.focus();};
   document.querySelectorAll(root+" [data-home-category]").forEach(button=>button.onclick=()=>{
@@ -2048,7 +2055,7 @@ api.storage.onChanged.addListener((changes, area) => {
   }), 120);
 });
 
-document.addEventListener("load", (event) => { const im=event.target; if(im instanceof HTMLImageElement && im.matches("img.cov")) im.classList.toggle("landscape", im.naturalWidth > im.naturalHeight * 1.2); }, true);
+document.addEventListener("load", (event) => { const im=event.target; if(im instanceof HTMLImageElement && im.matches("img.cov")) {im.classList.toggle("landscape", im.naturalWidth > im.naturalHeight * 1.2);fitDiscoveryArtwork(im);} }, true);
 
 let completingMetadata = false;
 function renderMetadataStatus() {
