@@ -593,6 +593,12 @@ main:focus{outline:none}
       .drawer-cover .cover-ph{position:absolute;inset:0;background:var(--lav);color:var(--lav-ink)}
       .drawer-cover:has(img.cov:not(.failed)) .cover-ph{visibility:hidden}
       .drawer-cover:not(:has(img.cov:not(.failed))){width:112px;height:150px}
+
+      :is(#view-home,#view-games) .disco-game{--game-art-height:min(180px,calc((100vw - 48px)/2.7));width:calc(var(--game-art-height) * var(--cover-aspect,1.6))}
+      :is(#view-home,#view-games) .disco-game .art{height:var(--game-art-height);min-height:0}
+      :is(#view-home,#view-games) .disco-game .art img.cov{height:100%;width:100%;object-fit:contain;background:transparent}
+      :is(#view-home,#view-games) .disco-track:has(.disco-game),#view-games .rank-row{align-items:flex-start}
+      :is(#view-home,#view-games) .disco-game h4{overflow-wrap:anywhere}
     </style>
   </head>
   <body>
