@@ -1694,3 +1694,74 @@ describe("search provider latency and coverage",()=>{
     expect(w.run('steamGames(parseSteamSearch(searchHtml),false)')).toHaveLength(14);
   });
 });
+
+describe("catalog search pagination",()=>{
+  it("loads the next page only on request, coalesces double clicks and merges duplicate identities",async()=>{
+    const w=worker();
+    w.run('var nextCalls=0,finishPage;catalogSearchAll=async(q,publish,report)=>{report("steam",1,true);return [{title:"Original",type:"game",externalIds:{steam:"100"}}]};steamSearch=(q,page,report)=>{nextCalls++;return new Promise(resolve=>{finishPage=()=>{report("steam",page,false);resolve([{title:"Original",type:"game",externalIds:{steam:"100"},genres:["Action"]},{title:"New game",type:"game",externalIds:{steam:"101"}}]);};});};');
+    await w.call({type:"CATALOG_SEARCH",query:"game",progressive:true});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    const first=await w.call({type:"CATALOG_SEARCH",query:"game",progressive:true});
+    expect(first.hasMore).toBe(true);expect(w.run("nextCalls")).toBe(0);
+    const request={type:"CATALOG_SEARCH",query:"game",progressive:true,more:first.cursor};
+    await Promise.all([w.call(request),w.call(request)]);
+    expect(w.run("nextCalls")).toBe(1);
+    w.run("finishPage()");
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    const done=await w.call(request);
+    expect(done.results).toHaveLength(2);
+    expect(done.results[0].genres).toEqual(["Action"]);
+    expect(done.hasMore).toBe(false);expect(done.pending).toBe(false);
+    expect(w.run("nextCalls")).toBe(1);
+  });
+  it("retries the failed provider page without discarding earlier results or restarting exhausted sources",async()=>{
+    const w=worker();
+    w.run('var requested=[];catalogSearchAll=async(q,publish,report)=>{report("steam",1,true);report("openlibrary",1,false);return [{title:"Kept",type:"game",externalIds:{steam:"100"}}]};openLibrarySearch=async()=>{throw Error("must not be requested")};steamSearch=async(q,page,report)=>{requested.push(page);if(requested.length===1)throw Error("offline");report("steam",page,false);return [{title:"Recovered",type:"game",externalIds:{steam:"101"}}];};');
+    await w.call({type:"CATALOG_SEARCH",query:"game",progressive:true});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    let state=await w.call({type:"CATALOG_SEARCH",query:"game",progressive:true});
+    await w.call({type:"CATALOG_SEARCH",query:"game",progressive:true,more:state.cursor});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    state=await w.call({type:"CATALOG_SEARCH",query:"game",progressive:true});
+    expect(state.results[0].title).toBe("Kept");expect(state.partial).toBe(true);
+    await w.call({type:"CATALOG_SEARCH",query:"game",progressive:true,more:state.cursor});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    state=await w.call({type:"CATALOG_SEARCH",query:"game",progressive:true});
+    expect(state.results.map((x:any)=>x.title)).toEqual(["Kept","Recovered"]);
+    expect(state.partial).toBe(false);expect(w.run("requested")).toEqual([2,2]);
+  });
+  it("rejects a continuation after its search session expires",async()=>{
+    const w=worker();
+    const state=await w.call({type:"CATALOG_SEARCH",query:"missing",progressive:true,more:"expired:1"});
+    expect(state).toMatchObject({ok:false,error:"search_expired"});
+    expect(w.run("catalogJobs.size")).toBe(0);
+  });
+  it("makes the bounded session limit explicit instead of claiming all results were fetched",async()=>{
+    const w=worker();
+    w.run('catalogSearchAll=async(q,publish,report)=>{report("steam",20,true);return []};steamSearch=async()=>{throw Error("no next request expected")};');
+    await w.call({type:"CATALOG_SEARCH",query:"broad",progressive:true});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    const state=await w.call({type:"CATALOG_SEARCH",query:"broad",progressive:true});
+    expect(state.limited).toBe(true);expect(state.hasMore).toBe(false);
+  });
+  it("uses provider page metadata and advances API offsets",async()=>{
+    const w=worker();w.run("var requests=[],pages=[]");
+    w.ctx.responses=[
+      {data:{Page:{media:[],pageInfo:{hasNextPage:true}}}},
+      {data:[],pagination:{has_next_page:true}},
+      {results_html:'<a data-ds-appid="123"><span class="title">Game</span></a>',total_count:41},
+      {docs:[{key:"/works/OL12W",title:"Book",author_name:["Author"],first_publish_year:2028}],numFound:41}
+    ];
+    w.run('fetchRemote=async(url,options)=>{requests.push({url,body:options?.body});return {ok:true,json:async()=>responses.shift()};};jikanRequest=async path=>{requests.push({url:path});return responses.shift()};var report=(...args)=>pages.push(args);');
+    await w.run('anilistSearch("term",2,report)');
+    await w.run('jikanSearchPage("term","manga",2,report)');
+    await w.run('steamSearch("term",2,report)');
+    const books=await w.run('openLibrarySearch("term",2,report)');
+    expect(w.run("JSON.parse(requests[0].body).variables.page")).toBe(2);
+    expect(w.run("requests[1].url")).toContain("page=2");
+    expect(w.run("requests[2].url")).toContain("start=20");
+    expect(w.run("requests[3].url")).toContain("page=2");
+    expect(w.run("pages")).toEqual([["anilist",2,true],["jikan-manga",2,true],["steam",2,true],["openlibrary",2,true]]);
+    expect(books[0]).toMatchObject({year:2028,authors:["Author"],url:"https://openlibrary.org/works/OL12W"});
+  });
+});

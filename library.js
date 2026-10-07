@@ -1728,33 +1728,54 @@ document.getElementById("q").addEventListener("input", (e) => {
 document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library") switchView("library"); catalogSearch(query.trim()); } });
 
 let searchVersion = 0, searchTimer = null;
-function clearSearchResults() { searchVersion++; clearTimeout(searchTimer); lastResults = []; const el = document.getElementById("search-results"); if (el) el.innerHTML = ""; const m = document.getElementById("lib-main"); if (m) m.classList.remove("searching"); }
 let srCountry = "all";
-function catalogSearch(q) {
+let searchPageState={pending:false,hasMore:false,cursor:null,partial:false,limited:false,error:false,retryMore:null};
+function clearSearchResults() {
+  searchVersion++;clearTimeout(searchTimer);lastResults=[];
+  searchPageState={pending:false,hasMore:false,cursor:null,partial:false,limited:false,error:false,retryMore:null};
+  const el=document.getElementById("search-results");if(el)el.innerHTML="";
+  const m=document.getElementById("lib-main");if(m)m.classList.remove("searching");
+}
+function renderSearchProgress(q) {
+  const el=document.getElementById("search-results");if(!el)return;
+  let footer=document.getElementById("search-pagination");
+  if(!footer){footer=document.createElement("div");footer.id="search-pagination";el.append(footer);}
+  const fr=settings.lang==="fr",state=searchPageState;
+  const status=state.error?(fr?"Les résultats reçus sont conservés. Réessaie pour poursuivre.":"Received results are kept. Retry to continue."):
+    state.pending?(fr?"Recherche dans les catalogues…":"Searching catalogs…"):
+    state.partial?(fr?"Certains catalogues n’ont pas répondu. Charger plus réessaiera ces sources.":"Some catalogs did not respond. Load more will retry those sources."):
+    state.limited?(fr?"Limite de cette recherche atteinte. Précise les mots recherchés pour explorer d’autres résultats.":"Search limit reached. Refine your search terms to explore other results."):"";
+  footer.innerHTML='<p id="search-progress" class="sub" role="status">'+esc(status)+'</p>'+
+    (state.pending||state.hasMore||state.error?'<button class="btn" id="search-more"'+(state.pending?' disabled aria-busy="true"':'')+'>'+esc(state.pending?(fr?"Chargement…":"Loading…"):state.error?(fr?"Réessayer":"Retry"):(fr?"Charger plus de résultats":"Load more results"))+'</button>':"");
+  const button=document.getElementById("search-more");
+  if(button)button.onclick=()=>catalogSearch(q,state.error?state.retryMore:state.cursor);
+}
+function catalogSearch(q,more=null) {
+  if(more!==null&&searchPageState.pending)return;
   clearTimeout(searchTimer);
   const version=++searchVersion;
   const el=document.getElementById("search-results"),main=document.getElementById("lib-main");
   if(main)main.classList.add("searching");
-  el.innerHTML='<div class="sr-wrap" role="status">'+t("searching")+' “'+esc(q)+'”…</div>';
-  srFilter="all";srCountry="all";
-  let previous="",attempts=0;
-  const poll=()=>{if(version!==searchVersion||view!=="library"||query.trim()!==q)return;api.runtime.sendMessage({type:"CATALOG_SEARCH",query:q,progressive:true,retry:attempts===0},r=>{
+  if(more===null){lastResults=[];el.innerHTML='<div class="sr-wrap" role="status">'+t("searching")+' “'+esc(q)+'”…</div>';srFilter="all";srCountry="all";}
+  searchPageState={...searchPageState,pending:true,error:false};
+  renderSearchProgress(q);
+  let previous=more===null?"":JSON.stringify(lastResults),attempts=0;
+  const poll=()=>{if(version!==searchVersion||view!=="library"||query.trim()!==q)return;api.runtime.sendMessage({type:"CATALOG_SEARCH",query:q,progressive:true,retry:attempts===0&&more===null,more},r=>{
     const error=api.runtime.lastError;
     if(version!==searchVersion||view!=="library"||query.trim()!==q)return;
     if(error||!r?.ok) {
-      if(previous){const status=document.getElementById("search-progress");if(status)status.textContent=settings.lang==="fr"?"Résultats partiels. Relance la recherche pour réessayer.":"Partial results. Search again to retry.";}
-      if(!previous)el.innerHTML='<div class="sr-wrap" role="status"><p>'+(settings.lang==="fr"?"Recherche indisponible. Réessaie.":"Search unavailable. Please retry.")+'</p><button class="btn" id="search-retry">'+t("refresh")+'</button></div>';
-      const retry=document.getElementById("search-retry");if(retry)retry.onclick=()=>catalogSearch(q);
-      return;
+      searchPageState={...searchPageState,pending:false,error:true,retryMore:r?.error==="search_expired"?null:more};
+      if(!lastResults.length)el.innerHTML='<div class="sr-wrap">'+(settings.lang==="fr"?"Recherche indisponible.":"Search unavailable.")+'</div>';
+      renderSearchProgress(q);return;
     }
+    searchPageState={pending:!!r.pending,hasMore:!!r.hasMore,cursor:r.cursor||null,partial:!!r.partial,limited:!!r.limited,error:false,retryMore:null};
     const results=Array.isArray(r.results)?r.results:[],signature=JSON.stringify(results);
-    if(results.length&&signature!==previous){previous=signature;lastResults=results;const focused=document.activeElement?.id;renderSearchResults(q);if(focused?.startsWith("sf-"))document.getElementById(focused)?.focus();}
-    let status=document.getElementById("search-progress");
-    if(!status){status=document.createElement("p");status.id="search-progress";status.className="sub";status.setAttribute("role","status");el.append(status);}
-    status.textContent=r.pending?(settings.lang==="fr"?"Recherche dans les autres catalogues…":"Searching other catalogs…"):"";
+    const focused=document.activeElement?.id;
+    if(signature!==previous&&(results.length||!r.pending)){previous=signature;lastResults=results;renderSearchResults(q);}
+    else renderSearchProgress(q);
+    if(focused?.startsWith("sf-")||focused==="search-more")document.getElementById(focused)?.focus();
     if(r.pending&&++attempts<90){setTimeout(poll,500);return;}
-    if(r.pending){status.textContent=settings.lang==="fr"?"Certains catalogues répondent lentement. Relance la recherche pour compléter les résultats.":"Some catalogs are responding slowly. Search again to complete the results.";return;}
-    if(!results.length){lastResults=[];renderSearchResults(q);}
+    if(r.pending){searchPageState={...searchPageState,pending:false,error:true,retryMore:more};renderSearchProgress(q);}
   });};
   poll();
 }
@@ -1818,6 +1839,7 @@ function renderSearchResults(q) {
     if(key==="price")field.oninput=()=>{document.getElementById("sf-price-label").textContent=field.value==="0"?(fr?"Gratuit":"Free"):field.value==="200"?t("all"):"$"+field.value;};
   }
   document.getElementById("sf-reset").onclick=()=>{searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};renderSearchResults(q);};
+  renderSearchProgress(q);
   refreshCatalogSaveLabels(el,lastResults);
   const manual=document.getElementById("manual-game");if(manual)manual.onclick=()=>showGameForm(q);
   el.querySelectorAll("[data-preview]").forEach(button=>button.onclick=()=>openCatalogPreview(lastResults[Number(button.dataset.preview)]));
@@ -1833,11 +1855,14 @@ function srRow(m, idx) {
 }
 function refreshCatalogSaveLabels(root,results) {
   const buttons=[...root.querySelectorAll("[data-saved-label]")];
-  if(!buttons.length)return;
-  api.runtime.sendMessage({type:"CHECK_EXISTING_BATCH",items:results},r=>{
-    if(api.runtime.lastError||!r?.ok)return;
-    for(const button of buttons)if(button.isConnected)button.textContent=r.matches?.[Number(button.dataset.savedLabel)]?(settings.lang==="fr"?"Dans la bibliothèque":"In library"):t("details");
-  });
+  // The worker accepts 200 identities per message; later pages need their own batch.
+  for(let start=0;start<buttons.length;start+=200) {
+    const batch=buttons.slice(start,start+200);
+    api.runtime.sendMessage({type:"CHECK_EXISTING_BATCH",items:batch.map(button=>results[Number(button.dataset.savedLabel)])},r=>{
+      if(api.runtime.lastError||!r?.ok)return;
+      batch.forEach((button,index)=>{if(button.isConnected)button.textContent=r.matches?.[index]?(settings.lang==="fr"?"Dans la bibliothèque":"In library"):t("details");});
+    });
+  }
 }
 function embeddedTrailer(url) {
   if(!url)return "";

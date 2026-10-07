@@ -753,23 +753,30 @@ function jikanMedia(m,type) {
     total:type==="reading"?m.chapters||undefined:m.episodes||undefined,
     trailerUrl:m.trailer?.url||"",url:m.url||"",source:"myanimelist"};
 }
-async function jikanSearch(query,onProgress) {
+async function jikanSearchPage(query,kind,page=1,onPage) {
+  const data=await jikanRequest(kind+"?q="+encodeURIComponent(query)+"&limit=25&sfw=true&page="+page);
+  if(!Array.isArray(data.data))throw Error("jikan_response_invalid");
+  if(onPage)onPage("jikan-"+kind,page,data.pagination?.has_next_page===true);
+  return data.data.map(m=>jikanMedia(m,kind==="manga"?"reading":"watching")).filter(Boolean);
+}
+async function jikanSearch(query,onProgress,page=1,onPage) {
   const settled=await Promise.allSettled(["manga","anime"].map(async kind=>{
-    const data=await jikanRequest(kind+"?q="+encodeURIComponent(query)+"&limit=25&sfw=true");
-    const results=(data.data||[]).map(m=>jikanMedia(m,kind==="manga"?"reading":"watching")).filter(Boolean);
-    if(onProgress)onProgress(results);
-    return results;
+    try {
+      const results=await jikanSearchPage(query,kind,page,onPage);
+      if(onProgress)onProgress(results);
+      return results;
+    }catch(error){if(onPage)onPage("jikan-"+kind,page,null);throw error;}
   }));
   if(settled.every(r=>r.status==="rejected"))throw Error("manga_catalogs_unavailable");
   return settled.flatMap(r=>r.status==="fulfilled"?r.value:[]);
 }
-async function mangaSearchResilient(query,onProgress) {
+async function mangaSearchResilient(query,onProgress,page=1,onPage) {
   const out=[];
   const publish=results=>{out.push(...results);if(onProgress)onProgress(results);};
   let jikanPublished=false;
   const settled=await Promise.allSettled([
-    anilistSearch(query).then(results=>{publish(results);return results;}),
-    jikanSearch(query,results=>{jikanPublished=true;publish(results);}).then(results=>{
+    anilistSearch(query,page,onPage).then(results=>{publish(results);return results;},error=>{if(onPage)onPage("anilist",page,null);throw error;}),
+    jikanSearch(query,results=>{jikanPublished=true;publish(results);},page,onPage).then(results=>{
       if(!jikanPublished)publish(results);
       return results;
     })
@@ -934,25 +941,29 @@ async function catalogDetail(item) {
   return item;
 }
 
-async function anilistSearch(query) {
-  const gql = `query($s:String){Page(perPage:50){media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres status seasonYear startDate{year} format countryOfOrigin siteUrl episodes chapters}}}`;
+async function anilistSearch(query,page=1,onPage) {
+  const gql = `query($s:String,$page:Int){Page(page:$page,perPage:50){pageInfo{hasNextPage} media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres status seasonYear startDate{year} format countryOfOrigin siteUrl episodes chapters}}}`;
   const res = await fetchRemote(ANILIST_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ query: gql, variables: { s: query } }),
+    body: JSON.stringify({ query: gql, variables: { s: query, page } }),
   });
   if (!res.ok) throw new Error(`anilist_${res.status}`);
   const data = await res.json();
-  const media = (data && data.data && data.data.Page && data.data.Page.media) || [];
+  const media=data?.data?.Page?.media;
+  if(!Array.isArray(media))throw Error("anilist_response_invalid");
+  if(onPage)onPage("anilist",page,data.data.Page.pageInfo?.hasNextPage===true);
   return media.map(mediaToResult).filter((r) => r.title);
 }
 /** Books via OpenLibrary (keyless). */
-async function openLibrarySearch(query) {
-  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=5&fields=title,author_name,cover_i,first_publish_year,subject`;
+async function openLibrarySearch(query,page=1,onPage) {
+  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20&page=${page}&fields=key,title,author_name,cover_i,first_publish_year,subject`;
   const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`openlibrary_${res.status}`);
   const data = await res.json();
-  return (data.docs || []).filter((d) => d.title).map((d) => ({
+  if(!Array.isArray(data.docs))throw Error("openlibrary_response_invalid");
+  if(onPage)onPage("openlibrary",page,page*20<Number(data.numFound??data.num_found));
+  return data.docs.filter((d) => d.title).map((d) => ({
     title: d.title,
     type: "reading",
     cover: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : "",
@@ -961,15 +972,20 @@ async function openLibrarySearch(query) {
     total: undefined,
     season: undefined,
     format: "Book",
-    url: "",
+    authors:Array.isArray(d.author_name)?d.author_name.filter(x=>typeof x==="string").slice(0,25):[],
+    year:Number.isInteger(d.first_publish_year)?d.first_publish_year:undefined,
+    url:/^\/works\/OL\d+W$/.test(d.key||"")?"https://openlibrary.org"+d.key:"",
   }));
 }
 /** Games via the Steam storefront search (keyless). */
-async function steamSearch(query) {
-  const url = 'https://store.steampowered.com/search/results/?term='+encodeURIComponent(query)+'&start=0&count=20&category1=998&infinite=1&json=1&cc=us&l=en';
+async function steamSearch(query,page=1,onPage) {
+  const url = 'https://store.steampowered.com/search/results/?term='+encodeURIComponent(query)+'&start='+((page-1)*20)+'&count=20&category1=998&infinite=1&json=1&cc=us&l=en';
   const res=await fetchRemote(url); if(!res.ok) throw new Error('steam_'+res.status);
   const data=await res.json();
-  return steamGames(parseSteamSearch(data.results_html || ''),false,20).map(g=>({...g,released:undefined,externalIds:{steam:steamAppId(g.url)}}));
+  if(typeof data.results_html!=="string")throw Error("steam_response_invalid");
+  const rows=parseSteamSearch(data.results_html);
+  if(onPage)onPage("steam",page,Number.isFinite(Number(data.total_count))?page*20<Number(data.total_count):rows.length===20);
+  return steamGames(rows,false,20).map(g=>({...g,released:undefined,externalIds:{steam:steamAppId(g.url)}}));
 }
 /** Live-action TV series via TVMaze (keyless) — covers Western/American shows. */
 function tvmazeCountry(show) {
@@ -1091,25 +1107,54 @@ async function rawgSearch(query, key) {
  * RAWG run only when a key is configured. Each source is best-effort. */
 
 const catalogJobs=new Map();
-async function catalogSearchProgress(query,retry=false) {
+const CATALOG_RESULT_LIMIT=1000, CATALOG_PAGE_LIMIT=20;
+async function catalogSearchProgress(query,retry=false,more=null) {
   const text=String(query||"").trim().slice(0,200);
-  if(!text)return {ok:true,results:[],pending:false};
+  if(!text)return {ok:true,results:[],pending:false,hasMore:false};
   const key=accountEpoch+":"+text.toLowerCase();
   let job=catalogJobs.get(key);
-  if(!job||(job.error&&retry)||(!job.pending&&Date.now()-job.started>60000)) {
-    job={started:Date.now(),results:[],pending:true,error:null};
+  if(!job||(!job.pending&&Date.now()-job.touched>600000)) {
+    if(more!==null)return {ok:false,error:"search_expired"};
+    job=null;
+  }
+  if(!job||(job.error&&retry)) {
+    job={started:Date.now(),touched:Date.now(),token:crypto.randomUUID(),round:0,results:[],pending:true,error:null,pages:new Map()};
     catalogJobs.set(key,job);
     if(catalogJobs.size>20)catalogJobs.delete(catalogJobs.keys().next().value);
-    job.task=catalogSearchAll(text,results=>{job.results=results;}).then(results=>{job.results=results;},()=>{job.error="catalog_unavailable";}).finally(()=>{job.pending=false;});
+    const report=(source,page,hasMore)=>job.pages.set(source,{page:hasMore===true?page+1:page,more:hasMore!==false,failed:hasMore===null});
+    job.task=catalogSearchAll(text,results=>{job.results=results;},report).then(results=>{job.results=results;},()=>{job.error="catalog_unavailable";}).finally(()=>{job.pending=false;});
+  } else if(typeof more==="string"&&more===job.token+":"+job.round&&!job.pending) {
+    const sources=[...job.pages].filter(([,state])=>state.more&&state.page<=CATALOG_PAGE_LIMIT);
+    if(sources.length&&job.results.length<CATALOG_RESULT_LIMIT) {
+      job.round++;job.pending=true;
+      const report=(source,page,hasMore)=>job.pages.set(source,{page:hasMore===true?page+1:page,more:hasMore!==false,failed:hasMore===null});
+      job.task=Promise.allSettled(sources.map(async([source,state])=>{
+        try {
+          let results;
+          if(source==="anilist")results=await anilistSearch(text,state.page,report);
+          else if(source==="steam")results=await steamSearch(text,state.page,report);
+          else if(source==="openlibrary")results=await openLibrarySearch(text,state.page,report);
+          else if(source==="jikan-manga"||source==="jikan-anime")results=await jikanSearchPage(text,source.slice(6),state.page,report);
+          else return;
+          job.results=mergeCatalogResults([...job.results,...results],CATALOG_RESULT_LIMIT);
+        }catch{report(source,state.page,null);}
+      })).finally(()=>{job.pending=false;});
+    }
   }
-  return {ok:!job.error,results:job.results,pending:job.pending,error:job.error};
+  job.touched=Date.now();
+  const remaining=[...job.pages.values()].filter(state=>state.more);
+  const limited=job.results.length>=CATALOG_RESULT_LIMIT||remaining.some(state=>state.page>CATALOG_PAGE_LIMIT);
+  return {ok:!job.error,results:job.results,pending:job.pending,error:job.error,
+    cursor:job.token+":"+job.round,hasMore:job.results.length<CATALOG_RESULT_LIMIT&&remaining.some(state=>state.page<=CATALOG_PAGE_LIMIT),
+    partial:[...job.pages.values()].some(state=>state.failed),limited};
 }
 
-async function catalogSearchAll(query,onProgress) {
+async function catalogSearchAll(query,onProgress,onPage) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
   const out=[];
   const publish=results=>{out.push(...results);if(onProgress)onProgress(mergeCatalogResults(out));};
-  const tasks = [mangaSearchResilient(query,publish), steamSearch(query), openLibrarySearch(query), tvmazeSearch(query), wikipediaSearch(query, "en")];
+  const tracked=(name,task)=>task.catch(error=>{if(onPage)onPage(name,1,null);throw error;});
+  const tasks = [mangaSearchResilient(query,publish,1,onPage), tracked("steam",steamSearch(query,1,onPage)), tracked("openlibrary",openLibrarySearch(query,1,onPage)), tvmazeSearch(query), wikipediaSearch(query, "en")];
   // Also query the user's own-language Wikipedia so local titles (e.g. a French
   // or Korean film) surface even if the English page is thin.
   const wl = (s && s.lang || "en").slice(0, 2);
@@ -1134,7 +1179,7 @@ function combineCatalogEntries(a,b) {
   out.catalogSources=[...new Set([...(a.catalogSources||[]),a.source,...(b.catalogSources||[]),b.source].filter(Boolean))];
   return out;
 }
-function mergeCatalogResults(out) {
+function mergeCatalogResults(out,limit=300) {
   const merged=[];
   for(const raw of out) {
     if(!raw||typeof raw.title!=="string"||!raw.title.trim())continue;
@@ -1145,7 +1190,7 @@ function mergeCatalogResults(out) {
     if(!previous){merged.push(r);continue;}
     merged[merged.indexOf(previous)]=combineCatalogEntries(previous,r);
   }
-  return merged.slice(0,300);
+  return merged.slice(0,limit);
 }
 
 /*
@@ -2112,7 +2157,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "CATALOG_DETAIL":
       catalogDetail(message.item||{}).then(item=>sendResponse({ok:true,item}),()=>sendResponse({ok:false,error:"details_unavailable"}));return true;
     case "CATALOG_SEARCH":
-      if(message.progressive===true){catalogSearchProgress(message.query,message.retry===true).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));return true;}
+      if(message.progressive===true){catalogSearchProgress(message.query,message.retry===true,typeof message.more==="string"?message.more:null).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));return true;}
       catalogSearchAll(message.query || "")
         .then((results) => sendResponse({ ok: true, results }))
         .catch((e) => sendResponse({ ok: false, error: String(e && e.message) }));

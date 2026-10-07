@@ -381,5 +381,64 @@ try {
  assert(Math.abs(gameArt[0].height-gameArt[1].height)<1,"Mixed game formats share a consistent artwork height");
  for(const art of gameArt)assert(Math.abs(art.width/art.height-art.ratio)<0.02,"Each game retains its full artwork proportions");
  assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Variable card widths stay inside their carousel");
+
+ // The search UI keeps existing matches and filters while requesting the next page.
+ await w.evaluate(()=>{
+   globalThis.searchPageCalls=0;
+   catalogSearchAll=async(q,publish,report)=>{
+     if(q==="replacement")return [{title:"Replacement result",type:"reading",format:"MANGA",genres:["Fantasy"],externalIds:{mal:"801"}}];
+     report("steam",1,true);
+     return [{title:"Pagination first",type:"game",format:"Game",genres:["Action"],externalIds:{steam:"701"}}];
+   };
+   steamSearch=(q,page,report)=>{globalThis.searchPageCalls++;return new Promise(resolve=>{
+     globalThis.finishSearchPage=()=>{report("steam",page,false);resolve([
+       {title:"Pagination first",type:"game",format:"Game",genres:["Action"],externalIds:{steam:"701"}},
+       {title:"Pagination second",type:"game",format:"Game",genres:["Action"],externalIds:{steam:"702"}}
+     ]);};
+   });};
+ });
+ await p.evaluate(()=>{closeDrawer();searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};switchView("library");});
+ await p.locator("#q").fill("pagination");
+ await p.waitForFunction(()=>lastResults.length===1&&!searchPageState.pending);
+ await p.locator("#sf-kind").selectOption("GAME");
+ await p.locator("#sf-genre").selectOption("Action");
+ await p.locator("#search-more").click();
+ assert.equal(await p.locator("#search-results .sr-row").count(),1,"First-page results remain visible");
+ assert(await p.locator("#search-more").isDisabled(),"Pagination cannot be submitted twice while loading");
+ await p.waitForFunction(()=>searchPageState.pending);
+ await w.evaluate(()=>globalThis.finishSearchPage());
+ await p.waitForFunction(()=>lastResults.length===2&&!searchPageState.pending);
+ assert.equal(await p.locator("#sf-kind").inputValue(),"GAME");
+ assert.equal(await p.locator("#sf-genre").inputValue(),"Action");
+ assert.equal(await p.locator("#search-results .sr-row").count(),2,"Duplicate identities across pages appear once");
+ assert.equal(await p.locator("#search-more").count(),0,"Exhausted results have no misleading next button");
+ assert.equal(await w.evaluate(()=>globalThis.searchPageCalls),1);
+ // Saved badges also cover matches beyond the worker's 200-item message limit.
+ const badgeBatches=await p.evaluate(()=>{
+   const original=api.runtime.sendMessage,counts=[];
+   api.runtime.sendMessage=(message,callback)=>{
+     if(message.type==="CHECK_EXISTING_BATCH"){counts.push(message.items.length);callback({ok:true,matches:message.items.map(item=>item.title==="Saved late match"?"saved-id":null)});return;}
+     return original(message,callback);
+   };
+   try{
+     lastResults=Array.from({length:205},(_,i)=>({title:i===204?"Saved late match":"Badge fixture "+i,type:"game",format:"Game",genres:["Action"]}));
+     renderSearchResults("pagination");return counts;
+   }finally{api.runtime.sendMessage=original;}
+ });
+ assert.deepEqual(badgeBatches,[200,5]);
+ assert.equal(await p.locator('[data-saved-label="204"]').textContent(),"Dans la bibliothèque");
+ // A late page from an old query must never overwrite a new search.
+ await p.locator("#q").fill("pagination other");
+ await p.waitForFunction(()=>query==="pagination other"&&!searchPageState.pending&&lastResults.length===1);
+ await p.locator("#search-more").click();
+ await p.locator("#q").fill("replacement");
+ await p.waitForFunction(()=>query==="replacement"&&!searchPageState.pending&&lastResults[0]?.title==="Replacement result");
+ await w.evaluate(()=>globalThis.finishSearchPage());
+ await p.waitForTimeout(600);
+ assert.deepEqual(await p.evaluate(()=>lastResults.map(item=>item.title)),["Replacement result"]);
+ await p.locator("#sf-reset").click();
+ assert.equal(await p.locator("#search-results .sr-row").count(),1);
+ assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Paginated search fits the viewport");
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
