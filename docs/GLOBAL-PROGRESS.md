@@ -35,7 +35,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G05 | Fiches internes complètes avec tags, personnages, acteurs et titres lisibles | P | Fiches internes présentes ; complétude des fournisseurs et présentation à élargir. |
 | G06 | Images et bandes-annonces robustes, sans recadrage gênant | P | Replis, proportions et activation volontaire présents ; vidéos indisponibles et portrait réel à vérifier. |
 | G07 | Saisons et épisodes nommés avec progression cohérente | P | Guide TVmaze disponible ; autres catalogues et saisons particulières à compléter. |
-| G08 | Recherche progressive rapide, pertinente et paginée au-delà des petits résultats | P | Cache et plusieurs sources ; plafond de résultats et couverture descriptions/titres à améliorer. |
+| G08 | Recherche progressive rapide, pertinente et paginée au-delà des petits résultats | P | Pagination à la demande AniList/Jikan/Steam/Open Library, filtres conservés, dédoublonnage, reprise après panne et courses entre recherches testés dans Chrome (CI #568). Continuation des autres fournisseurs et couverture descriptions/thèmes restantes. |
 | G09 | Filtres type, genre, diffusion, dates futures et prix correctement combinés | P | Contrôles présents ; cohérence entre fournisseurs et distinction diffusion terminée/saison terminée restante. |
 | G10 | Jeux au-delà de Steam, boutiques officielles, prix et tags détaillés | P | Steam et RAWG avec clé personnelle : repli sur identifiant connu, plateformes/boutiques fusionnées, genres conservés et refresh sans perte des modifications personnelles testés. Prix multi-boutiques, droits et couverture réelle restent partiels. |
 | G11 | Actualités récentes, codes et récompenses structurés avec expiration | NV | Ne pas confondre annonces génériques et codes actifs vérifiés. Flux officiels et expiration à réaliser. |
@@ -101,6 +101,18 @@ Les résultats manga Jikan sont publiés dès leur réception, sans attendre les
 La recherche Steam conserve désormais les vingt résultats reçus, au lieu de réutiliser la limite de quatorze prévue pour une rangée de découvertes. L’accueil conserve sa limite propre. Le test parcourt la recherche réelle avec une réponse Steam simulée de vingt jeux.
 
 G08 reste partiel : ces corrections ne constituent ni une pagination de tous les fournisseurs ni une recherche exhaustive dans les descriptions. Avancement inchangé : 19/60.
+
+## Pagination de la recherche validée le 7 octobre 2026
+
+[CI #568](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37639136435), commit 9295e575d8697ef6ee4260fddd1fda9293e1dc28 : 425 tests unitaires, compilation, contrôles de sécurité, parcours web et Chrome et sonde PostgreSQL réussis.
+
+Un bouton « Charger plus de résultats » poursuit désormais les recherches AniList, Jikan manga/anime, Steam et Open Library à partir des informations de pagination de chaque source. Les premiers résultats restent visibles ; les filtres sont conservés ; les identités communes à plusieurs pages sont fusionnées. Les sources terminées ne sont pas rappelées. Une source en échec conserve son numéro de page pour être réessayée, sans supprimer les résultats reçus des autres sources.
+
+Les tests couvrent les doubles clics, la fusion entre pages, la reprise après panne, l’expiration de session, les paramètres de pagination fournisseurs et la limite explicite. Le parcours Chrome vérifie aussi qu’une réponse tardive d’une ancienne recherche ne remplace pas la nouvelle et que l’indication « Dans la bibliothèque » fonctionne au-delà de 200 résultats.
+
+Les livres sont désormais reçus par lots de vingt, avec auteur, année et lien de fiche lorsqu’ils sont fournis. La session est bornée à 1 000 résultats et vingt pages par source ; un message signale la limite et invite à préciser la recherche. Ce plafond protège le rendu et les appels ; il ne signifie pas que tous les résultats possibles sont chargés.
+
+G08 reste partiel : Wikipedia, TMDB et RAWG ne disposent pas encore de cette continuation, et la couverture des recherches par descriptions/thèmes doit être étendue. Les nouvelles continuations ont été vérifiées avec des réponses contrôlées dans les tests ; aucun taux de disponibilité des fournisseurs réels n’est déduit de ces tests. Avancement global inchangé : 19/60 (32 % arrondi).
 
 ## Priorités de livraison
 
