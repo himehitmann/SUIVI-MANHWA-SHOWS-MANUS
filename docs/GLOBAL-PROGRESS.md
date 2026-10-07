@@ -35,7 +35,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G05 | Fiches internes complètes avec tags, personnages, acteurs et titres lisibles | P | Fiches internes présentes ; complétude des fournisseurs et présentation à élargir. |
 | G06 | Images et bandes-annonces robustes, sans recadrage gênant | P | Replis, proportions et activation volontaire présents ; vidéos indisponibles et portrait réel à vérifier. |
 | G07 | Saisons et épisodes nommés avec progression cohérente | P | Guide TVmaze disponible ; autres catalogues et saisons particulières à compléter. |
-| G08 | Recherche progressive rapide, pertinente et paginée au-delà des petits résultats | P | Pagination à la demande AniList/Jikan/Steam/Open Library, filtres conservés, dédoublonnage, reprise après panne et courses entre recherches testés dans Chrome (CI #568). Continuation des autres fournisseurs et couverture descriptions/thèmes restantes. |
+| G08 | Recherche progressive rapide, pertinente et paginée au-delà des petits résultats | P | Pagination à la demande AniList/Jikan/Steam/Open Library, puis TMDB/RAWG avec clés configurées (CI #572). Filtres conservés, dédoublonnage, reprise et courses entre recherches testés. Continuation Wikipedia et couverture descriptions/thèmes restantes. |
 | G09 | Filtres type, genre, diffusion, dates futures et prix correctement combinés | P | Contrôles présents ; cohérence entre fournisseurs et distinction diffusion terminée/saison terminée restante. |
 | G10 | Jeux au-delà de Steam, boutiques officielles, prix et tags détaillés | P | Steam et RAWG avec clé personnelle : repli sur identifiant connu, plateformes/boutiques fusionnées, genres conservés et refresh sans perte des modifications personnelles testés. Prix multi-boutiques, droits et couverture réelle restent partiels. |
 | G11 | Actualités récentes, codes et récompenses structurés avec expiration | NV | Ne pas confondre annonces génériques et codes actifs vérifiés. Flux officiels et expiration à réaliser. |
@@ -113,6 +113,16 @@ Les tests couvrent les doubles clics, la fusion entre pages, la reprise après p
 Les livres sont désormais reçus par lots de vingt, avec auteur, année et lien de fiche lorsqu’ils sont fournis. La session est bornée à 1 000 résultats et vingt pages par source ; un message signale la limite et invite à préciser la recherche. Ce plafond protège le rendu et les appels ; il ne signifie pas que tous les résultats possibles sont chargés.
 
 G08 reste partiel : Wikipedia, TMDB et RAWG ne disposent pas encore de cette continuation, et la couverture des recherches par descriptions/thèmes doit être étendue. Les nouvelles continuations ont été vérifiées avec des réponses contrôlées dans les tests ; aucun taux de disponibilité des fournisseurs réels n’est déduit de ces tests. Avancement global inchangé : 19/60 (32 % arrondi).
+
+## Pagination films et jeux multi-plateformes du 7 octobre 2026
+
+[CI #572](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37652408780), commit 36b655a7be5c05544de35f147c752147781a619a : tous les contrôles réussissent, y compris les parcours Chrome.
+
+TMDB et RAWG participent maintenant à « Charger plus » lorsque leurs clés sont configurées. Les acteurs/personnes restent exclus des résultats TMDB, mais une page ne contenant que des personnes ne masque pas les œuvres des pages suivantes. Les jeux RAWG conservent leurs plateformes et tags sur les pages suivantes. Les requêtes de continuation sont construites vers les hôtes fixes des fournisseurs : une URL « next » reçue de RAWG n’est pas suivie directement.
+
+Les tests vérifient les paramètres page, l’arrêt en fin de catalogue, les deux sources dans une même session, l’absence de clés dans les réponses de recherche et le retrait d’une clé entre deux pages. Les réponses fournisseurs sont simulées : aucun accès réel avec les clés de l’utilisateur n’est revendiqué.
+
+G08 reste partiel pour Wikipedia, la couverture descriptions/thèmes et une mesure représentative sur catalogues réels. Le score demeure 19/60 (32 % arrondi).
 
 ## Priorités de livraison
 
