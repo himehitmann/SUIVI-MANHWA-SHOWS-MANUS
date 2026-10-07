@@ -753,21 +753,27 @@ function jikanMedia(m,type) {
     total:type==="reading"?m.chapters||undefined:m.episodes||undefined,
     trailerUrl:m.trailer?.url||"",url:m.url||"",source:"myanimelist"};
 }
-async function jikanSearch(query) {
+async function jikanSearch(query,onProgress) {
   const settled=await Promise.allSettled(["manga","anime"].map(async kind=>{
     const data=await jikanRequest(kind+"?q="+encodeURIComponent(query)+"&limit=25&sfw=true");
-    return (data.data||[]).map(m=>jikanMedia(m,kind==="manga"?"reading":"watching")).filter(Boolean);
+    const results=(data.data||[]).map(m=>jikanMedia(m,kind==="manga"?"reading":"watching")).filter(Boolean);
+    if(onProgress)onProgress(results);
+    return results;
   }));
   if(settled.every(r=>r.status==="rejected"))throw Error("manga_catalogs_unavailable");
   return settled.flatMap(r=>r.status==="fulfilled"?r.value:[]);
 }
 async function mangaSearchResilient(query,onProgress) {
   const out=[];
-  const settled=await Promise.allSettled([anilistSearch(query),jikanSearch(query)].map(task=>Promise.resolve(task).then(results=>{
-    out.push(...results);
-    if(onProgress)onProgress(results);
-    return results;
-  })));
+  const publish=results=>{out.push(...results);if(onProgress)onProgress(results);};
+  let jikanPublished=false;
+  const settled=await Promise.allSettled([
+    anilistSearch(query).then(results=>{publish(results);return results;}),
+    jikanSearch(query,results=>{jikanPublished=true;publish(results);}).then(results=>{
+      if(!jikanPublished)publish(results);
+      return results;
+    })
+  ]);
   if(settled.every(r=>r.status==="rejected"))throw Error("manga_catalogs_unavailable");
   return mergeCatalogResults(out);
 }
@@ -963,7 +969,7 @@ async function steamSearch(query) {
   const url = 'https://store.steampowered.com/search/results/?term='+encodeURIComponent(query)+'&start=0&count=20&category1=998&infinite=1&json=1&cc=us&l=en';
   const res=await fetchRemote(url); if(!res.ok) throw new Error('steam_'+res.status);
   const data=await res.json();
-  return steamGames(parseSteamSearch(data.results_html || ''),false).map(g=>({...g,released:undefined,externalIds:{steam:steamAppId(g.url)}}));
+  return steamGames(parseSteamSearch(data.results_html || ''),false,20).map(g=>({...g,released:undefined,externalIds:{steam:steamAppId(g.url)}}));
 }
 /** Live-action TV series via TVMaze (keyless) — covers Western/American shows. */
 function tvmazeCountry(show) {
@@ -1200,12 +1206,12 @@ async function steamSearchList(filter) {
   const j = await res.json();
   return parseSteamSearch(j.results_html || "");
 }
-function steamGames(list, soon) {
+function steamGames(list, soon, limit=14) {
   const seen = new Set();
   return (list || [])
     .filter(g => g && !seen.has(g.id) && seen.add(g.id))
     .filter((g) => g && g.id && g.name && !STEAM_SKIP.has(g.id) && !STEAM_JUNK.test(g.name))
-    .slice(0, 14)
+    .slice(0, limit)
     .map((g) => ({
       title: g.name,
       type: "game",
