@@ -92,6 +92,16 @@ Observation réelle : 18 résultats dans chacune des catégories manga/manhwa/ma
 
 G03 passe à V. G06 reste partiel pour les images et bandes-annonces de l’ensemble des fiches ; G16 reste partiel pour la traduction, notamment les synopsis fournisseurs encore en anglais dans une interface française. La publication, les paiements réels et la version installée chez l’utilisateur ne sont pas validés par ces captures.
 
+## Recherche : attente et résultats Steam corrigés le 7 octobre 2026
+
+[CI #564](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37588112202), commit 6eb9c44614aaea422eb3d2093afbf4d53e42cf5a : tous les contrôles réussissent.
+
+Les résultats manga Jikan sont publiés dès leur réception, sans attendre les réponses anime ni AniList. Les tests maintiennent ces deux réponses en attente puis simulent une panne anime : les premiers mangas restent disponibles et ne sont pas publiés deux fois par le fournisseur.
+
+La recherche Steam conserve désormais les vingt résultats reçus, au lieu de réutiliser la limite de quatorze prévue pour une rangée de découvertes. L’accueil conserve sa limite propre. Le test parcourt la recherche réelle avec une réponse Steam simulée de vingt jeux.
+
+G08 reste partiel : ces corrections ne constituent ni une pagination de tous les fournisseurs ni une recherche exhaustive dans les descriptions. Avancement inchangé : 19/60.
+
 ## Priorités de livraison
 
 1. Maintenir G03 validé : conserver les contrôles Chrome, la sonde de catalogues réels et les captures ordinateur/mobile lors des changements de l’accueil.
