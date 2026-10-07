@@ -368,5 +368,18 @@ try {
  assert(Math.abs(detail.extraHeight)<1&&Math.abs(detail.extraWidth)<1,"Detail artwork has no artificial frame");
  await p.screenshot({path:"test-results/artwork-landscape-detail.png"});
  await p.evaluate(()=>closeDrawer());
+
+ await p.evaluate(()=>{
+   items=[];settings.homeCats=["games"];
+   const art=(width,height)=>"data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'"><rect width="100%" height="100%" fill="#345"/></svg>');
+   discover={gamesHot:[{title:"Portrait game",type:"game",cover:art(300,450)},{title:"Landscape game",type:"game",cover:art(600,240)}]};
+   switchView("home");
+ });
+ await p.locator("#view-home .disco-game img").evaluateAll(images=>Promise.all(images.map(image=>image.decode())));
+ await p.waitForFunction(()=>[...document.querySelectorAll("#view-home .disco-game")].every(card=>card.style.getPropertyValue("--cover-aspect")));
+ const gameArt=await p.locator("#view-home .disco-game img").evaluateAll(images=>images.map(image=>{const r=image.getBoundingClientRect();return {width:r.width,height:r.height,ratio:image.naturalWidth/image.naturalHeight};}));
+ assert(Math.abs(gameArt[0].height-gameArt[1].height)<1,"Mixed game formats share a consistent artwork height");
+ for(const art of gameArt)assert(Math.abs(art.width/art.height-art.ratio)<0.02,"Each game retains its full artwork proportions");
+ assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Variable card widths stay inside their carousel");
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
