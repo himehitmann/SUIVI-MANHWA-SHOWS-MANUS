@@ -1765,3 +1765,50 @@ describe("catalog search pagination",()=>{
     expect(books[0]).toMatchObject({year:2028,authors:["Author"],url:"https://openlibrary.org/works/OL12W"});
   });
 });
+
+describe("optional film and game catalog pagination",()=>{
+  it("paginates TMDB while excluding people even when a page contains only people",async()=>{
+    const w=worker();w.run("var urls=[],pages=[]");
+    w.ctx.payloads=[{page:1,total_pages:2,results:[{id:1,name:"Actor",media_type:"person"}]},{page:2,total_pages:2,results:[{id:2,title:"Film",media_type:"movie"},{id:3,name:"Series",media_type:"tv"},{id:4,name:"Actress",media_type:"person"}]}];
+    w.run('fetchRemote=async url=>{urls.push(url);return {ok:true,json:async()=>payloads.shift()}};var report=(...args)=>pages.push(args)');
+    expect(await w.run('tmdbSearch("query","synthetic-key",1,report)')).toEqual([]);
+    const results=await w.run('tmdbSearch("query","synthetic-key",2,report)');
+    expect(results.map((x:any)=>x.title)).toEqual(["Film","Series"]);
+    expect(w.run("pages")).toEqual([["tmdb",1,true],["tmdb",2,false]]);
+    expect(w.run("urls[1]")).toContain("page=2");
+  });
+  it("constructs RAWG page URLs itself instead of following a provider next URL",async()=>{
+    const w=worker();w.run("var urls=[],pages=[]");
+    w.ctx.payloads=[{results:[],next:"https://untrusted.example/steal-key"},{results:[{id:5,name:"Console game",slug:"console-game",platforms:[{platform:{name:"PlayStation"}}]}],next:null}];
+    w.run('fetchRemote=async url=>{urls.push(url);return {ok:true,json:async()=>payloads.shift()}};var report=(...args)=>pages.push(args)');
+    await w.run('rawgSearch("query","synthetic-key",1,report)');
+    expect((await w.run('rawgSearch("query","synthetic-key",2,report)'))[0].platforms).toEqual(["PlayStation"]);
+    expect(w.run("pages")).toEqual([["rawg",1,true],["rawg",2,false]]);
+    expect(w.run('urls.every(url=>url.startsWith("https://api.rawg.io/api/games?"))')).toBe(true);
+    expect(w.run("urls[1]")).toContain("page=2");
+  });
+  it("continues both optional sources and does not expose configured keys in search responses",async()=>{
+    const w=worker({"dasi.settings":{tmdbKey:"synthetic-film-key",rawgKey:"synthetic-game-key"}});
+    w.run('var requested=[];catalogSearchAll=async(q,publish,report)=>{report("tmdb",1,true);report("rawg",1,true);return []};tmdbSearch=async(q,key,page,report)=>{requested.push(["tmdb",key,page]);report("tmdb",page,false);return [{title:"Film",type:"watching",format:"Movie"}]};rawgSearch=async(q,key,page,report)=>{requested.push(["rawg",key,page]);report("rawg",page,false);return [{title:"Game",type:"game"}]}');
+    await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    const first=await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true});
+    await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true,more:first.cursor});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    const done=await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true});
+    expect(done.results).toHaveLength(2);expect(done.hasMore).toBe(false);
+    expect(w.run("requested")).toEqual([["tmdb","synthetic-film-key",2],["rawg","synthetic-game-key",2]]);
+    expect(JSON.stringify(done)).not.toContain("synthetic-");
+  });
+  it("stops using a provider when its key was removed between pages",async()=>{
+    const w=worker();
+    w.run('catalogSearchAll=async(q,publish,report)=>{report("rawg",1,true);return [{title:"Kept",type:"game"}]};rawgSearch=async()=>{throw Error("must not call without key")}');
+    await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    const first=await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true});
+    await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true,more:first.cursor});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    const done=await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true});
+    expect(done.results[0].title).toBe("Kept");expect(done.hasMore).toBe(false);expect(done.partial).toBe(false);
+  });
+});
