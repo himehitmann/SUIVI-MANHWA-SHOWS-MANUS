@@ -1855,3 +1855,39 @@ describe("Wikipedia search continuation",()=>{
     await expect(w.run('wikipediaSearch("term","en")')).rejects.toThrow("wiki_response_invalid");
   });
 });
+
+describe("catalog search relevance",()=>{
+  it("ranks exact titles and alternate titles before fuzzy provider matches",()=>{
+    const w=worker();w.ctx.rows=[
+      {title:"Yankee",type:"watching"},
+      {title:"The Wanderer",type:"watching"},
+      {title:"Yandere neighbour",type:"reading"},
+      {title:"Yandere",type:"game"},
+      {title:"Other language",alternativeTitles:["Yandere"],type:"reading"}
+    ];
+    expect(w.run('rankCatalogResults("yandere",rows).map(x=>x.title)')).toEqual(["Yandere","Other language","Yandere neighbour","Yankee","The Wanderer"]);
+    expect(w.ctx.rows[0].title).toBe("Yankee");
+  });
+  it("recognizes themes and synopsis matches without inventing a title match",()=>{
+    const w=worker();w.ctx.rows=[
+      {title:"Unrelated",type:"reading"},
+      {title:"Story",synopsis:"A dangerous yandere romance.",type:"reading"},
+      {title:"Theme",tags:["Yandere"],type:"reading"},
+      {title:"Yandere story",type:"reading"}
+    ];
+    expect(w.run('rankCatalogResults("yandere",rows).map(x=>x.title)')).toEqual(["Yandere story","Theme","Story","Unrelated"]);
+  });
+  it("normalizes accents and punctuation and preserves native titles",()=>{
+    const w=worker();w.ctx.rows=[{title:"Other"},{title:"École: des héros"},{title:"学校"}];
+    expect(w.run('rankCatalogResults("ecole des heros",rows)[0].title')).toBe("École: des héros");
+    expect(w.run('rankCatalogResults("学校",rows)[0].title')).toBe("学校");
+  });
+  it("ranks accumulated progressive results instead of provider arrival order",async()=>{
+    const w=worker();
+    w.run('catalogSearchAll=async()=>[{title:"Yonder",type:"watching"},{title:"Yandere",type:"reading"}]');
+    await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    const result=await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true});
+    expect(result.results.map((x:any)=>x.title)).toEqual(["Yandere","Yonder"]);
+  });
+});

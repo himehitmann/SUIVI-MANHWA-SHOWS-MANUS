@@ -1115,6 +1115,30 @@ async function rawgSearch(query, key, page=1, onPage) {
  * OpenLibrary (books) and TMDB (films/TV). Keyless sources always run; TMDB and
  * RAWG run only when a key is configured. Each source is best-effort. */
 
+function rankCatalogResults(query,results) {
+  const normalize=value=>String(value||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").trim();
+  const needle=normalize(query);
+  if(!needle)return results;
+  const words=needle.split(" ");
+  const titleScore=value=>{
+    const text=normalize(value);
+    if(text===needle)return 100;
+    if(text.startsWith(needle+" "))return 90;
+    if(text.includes(needle))return 80;
+    const tokens=new Set(text.split(" "));
+    return words.every(word=>tokens.has(word))?70:0;
+  };
+  return results.map((item,index)=>{
+    const titles=identityTitles(item);
+    const title=Math.max(0,...titles.map(titleScore));
+    const themes=[...(Array.isArray(item.genres)?item.genres:[]),...(Array.isArray(item.tags)?item.tags:[])];
+    const theme=themes.some(value=>normalize(value)===needle)?50:0;
+    const synopsis=normalize(item.synopsis);
+    const description=synopsis.includes(needle)?30:words.every(word=>synopsis.split(" ").includes(word))?20:0;
+    return {item,index,score:Math.max(title,theme,description)};
+  }).sort((a,b)=>b.score-a.score||a.index-b.index).map(row=>row.item);
+}
+
 const catalogJobs=new Map();
 const CATALOG_RESULT_LIMIT=1000, CATALOG_PAGE_LIMIT=20;
 async function catalogSearchProgress(query,retry=false,more=null) {
@@ -1160,7 +1184,7 @@ async function catalogSearchProgress(query,retry=false,more=null) {
   job.touched=Date.now();
   const remaining=[...job.pages.values()].filter(state=>state.more);
   const limited=job.results.length>=CATALOG_RESULT_LIMIT||remaining.some(state=>state.page>CATALOG_PAGE_LIMIT);
-  return {ok:!job.error,results:job.results,pending:job.pending,error:job.error,
+  return {ok:!job.error,results:rankCatalogResults(text,job.results),pending:job.pending,error:job.error,
     cursor:job.token+":"+job.round,hasMore:job.results.length<CATALOG_RESULT_LIMIT&&remaining.some(state=>state.page<=CATALOG_PAGE_LIMIT),
     partial:[...job.pages.values()].some(state=>state.failed),limited};
 }
@@ -1168,7 +1192,7 @@ async function catalogSearchProgress(query,retry=false,more=null) {
 async function catalogSearchAll(query,onProgress,onPage) {
   const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
   const out=[];
-  const publish=results=>{out.push(...results);if(onProgress)onProgress(mergeCatalogResults(out));};
+  const publish=results=>{out.push(...results);if(onProgress)onProgress(rankCatalogResults(query,mergeCatalogResults(out)));};
   const tracked=(name,task)=>task.catch(error=>{if(onPage)onPage(name,1,null);throw error;});
   const tasks = [mangaSearchResilient(query,publish,1,onPage), tracked("steam",steamSearch(query,1,onPage)), tracked("openlibrary",openLibrarySearch(query,1,onPage)), tvmazeSearch(query), tracked("wiki-en",wikipediaSearch(query, "en",1,onPage))];
   // Also query the user's own-language Wikipedia so local titles (e.g. a French
@@ -1179,7 +1203,7 @@ async function catalogSearchAll(query,onProgress,onPage) {
   if (s && s.rawgKey) tasks.push(tracked("rawg",rawgSearch(query, s.rawgKey,1,onPage)));
   const settled=await Promise.allSettled(tasks.map(task=>Promise.resolve(task).then(results=>{publish(results);return results;})));
   if(settled.every(r=>r.status==="rejected"))throw new Error("catalog_unavailable");
-  return mergeCatalogResults(out);
+  return rankCatalogResults(query,mergeCatalogResults(out));
 }
 function combineCatalogEntries(a,b) {
   const preferred=(!a.cover&&b.cover)||(a.source==="wikipedia"&&b.source!=="wikipedia")?b:a;
