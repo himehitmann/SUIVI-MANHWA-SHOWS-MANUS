@@ -35,7 +35,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G05 | Fiches internes complètes avec tags, personnages, acteurs et titres lisibles | P | Fiches internes présentes ; complétude des fournisseurs et présentation à élargir. |
 | G06 | Images et bandes-annonces robustes, sans recadrage gênant | P | Replis, proportions et activation volontaire présents ; vidéos indisponibles et portrait réel à vérifier. |
 | G07 | Saisons et épisodes nommés avec progression cohérente | P | Guide TVmaze disponible ; autres catalogues et saisons particulières à compléter. |
-| G08 | Recherche progressive rapide, pertinente et paginée au-delà des petits résultats | P | Pagination à la demande AniList/Jikan/Steam/Open Library, puis TMDB/RAWG avec clés configurées (CI #572). Filtres conservés, dédoublonnage, reprise et courses entre recherches testés. Continuation Wikipedia par langue validée (CI #576). Couverture descriptions/thèmes et mesure représentative sur données réelles restantes. |
+| G08 | Recherche progressive rapide, pertinente et paginée au-delà des petits résultats | P | Pagination à la demande AniList/Jikan/Steam/Open Library, puis TMDB/RAWG avec clés configurées (CI #572). Filtres conservés, dédoublonnage, reprise et courses entre recherches testés. Continuation Wikipedia par langue validée (CI #576). Classement titres/alias/thèmes/synopsis et deux recherches réelles contrôlés (CI #584). Extension de la couverture thématique, lenteur Jikan et progression Steam à examiner. |
 | G09 | Filtres type, genre, diffusion, dates futures et prix correctement combinés | P | Contrôles présents ; cohérence entre fournisseurs et distinction diffusion terminée/saison terminée restante. |
 | G10 | Jeux au-delà de Steam, boutiques officielles, prix et tags détaillés | P | Steam et RAWG avec clé personnelle : repli sur identifiant connu, plateformes/boutiques fusionnées, genres conservés et refresh sans perte des modifications personnelles testés. Prix multi-boutiques, droits et couverture réelle restent partiels. |
 | G11 | Actualités récentes, codes et récompenses structurés avec expiration | NV | Ne pas confondre annonces génériques et codes actifs vérifiés. Flux officiels et expiration à réaliser. |
@@ -133,6 +133,18 @@ La recherche Wikipédia reprend maintenant à la position renvoyée par le fourn
 Les tests vérifient la position réelle de continuation (y compris un décalage autre que dix), la reprise de la seule langue en panne, les positions invalides ou qui reculent et les erreurs applicatives reçues avec un statut HTTP de succès. Les destinations restent construites sur les sous-domaines Wikipédia validés. Les détails du protocole suivent la [documentation MediaWiki Search](https://www.mediawiki.org/wiki/API:Search).
 
 Ces tests utilisent des réponses contrôlées ; ils ne prouvent pas la pertinence ou l’exhaustivité de toutes les recherches réelles. G08 reste partiel pour la couverture descriptions/thèmes et les mesures représentatives. Avancement : 19/60 (32 % arrondi).
+
+## Recherches réelles et classement du 8 octobre 2026
+
+[CI #584](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37817204056), commit bcf9cdd3fc0e911bdbe473e4e7117b1395a318e0 : tous les contrôles réussissent.
+
+Une sonde Chromium appelle désormais le moteur réel sur « yandere » et « portal », avec les catalogues publics sans clé personnelle. Elle consigne le délai du premier résultat, deux tours de pagination, les types d’œuvres et l’état de chaque source. Les mesures décrivent cet environnement CI et cette date, pas une garantie de performances pour chaque utilisateur.
+
+Le premier relevé (#580) montrait que les correspondances approximatives TVmaze occupaient le début de « yandere » parce qu’elles étaient reçues rapidement. Le classement prend maintenant en compte les titres et titres alternatifs, puis les thèmes et le synopsis. Il conserve les résultats moins pertinents et ne confond pas classement avec fusion d’identités. Tests ajoutés pour accents, titres natifs, thèmes, descriptions et résultats progressifs.
+
+Après correction, les premiers résultats « yandere » sont des œuvres correspondantes ; « Yankee » et « The Wanderer » ne précèdent plus les correspondances de titre. Relevé #584 : premier résultat en 503 ms, 103 puis 123 résultats (70 puis 90 lectures, 11 visionnages et 22 jeux). Pour « portal » : premier résultat en 501 ms, 54 puis 74 résultats. Les totaux incluent plusieurs médias et ne signifient pas qu’il existe 123 mangas uniques répondant au thème.
+
+Limites confirmées : Jikan manga/anime échoue dans cet environnement après environ 30 secondes ; la recherche fournit déjà ses autres résultats pendant cette attente. Le nombre de jeux reste à 22 entre les deux tours pour les deux requêtes malgré une continuation Steam annoncée : examiner les réponses de cette source avant de revendiquer un gain réel de couverture des jeux. Le classement du synopsis porte sur les œuvres déjà reçues, et n’étend pas à lui seul la recherche thématique de chaque fournisseur. G08 reste partiel, score inchangé : 19/60.
 
 ## Priorités de livraison
 
