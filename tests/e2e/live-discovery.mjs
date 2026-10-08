@@ -64,6 +64,40 @@ try{
     const preview=await page.screenshot({type:"jpeg",quality:55,fullPage:true});
     console.log("HOME_VISUAL_"+width+" "+preview.toString("base64"));
   }
+
+  report.searches=[];
+  for(const query of ["yandere","portal"]){
+    const observation=await worker.evaluate(async query=>{
+      const began=Date.now(),result={query,firstResultsMilliseconds:null,rounds:[]};
+      let response;
+      for(let round=0;round<2;round++){
+        if(round&&(!response?.hasMore||response.pending||!response.ok))break;
+        const more=round?response.cursor:null,started=Date.now();
+        const deadline=started+35000;
+        do{
+          response=await catalogSearchProgress(query,false,more);
+          if(response.results?.length&&result.firstResultsMilliseconds===null)result.firstResultsMilliseconds=Date.now()-began;
+          if(!response.pending||Date.now()>=deadline)break;
+          await new Promise(resolve=>setTimeout(resolve,500));
+        }while(true);
+        const rows=response.results||[];
+        const job=catalogJobs.get(accountEpoch+":"+query);
+        result.rounds.push({
+          round:round+1,milliseconds:Date.now()-started,ok:response.ok,pending:response.pending,
+          count:rows.length,hasMore:response.hasMore,partial:response.partial,limited:response.limited,
+          types:rows.reduce((counts,row)=>{counts[row.type]=(counts[row.type]||0)+1;return counts;},{}),
+          sources:job?[...job.pages].map(([source,state])=>({source,page:state.page,more:state.more,failed:state.failed})):[],
+          sample:rows.slice(0,12).map(row=>({title:row.title,type:row.type,format:row.format})),
+          matchingTitleCount:rows.filter(row=>String(row.title||"").toLowerCase().includes(query)).length
+        });
+      }
+      return result;
+    },query);
+    report.searches.push(observation);
+    const [first,second]=observation.rounds;
+    if(second)assert(second.count>=first.count,"Loading more must retain previously received results");
+    for(const round of observation.rounds)for(const item of round.sample)assert(["reading","watching","game"].includes(item.type),"Search must contain works");
+  }
   report.observation=data&&Object.values(report.categories).some(c=>c.count)?"data_received":"catalog_unavailable";
 }finally{
   await fs.mkdir("test-results",{recursive:true});
