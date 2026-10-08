@@ -1036,12 +1036,18 @@ function classifyWiki(desc) {
   if (/\bnovel\b|book|comic/.test(d)) return { type: "reading", format: "BOOK", country };
   return { type: "", format: "", country };
 }
-async function wikipediaSearch(query, lang) {
-  const host = `https://${lang || "en"}.wikipedia.org`;
-  const url = `${host}/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=10&prop=pageimages|description|extracts&piprop=thumbnail&pithumbsize=400&exintro=1&explaintext=1&exlimit=10`;
+async function wikipediaSearch(query, lang, page=1, onPage, offset=0) {
+  const language=/^[a-z]{2}$/.test(lang||"")?lang:"en";
+  if(!Number.isSafeInteger(offset)||offset<0||offset>10000)throw Error("wiki_cursor_invalid");
+  const host = `https://${language}.wikipedia.org`;
+  const url = `${host}/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=10&gsroffset=${offset}&prop=pageimages|description|extracts&piprop=thumbnail&pithumbsize=400&exintro=1&explaintext=1&exlimit=10`;
   const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`wiki_${res.status}`);
   const data = await res.json();
+  if(!data||typeof data!=="object"||data.error)throw Error("wiki_response_invalid");
+  const next=data.continue?.gsroffset;
+  if(next!==undefined&&(!Number.isSafeInteger(next)||next<=offset||next>10000))throw Error("wiki_cursor_invalid");
+  if(onPage)onPage("wiki-"+language,page,next!==undefined,next);
   const pages = (data.query && data.query.pages) ? Object.values(data.query.pages) : [];
   pages.sort((a, b) => (a.index || 99) - (b.index || 99));
   return pages.filter((p) => p.title && !/^(List of|Category:)/i.test(p.title) && classifyWiki(p.description).type).map((p) => {
@@ -1124,13 +1130,13 @@ async function catalogSearchProgress(query,retry=false,more=null) {
     job={started:Date.now(),touched:Date.now(),token:crypto.randomUUID(),round:0,results:[],pending:true,error:null,pages:new Map()};
     catalogJobs.set(key,job);
     if(catalogJobs.size>20)catalogJobs.delete(catalogJobs.keys().next().value);
-    const report=(source,page,hasMore)=>job.pages.set(source,{page:hasMore===true?page+1:page,more:hasMore!==false,failed:hasMore===null});
+    const report=(source,page,hasMore,offset)=>job.pages.set(source,{page:hasMore===true?page+1:page,more:hasMore!==false,failed:hasMore===null,offset:hasMore===null?job.pages.get(source)?.offset:offset});
     job.task=catalogSearchAll(text,results=>{job.results=results;},report).then(results=>{job.results=results;},()=>{job.error="catalog_unavailable";}).finally(()=>{job.pending=false;});
   } else if(typeof more==="string"&&more===job.token+":"+job.round&&!job.pending) {
     const sources=[...job.pages].filter(([,state])=>state.more&&state.page<=CATALOG_PAGE_LIMIT);
     if(sources.length&&job.results.length<CATALOG_RESULT_LIMIT) {
       job.round++;job.pending=true;
-      const report=(source,page,hasMore)=>job.pages.set(source,{page:hasMore===true?page+1:page,more:hasMore!==false,failed:hasMore===null});
+      const report=(source,page,hasMore,offset)=>job.pages.set(source,{page:hasMore===true?page+1:page,more:hasMore!==false,failed:hasMore===null,offset:hasMore===null?job.pages.get(source)?.offset:offset});
       job.task=Promise.allSettled(sources.map(async([source,state])=>{
         try {
           let results;
@@ -1138,6 +1144,7 @@ async function catalogSearchProgress(query,retry=false,more=null) {
           else if(source==="steam")results=await steamSearch(text,state.page,report);
           else if(source==="openlibrary")results=await openLibrarySearch(text,state.page,report);
           else if(source==="jikan-manga"||source==="jikan-anime")results=await jikanSearchPage(text,source.slice(6),state.page,report);
+          else if(/^wiki-[a-z]{2}$/.test(source))results=await wikipediaSearch(text,source.slice(5),state.page,report,state.offset);
           else if(source==="tmdb"||source==="rawg") {
             const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
             const apiKey=source==="tmdb"?settings.tmdbKey:settings.rawgKey;
@@ -1163,11 +1170,11 @@ async function catalogSearchAll(query,onProgress,onPage) {
   const out=[];
   const publish=results=>{out.push(...results);if(onProgress)onProgress(mergeCatalogResults(out));};
   const tracked=(name,task)=>task.catch(error=>{if(onPage)onPage(name,1,null);throw error;});
-  const tasks = [mangaSearchResilient(query,publish,1,onPage), tracked("steam",steamSearch(query,1,onPage)), tracked("openlibrary",openLibrarySearch(query,1,onPage)), tvmazeSearch(query), wikipediaSearch(query, "en")];
+  const tasks = [mangaSearchResilient(query,publish,1,onPage), tracked("steam",steamSearch(query,1,onPage)), tracked("openlibrary",openLibrarySearch(query,1,onPage)), tvmazeSearch(query), tracked("wiki-en",wikipediaSearch(query, "en",1,onPage))];
   // Also query the user's own-language Wikipedia so local titles (e.g. a French
   // or Korean film) surface even if the English page is thin.
   const wl = (s && s.lang || "en").slice(0, 2);
-  if (wl && wl !== "en") tasks.push(wikipediaSearch(query, wl));
+  if (wl && wl !== "en") tasks.push(tracked("wiki-"+wl,wikipediaSearch(query, wl,1,onPage)));
   if (s && s.tmdbKey) tasks.push(tracked("tmdb",tmdbSearch(query, s.tmdbKey,1,onPage)));
   if (s && s.rawgKey) tasks.push(tracked("rawg",rawgSearch(query, s.rawgKey,1,onPage)));
   const settled=await Promise.allSettled(tasks.map(task=>Promise.resolve(task).then(results=>{publish(results);return results;})));

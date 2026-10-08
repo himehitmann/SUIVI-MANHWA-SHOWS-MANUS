@@ -1812,3 +1812,46 @@ describe("optional film and game catalog pagination",()=>{
     expect(done.results[0].title).toBe("Kept");expect(done.hasMore).toBe(false);expect(done.partial).toBe(false);
   });
 });
+
+describe("Wikipedia search continuation",()=>{
+  it("uses the actual returned offset and excludes people without ending the search",async()=>{
+    const w=worker();w.run("var urls=[],pages=[]");
+    w.ctx.responses=[
+      {continue:{gsroffset:17},query:{pages:{1:{title:"Actor",description:"American actor",index:1}}}},
+      {batchcomplete:"",query:{pages:{2:{title:"Film",description:"American film",index:1},3:{title:"Other actor",description:"French actor",index:2}}}}
+    ];
+    w.run('fetchRemote=async url=>{urls.push(url);return {ok:true,json:async()=>responses.shift()}};var report=(...args)=>pages.push(args)');
+    expect(await w.run('wikipediaSearch("term","en",1,report)')).toEqual([]);
+    expect((await w.run('wikipediaSearch("term","en",2,report,17)')).map((x:any)=>x.title)).toEqual(["Film"]);
+    expect(w.run("urls[1]")).toContain("gsroffset=17");
+    expect(w.run("pages[0]")).toEqual(["wiki-en",1,true,17]);
+    expect(w.run("pages[1][2]")).toBe(false);
+  });
+  it("keeps each language cursor separate and retries the failed offset",async()=>{
+    const w=worker();
+    w.run('var calls=[];catalogSearchAll=async(q,publish,report)=>{report("wiki-en",1,true,17);report("wiki-fr",1,true,23);return []};wikipediaSearch=async(q,lang,page,report,offset)=>{calls.push([lang,page,offset]);if(lang==="fr"&&calls.filter(c=>c[0]==="fr").length===1)throw Error("offline");report("wiki-"+lang,page,false);return [{title:lang==="en"?"English film":"French film",type:"watching",format:"Movie"}]};');
+    await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    let state=await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true});
+    await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true,more:state.cursor});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    state=await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true});
+    expect(state.partial).toBe(true);expect(state.results).toHaveLength(1);
+    await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true,more:state.cursor});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    state=await w.call({type:"CATALOG_SEARCH",query:"term",progressive:true});
+    expect(state.results).toHaveLength(2);expect(state.hasMore).toBe(false);
+    expect(w.run("calls")).toEqual([["en",2,17],["fr",2,23],["fr",2,23]]);
+  });
+  it("rejects backwards or malformed continuation instead of looping over the same results",async()=>{
+    for(const next of [10,-1,1.5,"https://untrusted.example/",10001]){
+      const w=worker();w.ctx.payload={continue:{gsroffset:next},query:{pages:{}}};
+      w.run('fetchRemote=async()=>({ok:true,json:async()=>payload})');
+      await expect(w.run('wikipediaSearch("term","en",2,()=>{},10)')).rejects.toThrow("wiki_cursor_invalid");
+    }
+  });
+  it("does not treat an HTTP-success API error as an exhausted catalog",async()=>{
+    const w=worker();w.run('fetchRemote=async()=>({ok:true,json:async()=>({error:{code:"ratelimited"}})})');
+    await expect(w.run('wikipediaSearch("term","en")')).rejects.toThrow("wiki_response_invalid");
+  });
+});
