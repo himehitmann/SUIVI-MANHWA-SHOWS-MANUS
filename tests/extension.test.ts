@@ -1477,7 +1477,7 @@ describe("complementary search catalogs",()=>{
   });
   it("bounds the secondary queue and frees slots after requests finish",async()=>{
     const w=worker();
-    w.run('setTimeout=fn=>{fn();return 0};fetchRemote=async()=>({ok:true,json:async()=>({data:[]})})');
+    w.run('setTimeout=(fn,ms)=>{if(ms===400)fn();return 0};fetchRemote=async()=>({ok:true,json:async()=>({data:[]})})');
     const results=await w.run('Promise.allSettled(Array.from({length:9},(_,i)=>jikanRequest("manga?q="+i)))');
     expect(results.filter((r:any)=>r.status==="fulfilled")).toHaveLength(8);
     expect(results.filter((r:any)=>r.status==="rejected")[0].reason.message).toBe("jikan_queue_full");
@@ -1889,5 +1889,35 @@ describe("catalog search relevance",()=>{
     await w.run("Array.from(catalogJobs.values())[0].task");
     const result=await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true});
     expect(result.results.map((x:any)=>x.title)).toEqual(["Yandere","Yonder"]);
+  });
+});
+
+describe("Jikan search outage budget",()=>{
+  it("aborts a stalled request and fails queued searches without a second network timeout",async()=>{
+    const w=worker();
+    w.run('var expire,calls=0,signal;setTimeout=(fn,ms)=>{if(ms===6000)expire=fn;else fn();return 0};fetchRemote=async(url,options)=>{calls++;signal=options.signal;return new Promise(()=>{});};');
+    const task=w.run('Promise.allSettled([jikanRequest("manga?q=test",6000),jikanRequest("anime?q=test",6000)])');
+    await new Promise(resolve=>setTimeout(resolve,0));
+    w.run("expire()");
+    const results=await task;
+    expect(results.every((x:any)=>x.status==="rejected")).toBe(true);
+    expect(w.run("calls")).toBe(1);expect(w.run("signal.aborted")).toBe(true);
+    expect(w.run("jikanPending")).toBe(0);
+    await expect(w.run('jikanRequest("manga?q=retry",6000)')).rejects.toThrow("temporarily_unavailable");
+  });
+  it("applies the deadline to a stalled JSON body and allows recovery after cooldown",async()=>{
+    const w=worker();
+    w.run('var expire;setTimeout=(fn,ms)=>{if(ms===6000)expire=fn;else fn();return 0};fetchRemote=async()=>({ok:true,json:()=>new Promise(()=>{})});');
+    const task=w.run('jikanRequest("manga?q=test",6000).catch(error=>error.message)');
+    await new Promise(resolve=>setTimeout(resolve,0));w.run("expire()");
+    expect(await task).toBe("jikan_timeout");
+    w.run('jikanRetryAt=Date.now()-1;fetchRemote=async()=>({ok:true,json:async()=>({data:[]})})');
+    await expect(w.run('jikanRequest("manga?q=recovered",6000)')).resolves.toEqual({data:[]});
+  });
+  it("does not suspend every request for a missing individual work",async()=>{
+    const w=worker();
+    w.run('setTimeout=(fn,ms)=>{if(ms===400)fn();return 0};fetchRemote=async()=>({ok:false,status:404})');
+    await expect(w.run('jikanRequest("manga/999999")')).rejects.toThrow("jikan_404");
+    expect(w.run("jikanRetryAt")).toBe(0);
   });
 });

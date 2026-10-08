@@ -727,14 +727,28 @@ async function anilistDetail(id) {
 }
 
 
-let jikanQueue=Promise.resolve(),jikanPending=0;
-function jikanRequest(path) {
+let jikanQueue=Promise.resolve(),jikanPending=0,jikanRetryAt=0;
+function jikanRequest(path,timeoutMs=15000) {
+  if(Date.now()<jikanRetryAt)return Promise.reject(Error("jikan_temporarily_unavailable"));
   if(jikanPending>=8)return Promise.reject(Error("jikan_queue_full"));
   jikanPending++;
   const request=jikanQueue.then(async()=>{
-    const response=await fetchRemote("https://api.jikan.moe/v4/"+path);
-    if(!response.ok)throw Error("jikan_"+response.status);
-    return response.json();
+    if(Date.now()<jikanRetryAt)throw Error("jikan_temporarily_unavailable");
+    const controller=new AbortController();
+    let timer,retryable=true;
+    try {
+      return await Promise.race([
+        (async()=>{
+          const response=await fetchRemote("https://api.jikan.moe/v4/"+path,{signal:controller.signal});
+          if(!response.ok){retryable=response.status===429||response.status>=500;throw Error("jikan_"+response.status);}
+          return response.json();
+        })(),
+        new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error("jikan_timeout"));},timeoutMs);})
+      ]);
+    }catch(error){
+      if(retryable)jikanRetryAt=Date.now()+30000;
+      throw error;
+    }finally{clearTimeout(timer);}
   });
   jikanQueue=request.catch(()=>{}).then(()=>new Promise(resolve=>setTimeout(resolve,400)));
   return request.finally(()=>{jikanPending--;});
@@ -754,7 +768,7 @@ function jikanMedia(m,type) {
     trailerUrl:m.trailer?.url||"",url:m.url||"",source:"myanimelist"};
 }
 async function jikanSearchPage(query,kind,page=1,onPage) {
-  const data=await jikanRequest(kind+"?q="+encodeURIComponent(query)+"&limit=25&sfw=true&page="+page);
+  const data=await jikanRequest(kind+"?q="+encodeURIComponent(query)+"&limit=25&sfw=true&page="+page,6000);
   if(!Array.isArray(data.data))throw Error("jikan_response_invalid");
   if(onPage)onPage("jikan-"+kind,page,data.pagination?.has_next_page===true);
   return data.data.map(m=>jikanMedia(m,kind==="manga"?"reading":"watching")).filter(Boolean);

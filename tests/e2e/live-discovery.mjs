@@ -69,7 +69,20 @@ try{
   for(const query of ["yandere","portal"]){
     const observation=await worker.evaluate(async query=>{
       const began=Date.now(),result={query,firstResultsMilliseconds:null,rounds:[]};
+      const originalRemote=fetchRemote;result.steamResponses=[];
+      fetchRemote=async(input,options)=>{
+        const response=await originalRemote(input,options);
+        try{
+          const url=new URL(input);
+          if(url.hostname==="store.steampowered.com"&&url.pathname==="/search/results/"&&url.searchParams.get("term")===query){
+            const data=await response.clone().json();
+            result.steamResponses.push({requestedStart:url.searchParams.get("start"),returnedStart:data.start,total:data.total_count,ids:parseSteamSearch(data.results_html).map(row=>row.id)});
+          }
+        }catch{}
+        return response;
+      };
       let response;
+      try{
       for(let round=0;round<2;round++){
         if(round&&(!response?.hasMore||response.pending||!response.ok))break;
         const more=round?response.cursor:null,started=Date.now();
@@ -92,6 +105,7 @@ try{
         });
       }
       return result;
+      }finally{fetchRemote=originalRemote;}
     },query);
     report.searches.push(observation);
     const [first,second]=observation.rounds;
