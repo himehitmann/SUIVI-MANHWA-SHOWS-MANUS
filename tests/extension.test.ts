@@ -1710,7 +1710,7 @@ describe("catalog search pagination",()=>{
     await w.run("Array.from(catalogJobs.values())[0].task");
     const done=await w.call(request);
     expect(done.results).toHaveLength(2);
-    expect(done.results[0].genres).toEqual(["Action"]);
+    expect(done.results.find((item:any)=>item.externalIds?.steam==="100").genres).toEqual(["Action"]);
     expect(done.hasMore).toBe(false);expect(done.pending).toBe(false);
     expect(w.run("nextCalls")).toBe(1);
   });
