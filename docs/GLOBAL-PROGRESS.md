@@ -182,3 +182,14 @@ Sonde réelle « yandere » : 158 résultats à la première page et 254 après 
 Limites : les chiffres varient avec les fournisseurs et ne constituent pas une mesure d'exhaustivité. La recherche thématique ajoutée concerne AniList, pas l'ensemble des fournisseurs ; ce n'est pas une recherche plein texte universelle dans toutes les descriptions. Les genres traduits ne couvrent pas toutes les langues. Le tri par popularité du fournisseur favorise ici les anime parmi les thèmes, et Jikan demeure indisponible pendant la sonde. G08 reste P ; global inchangé 19/60 (32 % arrondi).
 
 Référence du schéma utilisé : [filtres des médias AniList](https://docs.anilist.co/reference/object/page) et [définition des tags](https://docs.anilist.co/reference/object/mediatag).
+
+
+## Équilibre manga/anime des thèmes vérifié le 9 octobre 2026
+
+[CI #602](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37900174069), commit b599e4550625bcd8011ba40ae83607be5b0df51c : vérification complète réussie.
+
+Les recherches thématiques ont désormais deux sources paginées indépendantes, MANGA et ANIME, de 50 résultats chacune. Elles sont lancées en parallèle après les résultats par titre. Une famille terminée n'est pas relancée ; une page en échec peut être réessayée sans perdre les résultats de l'autre famille ni changer son curseur. Un test couvre la reprise de la page manga après panne avec la source anime déjà terminée.
+
+Sonde réelle « yandere » : première page 208 résultats (120 lectures, 61 contenus à regarder, 27 jeux), deuxième page 354 (191 lectures, 111 contenus à regarder, 52 jeux). La sonde précédente donnait 254 résultats dont 96 lectures après deux pages. Les deux sources thématiques avancent chacune vers la page 3. Premiers résultats à 502 ms ; fin de la première page à 6 573 ms, seconde à 517 ms. « portal » conserve son parcours par titre, 58 puis 104 résultats.
+
+Cette mesure confirme que la popularité des anime ne repousse plus les mangas vers des pages thématiques éloignées. Les lectures comprennent aussi les livres des autres fournisseurs : 191 ne signifie pas 191 mangas. Le corpus n'est toujours pas exhaustif, et Jikan reste indisponible pendant ce contrôle. G08 reste partiel ; score global inchangé à 19/60 (32 % arrondi). Aucune mise à jour de l'extension installée ni publication Store.
