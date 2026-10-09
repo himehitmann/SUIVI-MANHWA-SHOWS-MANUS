@@ -18,6 +18,9 @@ G03 est désormais validé : la revue visuelle sur données réelles a été ré
 
 ## Preuves actuelles
 
+[CI #618](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37912389197), commit b6e98ed9d2e021cb3ba68281f2b190e44282d60f : 455 tests unitaires et contrôles du paquet réussis. Nouveau parcours automatique via SET_TRANSLATION_RULE depuis une page de l’extension vers une fixture HTTPS interceptée sur une origine déjà autorisée : texte et OCR réels, second chapitre traduit sans commande manuelle, désactivation restaurant les originaux, troisième chapitre inchangé, refus d’une origine non autorisée. Seul le service de traduction réseau est simulé ; ceci ne mesure pas la qualité linguistique et ne valide pas le dialogue natif de permission du popup. G17 reste partiel, score inchangé à 20/60.
+
+
 [CI #533](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37456852013), commit 01852faff0d6ac06ec476f7b7e341ab0f6ee9491 : contrôles du code, compilation, sécurité, audit des dépendances, parcours web et Chrome, images, listes, vidéo et sonde PostgreSQL réussis. Les catégories de l’accueil sont testées depuis les boutons réels : sélection vide sauvegardée dans Chrome, choix d’une catégorie, maintien du focus clavier, refus de double enregistrement et récupération après erreur. Les filtres restent accessibles pendant une panne de catalogue.
 
 Trois dépendances signalées par l’audit du 6 octobre ont été corrigées : proxy-addr 2.0.8, source-map-js 1.2.2 et postcss-selector-parser 7.1.6. Les empreintes et dépendances ont été vérifiées auprès du registre npm, puis l’installation verrouillée, l’audit et les tests ont réussi. Cette mise à jour documentaire ne modifie pas le produit testé.
@@ -44,7 +47,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G14 | Personnalisation profil : nom, bio, avatar/bannière recadrables et synchronisation | V | ProfileEditor et parcours web : image WebP, profil relu via API et écran étroit. D’autres personnalisations restent possibles sans invalider ce périmètre. |
 | G15 | Amis, messages, partage de recommandations avec contrôle de confidentialité | NV | Service social complet absent. Invitations, refus/blocage, signalement et permissions nécessaires. |
 | G16 | Traduction texte et images sur les pages/langues représentatives | P | OCR embarqué et scénarios réels existants ; qualité, toutes langues, panneaux difficiles et coût fournisseur à mesurer. |
-| G17 | Traduction automatique par site, arrêt/restauration et permissions | P | Module et 22 nouveaux tests de validation/course/navigation ; parcours complet depuis le paquet Chrome restant. |
+| G17 | Traduction automatique par site, arrêt/restauration et permissions | P | CI #618 : paquet Chrome sur page HTTPS, permission réelle, OCR image réel, navigation entre chapitres, désactivation et restauration texte/images vérifiés. Dialogue natif de permission et activation depuis le popup encore à vérifier. |
 | G18 | Rôles propriétaires/admin et cadeaux contrôlés côté serveur | V | Tests HTTP, rôle revérifié, expiration, rejeu, transaction PostgreSQL et journal durable. Activation du propriétaire réel distincte. |
 | G19 | Console admin utilisable : recherche exacte, confirmation, motif et mobile | V | Parcours web annulation/confirmation et écran étroit ; API simulée pour ce parcours, tests serveur séparés. |
 | G20 | Paiement, renouvellement, annulation, remboursement et droits de bout en bout | P | Signature/webhooks et garde de destination présents ; aucun cycle complet du prestataire déployé vérifié. |
