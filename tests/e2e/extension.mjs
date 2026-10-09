@@ -578,12 +578,20 @@ try {
     }
   });
   const popupSession=await context.newCDPSession(page);
-  const clicked=await popupSession.send("Runtime.evaluate",{
-    expression:'chrome.extension.getViews({type:"popup"})[0].document.getElementById("tr-auto").click()',
-    userGesture:true,awaitPromise:true
+  const targets=await popupSession.send("Target.getTargets");
+  const popupTarget=targets.targetInfos.find(t=>t.url===base+"popup.html"&&t.type!=="page");
+  assert.ok(popupTarget,"The toolbar popup must have its own browser target: "+JSON.stringify(targets.targetInfos.map(t=>({type:t.type,url:t.url}))));
+  const attached=await popupSession.send("Target.attachToTarget",{targetId:popupTarget.targetId,flatten:false});
+  await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
+    id:1,method:"Runtime.evaluate",params:{
+      expression:'document.getElementById("tr-auto").click()',userGesture:true,awaitPromise:true
+    }
+  })});
+  await page.waitForFunction(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    return view&&!view.document.getElementById("tr-auto").disabled&&view.document.getElementById("tr-status").textContent;
   });
-  assert.equal(clicked.exceptionDetails,undefined);
-  await page.waitForFunction(()=>chrome.extension.getViews({type:"popup"})[0]?.document.querySelector("#tr-status")?.textContent==="Automatic translation is on for this site.");
+  assert.equal(await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].document.getElementById("tr-status").textContent),"Automatic translation is on for this site.");
   const enabledRule=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
   assert.equal(enabledRule.rule.enabled,true);
   assert.equal(enabledRule.rule.target,"fr");
