@@ -18,6 +18,9 @@ G03 est désormais validé : la revue visuelle sur données réelles a été ré
 
 ## Preuves actuelles
 
+[CI #628](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37950062394), commit 5076feb06cfb9482a2a194f49ab23b90bd6b2a0b : contrôles complets réussis. Le test ouvre maintenant le vrai popup via chrome.action.openPopup, sélectionne anglais comme source OCR et français comme destination, puis clique son interrupteur dans son propre contexte navigateur avec un geste utilisateur. GET_TRANSLATION_RULE confirme les valeurs persistées, puis le parcours OCR/navigation/restauration existant passe. Aucun remplacement de tabs.query ou permissions.request/contains. L’origine HTTPS est déjà autorisée par le manifeste : cette preuve ne couvre pas le premier dialogue natif d’octroi/refus. G17 reste partiel ; total 20/60 inchangé. Les essais #622, #624 et #626 ont exposé des problèmes du pilotage du popup, corrigés dans #628.
+
+
 [CI #618](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37912389197), commit b6e98ed9d2e021cb3ba68281f2b190e44282d60f : 455 tests unitaires et contrôles du paquet réussis. Nouveau parcours automatique via SET_TRANSLATION_RULE depuis une page de l’extension vers une fixture HTTPS interceptée sur une origine déjà autorisée : texte et OCR réels, second chapitre traduit sans commande manuelle, désactivation restaurant les originaux, troisième chapitre inchangé, refus d’une origine non autorisée. Seul le service de traduction réseau est simulé ; ceci ne mesure pas la qualité linguistique et ne valide pas le dialogue natif de permission du popup. G17 reste partiel, score inchangé à 20/60.
 
 
@@ -47,7 +50,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G14 | Personnalisation profil : nom, bio, avatar/bannière recadrables et synchronisation | V | ProfileEditor et parcours web : image WebP, profil relu via API et écran étroit. D’autres personnalisations restent possibles sans invalider ce périmètre. |
 | G15 | Amis, messages, partage de recommandations avec contrôle de confidentialité | NV | Service social complet absent. Invitations, refus/blocage, signalement et permissions nécessaires. |
 | G16 | Traduction texte et images sur les pages/langues représentatives | P | OCR embarqué et scénarios réels existants ; qualité, toutes langues, panneaux difficiles et coût fournisseur à mesurer. |
-| G17 | Traduction automatique par site, arrêt/restauration et permissions | P | CI #618 : paquet Chrome sur page HTTPS, permission réelle, OCR image réel, navigation entre chapitres, désactivation et restauration texte/images vérifiés. Dialogue natif de permission et activation depuis le popup encore à vérifier. |
+| G17 | Traduction automatique par site, arrêt/restauration et permissions | P | CI #618 : paquet Chrome sur page HTTPS, permission réelle, OCR image réel, navigation entre chapitres, désactivation et restauration texte/images vérifiés. CI #628 : activation depuis le véritable popup Chrome et langues choisies vérifiées sans simuler les API de permissions. Première demande native sur site non autorisé encore à vérifier. |
 | G18 | Rôles propriétaires/admin et cadeaux contrôlés côté serveur | V | Tests HTTP, rôle revérifié, expiration, rejeu, transaction PostgreSQL et journal durable. Activation du propriétaire réel distincte. |
 | G19 | Console admin utilisable : recherche exacte, confirmation, motif et mobile | V | Parcours web annulation/confirmation et écran étroit ; API simulée pour ce parcours, tests serveur séparés. |
 | G20 | Paiement, renouvellement, annulation, remboursement et droits de bout en bout | P | Signature/webhooks et garde de destination présents ; aucun cycle complet du prestataire déployé vérifié. |
