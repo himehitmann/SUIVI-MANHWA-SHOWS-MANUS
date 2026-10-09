@@ -564,6 +564,8 @@ try {
   assert.equal(deniedRule.ok,false,"Ungrantable origin must not silently enable translation");
   // Open the actual toolbar popup, preserving the reader as the active tab.
   await autoReader.bringToFront();
+  const popupSession=await context.newCDPSession(page);
+  const previousTargets=new Set((await popupSession.send("Target.getTargets")).targetInfos.map(t=>t.targetId));
   await worker.evaluate(()=>chrome.action.openPopup());
   // Toolbar popups are extension views, not Playwright page targets.
   await page.waitForFunction(()=>{
@@ -577,9 +579,8 @@ try {
       select.value=value;select.dispatchEvent(new view.Event("change",{bubbles:true}));
     }
   });
-  const popupSession=await context.newCDPSession(page);
   const targets=await popupSession.send("Target.getTargets");
-  const popupTarget=targets.targetInfos.find(t=>t.url===base+"popup.html"&&t.type!=="page");
+  const popupTarget=targets.targetInfos.find(t=>t.url===base+"popup.html"&&!previousTargets.has(t.targetId));
   assert.ok(popupTarget,"The toolbar popup must have its own browser target: "+JSON.stringify(targets.targetInfos.map(t=>({type:t.type,url:t.url}))));
   const attached=await popupSession.send("Target.attachToTarget",{targetId:popupTarget.targetId,flatten:false});
   await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
