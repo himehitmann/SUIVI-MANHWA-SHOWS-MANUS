@@ -2018,3 +2018,43 @@ describe("detail theme metadata",()=>{
     expect(detail.externalIds).toEqual({anilist:"123"});
   });
 });
+
+describe("publication scope and saved metadata",()=>{
+  it("distinguishes a whole work from an anime installment at each provider",()=>{
+    const w=worker();
+    expect(w.run('mediaToResult({id:1,title:{english:"Manga"},format:"MANGA",status:"FINISHED"})')).toMatchObject({releaseScope:"work",releaseSource:"anilist"});
+    expect(w.run('mediaToResult({id:2,title:{english:"Season"},format:"TV",status:"FINISHED"})')).toMatchObject({releaseScope:"installment",releaseSource:"anilist"});
+    expect(w.run('mediaToResult({id:3,title:{english:"Film"},format:"MOVIE",status:"FINISHED"})')).toMatchObject({releaseScope:"work"});
+    expect(w.run('jikanMedia({mal_id:4,title:"Anime",type:"TV",status:"Finished Airing"},"watching")')).toMatchObject({releaseScope:"installment",releaseSource:"myanimelist"});
+    expect(w.run('jikanMedia({mal_id:5,title:"Film",type:"Movie",status:"Finished Airing"},"watching")')).toMatchObject({releaseScope:"work"});
+  });
+  it("refreshes TVmaze status with show scope without losing personal progress or tags",async()=>{
+    const w=worker({"dasi.items":[{id:"show",title:"Local show",type:"watching",season:2,episode:3,cover:"old",synopsis:"Personal summary",tags:["My favorite"],releaseStatus:"Running",releaseScope:"series",releaseSource:"tvmaze",externalIds:{tvmaze:"123"}}]});
+    w.run('fetchRemote=async url=>({ok:true,json:async()=>url.includes("/akas")?[]:{id:123,name:"Show",status:"Ended",genres:["Drama"],summary:"Summary",image:{original:"cover"}}})');
+    const result=await w.call({type:"COMPLETE_ITEM_METADATA",id:"show",force:true});
+    expect(result.item).toMatchObject({releaseStatus:"Ended",releaseScope:"series",releaseSource:"tvmaze",season:2,episode:3,tags:["My favorite"],genres:["Drama"],synopsis:"Personal summary"});
+  });
+  it("persists provider themes separately from personal tags on refresh",async()=>{
+    const w=worker({"dasi.items":[{id:"book",title:"Saved",type:"reading",chapter:9,cover:"old",synopsis:"Summary",tags:["Personal"],externalIds:{anilist:"123"},releaseStatus:"RELEASING",releaseScope:"work"}]});
+    w.run('anilistDetail=async()=>({title:"Saved",type:"reading",externalIds:{anilist:"123"},genres:["Romance"],tags:["Yandere","School"],releaseStatus:"FINISHED",releaseScope:"work",releaseSource:"anilist"})');
+    const result=await w.call({type:"COMPLETE_ITEM_METADATA",id:"book",force:true});
+    expect(result.item).toMatchObject({chapter:9,tags:["Personal"],catalogTags:["Yandere","School"],genres:["Romance"],releaseStatus:"FINISHED",releaseScope:"work"});
+    expect(w.data["dasi.items"][0].catalogTags).toEqual(["Yandere","School"]);
+  });
+  it("does not mix status and scope from different catalog rows",()=>{
+    const w=worker();
+    const result=w.run('combineCatalogEntries({title:"Work",cover:"art",releaseScope:"installment"},{title:"Work",releaseStatus:"Ended",releaseScope:"series",releaseSource:"tvmaze"})');
+    expect(result).toMatchObject({releaseStatus:"Ended",releaseScope:"series",releaseSource:"tvmaze"});
+    expect(w.run('combineCatalogEntries({title:"Work",cover:"art",releaseStatus:"FINISHED"},{title:"Work",releaseStatus:"Ended",releaseScope:"series",releaseSource:"tvmaze"}).releaseScope')).toBeUndefined();
+  });
+  it("protects the publication tuple when a concurrent edit changes any member",()=>{
+    const w=worker();
+    const result=w.run('applyMetadataPatch({title:"Work",releaseStatus:"Running",releaseScope:"series",releaseSource:"tvmaze"},{title:"Work",releaseStatus:"Running",releaseScope:"installment",releaseSource:"anilist"},{releaseStatus:"FINISHED",releaseScope:"work",releaseSource:"anilist",genres:["Drama"]})');
+    expect(result).toMatchObject({releaseStatus:"Running",releaseScope:"series",releaseSource:"tvmaze",genres:["Drama"]});
+  });
+  it("retains publication metadata after saving a catalog work",async()=>{
+    const w=worker();
+    const result=await w.save(book("Catalog work",{externalIds:{anilist:"123"},releaseStatus:"FINISHED",releaseScope:"installment",releaseSource:"anilist",catalogTags:["Yandere"]}));
+    expect(result.item).toMatchObject({releaseStatus:"FINISHED",releaseScope:"installment",releaseSource:"anilist",catalogTags:["Yandere"]});
+  });
+});

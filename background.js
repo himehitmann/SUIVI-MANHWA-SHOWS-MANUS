@@ -666,6 +666,12 @@ async function translateTexts(texts, target) {
 const ANILIST_URL = "https://graphql.anilist.co";
 const stripHtml = (s) => (s || "").replace(/<br\s*\/?>(\s*)/gi, " ").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/\s+/g, " ").trim();
 const READING_FORMATS = new Set(["MANGA", "NOVEL", "ONE_SHOT"]);
+function publicationMetadata(item) {
+  const status=typeof item?.releaseStatus==="string"?item.releaseStatus.trim():"";
+  return {releaseStatus:status||undefined,
+    releaseScope:status&&["work","series","installment"].includes(item.releaseScope)?item.releaseScope:undefined,
+    releaseSource:status&&["anilist","myanimelist","tvmaze","tmdb"].includes(item.releaseSource)?item.releaseSource:undefined};
+}
 function mediaToResult(m) {
   const title = (m.title && (m.title.english || m.title.romaji || m.title.native)) || "";
   const type = READING_FORMATS.has(m.format) ? "reading" : "watching";
@@ -676,7 +682,7 @@ function mediaToResult(m) {
   return {
     title,
     type,
-    releaseStatus:m.status||undefined,
+    releaseStatus:m.status||undefined,releaseScope:type==="reading"||m.format==="MOVIE"?"work":"installment",releaseSource:"anilist",
     anilistId: m.id || undefined,
     externalIds: { ...(m.id?{anilist:String(m.id)}:{}), ...(m.idMal?{mal:String(m.idMal)}:{}) },
     alternativeTitles: [...new Set([...Object.values(m.title||{}),...(m.synonyms||[])].filter(x=>typeof x==="string"&&x.trim()))],
@@ -758,7 +764,7 @@ function jikanMedia(m,type) {
   if(!m||!Number.isInteger(m.mal_id)||m.mal_id<1)return null;
   const formats={Manga:"MANGA",Manhwa:"MANHWA",Manhua:"MANHUA",Novel:"NOVEL","Light Novel":"NOVEL"};
   return {title:m.title_english||m.title||m.title_japanese||"",type,
-    releaseStatus:m.status||undefined,year:m.year||m.aired?.prop?.from?.year||m.published?.prop?.from?.year,
+    releaseStatus:m.status||undefined,releaseScope:type==="reading"||m.type==="Movie"?"work":"installment",releaseSource:"myanimelist",year:m.year||m.aired?.prop?.from?.year||m.published?.prop?.from?.year,
     externalIds:{mal:String(m.mal_id)},alternativeTitles:[...new Set([m.title,m.title_english,m.title_japanese,...(m.title_synonyms||[]),...(m.titles||[]).map(t=>t.title)].filter(Boolean))],
     authors:(m.authors||[]).map(a=>a.name).filter(Boolean),
     cover:m.images?.jpg?.large_image_url||m.images?.jpg?.image_url||"",
@@ -956,7 +962,7 @@ async function catalogDetail(item) {
       fetchRemote(base+"/akas").then(r=>r.ok?r.json():[]).catch(()=>[])
     ]);
     if(String(show.id)!==ids.tvmaze)throw Error("catalog_identity_mismatch");
-    return {...item,genres:Array.isArray(show.genres)?show.genres:[],synopsis:stripHtml(show.summary).slice(0,1500)||item.synopsis,cover:show.image?.original||item.cover,coverFallback:show.image?.medium||item.coverFallback,
+    return {...item,...publicationMetadata({releaseStatus:show.status,releaseScope:"series",releaseSource:"tvmaze"}),genres:Array.isArray(show.genres)?show.genres:[],synopsis:stripHtml(show.summary).slice(0,1500)||item.synopsis,cover:show.image?.original||item.cover,coverFallback:show.image?.medium||item.coverFallback,
       alternativeTitles:[...new Set([...identityTitles(item),show.name,...akas.map(a=>a.name)].filter(Boolean))],
       cast:(show._embedded?.cast||[]).slice(0,20).map(c=>({name:c.person?.name,character:c.character?.name,image:c.person?.image?.medium||c.character?.image?.medium||""})).filter(c=>c.name)
     };
@@ -1059,7 +1065,7 @@ async function tvmazeSearch(query) {
   const data = await res.json();
   return (data || []).slice(0, 30).map((row) => row.show).filter((sh) => sh && sh.name).map((sh) => ({
     title: sh.name,
-    releaseStatus:sh.status||undefined,
+    releaseStatus:sh.status||undefined,releaseScope:"series",releaseSource:"tvmaze",
     externalIds:{tvmaze:String(sh.id)},
     type: "watching",
     cover: (sh.image && (sh.image.original || sh.image.medium)) || "",
@@ -1264,6 +1270,7 @@ async function catalogSearchAll(query,onProgress,onPage) {
 function combineCatalogEntries(a,b) {
   const preferred=(!a.cover&&b.cover)||(a.source==="wikipedia"&&b.source!=="wikipedia")?b:a;
   const other=preferred===a?b:a,out={...other,...preferred,...identityMetadata(a,b)};
+  Object.assign(out,publicationMetadata(preferred.releaseStatus?preferred:other));
   for(const field of ["cover","coverFallback","synopsis","trailer","trailerUrl","releaseDate","price","platform","format","country","year","total"])if(!out[field]&&other[field])out[field]=other[field];
   for(const field of ["genres","tags"])out[field]=[...new Set([...(a[field]||[]),...(b[field]||[])])];
   if(out.type==="game") {
@@ -1459,7 +1466,7 @@ async function tvmazeTrending() {
   }).map(s=>({
     title:s.name,type:"watching",cat:bucket(s),externalIds:{tvmaze:String(s.id)},cover:s.image.original||s.image.medium,coverFallback:s.image.medium,
     synopsis:stripHtml(s.summary).slice(0,700),genres:s.genres||[],year:s.premiered?Number(s.premiered.slice(0,4)):undefined,
-    format:tvmazeFormat(s),country:tvmazeCountry(s)||undefined,releaseStatus:s.status||undefined,url:s.url||"",recentEpisodes:s.recentEpisodes
+    format:tvmazeFormat(s),country:tvmazeCountry(s)||undefined,releaseStatus:s.status||undefined,releaseScope:"series",releaseSource:"tvmaze",url:s.url||"",recentEpisodes:s.recentEpisodes
   }));
 }
 async function buildDiscover() {
@@ -1530,7 +1537,10 @@ function metadataIdentityUnchanged(live,before) {
 }
 function applyMetadataPatch(live,before,patch) {
   const safe={...live};
+  const publicationKeys=["releaseStatus","releaseScope","releaseSource"];
+  const publicationChanged=publicationKeys.some(key=>JSON.stringify(live[key])!==JSON.stringify(before[key]));
   for(const [key,value] of Object.entries(patch)) {
+    if(publicationKeys.includes(key)&&publicationChanged)continue;
     if(key==="cover"&&live.coverOverride)continue;
     if(["alternativeTitles","authors"].includes(key)){safe[key]=[...new Set([...(live[key]||[]),...(value||[])])];continue;}
     if(["enrichedAt","identityVersion","gameEnrichedAt"].includes(key)||JSON.stringify(live[key])===JSON.stringify(before[key]))safe[key]=value;
@@ -1674,6 +1684,8 @@ async function enrichWork(id,force=false,lease=null) {
     if (!it.coverOverride && match.cover) patch.cover = match.cover; // real series cover (fixes episode-thumbnail covers)
     if (!it.coverFallback && match.coverFallback) patch.coverFallback = match.coverFallback;
     if (!it.synopsis && match.synopsis) patch.synopsis = match.synopsis;
+    if(Array.isArray(match.genres)&&match.genres.length)patch.genres=[...new Set(match.genres)];
+    if(Array.isArray(match.tags)&&match.tags.length)patch.catalogTags=[...new Set(match.tags)];
     if ((!it.tags || !it.tags.length) && match.genres?.length) patch.tags = match.genres;
     if (match.total && match.total > (it.total || 0)) patch.total = match.total;
     // Catalog seasonYear is a release year, never a viewing-season number.
@@ -1681,7 +1693,7 @@ async function enrichWork(id,force=false,lease=null) {
     if(match.trailerUrl&&!it.trailerUrl)patch.trailerUrl=match.trailerUrl;
     if(match.cast?.length&&!it.cast?.length)patch.cast=match.cast;
     if(match.volumes&&it.type==="reading"&&!it.volumesTotal)patch.volumesTotal=match.volumes;
-    if(match.status&&!it.releaseStatus)patch.releaseStatus=match.status;
+    if(match.releaseStatus||match.status)Object.assign(patch,publicationMetadata({...match,releaseStatus:match.releaseStatus||match.status}));
     // Second pass: trailer, cast and exact released counts (real limits, so the
     // drawer can't run past the true episode/chapter count).
     if (match.anilistId && !known) {
@@ -1693,7 +1705,9 @@ async function enrichWork(id,force=false,lease=null) {
           const realTotal = it.type === "reading" ? d.chapters : d.episodes;
           if (realTotal && realTotal > (patch.total || it.total || 0)) patch.total = realTotal;
           if (d.volumes && it.type === "reading" && !it.volumesTotal) patch.volumesTotal = d.volumes;
-          if (d.status && !it.releaseStatus) patch.releaseStatus = d.status; // RELEASING / FINISHED …
+          if(d.releaseStatus||d.status)Object.assign(patch,publicationMetadata({...d,releaseStatus:d.releaseStatus||d.status}));
+          if(d.genres?.length)patch.genres=[...new Set(d.genres)];
+          if(d.tags?.length)patch.catalogTags=[...new Set(d.tags)];
         }
       } catch {}
     }

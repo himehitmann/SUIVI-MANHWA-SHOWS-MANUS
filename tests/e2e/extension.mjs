@@ -566,9 +566,12 @@ try {
       {title:"Future free game",type:"game",format:"Game",year:2028,comingSoon:true,price:"Free",genres:["Puzzle"]},
       {title:"Future paid game",type:"game",format:"Game",year:2028,comingSoon:true,price:"$15",genres:["Action"]},
       {title:"Released game",type:"game",format:"Game",released:true,genres:["Action"]},
-      {title:"Finished manga",type:"reading",format:"MANGA",releaseStatus:"FINISHED",genres:["Romance"]},
+      {title:"Finished manga",type:"reading",format:"MANGA",releaseStatus:"FINISHED",releaseScope:"work",genres:["Romance"]},
       {title:"Paused manga",type:"reading",format:"MANGA",releaseStatus:"HIATUS",genres:["Drama"]},
-      {title:"Cancelled manga",type:"reading",format:"MANGA",releaseStatus:"CANCELLED",genres:["Drama"]}
+      {title:"Cancelled manga",type:"reading",format:"MANGA",releaseStatus:"CANCELLED",genres:["Drama"]},
+      {title:"Finished season",type:"watching",format:"ANIME",releaseStatus:"FINISHED",releaseScope:"installment",genres:["Drama"]},
+      {title:"Ended show",type:"watching",format:"SERIES",releaseStatus:"Ended",releaseScope:"series",genres:["Drama"]},
+      {title:"Legacy ending",type:"watching",format:"ANIME",releaseStatus:"FINISHED",genres:["Drama"]}
     ];renderSearchResults(query);
   });
   await page.locator("#sf-kind").selectOption("GAME");
@@ -581,19 +584,56 @@ try {
   assert((await page.locator(".sr-row").innerText()).includes("Future free game"));
   await page.locator("#sf-reset").click();
   await page.locator("#sf-release").selectOption("finished");
+  assert.equal(await page.locator(".sr-row").count(),2);
+  assert((await page.locator(".sr-row").allTextContents()).some(text=>text.includes("Finished manga")));
+  assert((await page.locator(".sr-row").allTextContents()).some(text=>text.includes("Ended show")));
+  await page.locator("#sf-release").selectOption("installment_finished");
   assert.equal(await page.locator(".sr-row").count(),1);
-  assert((await page.locator(".sr-row").innerText()).includes("Finished manga"));
+  assert((await page.locator(".sr-row").innerText()).includes("Finished season"));
+  await page.locator("#sf-release").selectOption("finished_unscoped");
+  assert.equal(await page.locator(".sr-row").count(),1);
+  assert((await page.locator(".sr-row").innerText()).includes("Legacy ending"));
   await page.locator("#sf-release").selectOption("hiatus");
   assert((await page.locator(".sr-row").innerText()).includes("Paused manga"));
   await page.locator("#sf-release").selectOption("cancelled");
   assert((await page.locator(".sr-row").innerText()).includes("Cancelled manga"));
   await page.locator("#sf-reset").click();
   await page.locator("#sf-genre").selectOption("Romance");
+  await page.locator("#sf-kind").selectOption("GAME");
+  assert.equal(await page.locator("#sf-genre").inputValue(),"all");
+  assert.equal(await page.locator(".sr-row").count(),3);
+  await page.locator("#sf-reset").click();
+  await page.locator("#sf-genre").selectOption("Romance");
   await page.evaluate(()=>{lastResults=lastResults.filter(m=>!m.genres.includes("Romance"));renderSearchResults(query);});
   assert.equal(await page.locator("#sf-genre").inputValue(),"Romance");
   assert.equal(await page.locator(".sr-row").count(),0);
   await page.locator("#sf-reset").click();
-  assert.equal(await page.locator(".sr-row").count(),5);
+  assert.equal(await page.locator(".sr-row").count(),8);
+
+  // The real add action persists publication scope and catalog themes across reload.
+  await page.evaluate(()=>{
+    settings.lang="fr";
+    openCatalogPreviewResolved({title:"Scoped saved season",type:"watching",format:"ANIME",manual:true,
+      releaseStatus:"FINISHED",releaseScope:"installment",releaseSource:"anilist",
+      tags:["School"],genres:["Drama"],cast:[{name:"Fixture character"}],
+      synopsis:"Fixture synopsis",externalIds:{anilist:"9999998"}});
+  });
+  assert((await page.locator("#preview-info .publication-facts").innerText()).includes("Saison ou partie terminée"));
+  const targetList=await page.locator('#preview-list option').evaluateAll(options=>options.map(x=>x.value).find(v=>v&&v!=="__new"));
+  assert(targetList,"A fixture list must exist before saving");
+  await page.locator("#preview-list").selectOption(targetList);
+  await page.locator("#preview-add").click();
+  await page.waitForFunction(()=>items.some(item=>item.title==="Scoped saved season"));
+  const savedScope=await page.evaluate(()=>items.find(item=>item.title==="Scoped saved season"));
+  assert.equal(savedScope.releaseScope,"installment");
+  assert.equal(savedScope.releaseStatus,"FINISHED");
+  assert.deepEqual(savedScope.catalogTags,["School"]);
+  await page.reload();
+  await page.waitForFunction(id=>items.some(item=>item.id===id),savedScope.id);
+  await page.evaluate(id=>openDrawer(id),savedScope.id);
+  assert((await page.locator("#drawer .publication-facts").innerText()).includes("Saison ou partie terminée"));
+  assert((await page.locator("#drawer").innerText()).includes("School"));
+  await page.locator("#dr-close").click();
 
   assert.deepEqual(errors, []);
   console.log(

@@ -314,7 +314,7 @@ function tasteTerms(text) {
   return [...new Set(String(text||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").split(/[^\p{L}\p{N}]+/u).filter(w=>w.length>3&&!stop.has(w)))].slice(0,100);
 }
 function tasteGenres(item) {
-  return [...new Set([...(Array.isArray(item.genres)?item.genres:[]),...(Array.isArray(item.tags)?item.tags:[])].filter(g=>typeof g==="string").map(g=>g.trim().toLowerCase()).filter(Boolean))].slice(0,80);
+  return [...new Set([...(Array.isArray(item.genres)?item.genres:[]),...(Array.isArray(item.tags)?item.tags:[]),...(Array.isArray(item.catalogTags)?item.catalogTags:[])].filter(g=>typeof g==="string").map(g=>g.trim().toLowerCase()).filter(Boolean))].slice(0,80);
 }
 function tasteWeights() {
   const weights={};
@@ -1126,6 +1126,8 @@ function openDrawer(id) {
       <p class="drawer-marker">${esc(marker(i))}${isGame ? "" : " · " + relative(i.activityAt||i.updatedAt)}</p>
     </div>
     <div class="drawer-body">
+      ${publicationInformation(i)}
+      ${!isGame&&(i.genres?.length||i.catalogTags?.length)?`<div class="section-t">${settings.lang==="fr"?"Genres et thèmes":"Genres and themes"}</div><div class="tags">${[...new Set([...(i.genres||[]),...(i.catalogTags||[])])].filter(x=>typeof x==="string").map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
       ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${settings.lang==="fr"?"Auteurs":"Creators"}</div><p class="synopsis">${i.authors.filter(x=>typeof x==="string").map(esc).join(" · ")}</p>` : ""}
       ${Array.isArray(i.alternativeTitles)&&i.alternativeTitles.length ? `<div class="section-t">${settings.lang==="fr"?"Autres titres":"Alternative titles"}</div><ul class="synopsis">${i.alternativeTitles.filter(x=>typeof x==="string").map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="dr-refresh-info">${I.refresh} ${settings.lang==="fr"?"Actualiser la fiche":"Refresh details"}</button><button class="btn" id="dr-home-toggle" aria-pressed="${!!i.homeHidden}">${settings.lang==="fr"?(i.homeHidden?"Réafficher sur l’accueil":"Masquer de l’accueil"):(i.homeHidden?"Show on Home":"Hide from Home")}</button></div><p class="field-hint" id="dr-refresh-status" role="status"></p><div id="dr-extra-info"></div>
@@ -1254,7 +1256,7 @@ function wireDrawer(i, isWatch, isGame) {
     api.runtime.sendMessage({type:"CATALOG_DETAIL",item:i},response=>{
       if(api.runtime.lastError||!response?.ok||document.getElementById("drawer").dataset.itemId!==i.id)return;
       const extra=document.getElementById("dr-extra-info");
-      if(extra)extra.innerHTML=catalogInformation({...response.item,synopsis:undefined,authors:[],alternativeTitles:[]});
+      if(extra)extra.innerHTML=catalogInformation({...response.item,releaseStatus:undefined,synopsis:undefined,authors:[],alternativeTitles:[]});
     });
   }
   renderDrawerTags(i);
@@ -1788,17 +1790,32 @@ function resultKind(m) {
   if(m.type==="game")return "GAME";
   const format=String(m.format||"").toUpperCase();
   if(format==="SERIES"&&m.country==="US")return "US_SERIES";
-  return format||String(m.type||"").toUpperCase();
+  return (format==="TV"?"SERIES":format)||String(m.type||"").toUpperCase();
 }
 function publicationState(m) {
   const status=String(m.releaseStatus||"").trim().toUpperCase();
   if(["HIATUS","ON HIATUS","ON_HIATUS"].includes(status))return "hiatus";
   if(["CANCELLED","CANCELED"].includes(status))return "cancelled";
-  if(["FINISHED","ENDED","FINISHED AIRING","FINISHED PUBLISHING"].includes(status))return "finished";
+  if(["FINISHED","ENDED","FINISHED AIRING","FINISHED PUBLISHING"].includes(status))
+    return ["work","series"].includes(m.releaseScope)?"finished":m.releaseScope==="installment"?"installment_finished":"finished_unscoped";
   if(["RELEASING","RUNNING","CURRENTLY AIRING","PUBLISHING"].includes(status))return "ongoing";
   if(["NOT_YET_RELEASED","NOT YET AIRED","NOT YET PUBLISHED","UPCOMING","TO BE ANNOUNCED"].includes(status))return "upcoming";
   if(m.type==="game"&&(m.comingSoon===true||m.released===false))return "upcoming";
   return "unknown";
+}
+function publicationInformation(m) {
+  if(!m.releaseStatus)return "";
+  const fr=settings.lang==="fr",state=publicationState(m);
+  const labels={
+    finished:m.releaseScope==="series"?(fr?"Série terminée":"Series ended"):(fr?"Œuvre terminée":"Work finished"),
+    installment_finished:fr?"Saison ou partie terminée":"Season or installment finished",
+    finished_unscoped:fr?"Fin indiquée, portée non précisée":"Ended, scope unspecified",
+    ongoing:fr?"En cours":"Ongoing",upcoming:fr?"À venir":"Upcoming",
+    hiatus:fr?"En pause":"On hiatus",cancelled:fr?"Annulée":"Cancelled",unknown:fr?"Statut non renseigné":"Status unspecified"
+  };
+  const note=state==="installment_finished"?(fr?"Ce statut concerne cette fiche. Il ne confirme pas la fin de toute la série.":"This status applies to this entry. It does not confirm the end of the entire series."):
+    state==="finished_unscoped"?(fr?"La source ne précise pas si toute la série est terminée.":"The source does not specify whether the entire series has ended."):"";
+  return '<section class="publication-facts"><div class="section-t">'+(fr?"Publication / diffusion":"Publication / airing")+'</div><p>'+esc(labels[state])+'</p>'+(note?'<p class="sub">'+esc(note)+'</p>':"")+'</section>';
 }
 function resultYear(m) {
   const value=m.year||m.seasonYear||m.releaseDate||m.season;
@@ -1825,20 +1842,22 @@ function renderSearchResults(q) {
   const el=document.getElementById("search-results"),fr=settings.lang==="fr",f=searchFacets;
   const kinds=[...new Set([...lastResults.map(resultKind),...(f.kind!=="all"?[f.kind]:[])])].sort();
   const genres=[...new Set([...lastResults.filter(m=>f.kind==="all"||resultKind(m)===f.kind).flatMap(m=>m.genres||[]),...(f.genre!=="all"?[f.genre]:[])])].sort();
-  const labels={GAME:fr?"Jeux":"Games",MOVIE:fr?"Films":"Films",ANIME:"Anime",MANGA:"Manga",MANHWA:"Manhwa",MANHUA:"Manhua",KDRAMA:"K-drama",CDRAMA:"C-drama",JDRAMA:"J-drama",SERIES:fr?"Séries":"Series",US_SERIES:fr?"Séries américaines":"US series",NOVEL:fr?"Romans":"Novels"};
+  const labels={GAME:fr?"Jeux":"Games",MOVIE:fr?"Films":"Films",ANIME:"Anime",MANGA:"Manga",MANHWA:"Manhwa",MANHUA:"Manhua",KDRAMA:"K-drama",CDRAMA:"C-drama",JDRAMA:"J-drama",SERIES:fr?"Séries":"Series",US_SERIES:fr?"Séries américaines":"US series",NOVEL:fr?"Romans":"Novels",BOOK:fr?"Livres":"Books"};
   const select=(id,label,values,value)=>'<label>'+label+'<select class="field" id="'+id+'"><option value="all">'+t("all")+'</option>'+values.map(([key,name])=>'<option value="'+esc(key)+'"'+(value===key?' selected':'')+'>'+esc(name)+'</option>').join("")+'</select></label>';
   const shown=lastResults.filter(matchesSearchFacets);
   el.innerHTML='<div class="sr-wrap"><div class="sr-head"><b>'+t("searchTitle")+'</b> · '+esc(q)+' · '+shown.length+'/'+lastResults.length+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0">'+
     select("sf-kind",fr?"Type d’œuvre":"Media type",kinds.map(k=>[k,labels[k]||k]),f.kind)+
     select("sf-genre",fr?"Genre":"Genre",genres.map(g=>[g,g]),f.genre)+
     '<label>'+(fr?"Année de sortie":"Release year")+'<input class="field" id="sf-year" type="number" min="1900" max="2199" placeholder="2028" value="'+esc(f.year)+'"></label>'+
-    select("sf-release",fr?"Publication / diffusion":"Publication / airing",[["finished",fr?"Terminée":"Finished"],["ongoing",fr?"En cours":"Ongoing"],["upcoming",fr?"À venir":"Upcoming"],["hiatus",fr?"En pause":"On hiatus"],["cancelled",fr?"Annulée":"Cancelled"],["unknown",fr?"Non renseignée":"Unknown"]],f.release)+
+    select("sf-release",fr?"Publication / diffusion":"Publication / airing",[["finished",fr?"Œuvre / série terminée":"Work / series finished"],["installment_finished",fr?"Saison / partie terminée":"Season / installment finished"],["finished_unscoped",fr?"Fin non précisée":"Unspecified ending"],["ongoing",fr?"En cours":"Ongoing"],["upcoming",fr?"À venir":"Upcoming"],["hiatus",fr?"En pause":"On hiatus"],["cancelled",fr?"Annulée":"Cancelled"],["unknown",fr?"Non renseignée":"Unknown"]],f.release)+
     '</div>'+(f.kind==="GAME"?'<label>'+(fr?"Prix maximum (USD)":"Maximum price (USD)")+' <output id="sf-price-label">'+(f.price===200?t("all"):f.price===0?(fr?"Gratuit":"Free"):"$"+f.price)+'</output><input id="sf-price" type="range" min="0" max="200" step="5" value="'+f.price+'" style="width:100%"></label>':"")+
     '<p class="sub">'+(fr?"Filtres appliqués aux résultats reçus. Les dates et états inconnus restent non renseignés.":"Filters apply to the returned results. Unknown dates and publication states remain unspecified.")+'</p><button class="btn" id="sf-reset"'+(f.kind==="all"&&f.genre==="all"&&!f.year&&f.release==="all"&&f.price===200?' style="display:none"':"")+'>'+(fr?"Effacer les filtres":"Clear filters")+'</button>'+
     (shown.length?shown.map(m=>srRow(m,lastResults.indexOf(m))).join(""):'<p class="sr-empty">'+t("noMatch")+'</p>')+missingGameAction()+'</div>';
   for(const [id,key] of [["sf-kind","kind"],["sf-genre","genre"],["sf-year","year"],["sf-release","release"],["sf-price","price"]]){
     const field=document.getElementById(id);if(!field)continue;
-    field.onchange=()=>{f[key]=key==="price"?Number(field.value):field.value;renderSearchResults(q);document.getElementById(id)?.focus();};
+    field.onchange=()=>{f[key]=key==="price"?Number(field.value):field.value;
+      if(key==="kind"&&f.genre!=="all"&&!lastResults.some(m=>(f.kind==="all"||resultKind(m)===f.kind)&&(m.genres||[]).includes(f.genre)))f.genre="all";
+      renderSearchResults(q);document.getElementById(id)?.focus();};
     if(key==="price")field.oninput=()=>{document.getElementById("sf-price-label").textContent=field.value==="0"?(fr?"Gratuit":"Free"):field.value==="200"?t("all"):"$"+field.value;};
   }
   document.getElementById("sf-reset").onclick=()=>{searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};renderSearchResults(q);};
@@ -1950,7 +1969,7 @@ function mountEpisodeGuide(item) {
 
 function catalogInformation(m) {
   const fr=settings.lang==="fr";
-  const tags=[...new Set([...(m.genres||[]),...(m.tags||[])])].filter(x=>typeof x==="string");
+  const tags=[...new Set([...(m.genres||[]),...(m.tags||[]),...(m.catalogTags||[])])].filter(x=>typeof x==="string");
 
   const news=Array.isArray(m.news)?m.news.slice(0,8):[];
   const newsHtml=news.length?'<section class="game-news"><div class="section-t">'+(fr?"Actualités et mises à jour":"News and updates")+'</div>'+news.map(entry=>{
@@ -1959,7 +1978,7 @@ function catalogInformation(m) {
     return '<article class="game-news-card"><div class="game-news-meta">'+[entry.category,date].filter(Boolean).map(esc).join(" · ")+'</div><h4>'+esc(entry.title||"")+'</h4>'+(entry.summary?'<p class="synopsis">'+esc(entry.summary)+'</p>':"")+'</article>';
   }).join("")+'</section>':"";
   const gameFacts=m.type==="game"?'<dl class="game-detail-facts">'+(m.platform?'<dt>'+(fr?"Plateformes":"Platforms")+'</dt><dd>'+esc(m.platform)+'</dd>':"")+(m.releaseDate?'<dt>'+(fr?"Sortie":"Release date")+'</dt><dd>'+esc(m.releaseDate)+'</dd>':"")+'</dl>':"";
-  return gameFacts+(tags.length?'<div class="tags">'+tags.map(x=>'<span class="tag">'+esc(x)+'</span>').join("")+'</div>':"")+
+  return publicationInformation(m)+gameFacts+(tags.length?'<div class="tags">'+tags.map(x=>'<span class="tag">'+esc(x)+'</span>').join("")+'</div>':"")+
     (m.type==="game"&&m.price?'<p class="detail-price">'+esc(m.price)+'</p>':"")+
     (m.type==="game"?gameStoreButtons(m)+gameSourceCredit(m):"")+
     (m.synopsis?'<div class="section-t">'+t("synopsis")+'</div><p class="synopsis">'+esc(m.synopsis)+'</p>':"")+
@@ -2012,6 +2031,7 @@ function openCatalogPreviewResolved(m) {
 function addFromCatalog(m, btn) {
   const payload = {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, coverFallback: m.coverFallback || undefined, synopsis: m.synopsis || undefined,
+    releaseStatus:m.releaseStatus,releaseScope:m.releaseScope,releaseSource:m.releaseSource,catalogTags:m.catalogTags||m.tags||[],
     trailerUrl:m.trailerUrl, trailer:m.trailer, cast:m.cast, tags:m.tags||[], genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds, alternativeTitles:m.alternativeTitles, authors:m.authors, anilistId:m.anilistId,
     source:m.source,storeLinks:m.type==="game"?[...new Set([m.url,...(Array.isArray(m.storeLinks)?m.storeLinks:[])].map(safeStoreLink).filter(Boolean))].slice(0,24):[],gameEnrichedAt:m.gameEnrichedAt,
     format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
