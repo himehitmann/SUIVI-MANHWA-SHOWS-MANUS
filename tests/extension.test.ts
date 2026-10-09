@@ -1938,3 +1938,51 @@ describe("Steam page integrity",()=>{
     expect(w.run("reports")).toEqual([["steam",2,false]]);
   });
 });
+
+describe("catalog theme discovery",()=>{
+  it("adds works by theme after publishing title matches and keeps cursors independent",async()=>{
+    const w=worker();
+    w.ctx.payloads=[
+      {data:{GenreCollection:["Comedy"],MediaTagCollection:[{name:"Yandere",isAdult:false}],Page:{pageInfo:{hasNextPage:false},media:[{id:1,title:{english:"Yandere"},format:"MANGA"}]}}},
+      {data:{Page:{pageInfo:{hasNextPage:true},media:[{id:2,title:{english:"A different title"},format:"MANGA",tags:[{name:"Yandere"}]}]}}}
+    ];
+    w.run('var requests=[],batches=[],pages=[];jikanSearch=async()=>[];fetchRemote=async(url,options)=>{requests.push(JSON.parse(options.body));return {ok:true,json:async()=>payloads.shift()}};');
+    const results=await w.run('mangaSearchResilient("yandere",rows=>batches.push(rows.map(r=>r.title)),1,(...args)=>pages.push(args))');
+    expect(results.map((r:any)=>r.title)).toEqual(["Yandere","A different title"]);
+    expect(w.run("batches[0]")).toEqual(["Yandere"]);
+    expect(w.run("requests[1].variables")).toEqual({page:1,tags:["Yandere"]});
+    expect(w.run("requests[1].query")).not.toContain("search:");
+    expect(w.run("pages")).toEqual([["anilist",1,false],["anilist-theme",1,true]]);
+    expect(results[1].tags).toEqual(["Yandere"]);
+  });
+  it("does not broaden ordinary titles or partial tag words and supports French genres",async()=>{
+    const w=worker();
+    w.run('anilistSearchThemes=new Map([["yandere",{kind:"tag",name:"Yandere"}],["comedy",{kind:"genre",name:"Comedy"}]]);var calls=0;fetchRemote=async()=>{calls++;return {ok:true,json:async()=>({data:{Page:{media:[],pageInfo:{hasNextPage:false}}}})}}');
+    expect(await w.run('anilistThemeSearch("My Yandere Neighbour")')).toEqual([]);
+    expect(await w.run('anilistThemeSearch("yan")')).toEqual([]);
+    expect(w.run("calls")).toBe(0);
+    expect(w.run('anilistThemeFor("Comédie")')).toEqual({kind:"genre",name:"Comedy"});
+  });
+  it("keeps title results when theme lookup fails and records the retryable source",async()=>{
+    const w=worker();
+    w.run('anilistSearchThemes=new Map([["yandere",{kind:"tag",name:"Yandere"}]]);anilistSearch=async()=>[{title:"Yandere",type:"reading"}];anilistThemeSearch=async()=>{throw Error("offline")};jikanSearch=async()=>[];var pages=[];');
+    expect((await w.run('mangaSearchResilient("yandere",null,1,(...args)=>pages.push(args))')).map((r:any)=>r.title)).toEqual(["Yandere"]);
+    expect(w.run("pages")).toContainEqual(["anilist-theme",1,null]);
+  });
+  it("paginates themes even when title search is exhausted",async()=>{
+    const w=worker();
+    w.run('catalogSearchAll=async(q,publish,report)=>{report("anilist",1,false);report("anilist-theme",1,true);return [{title:"First",type:"reading",externalIds:{anilist:"1"}}]};var pages=[];anilistSearch=async()=>{throw Error("title must not repeat")};anilistThemeSearch=async(q,page,report)=>{pages.push(page);report("anilist-theme",page,false);return [{title:"Second",type:"reading",externalIds:{anilist:"2"}}]};');
+    await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    const first=await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true});
+    await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true,more:first.cursor});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    const done=await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true});
+    expect(done.results).toHaveLength(2);expect(done.hasMore).toBe(false);
+    expect(w.run("pages")).toEqual([2]);
+  });
+  it("does not expose spoiler or adult tags on search cards",()=>{
+    const w=worker();w.ctx.media={title:{english:"Work"},format:"MANGA",tags:[{name:"Action"},{name:"Secret",isMediaSpoiler:true},{name:"Twist",isGeneralSpoiler:true},{name:"Adult",isAdult:true}]};
+    expect(w.run("mediaToResult(media).tags")).toEqual(["Action"]);
+  });
+});

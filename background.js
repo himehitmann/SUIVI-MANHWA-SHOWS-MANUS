@@ -686,6 +686,7 @@ function mediaToResult(m) {
     coverFallback: (m.coverImage && (m.coverImage.medium || m.coverImage.large)) || undefined,
     synopsis: stripHtml(m.description).slice(0, 700),
     genres: Array.isArray(m.genres) ? [...new Set(m.genres.filter(g=>typeof g==="string"&&g.trim()))].slice(0,80) : [],
+    tags: Array.isArray(m.tags)?[...new Set(m.tags.filter(tag=>tag&&typeof tag.name==="string"&&!tag.isMediaSpoiler&&!tag.isGeneralSpoiler&&!tag.isAdult).map(tag=>tag.name.trim()).filter(Boolean))].slice(0,80):[],
     total: type === "reading" ? m.chapters || undefined : m.episodes || undefined,
     year: Number.isInteger(m.startDate?.year)&&m.startDate.year>0?m.startDate.year:(Number.isInteger(m.seasonYear)&&m.seasonYear>0?m.seasonYear:undefined),
     country: m.countryOfOrigin || undefined,
@@ -789,7 +790,14 @@ async function mangaSearchResilient(query,onProgress,page=1,onPage) {
   const publish=results=>{out.push(...results);if(onProgress)onProgress(results);};
   let jikanPublished=false;
   const settled=await Promise.allSettled([
-    anilistSearch(query,page,onPage).then(results=>{publish(results);return results;},error=>{if(onPage)onPage("anilist",page,null);throw error;}),
+    anilistSearch(query,page,onPage).then(async results=>{
+      publish(results);
+      if(anilistThemeFor(query)) {
+        try{const themed=await anilistThemeSearch(query,page,onPage);publish(themed);}
+        catch{if(onPage)onPage("anilist-theme",page,null);}
+      }
+      return results;
+    },error=>{if(onPage)onPage("anilist",page,null);throw error;}),
     jikanSearch(query,results=>{jikanPublished=true;publish(results);},page,onPage).then(results=>{
       if(!jikanPublished)publish(results);
       return results;
@@ -955,8 +963,31 @@ async function catalogDetail(item) {
   return item;
 }
 
+
+let anilistSearchThemes=null;
+function catalogThemeKey(value) {
+  return String(value||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").trim();
+}
+function anilistThemeFor(query) {
+  const key=catalogThemeKey(query);
+  const aliases={comedie:"comedy",horreur:"horror",fantastique:"fantasy","science fiction":"sci fi","tranche de vie":"slice of life",aventure:"adventure",drame:"drama",mystere:"mystery",surnaturel:"supernatural",psychologique:"psychological"};
+  return anilistSearchThemes?.get(aliases[key]||key)||null;
+}
+async function anilistThemeSearch(query,page=1,onPage) {
+  const theme=anilistThemeFor(query);
+  if(!theme){if(onPage)onPage("anilist-theme",page,false);return [];}
+  const gql=`query($page:Int,$tags:[String],$genres:[String]){Page(page:$page,perPage:50){pageInfo{hasNextPage} media(tag_in:$tags,genre_in:$genres,sort:POPULARITY_DESC,isAdult:false){id idMal synonyms title{romaji english native} coverImage{extraLarge large medium} description genres tags{name isMediaSpoiler isGeneralSpoiler isAdult} status seasonYear startDate{year} format countryOfOrigin siteUrl episodes chapters}}}`;
+  const variables={page,...(theme.kind==="tag"?{tags:[theme.name]}:{genres:[theme.name]})};
+  const res=await fetchRemote(ANILIST_URL,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({query:gql,variables})});
+  if(!res.ok)throw Error("anilist_theme_"+res.status);
+  const data=await res.json();
+  if(!Array.isArray(data?.data?.Page?.media))throw Error("anilist_theme_response_invalid");
+  if(onPage)onPage("anilist-theme",page,data.data.Page.pageInfo?.hasNextPage===true);
+  return data.data.Page.media.map(mediaToResult).filter(r=>r.title);
+}
+
 async function anilistSearch(query,page=1,onPage) {
-  const gql = `query($s:String,$page:Int){Page(page:$page,perPage:50){pageInfo{hasNextPage} media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres status seasonYear startDate{year} format countryOfOrigin siteUrl episodes chapters}}}`;
+  const gql = `query($s:String,$page:Int){Page(page:$page,perPage:50){pageInfo{hasNextPage} media(search:$s,sort:SEARCH_MATCH,isAdult:false){id idMal synonyms staff(perPage:25){edges{role node{name{full native}}}} title{romaji english native} coverImage{extraLarge large medium} description genres tags{name isMediaSpoiler isGeneralSpoiler isAdult} status seasonYear startDate{year} format countryOfOrigin siteUrl episodes chapters}}${anilistSearchThemes?"":" GenreCollection MediaTagCollection{name isAdult}"}}`;
   const res = await fetchRemote(ANILIST_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -966,6 +997,11 @@ async function anilistSearch(query,page=1,onPage) {
   const data = await res.json();
   const media=data?.data?.Page?.media;
   if(!Array.isArray(media))throw Error("anilist_response_invalid");
+  if(Array.isArray(data.data.GenreCollection)&&Array.isArray(data.data.MediaTagCollection)) {
+    anilistSearchThemes=new Map();
+    for(const name of data.data.GenreCollection)if(typeof name==="string")anilistSearchThemes.set(catalogThemeKey(name),{kind:"genre",name});
+    for(const tag of data.data.MediaTagCollection)if(typeof tag?.name==="string"&&!tag.isAdult)anilistSearchThemes.set(catalogThemeKey(tag.name),{kind:"tag",name:tag.name});
+  }
   if(onPage)onPage("anilist",page,data.data.Page.pageInfo?.hasNextPage===true);
   return media.map(mediaToResult).filter((r) => r.title);
 }
@@ -1180,6 +1216,7 @@ async function catalogSearchProgress(query,retry=false,more=null) {
         try {
           let results;
           if(source==="anilist")results=await anilistSearch(text,state.page,report);
+          else if(source==="anilist-theme")results=await anilistThemeSearch(text,state.page,report);
           else if(source==="steam")results=await steamSearch(text,state.page,report);
           else if(source==="openlibrary")results=await openLibrarySearch(text,state.page,report);
           else if(source==="jikan-manga"||source==="jikan-anime")results=await jikanSearchPage(text,source.slice(6),state.page,report);
