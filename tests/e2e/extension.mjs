@@ -562,8 +562,22 @@ try {
   assert.equal(await worker.evaluate(()=>chrome.permissions.contains({origins:["https://en.wikipedia.org/*"]})),true);
   const deniedRule=await ruleMessage({type:"SET_TRANSLATION_RULE",url:"https://reader.example.org/chapter",enabled:true,target:"fr",source:"eng"});
   assert.equal(deniedRule.ok,false,"Ungrantable origin must not silently enable translation");
-  const enabledRule=await ruleMessage({type:"SET_TRANSLATION_RULE",url:autoUrl,enabled:true,target:"fr",source:"eng"});
-  assert.equal(enabledRule.ok,true);
+  // Open the actual toolbar popup, preserving the reader as the active tab.
+  await autoReader.bringToFront();
+  const popupOpened=context.waitForEvent("page",{timeout:15000});
+  await worker.evaluate(()=>chrome.action.openPopup());
+  const autoPopup=await popupOpened;
+  await autoPopup.waitForLoadState("domcontentloaded");
+  await autoPopup.waitForFunction(()=>!document.querySelector("#tr-auto")?.disabled);
+  await autoPopup.locator("#tr-src").selectOption("eng");
+  await autoPopup.locator("#tr-lang").selectOption("fr");
+  await autoPopup.locator("#tr-auto").check();
+  await autoPopup.waitForFunction(()=>document.querySelector("#tr-status")?.textContent==="Automatic translation is on for this site.");
+  const enabledRule=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
+  assert.equal(enabledRule.rule.enabled,true);
+  assert.equal(enabledRule.rule.target,"fr");
+  assert.equal(enabledRule.rule.source,"eng");
+  await autoPopup.close();
   await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="BONJOUR LE MONDE");
   await autoReader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
   assert.equal(await autoReader.locator("#panel").getAttribute("src"),dataUrl);
