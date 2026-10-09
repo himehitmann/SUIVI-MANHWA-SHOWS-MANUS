@@ -621,17 +621,51 @@ try {
     assert.equal(unchanged.rule.target,"fr");assert.equal(unchanged.rule.source,"eng");
   }
   console.log("Popup permission failure: existing language restored and controls unlocked");
+  // A successful language change must replace the old translation, including OCR.
+  await worker.evaluate(()=>{
+    translateTexts=async(texts,target)=>texts.map(t=>target==="es"?(t.includes("HELLO")?"HOLA MUNDO":"BIENVENIDO A CASA"):(t.includes("HELLO")?"BONJOUR LE MONDE":"BIENVENUE À LA MAISON"));
+  });
+  await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
+    id:2,method:"Runtime.evaluate",params:{
+      expression:'document.getElementById("tr-lang").value="es";document.getElementById("tr-lang").dispatchEvent(new Event("change",{bubbles:true}))',userGesture:true
+    }
+  })});
+  await page.waitForFunction(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    return view&&!view.document.getElementById("tr-auto").disabled&&view.document.getElementById("tr-lang").value==="es";
+  });
+  const spanishRule=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
+  assert.equal(spanishRule.rule.target,"es");
+  await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="HOLA MUNDO");
+  await autoReader.waitForFunction(()=>[...document.querySelectorAll("[data-yomu-overlay]")].some(el=>el.textContent.includes("HOLA")),null,{timeout:45000});
+
   await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].close());
   await popupSession.detach();
-  await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="BONJOUR LE MONDE");
+  await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="HOLA MUNDO");
   await autoReader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
   assert.equal(await autoReader.locator("#panel").getAttribute("src"),dataUrl);
   await autoReader.goto("https://en.wikipedia.org/yomu-e2e/chapter-2");
-  await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="BONJOUR LE MONDE");
+  await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="HOLA MUNDO");
   await autoReader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
-  const disabledRule=await ruleMessage({type:"SET_TRANSLATION_RULE",url:autoUrl,enabled:false,target:"fr",source:"eng"});
-  assert.equal(disabledRule.ok,true);
-  assert.equal(disabledRule.unconfirmed,0);
+  await autoReader.bringToFront();
+  const stopSession=await context.newCDPSession(page);
+  const beforeStop=new Set((await stopSession.send("Target.getTargets")).targetInfos.map(t=>t.targetId));
+  await worker.evaluate(()=>chrome.action.openPopup());
+  await page.waitForFunction(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    return view&&view.document.getElementById("tr-auto")?.checked&&!view.document.getElementById("tr-auto").disabled;
+  });
+  const stopTarget=(await stopSession.send("Target.getTargets")).targetInfos.find(t=>t.url===base+"popup.html"&&!beforeStop.has(t.targetId));
+  assert.ok(stopTarget);
+  const stopAttached=await stopSession.send("Target.attachToTarget",{targetId:stopTarget.targetId,flatten:false});
+  await stopSession.send("Target.sendMessageToTarget",{sessionId:stopAttached.sessionId,message:JSON.stringify({
+    id:1,method:"Runtime.evaluate",params:{expression:'document.getElementById("tr-auto").click()',userGesture:true}
+  })});
+  await page.waitForFunction(()=>chrome.extension.getViews({type:"popup"})[0]?.document.getElementById("tr-status").textContent==="Automatic translation is off for this site.");
+  const disabledRule=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
+  assert.equal(disabledRule.rule.enabled,false);
+  await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].close());
+  await stopSession.detach();
   assert.equal(await autoReader.locator("#copy").textContent(),"HELLO WORLD");
   assert.equal(await autoReader.locator("[data-yomu-overlay]").count(),0);
   assert.equal(await autoReader.locator("#yomu-translation-status").count(),0);
