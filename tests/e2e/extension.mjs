@@ -557,6 +557,44 @@ try {
   await page.locator('#trailer-consent-probe iframe').waitFor();
   assert.equal(await page.locator('#trailer-consent-probe iframe').getAttribute('src'),'https://www.youtube-nocookie.com/embed/abcdefghijk');
   await page.evaluate(()=>document.getElementById('trailer-consent-probe').remove());
+
+  // Search facets: future releases, publication states and preserved selections.
+  await page.evaluate(()=>{
+    switchView("library");query="facet fixture";
+    searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};
+    lastResults=[
+      {title:"Future free game",type:"game",format:"Game",year:2028,comingSoon:true,price:"Free",genres:["Puzzle"]},
+      {title:"Future paid game",type:"game",format:"Game",year:2028,comingSoon:true,price:"$15",genres:["Action"]},
+      {title:"Released game",type:"game",format:"Game",released:true,genres:["Action"]},
+      {title:"Finished manga",type:"reading",format:"MANGA",releaseStatus:"FINISHED",genres:["Romance"]},
+      {title:"Paused manga",type:"reading",format:"MANGA",releaseStatus:"HIATUS",genres:["Drama"]},
+      {title:"Cancelled manga",type:"reading",format:"MANGA",releaseStatus:"CANCELLED",genres:["Drama"]}
+    ];renderSearchResults(query);
+  });
+  await page.locator("#sf-kind").selectOption("GAME");
+  assert(!(await page.locator("#sf-genre").innerText()).includes("Romance"));
+  await page.locator("#sf-year").fill("2028");await page.locator("#sf-year").press("Tab");
+  await page.locator("#sf-release").selectOption("upcoming");
+  assert.equal(await page.locator(".sr-row").count(),2);
+  await page.locator("#sf-price").fill("0");await page.locator("#sf-price").dispatchEvent("change");
+  assert.equal(await page.locator(".sr-row").count(),1);
+  assert((await page.locator(".sr-row").innerText()).includes("Future free game"));
+  await page.locator("#sf-reset").click();
+  await page.locator("#sf-release").selectOption("finished");
+  assert.equal(await page.locator(".sr-row").count(),1);
+  assert((await page.locator(".sr-row").innerText()).includes("Finished manga"));
+  await page.locator("#sf-release").selectOption("hiatus");
+  assert((await page.locator(".sr-row").innerText()).includes("Paused manga"));
+  await page.locator("#sf-release").selectOption("cancelled");
+  assert((await page.locator(".sr-row").innerText()).includes("Cancelled manga"));
+  await page.locator("#sf-reset").click();
+  await page.locator("#sf-genre").selectOption("Romance");
+  await page.evaluate(()=>{lastResults=lastResults.filter(m=>!m.genres.includes("Romance"));renderSearchResults(query);});
+  assert.equal(await page.locator("#sf-genre").inputValue(),"Romance");
+  assert.equal(await page.locator(".sr-row").count(),0);
+  await page.locator("#sf-reset").click();
+  assert.equal(await page.locator(".sr-row").count(),5);
+
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(

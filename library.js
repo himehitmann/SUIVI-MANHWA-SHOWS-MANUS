@@ -1791,10 +1791,13 @@ function resultKind(m) {
   return format||String(m.type||"").toUpperCase();
 }
 function publicationState(m) {
-  const status=String(m.releaseStatus||"").toUpperCase();
+  const status=String(m.releaseStatus||"").trim().toUpperCase();
+  if(["HIATUS","ON HIATUS","ON_HIATUS"].includes(status))return "hiatus";
+  if(["CANCELLED","CANCELED"].includes(status))return "cancelled";
   if(["FINISHED","ENDED","FINISHED AIRING","FINISHED PUBLISHING"].includes(status))return "finished";
   if(["RELEASING","RUNNING","CURRENTLY AIRING","PUBLISHING"].includes(status))return "ongoing";
   if(["NOT_YET_RELEASED","NOT YET AIRED","NOT YET PUBLISHED","UPCOMING","TO BE ANNOUNCED"].includes(status))return "upcoming";
+  if(m.type==="game"&&(m.comingSoon===true||m.released===false))return "upcoming";
   return "unknown";
 }
 function resultYear(m) {
@@ -1821,7 +1824,7 @@ function matchesSearchFacets(m) {
 function renderSearchResults(q) {
   const el=document.getElementById("search-results"),fr=settings.lang==="fr",f=searchFacets;
   const kinds=[...new Set([...lastResults.map(resultKind),...(f.kind!=="all"?[f.kind]:[])])].sort();
-  const genres=[...new Set(lastResults.flatMap(m=>m.genres||[]))].sort();
+  const genres=[...new Set([...lastResults.filter(m=>f.kind==="all"||resultKind(m)===f.kind).flatMap(m=>m.genres||[]),...(f.genre!=="all"?[f.genre]:[])])].sort();
   const labels={GAME:fr?"Jeux":"Games",MOVIE:fr?"Films":"Films",ANIME:"Anime",MANGA:"Manga",MANHWA:"Manhwa",MANHUA:"Manhua",KDRAMA:"K-drama",CDRAMA:"C-drama",JDRAMA:"J-drama",SERIES:fr?"Séries":"Series",US_SERIES:fr?"Séries américaines":"US series",NOVEL:fr?"Romans":"Novels"};
   const select=(id,label,values,value)=>'<label>'+label+'<select class="field" id="'+id+'"><option value="all">'+t("all")+'</option>'+values.map(([key,name])=>'<option value="'+esc(key)+'"'+(value===key?' selected':'')+'>'+esc(name)+'</option>').join("")+'</select></label>';
   const shown=lastResults.filter(matchesSearchFacets);
@@ -1829,7 +1832,7 @@ function renderSearchResults(q) {
     select("sf-kind",fr?"Type d’œuvre":"Media type",kinds.map(k=>[k,labels[k]||k]),f.kind)+
     select("sf-genre",fr?"Genre":"Genre",genres.map(g=>[g,g]),f.genre)+
     '<label>'+(fr?"Année de sortie":"Release year")+'<input class="field" id="sf-year" type="number" min="1900" max="2199" placeholder="2028" value="'+esc(f.year)+'"></label>'+
-    select("sf-release",fr?"Publication / diffusion":"Publication / airing",[["finished",fr?"Terminée":"Finished"],["ongoing",fr?"En cours":"Ongoing"],["upcoming",fr?"À venir":"Upcoming"],["unknown",fr?"Non renseignée":"Unknown"]],f.release)+
+    select("sf-release",fr?"Publication / diffusion":"Publication / airing",[["finished",fr?"Terminée":"Finished"],["ongoing",fr?"En cours":"Ongoing"],["upcoming",fr?"À venir":"Upcoming"],["hiatus",fr?"En pause":"On hiatus"],["cancelled",fr?"Annulée":"Cancelled"],["unknown",fr?"Non renseignée":"Unknown"]],f.release)+
     '</div>'+(f.kind==="GAME"?'<label>'+(fr?"Prix maximum (USD)":"Maximum price (USD)")+' <output id="sf-price-label">'+(f.price===200?t("all"):f.price===0?(fr?"Gratuit":"Free"):"$"+f.price)+'</output><input id="sf-price" type="range" min="0" max="200" step="5" value="'+f.price+'" style="width:100%"></label>':"")+
     '<p class="sub">'+(fr?"Filtres appliqués aux résultats reçus. Les dates et états inconnus restent non renseignés.":"Filters apply to the returned results. Unknown dates and publication states remain unspecified.")+'</p><button class="btn" id="sf-reset"'+(f.kind==="all"&&f.genre==="all"&&!f.year&&f.release==="all"&&f.price===200?' style="display:none"':"")+'>'+(fr?"Effacer les filtres":"Clear filters")+'</button>'+
     (shown.length?shown.map(m=>srRow(m,lastResults.indexOf(m))).join(""):'<p class="sr-empty">'+t("noMatch")+'</p>')+missingGameAction()+'</div>';
