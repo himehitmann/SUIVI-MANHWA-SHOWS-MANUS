@@ -6,15 +6,15 @@ Mise à jour : 9 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi rempl
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
-**19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+**20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
-## Pourquoi le compteur est resté à 30 %, puis passe à 32 %
+## Pourquoi le compteur est resté à 30 %, puis passe à 33 %
 
 Le compteur attribue un point uniquement à un critère entièrement vérifié. Plusieurs corrections peuvent donc améliorer un même critère partiel sans ajouter de point. Il ne mesure pas le travail réalisé ni le temps restant. Les preuves documentaires étaient aussi restées au 20 septembre : elles sont désormais actualisées.
 
 La livraison a été trop fragmentée en petits correctifs. Priorité : terminer des parcours cohérents, puis les comparer aux critères de réception. Ne pas ajouter de critères plus faciles ni reclasser un critère uniquement pour augmenter le score.
 
-G03 est désormais validé : la revue visuelle sur données réelles a été réalisée sur ordinateur et mobile, après correction des proportions des cartes Jeux. La collecte régionale réelle et les tests de fraîcheur, de panne et de recommandations complètent cette revue. Le dénominateur reste 60 ; aucun autre critère n'est reclassé.
+G03 est désormais validé : la revue visuelle sur données réelles a été réalisée sur ordinateur et mobile, après correction des proportions des cartes Jeux. La collecte régionale réelle et les tests de fraîcheur, de panne et de recommandations complètent cette revue. Le dénominateur reste 60. G09 est également validé depuis la CI #614 : combinaison des filtres et distinction explicite entre œuvre/série terminée, saison/partie terminée et portée inconnue, avec sauvegarde et rechargement vérifiés dans Chrome.
 
 ## Preuves actuelles
 
@@ -36,7 +36,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G06 | Images et bandes-annonces robustes, sans recadrage gênant | P | Replis, proportions et activation volontaire présents ; vidéos indisponibles et portrait réel à vérifier. |
 | G07 | Saisons et épisodes nommés avec progression cohérente | P | Guide TVmaze disponible ; autres catalogues et saisons particulières à compléter. |
 | G08 | Recherche progressive rapide, pertinente et paginée au-delà des petits résultats | P | Pagination à la demande AniList/Jikan/Steam/Open Library, puis TMDB/RAWG avec clés configurées (CI #572). Filtres conservés, dédoublonnage, reprise et courses entre recherches testés. Continuation Wikipedia par langue validée (CI #576). Classement titres/alias/thèmes/synopsis et deux recherches réelles contrôlés (CI #584). Extension de la couverture thématique, lenteur Jikan et progression Steam à examiner. |
-| G09 | Filtres type, genre, diffusion, dates futures et prix correctement combinés | P | Contrôles présents ; cohérence entre fournisseurs et distinction diffusion terminée/saison terminée restante. |
+| G09 | Filtres type, genre, diffusion, dates futures et prix correctement combinés | V | CI #606 et #614 : combinaisons année 2028/gratuit, changement de type, genres conservés pendant chargement, états séparés et portée œuvre/série vs saison/partie. Mapping AniList/Jikan/TVmaze, ajout, actualisation et rechargement Chrome vérifiés. Les métadonnées manquantes restent inconnues ; couverture des fournisseurs distincte de ce critère. |
 | G10 | Jeux au-delà de Steam, boutiques officielles, prix et tags détaillés | P | Steam et RAWG avec clé personnelle : repli sur identifiant connu, plateformes/boutiques fusionnées, genres conservés et refresh sans perte des modifications personnelles testés. Prix multi-boutiques, droits et couverture réelle restent partiels. |
 | G11 | Actualités récentes, codes et récompenses structurés avec expiration | NV | Ne pas confondre annonces génériques et codes actifs vérifiés. Flux officiels et expiration à réaliser. |
 | G12 | Notifications par œuvre/jeu, catégories et désactivation réellement vérifiées | P | Préférences présentes ; livraison et suppression des événements périmés à valider. |
@@ -205,3 +205,17 @@ Les genres proposés sont limités au type sélectionné, tout en conservant le 
 ## Tags des fiches enregistrées vérifiés le 9 octobre 2026
 
 [CI #610](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37906599062), commit 0cb01d25b77e90f80ee102d773f9124001e01cfc : tous les contrôles réussis. La requête de détail AniList demande désormais les tags et leurs indicateurs de spoiler/adulte, comme la recherche. Un test vérifie les champs demandés, l'identifiant exact, les tags retournés sans doublons et le masquage des spoilers/adulte pour une œuvre enregistrée sans métadonnées de recherche. Les parcours Chrome du paquet passent également. Cette correction ne prouve pas la complétude de toutes les fiches ni la disponibilité de tous les fournisseurs ; G05 reste partiel. Global 19/60 (32 % arrondi), inchangé.
+
+
+## G09 validé : portée de publication et sauvegarde, 9 octobre 2026
+
+[CI #614](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37908817868), commit e42b1b64965fbad765347f297682eb673ca3ba35 : tous les contrôles réussis. Cette preuve clôt G09 et fait passer le score à 20/60 (33,3 %, 33 % arrondi). G05 et G02 restent partiels.
+
+- Les métadonnées couplées releaseStatus/releaseScope/releaseSource sont propagées des sources à la fiche, à l'ajout puis à la bibliothèque. AniList/Jikan : manga et films = œuvre, autres anime = saison/partie ; TVmaze = série. Une série annoncée Ended peut naturellement être relancée ultérieurement : aucun état n'est une garantie sur les annonces futures.
+- Les anciens statuts sans portée ne sont pas convertis en fin globale par supposition. Le filtre « Œuvre / série terminée » exclut les saisons et les fins non précisées, qui ont leurs propres options. Les fiches expliquent la portée.
+- Fusion et actualisation conservent la cohérence du trio statut/portée/source, y compris si une modification intervient pendant le chargement. TVmaze actualise son statut Ended/Running au lieu de conserver indéfiniment l'ancien état.
+- Les genres et thèmes récupérés sont persistés (catalogTags pour les thèmes du fournisseur) sans remplacer les tags personnels. Ce correctif complète la précédente requête de tags : récupérer les tags seuls ne garantissait pas leur sauvegarde.
+- Le changement de type efface un genre incompatible ; un simple rafraîchissement progressif conserve la sélection. TV est présenté comme série, BOOK comme livre.
+- Tests Chrome : filtres 2028/gratuit, œuvre terminée, série terminée, saison terminée, ancienne portée inconnue, pause/annulation ; changement Romance → Jeux ; ajout réel à une liste puis rechargement et réouverture avec statut et thèmes conservés. Tests du worker : mappers fournisseurs, statut TVmaze actualisé, thèmes séparés des tags personnels, fusion et modification concurrente.
+
+Limites distinctes : données absentes des fournisseurs, exhaustivité des catalogues, épisodes/chapitres, qualité des traductions et publication Store ne sont pas validés par ce lot. L'extension installée n'est pas remplacée automatiquement.
