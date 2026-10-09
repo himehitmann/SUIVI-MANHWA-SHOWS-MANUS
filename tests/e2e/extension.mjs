@@ -564,20 +564,32 @@ try {
   assert.equal(deniedRule.ok,false,"Ungrantable origin must not silently enable translation");
   // Open the actual toolbar popup, preserving the reader as the active tab.
   await autoReader.bringToFront();
-  const popupOpened=context.waitForEvent("page",{timeout:15000});
   await worker.evaluate(()=>chrome.action.openPopup());
-  const autoPopup=await popupOpened;
-  await autoPopup.waitForLoadState("domcontentloaded");
-  await autoPopup.waitForFunction(()=>!document.querySelector("#tr-auto")?.disabled);
-  await autoPopup.locator("#tr-src").selectOption("eng");
-  await autoPopup.locator("#tr-lang").selectOption("fr");
-  await autoPopup.locator("#tr-auto").check();
-  await autoPopup.waitForFunction(()=>document.querySelector("#tr-status")?.textContent==="Automatic translation is on for this site.");
+  // Toolbar popups are extension views, not Playwright page targets.
+  await page.waitForFunction(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    return view&&!view.document.querySelector("#tr-auto")?.disabled;
+  });
+  await page.evaluate(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    for(const [id,value] of [["tr-src","eng"],["tr-lang","fr"]]){
+      const select=view.document.getElementById(id);
+      select.value=value;select.dispatchEvent(new view.Event("change",{bubbles:true}));
+    }
+  });
+  const popupSession=await context.newCDPSession(page);
+  const clicked=await popupSession.send("Runtime.evaluate",{
+    expression:'chrome.extension.getViews({type:"popup"})[0].document.getElementById("tr-auto").click()',
+    userGesture:true,awaitPromise:true
+  });
+  assert.equal(clicked.exceptionDetails,undefined);
+  await page.waitForFunction(()=>chrome.extension.getViews({type:"popup"})[0]?.document.querySelector("#tr-status")?.textContent==="Automatic translation is on for this site.");
   const enabledRule=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
   assert.equal(enabledRule.rule.enabled,true);
   assert.equal(enabledRule.rule.target,"fr");
   assert.equal(enabledRule.rule.source,"eng");
-  await autoPopup.close();
+  await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].close());
+  await popupSession.detach();
   await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="BONJOUR LE MONDE");
   await autoReader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
   assert.equal(await autoReader.locator("#panel").getAttribute("src"),dataUrl);
