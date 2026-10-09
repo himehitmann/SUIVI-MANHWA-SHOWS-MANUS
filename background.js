@@ -993,13 +993,14 @@ async function openLibrarySearch(query,page=1,onPage) {
 }
 /** Games via the Steam storefront search (keyless). */
 async function steamSearch(query,page=1,onPage) {
-  const url = 'https://store.steampowered.com/search/results/?term='+encodeURIComponent(query)+'&start='+((page-1)*20)+'&count=20&category1=998&infinite=1&json=1&cc=us&l=en';
+  const url = 'https://store.steampowered.com/search/results/?term='+encodeURIComponent(query)+'&page='+page+'&start='+((page-1)*25)+'&count=25&category1=998&infinite=1&json=1&cc=us&l=en';
   const res=await fetchRemote(url); if(!res.ok) throw new Error('steam_'+res.status);
   const data=await res.json();
   if(typeof data.results_html!=="string")throw Error("steam_response_invalid");
+  if(data.start!==undefined&&Number(data.start)!==(page-1)*25)throw Error("steam_page_mismatch");
   const rows=parseSteamSearch(data.results_html);
-  if(onPage)onPage("steam",page,Number.isFinite(Number(data.total_count))?page*20<Number(data.total_count):rows.length===20);
-  return steamGames(rows,false,20).map(g=>({...g,released:undefined,externalIds:{steam:steamAppId(g.url)}}));
+  if(onPage)onPage("steam",page,Number.isFinite(Number(data.total_count))?page*25<Number(data.total_count):rows.length===25);
+  return steamGames(rows,false,25).map(g=>({...g,released:undefined,externalIds:{steam:steamAppId(g.url)}}));
 }
 /** Live-action TV series via TVMaze (keyless) — covers Western/American shows. */
 function tvmazeCountry(show) {

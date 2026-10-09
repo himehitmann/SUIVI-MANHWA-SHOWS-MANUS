@@ -1749,7 +1749,7 @@ describe("catalog search pagination",()=>{
     w.ctx.responses=[
       {data:{Page:{media:[],pageInfo:{hasNextPage:true}}}},
       {data:[],pagination:{has_next_page:true}},
-      {results_html:'<a data-ds-appid="123"><span class="title">Game</span></a>',total_count:41},
+      {results_html:'<a data-ds-appid="123"><span class="title">Game</span></a>',total_count:61,start:25},
       {docs:[{key:"/works/OL12W",title:"Book",author_name:["Author"],first_publish_year:2028}],numFound:41}
     ];
     w.run('fetchRemote=async(url,options)=>{requests.push({url,body:options?.body});return {ok:true,json:async()=>responses.shift()};};jikanRequest=async path=>{requests.push({url:path});return responses.shift()};var report=(...args)=>pages.push(args);');
@@ -1759,7 +1759,8 @@ describe("catalog search pagination",()=>{
     const books=await w.run('openLibrarySearch("term",2,report)');
     expect(w.run("JSON.parse(requests[0].body).variables.page")).toBe(2);
     expect(w.run("requests[1].url")).toContain("page=2");
-    expect(w.run("requests[2].url")).toContain("start=20");
+    expect(w.run("requests[2].url")).toContain("start=25");
+    expect(w.run("requests[2].url")).toContain("page=2");
     expect(w.run("requests[3].url")).toContain("page=2");
     expect(w.run("pages")).toEqual([["anilist",2,true],["jikan-manga",2,true],["steam",2,true],["openlibrary",2,true]]);
     expect(books[0]).toMatchObject({year:2028,authors:["Author"],url:"https://openlibrary.org/works/OL12W"});
@@ -1919,5 +1920,21 @@ describe("Jikan search outage budget",()=>{
     w.run('setTimeout=(fn,ms)=>{if(ms===400)fn();return 0};fetchRemote=async()=>({ok:false,status:404})');
     await expect(w.run('jikanRequest("manga/999999")')).rejects.toThrow("jikan_404");
     expect(w.run("jikanRetryAt")).toBe(0);
+  });
+});
+
+
+describe("Steam page integrity",()=>{
+  it("rejects a repeated first page instead of advancing past unseen games",async()=>{
+    const w=worker();
+    w.run('var reports=[];fetchRemote=async()=>({ok:true,json:async()=>({start:0,total_count:65,results_html:""})});');
+    await expect(w.run('steamSearch("game",2,(...args)=>reports.push(args))')).rejects.toThrow("steam_page_mismatch");
+    expect(w.run("reports")).toEqual([]);
+  });
+  it("keeps all 25 games returned by the store page",async()=>{
+    const w=worker();w.ctx.html=Array.from({length:25},(_,i)=>'<a data-ds-appid="'+(100+i)+'"><span class="title">Game '+i+'</span></a>').join("");
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>({start:25,total_count:50,results_html:html})});var reports=[];');
+    expect(await w.run('steamSearch("game",2,(...args)=>reports.push(args))')).toHaveLength(25);
+    expect(w.run("reports")).toEqual([["steam",2,false]]);
   });
 });
