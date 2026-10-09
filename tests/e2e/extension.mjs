@@ -597,6 +597,30 @@ try {
   assert.equal(enabledRule.rule.enabled,true);
   assert.equal(enabledRule.rule.target,"fr");
   assert.equal(enabledRule.rule.source,"eng");
+  // Deterministic denial/exception branches in the real popup. The native
+  // permission dialog itself is not simulated as a successful end-to-end check.
+  for(const failure of ["denied","exception"]){
+    const state=await page.evaluate(mode=>{
+      const view=chrome.extension.getViews({type:"popup"})[0];
+      const original=view.chrome.permissions.request;
+      view.chrome.permissions.request=(_options,callback)=>{
+        if(mode==="exception")throw new Error("Synthetic permission failure");
+        callback(false);
+      };
+      try{
+        const target=view.document.getElementById("tr-lang");
+        const source=view.document.getElementById("tr-src");
+        source.value="jpn";target.value="es";
+        target.dispatchEvent(new view.Event("change",{bubbles:true}));
+        return {target:target.value,source:source.value,locked:target.disabled||source.disabled||view.document.getElementById("tr-auto").disabled,
+          enabled:view.document.getElementById("tr-auto").checked,message:view.document.getElementById("tr-status").textContent};
+      }finally{view.chrome.permissions.request=original;}
+    },failure);
+    assert.deepEqual(state,{target:"fr",source:"eng",locked:false,enabled:true,message:"Access was not granted. Automatic translation remains unchanged."});
+    const unchanged=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
+    assert.equal(unchanged.rule.target,"fr");assert.equal(unchanged.rule.source,"eng");
+  }
+  console.log("Popup permission failure: existing language restored and controls unlocked");
   await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].close());
   await popupSession.detach();
   await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="BONJOUR LE MONDE");

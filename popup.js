@@ -289,8 +289,28 @@ api.tabs.query({active:true,currentWindow:true}).then(async tabs=>{
  api.runtime.sendMessage({type:'GET_TRANSLATION_RULE',url:translationPageUrl},r=>{void api.runtime.lastError;if(!r?.ok)return;autoRule=r.rule;trAuto.disabled=false;trAuto.checked=!!r.rule.enabled;if(r.rule.enabled){trSel.value=r.rule.target;trSrc.value=r.rule.source;}if(r.status==='permission_required')$('#tr-status').textContent='Automatic translation is paused. Allow access to this site to resume.';});
 }).catch(()=>{});
 function saveTranslationRule(enabled){
- const send=()=>api.runtime.sendMessage({type:'SET_TRANSLATION_RULE',url:translationPageUrl,enabled,target:trSel.value,source:trSrc.value},r=>{void api.runtime.lastError;trAuto.disabled=false;if(!r?.ok){trAuto.checked=!!autoRule?.enabled;$('#tr-status').textContent='Could not save automatic translation. Check site permission and retry.';return;}autoRule={enabled,target:trSel.value,source:trSrc.value};trAuto.checked=enabled;$('#tr-status').textContent=r.unconfirmed||r.status==='saved_application_unconfirmed'?'Setting saved. Reload the page if its translation state has not changed.':enabled?'Automatic translation is on for this site.':'Automatic translation is off for this site.';});
- trAuto.disabled=true;if(!enabled){send();return;}api.permissions.request({origins:translationOrigins},granted=>{const failed=api.runtime.lastError;if(granted&&!failed)send();else{trAuto.disabled=false;trAuto.checked=!!autoRule?.enabled;$('#tr-status').textContent='Access was not granted. Automatic translation remains unchanged.';}});
+ const requested={enabled,target:trSel.value,source:trSrc.value};
+ const unlock=()=>{trAuto.disabled=false;trSel.disabled=false;trSrc.disabled=false;};
+ const reject=message=>{
+  unlock();trAuto.checked=!!autoRule?.enabled;
+  if(autoRule?.enabled){trSel.value=autoRule.target;trSrc.value=autoRule.source;}
+  $('#tr-status').textContent=message;
+ };
+ const send=()=>{
+  try{api.runtime.sendMessage({type:'SET_TRANSLATION_RULE',url:translationPageUrl,...requested},r=>{
+   const failed=api.runtime.lastError;
+   if(failed||!r?.ok){reject('Could not save automatic translation. Check site permission and retry.');return;}
+   unlock();autoRule=requested;trAuto.checked=enabled;
+   $('#tr-status').textContent=r.unconfirmed||r.status==='saved_application_unconfirmed'?'Setting saved. Reload the page if its translation state has not changed.':enabled?'Automatic translation is on for this site.':'Automatic translation is off for this site.';
+  });}catch{reject('Could not save automatic translation. Check site permission and retry.');}
+ };
+ trAuto.disabled=true;trSel.disabled=true;trSrc.disabled=true;
+ if(!enabled){send();return;}
+ try{api.permissions.request({origins:translationOrigins},granted=>{
+  const failed=api.runtime.lastError;
+  if(granted&&!failed)send();
+  else reject('Access was not granted. Automatic translation remains unchanged.');
+ });}catch{reject('Access was not granted. Automatic translation remains unchanged.');}
 }
 trAuto.addEventListener('change',()=>saveTranslationRule(trAuto.checked));
 for(const select of [trSel,trSrc])select.addEventListener('change',()=>{if(trAuto.checked)saveTranslationRule(true);});
