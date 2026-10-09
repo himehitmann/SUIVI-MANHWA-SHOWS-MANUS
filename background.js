@@ -705,7 +705,7 @@ function trailerUrl(tr) {
 // from search so the list query stays light. Best-effort; throws are swallowed
 // by the caller.
 async function anilistDetail(id) {
-  const gql = `query($id:Int){Media(id:$id){id idMal title{romaji english native} synonyms staff(perPage:25){edges{role node{name{full native}}}} coverImage{extraLarge large medium} description genres format countryOfOrigin siteUrl episodes chapters volumes seasonYear startDate{year} status trailer{id site} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{name{full} image{large}}}}}}`;
+  const gql = `query($id:Int){Media(id:$id){id idMal title{romaji english native} synonyms staff(perPage:25){edges{role node{name{full native}}}} coverImage{extraLarge large medium} description genres tags{name isMediaSpoiler isGeneralSpoiler isAdult} format countryOfOrigin siteUrl episodes chapters volumes seasonYear startDate{year} status trailer{id site} characters(sort:[ROLE,RELEVANCE],perPage:12){edges{role node{name{full} image{large}}}}}}`;
   const res = await fetchRemote(ANILIST_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query: gql, variables: { id } }) });
   if (!res.ok) throw new Error(`anilist_detail_${res.status}`);
   const data = await res.json();

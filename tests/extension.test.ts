@@ -2005,3 +2005,16 @@ describe("independent manga and anime theme pages",()=>{
     expect(w.run("calls")).toEqual([{page:2,type:"MANGA"},{page:2,type:"MANGA"}]);
   });
 });
+
+describe("detail theme metadata",()=>{
+  it("requests and restores tags when a saved work had no search metadata",async()=>{
+    const w=worker();
+    w.run('var detailBody;fetchRemote=async(url,options)=>{detailBody=JSON.parse(options.body);return {ok:true,json:async()=>({data:{Media:{id:123,title:{english:"Saved work"},format:"MANGA",genres:["Romance"],tags:[{name:"Yandere"},{name:"School"},{name:"School"},{name:"Secret ending",isMediaSpoiler:true},{name:"Adult",isAdult:true}]}}})}}');
+    const detail=await w.run("anilistDetail(123)");
+    expect(w.run("detailBody.query")).toContain("tags{name isMediaSpoiler isGeneralSpoiler isAdult}");
+    expect(w.run("detailBody.variables")).toEqual({id:123});
+    expect(detail.tags).toEqual(["Yandere","School"]);
+    expect(detail.genres).toEqual(["Romance"]);
+    expect(detail.externalIds).toEqual({anilist:"123"});
+  });
+});
