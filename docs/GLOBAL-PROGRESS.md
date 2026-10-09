@@ -200,3 +200,8 @@ Cette mesure confirme que la popularité des anime ne repousse plus les mangas v
 [CI #606](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37901256213), commit 1e3db4a35ccdd013cb5ad9e395d1e9a27c389b8e : tous les contrôles ont réussi après une installation du navigateur particulièrement lente. Le test du paquet réel manipule les menus pour combiner jeux, année 2028, à venir et prix gratuit ; vérifie séparément terminé, hiatus et annulé ; puis simule un changement de résultats pour vérifier que le genre actif reste visible et peut être effacé.
 
 Les genres proposés sont limités au type sélectionné, tout en conservant le genre actif. Les jeux comingSoon/released=false sont reconnus comme à venir ; un jeu simplement sorti ne devient pas une œuvre terminée. HIATUS et CANCELLED ont des états distincts. Aucun changement du score global : G09 demeure P car le statut fournisseur d'une saison terminée ne prouve pas la fin de la franchise. 19/60, soit 32 % arrondi.
+
+
+## Tags des fiches enregistrées vérifiés le 9 octobre 2026
+
+[CI #610](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37906599062), commit 0cb01d25b77e90f80ee102d773f9124001e01cfc : tous les contrôles réussis. La requête de détail AniList demande désormais les tags et leurs indicateurs de spoiler/adulte, comme la recherche. Un test vérifie les champs demandés, l'identifiant exact, les tags retournés sans doublons et le masquage des spoilers/adulte pour une œuvre enregistrée sans métadonnées de recherche. Les parcours Chrome du paquet passent également. Cette correction ne prouve pas la complétude de toutes les fiches ni la disponibilité de tous les fournisseurs ; G05 reste partiel. Global 19/60 (32 % arrondi), inchangé.
