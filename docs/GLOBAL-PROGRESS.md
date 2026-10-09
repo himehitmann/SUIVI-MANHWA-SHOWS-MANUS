@@ -169,3 +169,16 @@ Les prix affichés, le catalogue ou la traduction ne garantissent pas un revenu 
 - Le test Chrome attend désormais l'ouverture effective des paramètres après le clic, avec un maximum de cinq secondes ; aucune assertion fonctionnelle n'est supprimée.
 
 G08 reste partiel : disponibilité Jikan, couverture des recherches par thèmes et validation des sources nécessitant des clés encore à compléter. Global inchangé : 19/60, soit 32 % arrondi. Aucun déploiement, publication Store ou remplacement de l'extension installée n'est effectué.
+
+
+## Recherche thématique vérifiée le 9 octobre 2026
+
+[CI #598](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37899523064), commit 7b69de2bc902223e97e726f91d20d2299fd92251 : tous les contrôles réussis, dont 447 tests unitaires et les parcours Chrome.
+
+La recherche AniList par titre collecte désormais les genres et thèmes disponibles (cache en mémoire du worker). Si le texte correspond exactement à un thème ou genre connu, une recherche complémentaire par tag_in ou genre_in ramène des œuvres dont le titre peut être différent. Les genres français courants sont associés aux noms du fournisseur. Un titre complet ou une portion de mot ne déclenche pas d'élargissement approximatif. Les résultats par titre restent prioritaires ; les identités communes sont fusionnées et le thème possède son propre curseur de pagination. Une panne du thème conserve les résultats par titre et signale la source partielle. Les tags adultes ou marqués comme spoilers sont masqués sur les résultats.
+
+Sonde réelle « yandere » : 158 résultats à la première page et 254 après la deuxième (96 lectures, 106 contenus à regarder et 52 jeux). Lors de la sonde précédente sans recherche thématique : 108 puis 153. Le premier résultat reste à 503 ms, premier chargement terminé à 6 535 ms, deuxième à 508 ms. AniList-theme progresse de la page 1 à la page 2 avec une suite disponible. « portal » ne déclenche pas cette source thématique et conserve la recherche par titre.
+
+Limites : les chiffres varient avec les fournisseurs et ne constituent pas une mesure d'exhaustivité. La recherche thématique ajoutée concerne AniList, pas l'ensemble des fournisseurs ; ce n'est pas une recherche plein texte universelle dans toutes les descriptions. Les genres traduits ne couvrent pas toutes les langues. Le tri par popularité du fournisseur favorise ici les anime parmi les thèmes, et Jikan demeure indisponible pendant la sonde. G08 reste P ; global inchangé 19/60 (32 % arrondi).
+
+Référence du schéma utilisé : [filtres des médias AniList](https://docs.anilist.co/reference/object/page) et [définition des tags](https://docs.anilist.co/reference/object/mediatag).
