@@ -193,3 +193,10 @@ Les recherches thématiques ont désormais deux sources paginées indépendantes
 Sonde réelle « yandere » : première page 208 résultats (120 lectures, 61 contenus à regarder, 27 jeux), deuxième page 354 (191 lectures, 111 contenus à regarder, 52 jeux). La sonde précédente donnait 254 résultats dont 96 lectures après deux pages. Les deux sources thématiques avancent chacune vers la page 3. Premiers résultats à 502 ms ; fin de la première page à 6 573 ms, seconde à 517 ms. « portal » conserve son parcours par titre, 58 puis 104 résultats.
 
 Cette mesure confirme que la popularité des anime ne repousse plus les mangas vers des pages thématiques éloignées. Les lectures comprennent aussi les livres des autres fournisseurs : 191 ne signifie pas 191 mangas. Le corpus n'est toujours pas exhaustif, et Jikan reste indisponible pendant ce contrôle. G08 reste partiel ; score global inchangé à 19/60 (32 % arrondi). Aucune mise à jour de l'extension installée ni publication Store.
+
+
+## Filtres combinés vérifiés dans Chrome le 9 octobre 2026
+
+[CI #606](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37901256213), commit 1e3db4a35ccdd013cb5ad9e395d1e9a27c389b8e : tous les contrôles ont réussi après une installation du navigateur particulièrement lente. Le test du paquet réel manipule les menus pour combiner jeux, année 2028, à venir et prix gratuit ; vérifie séparément terminé, hiatus et annulé ; puis simule un changement de résultats pour vérifier que le genre actif reste visible et peut être effacé.
+
+Les genres proposés sont limités au type sélectionné, tout en conservant le genre actif. Les jeux comingSoon/released=false sont reconnus comme à venir ; un jeu simplement sorti ne devient pas une œuvre terminée. HIATUS et CANCELLED ont des états distincts. Aucun changement du score global : G09 demeure P car le statut fournisseur d'une saison terminée ne prouve pas la fin de la franchise. 19/60, soit 32 % arrondi.
