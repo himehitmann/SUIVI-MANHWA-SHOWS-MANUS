@@ -100,50 +100,64 @@ function stripeRef(obj: Record<string, any>): { userId?: string; email?: string 
   };
 }
 
-/** Map a Stripe event to a plan change, or null if it isn't billing-relevant. */
+/** Only a single, explicitly configured product may change account access.
+ * Checkout payloads without expanded line items must be resolved by the caller
+ * before fulfillment; missing details never imply a paid plan.
+ */
+function itemPlan(items: any, map: PriceMap): Plan | null {
+  if (!Array.isArray(items) || items.length !== 1) return null;
+  return resolvePlan(items[0]?.price?.id, map);
+}
+
+/** Map a verified Stripe event to a known product, never a default upgrade. */
 export function planFromStripeEvent(event: any, map: PriceMap): PlanIntent | null {
   const obj = event?.data?.object ?? {};
   const ref = stripeRef(obj);
   switch (event?.type) {
-    case "checkout.session.completed": {
-      if (obj.mode === "payment") return { ...ref, plan: "lifetime" };
-      if (obj.mode === "subscription") {
-        const priceId = obj?.line_items?.data?.[0]?.price?.id;
-        return { ...ref, plan: resolvePlan(priceId, map) ?? "pro" };
-      }
+    case "checkout.session.completed":
+    case "checkout.session.async_payment_succeeded": {
+      if (obj.payment_status !== "paid" && obj.payment_status !== "no_payment_required") return null;
+      const plan = itemPlan(obj?.line_items?.data, map);
+      if (!plan) return null;
+      if (obj.mode === "payment" && plan === "lifetime") return { ...ref, plan };
+      // Subscription state is authoritative for recurring access.
       return null;
     }
     case "customer.subscription.created":
-    case "customer.subscription.updated": {
-      const priceId = obj?.items?.data?.[0]?.price?.id;
-      const active = obj?.status === "active" || obj?.status === "trialing";
-      return active ? { ...ref, plan: resolvePlan(priceId, map) ?? "pro" } : { ...ref, plan: "free" };
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted": {
+      const plan = itemPlan(obj?.items?.data, map);
+      if (plan !== "pro") return null;
+      if (event.type === "customer.subscription.deleted") return { ...ref, plan: "free" };
+      if (obj.status === "active" || obj.status === "trialing") return { ...ref, plan };
+      if (["canceled", "unpaid", "past_due", "paused", "incomplete", "incomplete_expired"].includes(obj.status)) return { ...ref, plan: "free" };
+      return null;
     }
-    case "customer.subscription.deleted":
-      return { ...ref, plan: "free" };
     default:
       return null;
   }
 }
 
-/** Map a Paddle Billing event to a plan change, or null if not relevant. */
+/** Map a verified Paddle event only when the product and status are known. */
 export function planFromPaddleEvent(event: any, map: PriceMap): PlanIntent | null {
   const data = event?.data ?? {};
   const ref = {
     userId: data?.custom_data?.userId || undefined,
     email: data?.customer?.email || data?.billing_details?.email || undefined,
   };
-  const priceId = data?.items?.[0]?.price?.id;
+  const plan = itemPlan(data?.items, map);
+  if (!plan) return null;
   switch (event?.event_type) {
     case "transaction.completed":
-      return { ...ref, plan: resolvePlan(priceId, map) ?? "pro" };
+      return data.status === "completed" ? { ...ref, plan } : null;
     case "subscription.created":
-    case "subscription.updated": {
-      const active = data?.status === "active" || data?.status === "trialing";
-      return active ? { ...ref, plan: resolvePlan(priceId, map) ?? "pro" } : { ...ref, plan: "free" };
-    }
+    case "subscription.updated":
+      if (plan !== "pro") return null;
+      if (data.status === "active" || data.status === "trialing") return { ...ref, plan };
+      if (["canceled", "past_due", "paused"].includes(data.status)) return { ...ref, plan: "free" };
+      return null;
     case "subscription.canceled":
-      return { ...ref, plan: "free" };
+      return plan === "pro" ? { ...ref, plan: "free" } : null;
     default:
       return null;
   }
