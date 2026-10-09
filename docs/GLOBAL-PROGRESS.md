@@ -1,6 +1,6 @@
 # Suivi global Yomu
 
-Mise à jour : 8 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 9 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
@@ -156,3 +156,16 @@ Limites confirmées : Jikan manga/anime échoue dans cet environnement après en
 6. Valider production, documents exploitant, droits d’utilisation des données, sauvegarde/restore, accessibilité et publication Store.
 
 Les prix affichés, le catalogue ou la traduction ne garantissent pas un revenu rapide. Les limites, disponibilités et coûts doivent être vérifiés sur les fournisseurs effectivement utilisés. Le code distribué dans une extension reste consultable ; les secrets et les droits commerciaux doivent être protégés côté serveur.
+
+
+## Recherche : délai Jikan et pagination Steam vérifiés le 9 octobre 2026
+
+[CI #592](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37895676145), commit 3c4b0775e245b7a68853cdca5c34c98e3f276607. La sonde utilise les fournisseurs réels depuis Chromium avec un compte synthétique vide.
+
+- Jikan : délai de recherche limité à 6 secondes, y compris le corps JSON ; après une panne, pause de 30 secondes pour éviter deux attentes successives et les relances immédiates. Les tests couvrent réseau bloqué, corps bloqué, annulation, reprise après la pause et erreur 404 sans suspension générale.
+- Mesure « yandere » : premiers résultats à 503 ms, premier chargement terminé à 6 521 ms contre environ 30 secondes auparavant ; deuxième page à 505 ms. Jikan reste indisponible sur cette sonde : les résultats restent explicitement partiels.
+- Steam ignorait le seul décalage start et renvoyait start=0 pour la deuxième page. Ajout de page explicite, décalage de 25 et conservation des 25 jeux par page. Une réponse dont le décalage ne correspond pas est rejetée sans avancer le curseur ; les résultats déjà reçus sont conservés.
+- Preuve réelle : start=0 puis start=25, deux ensembles de 25 identifiants distincts pour « yandere » et « portal ». Les jeux cumulés passent de 27 à 52 pour chaque requête, contre 22 à 22 avant correction. Totaux toutes sources après deux pages : 153 pour « yandere », 104 pour « portal ». Ces nombres ne prouvent pas l'exhaustivité des catalogues.
+- Le test Chrome attend désormais l'ouverture effective des paramètres après le clic, avec un maximum de cinq secondes ; aucune assertion fonctionnelle n'est supprimée.
+
+G08 reste partiel : disponibilité Jikan, couverture des recherches par thèmes et validation des sources nécessitant des clés encore à compléter. Global inchangé : 19/60, soit 32 % arrondi. Aucun déploiement, publication Store ou remplacement de l'extension installée n'est effectué.
