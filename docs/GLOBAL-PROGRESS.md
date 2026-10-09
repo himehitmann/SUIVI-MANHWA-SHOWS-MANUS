@@ -18,6 +18,9 @@ G03 est désormais validé : la revue visuelle sur données réelles a été ré
 
 ## Preuves actuelles
 
+[CI #632](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37951217876), commit e5a386d8301a82a94bad7ef2c114a4a6d3a3e6d2 : correction du popup après refus/erreur de permission. Les langues affichées reviennent à la règle active, tous les contrôles sont déverrouillés, les valeurs envoyées sont figées pendant la requête. Tests dans le véritable popup : réponses de permission refusée et exception simulées, règle persistée inchangée. Le parcours normal conserve les API de permissions réelles. Tous les contrôles passent ; le premier dialogue natif sur une nouvelle origine reste non vérifié. G17 partiel, 20/60 inchangé.
+
+
 [CI #628](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37950062394), commit 5076feb06cfb9482a2a194f49ab23b90bd6b2a0b : contrôles complets réussis. Le test ouvre maintenant le vrai popup via chrome.action.openPopup, sélectionne anglais comme source OCR et français comme destination, puis clique son interrupteur dans son propre contexte navigateur avec un geste utilisateur. GET_TRANSLATION_RULE confirme les valeurs persistées, puis le parcours OCR/navigation/restauration existant passe. Aucun remplacement de tabs.query ou permissions.request/contains. L’origine HTTPS est déjà autorisée par le manifeste : cette preuve ne couvre pas le premier dialogue natif d’octroi/refus. G17 reste partiel ; total 20/60 inchangé. Les essais #622, #624 et #626 ont exposé des problèmes du pilotage du popup, corrigés dans #628.
 
 
