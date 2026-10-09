@@ -1949,7 +1949,7 @@ describe("catalog theme discovery",()=>{
     w.run('var requests=[],batches=[],pages=[];jikanSearch=async()=>[];fetchRemote=async(url,options)=>{requests.push(JSON.parse(options.body));return {ok:true,json:async()=>payloads.shift()}};');
     const results=await w.run('mangaSearchResilient("yandere",rows=>batches.push(rows.map(r=>r.title)),1,(...args)=>pages.push(args))');
     expect(results.map((r:any)=>r.title)).toEqual(["Yandere","A different title"]);
-    expect(w.run("batches[0]")).toEqual(["Yandere"]);
+    expect(w.run("batches.filter(rows=>rows.length)")).toEqual([["Yandere"],["A different title"]]);
     expect(w.run("requests[1].variables")).toEqual({page:1,tags:["Yandere"]});
     expect(w.run("requests[1].query")).not.toContain("search:");
     expect(w.run("pages")).toEqual([["anilist",1,false],["anilist-theme",1,true]]);
