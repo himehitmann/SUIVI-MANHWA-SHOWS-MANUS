@@ -793,8 +793,10 @@ async function mangaSearchResilient(query,onProgress,page=1,onPage) {
     anilistSearch(query,page,onPage).then(async results=>{
       publish(results);
       if(anilistThemeFor(query)) {
-        try{const themed=await anilistThemeSearch(query,page,onPage);publish(themed);}
-        catch{if(onPage)onPage("anilist-theme",page,null);}
+        await Promise.allSettled(["MANGA","ANIME"].map(async type=>{
+          try{publish(await anilistThemeSearch(query,page,onPage,type));}
+          catch{if(onPage)onPage("anilist-theme-"+type.toLowerCase(),page,null);}
+        }));
       }
       return results;
     },error=>{if(onPage)onPage("anilist",page,null);throw error;}),
@@ -973,16 +975,18 @@ function anilistThemeFor(query) {
   const aliases={comedie:"comedy",horreur:"horror",fantastique:"fantasy","science fiction":"sci fi","tranche de vie":"slice of life",aventure:"adventure",drame:"drama",mystere:"mystery",surnaturel:"supernatural",psychologique:"psychological"};
   return anilistSearchThemes?.get(aliases[key]||key)||null;
 }
-async function anilistThemeSearch(query,page=1,onPage) {
+async function anilistThemeSearch(query,page=1,onPage,type="MANGA") {
+  if(!["MANGA","ANIME"].includes(type))throw Error("invalid_theme_type");
+  const source="anilist-theme-"+type.toLowerCase();
   const theme=anilistThemeFor(query);
-  if(!theme){if(onPage)onPage("anilist-theme",page,false);return [];}
-  const gql=`query($page:Int,$tags:[String],$genres:[String]){Page(page:$page,perPage:50){pageInfo{hasNextPage} media(tag_in:$tags,genre_in:$genres,sort:POPULARITY_DESC,isAdult:false){id idMal synonyms title{romaji english native} coverImage{extraLarge large medium} description genres tags{name isMediaSpoiler isGeneralSpoiler isAdult} status seasonYear startDate{year} format countryOfOrigin siteUrl episodes chapters}}}`;
-  const variables={page,...(theme.kind==="tag"?{tags:[theme.name]}:{genres:[theme.name]})};
+  if(!theme){if(onPage)onPage(source,page,false);return [];}
+  const gql=`query($page:Int,$tags:[String],$genres:[String],$type:MediaType){Page(page:$page,perPage:50){pageInfo{hasNextPage} media(type:$type,tag_in:$tags,genre_in:$genres,sort:POPULARITY_DESC,isAdult:false){id idMal synonyms title{romaji english native} coverImage{extraLarge large medium} description genres tags{name isMediaSpoiler isGeneralSpoiler isAdult} status seasonYear startDate{year} format countryOfOrigin siteUrl episodes chapters}}}`;
+  const variables={page,type,...(theme.kind==="tag"?{tags:[theme.name]}:{genres:[theme.name]})};
   const res=await fetchRemote(ANILIST_URL,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({query:gql,variables})});
   if(!res.ok)throw Error("anilist_theme_"+res.status);
   const data=await res.json();
   if(!Array.isArray(data?.data?.Page?.media))throw Error("anilist_theme_response_invalid");
-  if(onPage)onPage("anilist-theme",page,data.data.Page.pageInfo?.hasNextPage===true);
+  if(onPage)onPage(source,page,data.data.Page.pageInfo?.hasNextPage===true);
   return data.data.Page.media.map(mediaToResult).filter(r=>r.title);
 }
 
@@ -1216,7 +1220,7 @@ async function catalogSearchProgress(query,retry=false,more=null) {
         try {
           let results;
           if(source==="anilist")results=await anilistSearch(text,state.page,report);
-          else if(source==="anilist-theme")results=await anilistThemeSearch(text,state.page,report);
+          else if(source==="anilist-theme-manga"||source==="anilist-theme-anime")results=await anilistThemeSearch(text,state.page,report,source.slice(14).toUpperCase());
           else if(source==="steam")results=await steamSearch(text,state.page,report);
           else if(source==="openlibrary")results=await openLibrarySearch(text,state.page,report);
           else if(source==="jikan-manga"||source==="jikan-anime")results=await jikanSearchPage(text,source.slice(6),state.page,report);

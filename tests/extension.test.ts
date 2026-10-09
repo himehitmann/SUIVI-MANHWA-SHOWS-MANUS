@@ -1944,15 +1944,17 @@ describe("catalog theme discovery",()=>{
     const w=worker();
     w.ctx.payloads=[
       {data:{GenreCollection:["Comedy"],MediaTagCollection:[{name:"Yandere",isAdult:false}],Page:{pageInfo:{hasNextPage:false},media:[{id:1,title:{english:"Yandere"},format:"MANGA"}]}}},
-      {data:{Page:{pageInfo:{hasNextPage:true},media:[{id:2,title:{english:"A different title"},format:"MANGA",tags:[{name:"Yandere"}]}]}}}
+      {data:{Page:{pageInfo:{hasNextPage:true},media:[{id:2,title:{english:"A different title"},format:"MANGA",tags:[{name:"Yandere"}]}]}}},
+      {data:{Page:{pageInfo:{hasNextPage:false},media:[]}}}
     ];
     w.run('var requests=[],batches=[],pages=[];jikanSearch=async()=>[];fetchRemote=async(url,options)=>{requests.push(JSON.parse(options.body));return {ok:true,json:async()=>payloads.shift()}};');
     const results=await w.run('mangaSearchResilient("yandere",rows=>batches.push(rows.map(r=>r.title)),1,(...args)=>pages.push(args))');
     expect(results.map((r:any)=>r.title)).toEqual(["Yandere","A different title"]);
     expect(w.run("batches.filter(rows=>rows.length)")).toEqual([["Yandere"],["A different title"]]);
-    expect(w.run("requests[1].variables")).toEqual({page:1,tags:["Yandere"]});
+    expect(w.run("requests[1].variables")).toEqual({page:1,type:"MANGA",tags:["Yandere"]});
     expect(w.run("requests[1].query")).not.toContain("search:");
-    expect(w.run("pages")).toEqual([["anilist",1,false],["anilist-theme",1,true]]);
+    expect(w.run("pages")).toEqual([["anilist",1,false],["anilist-theme-manga",1,true],["anilist-theme-anime",1,false]]);
+    expect(w.run("requests[2].variables.type")).toBe("ANIME");
     expect(results[1].tags).toEqual(["Yandere"]);
   });
   it("does not broaden ordinary titles or partial tag words and supports French genres",async()=>{
@@ -1967,11 +1969,11 @@ describe("catalog theme discovery",()=>{
     const w=worker();
     w.run('anilistSearchThemes=new Map([["yandere",{kind:"tag",name:"Yandere"}]]);anilistSearch=async()=>[{title:"Yandere",type:"reading"}];anilistThemeSearch=async()=>{throw Error("offline")};jikanSearch=async()=>[];var pages=[];');
     expect((await w.run('mangaSearchResilient("yandere",null,1,(...args)=>pages.push(args))')).map((r:any)=>r.title)).toEqual(["Yandere"]);
-    expect(w.run("pages")).toContainEqual(["anilist-theme",1,null]);
+    expect(w.run("pages")).toContainEqual(["anilist-theme-manga",1,null]);
   });
   it("paginates themes even when title search is exhausted",async()=>{
     const w=worker();
-    w.run('catalogSearchAll=async(q,publish,report)=>{report("anilist",1,false);report("anilist-theme",1,true);return [{title:"First",type:"reading",externalIds:{anilist:"1"}}]};var pages=[];anilistSearch=async()=>{throw Error("title must not repeat")};anilistThemeSearch=async(q,page,report)=>{pages.push(page);report("anilist-theme",page,false);return [{title:"Second",type:"reading",externalIds:{anilist:"2"}}]};');
+    w.run('catalogSearchAll=async(q,publish,report)=>{report("anilist",1,false);report("anilist-theme-manga",1,true);return [{title:"First",type:"reading",externalIds:{anilist:"1"}}]};var pages=[];anilistSearch=async()=>{throw Error("title must not repeat")};anilistThemeSearch=async(q,page,report)=>{pages.push(page);report("anilist-theme-manga",page,false);return [{title:"Second",type:"reading",externalIds:{anilist:"2"}}]};');
     await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true});
     await w.run("Array.from(catalogJobs.values())[0].task");
     const first=await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true});
@@ -1984,5 +1986,22 @@ describe("catalog theme discovery",()=>{
   it("does not expose spoiler or adult tags on search cards",()=>{
     const w=worker();w.ctx.media={title:{english:"Work"},format:"MANGA",tags:[{name:"Action"},{name:"Secret",isMediaSpoiler:true},{name:"Twist",isGeneralSpoiler:true},{name:"Adult",isAdult:true}]};
     expect(w.run("mediaToResult(media).tags")).toEqual(["Action"]);
+  });
+});
+
+describe("independent manga and anime theme pages",()=>{
+  it("continues manga without restarting exhausted anime and retries only the failed page",async()=>{
+    const w=worker();
+    w.run('catalogSearchAll=async(q,publish,report)=>{report("anilist-theme-manga",1,true);report("anilist-theme-anime",1,false);return [{title:"Kept anime",type:"watching",externalIds:{anilist:"3"}}]};var calls=[];anilistThemeSearch=async(q,page,report,type)=>{calls.push({page,type});if(calls.length===1)throw Error("offline");report("anilist-theme-manga",page,false);return [{title:"Recovered manga",type:"reading",externalIds:{anilist:"4"}}]};');
+    await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true});
+    await w.run("Array.from(catalogJobs.values())[0].task");
+    for(let i=0;i<2;i++){
+      const state=await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true});
+      await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true,more:state.cursor});
+      await w.run("Array.from(catalogJobs.values())[0].task");
+    }
+    const done=await w.call({type:"CATALOG_SEARCH",query:"yandere",progressive:true});
+    expect(done.results).toHaveLength(2);expect(done.partial).toBe(false);expect(done.hasMore).toBe(false);
+    expect(w.run("calls")).toEqual([{page:2,type:"MANGA"},{page:2,type:"MANGA"}]);
   });
 });
