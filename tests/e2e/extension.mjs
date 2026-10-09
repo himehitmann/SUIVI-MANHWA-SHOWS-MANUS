@@ -549,6 +549,48 @@ try {
   assert.deepEqual(await worker.evaluate(()=>globalThis.fallbackCalls),["remote","data"]);
   await reader.locator("#yomu-translation-status button").first().click();
   await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
+
+  // Packaged automatic translation on HTTPS documents. Only network translation
+  // is deterministic; permissions, navigation, injection and image OCR are real.
+  const autoReader=await context.newPage();
+  const autoUrl="https://en.wikipedia.org/yomu-e2e/chapter-1";
+  await autoReader.route("https://en.wikipedia.org/yomu-e2e/**",route=>route.fulfill({
+    contentType:"text/html",body:`<!doctype html><html lang="en"><body><p id="copy">HELLO WORLD</p><img id="panel" width="720" height="1000" src="${dataUrl}"></body></html>`
+  }));
+  await autoReader.goto(autoUrl);
+  const ruleMessage=payload=>page.evaluate(message=>chrome.runtime.sendMessage(message),payload);
+  assert.equal(await worker.evaluate(()=>chrome.permissions.contains({origins:["https://en.wikipedia.org/*"]})),true);
+  const deniedRule=await ruleMessage({type:"SET_TRANSLATION_RULE",url:"https://reader.example.org/chapter",enabled:true,target:"fr",source:"eng"});
+  assert.equal(deniedRule.ok,false,"Ungrantable origin must not silently enable translation");
+  const enabledRule=await ruleMessage({type:"SET_TRANSLATION_RULE",url:autoUrl,enabled:true,target:"fr",source:"eng"});
+  assert.equal(enabledRule.ok,true);
+  await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="BONJOUR LE MONDE");
+  await autoReader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  assert.equal(await autoReader.locator("#panel").getAttribute("src"),dataUrl);
+  await autoReader.goto("https://en.wikipedia.org/yomu-e2e/chapter-2");
+  await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="BONJOUR LE MONDE");
+  await autoReader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  const disabledRule=await ruleMessage({type:"SET_TRANSLATION_RULE",url:autoUrl,enabled:false,target:"fr",source:"eng"});
+  assert.equal(disabledRule.ok,true);
+  assert.equal(disabledRule.unconfirmed,0);
+  assert.equal(await autoReader.locator("#copy").textContent(),"HELLO WORLD");
+  assert.equal(await autoReader.locator("[data-yomu-overlay]").count(),0);
+  assert.equal(await autoReader.locator("#yomu-translation-status").count(),0);
+  await autoReader.goto("https://en.wikipedia.org/yomu-e2e/chapter-3");
+  const disabledState=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
+  assert.equal(disabledState.rule.enabled,false);
+  // Explicit start after navigation is a deterministic barrier for the disabled rule.
+  const disabledStart=await worker.evaluate(async url=>{
+    const tabs=await chrome.tabs.query({});
+    const tab=tabs.find(t=>t.url===url);
+    return YomuAutoTranslation.start(tab.id,url);
+  },"https://en.wikipedia.org/yomu-e2e/chapter-3");
+  assert.equal(disabledStart.status,'disabled');
+  assert.equal(await autoReader.locator("#copy").textContent(),"HELLO WORLD");
+  assert.equal(await autoReader.locator("[data-yomu-overlay]").count(),0);
+  await autoReader.close();
+  console.log("Automatic translation: HTTPS permission gate, real OCR, chapter navigation, disable and original restoration passed");
+
   let trailerRequests=0;
   await page.route('https://www.youtube-nocookie.com/embed/*',async route=>{trailerRequests++;await route.fulfill({contentType:'text/html',body:'<title>Fixture trailer</title><p>Trailer fixture</p>'});});
   await page.evaluate(()=>{const probe=document.createElement('div');probe.id='trailer-consent-probe';probe.innerHTML=embeddedTrailer('https://www.youtube.com/watch?v=abcdefghijk');document.body.append(probe);});
