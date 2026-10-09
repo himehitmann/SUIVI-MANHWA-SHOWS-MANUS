@@ -369,10 +369,10 @@ try {
     "Cover escaped its frame"
   );
   await page.locator("#avatar").click();
-  assert(
-    await page
-      .locator("#view-settings")
-      .evaluate(el => el.classList.contains("active"))
+  await page.waitForFunction(
+    () => document.getElementById("view-settings").classList.contains("active"),
+    null,
+    { timeout: 5000 }
   );
 
   // Export a real downloaded backup: personal service keys and endpoints stay local.
