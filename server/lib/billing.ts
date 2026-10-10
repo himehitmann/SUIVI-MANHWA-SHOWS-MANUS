@@ -117,6 +117,7 @@ export function planFromStripeEvent(event: any, map: PriceMap): PlanIntent | nul
     case "checkout.session.completed":
     case "checkout.session.async_payment_succeeded": {
       if (obj.payment_status !== "paid" && obj.payment_status !== "no_payment_required") return null;
+      if (obj?.line_items?.has_more === true) return null;
       const plan = itemPlan(obj?.line_items?.data, map);
       if (!plan) return null;
       if (obj.mode === "payment" && plan === "lifetime") return { ...ref, plan };

@@ -29,6 +29,11 @@ describe("Stripe checkout enrichment",()=>{
     await expect(completeStripeCheckout(input,"synthetic-key",request)).rejects.toThrow("billing_lookup_unavailable");
     expect(request).not.toHaveBeenCalled();
   });
+  it("rejects already expanded but truncated checkout items",async()=>{
+    const input={...event(),data:{object:{...event().data.object,line_items:{...body(),has_more:true}}}};
+    const resolved=await completeStripeCheckout(input,"synthetic-key",vi.fn());
+    expect(planFromStripeEvent(resolved,{lifetime:"price_lifetime"})).toBeNull();
+  });
   it("requires a server credential",async()=>{
     const request=vi.fn();
     await expect(completeStripeCheckout(event(),"",request)).rejects.toThrow("billing_lookup_unavailable");
