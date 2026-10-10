@@ -18,6 +18,9 @@ G03 avait été validé, mais les captures utilisateur du 10 octobre montrent de
 
 ## Preuves actuelles
 
+[CI #680](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38075195625), commit ae8917d3ba81dbf8e0fbde54a720f1fad5d84c2d : contrôles complets réussis. Actualités Steam limitées aux 30 derniers jours, triées par date et dédupliquées, dates futures/inconnues exclues, identité de jeu vérifiée, liens sources restreints aux hôtes Steam HTTPS sans identifiants ni ports. Le même rendu filtre aussi les anciennes données locales. Les actualités sont conservées à l’ajout à la bibliothèque ; test Chrome de sauvegarde et affichage dans la fiche enregistrée. La rubrique codes/récompenses reste visible après sauvegarde mais n’invente aucun code actif : collecte toujours absente, G11 NV. Fenêtre de publication récente ne signifie pas qu’un événement est encore actif. Total inchangé 19/60.
+
+
 [CI #676](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38073388813), commit 2f617ad4d0c48ab7693edee45b5e9894efec96dd : contrôles complets réussis. Sélection Steam des vidéos MP4/WebM valides avec repli 480p, refus des URL à identifiants/ports et mise à niveau HTTPS limitée aux domaines Steam connus. La fiche essaie le second champ vidéo si le premier est inutilisable ; vérification dans Chrome sur un jeu sauvegardé. Synopsis long Steam, développeurs et plateformes Windows/macOS/Linux réellement indiquées par le fournisseur récupérés. Lecteur pleine largeur. Ne garantit pas la disponibilité des vidéos externes, ne prend pas encore en charge les flux HLS seuls et ne clôt pas G06. Score inchangé : 19/60.
 
 
