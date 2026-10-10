@@ -95,7 +95,7 @@ try {
  assert.deepEqual(await p.evaluate(()=>discoPools().map(pool=>pool.key)),["manga"]);
  assert(await p.evaluate(()=>discoItems.every(item=>item.title.startsWith("Manga "))));
  assert(await p.locator("#view-home .carousel-arrow").count()>0);
- await p.evaluate(()=>openCatalogPreview({title:"Store fixture",type:"game",externalIds:{rawg:"123"},gameEnrichedAt:1,storeLinks:["https://store.steampowered.com/app/123/Example/?utm_source=test","https://www.gog.com/game/example","https://store.epicgames.com/en-US/p/example","https://www.gog.com/game/example","javascript:alert(1)","https://www.gog.com.evil.test/game/x"],url:"https://store.steampowered.com/app/123/",price:"$12.99",platform:"Nintendo Switch · PlayStation 5",releaseDate:"2028-04-12",genres:["Adventure"],alternativeTitles:["Other title"]}));
+ await p.evaluate(()=>openCatalogPreview({title:"Store fixture",type:"game",news:[{id:"recent",title:"Recent patch fixture",publishedAt:Date.now()-1000,url:"https://steamcommunity.com/games/123/announcements/detail/1"},{id:"old",title:"Expired news fixture",publishedAt:Date.now()-40*86400000},{id:"future",title:"Future news fixture",publishedAt:Date.now()+86400000}],externalIds:{rawg:"123"},gameEnrichedAt:1,storeLinks:["https://store.steampowered.com/app/123/Example/?utm_source=test","https://www.gog.com/game/example","https://store.epicgames.com/en-US/p/example","https://www.gog.com/game/example","javascript:alert(1)","https://www.gog.com.evil.test/game/x"],url:"https://store.steampowered.com/app/123/",price:"$12.99",platform:"Nintendo Switch · PlayStation 5",releaseDate:"2028-04-12",genres:["Adventure"],alternativeTitles:["Other title"]}));
  await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').waitFor();
  assert.equal(await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').count(),1);
  assert.equal(await p.locator("#preview-info details").count(),0);
@@ -115,7 +115,11 @@ try {
  await p.locator('#drawer .game-store-links a[href="https://www.gog.com/game/example"]').waitFor();
  assert.equal(await p.locator("#drawer .game-store-links a").count(),3,"Every verified store remains after saving");
  assert.equal(await p.locator('#drawer .game-store-links a[href="https://store.epicgames.com/en-US/p/example"]').count(),1);
+ assert.equal(await p.locator("#drawer .game-news-card").count(),1,"Only recent news stays visible after saving");
+ assert((await p.locator("#drawer .game-news-card").innerText()).includes("Recent patch fixture"));
+ assert.equal(await p.locator("#drawer .game-rewards").count(),1,"Reward availability remains visible in saved details");
  const storedGame=await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].find(i=>i.title==="Store fixture"));
+ assert.equal(storedGame.news[0].title,"Recent patch fixture","News survives library persistence");
  assert.equal(storedGame.externalIds.rawg,"123");assert.deepEqual([...storedGame.storeLinks].sort(),["https://store.steampowered.com/app/123/","https://www.gog.com/game/example","https://store.epicgames.com/en-US/p/example"].sort());
  assert(await p.evaluate(()=>!gameStoreButtons({url:"javascript:alert(1)",storeLinks:["https://www.gog.com.evil.test/game/x"]}).includes("href")));
 

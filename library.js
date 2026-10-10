@@ -1158,7 +1158,7 @@ function openDrawer(id) {
           ${embeddedTrailer(i.trailerUrl)}
           ${safeNavigationUrl(i.url) ? `<a class="btn" href="${esc(safeNavigationUrl(i.url))}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>` : ""}
         </div>`}
-      ${isGame ? "" : `<div class="section-t">${t("status")}</div>
+      ${isGame ? gameNewsHtml(i)+gameRewardsHtml() : `<div class="section-t">${t("status")}</div>
       <div class="chips-wrap" id="dr-status">${STATUSES.map((s) => `<button class="chip-toggle ${itemState(i) === s ? "on" : ""}" data-status="${s}">${itemState(i) === s ? I.check : ""} ${t(s)}</button>`).join("")}</div>`}
       <div class="section-t">${t("rating")}</div>
       <div class="rate-big" id="dr-rate">${[1,2,3,4,5].map((n) => `<span data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= (i.rating || 0) ? "on" : ""}"`)}</span>`).join("")}</div>
@@ -1979,16 +1979,31 @@ function mountEpisodeGuide(item) {
   };load();
 }
 
+function gameNewsHtml(item) {
+  const fr=settings.lang==="fr",now=Date.now(),seen=new Set();
+  const news=(Array.isArray(item.news)?item.news:[]).filter(entry=>{
+    const time=Number(entry?.publishedAt);
+    return entry&&typeof entry.title==="string"&&entry.title.trim()&&Number.isFinite(time)&&time<=now&&time>=now-30*86400000;
+  }).sort((a,b)=>b.publishedAt-a.publishedAt).filter(entry=>{
+    const id=String(entry.id||entry.title);if(seen.has(id))return false;seen.add(id);return true;
+  }).slice(0,6);
+  if(!news.length)return "";
+  const source=value=>{try{const u=new URL(value);return u.protocol==="https:"&&!u.username&&!u.password&&!u.port&&["steamcommunity.com","store.steampowered.com"].includes(u.hostname)?u.href:"";}catch{return "";}};
+  return '<section class="game-news"><div class="section-t">'+(fr?"Actualités récentes · 30 jours":"Recent news · 30 days")+'</div>'+news.map(entry=>{
+    const date=new Date(Number(entry.publishedAt)).toLocaleDateString(fr?"fr-FR":"en-US",{day:"numeric",month:"short",year:"numeric"});
+    const url=source(entry.url);
+    return '<article class="game-news-card"><div class="game-news-meta">'+[entry.category,date].filter(Boolean).map(esc).join(" · ")+'</div><h4>'+esc(entry.title)+'</h4>'+(entry.summary?'<p class="synopsis">'+esc(entry.summary)+'</p>':"")+(url?'<a class="link-btn" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+(fr?"Lire sur Steam":"Read on Steam")+'</a>':"")+'</article>';
+  }).join("")+'</section>';
+}
+function gameRewardsHtml() {
+  const fr=settings.lang==="fr";
+  return '<section class="game-rewards"><div class="section-t">'+(fr?"Codes et récompenses":"Codes and rewards")+'</div><p class="sub">'+(fr?"Aucun code actif vérifié disponible pour ce jeu pour le moment.":"No verified active codes are available for this game yet.")+'</p></section>';
+}
 function catalogInformation(m) {
   const fr=settings.lang==="fr";
   const tags=[...new Set([...(m.genres||[]),...(m.tags||[]),...(m.catalogTags||[])])].filter(x=>typeof x==="string");
 
-  const news=Array.isArray(m.news)?m.news.slice(0,8):[];
-  const newsHtml=news.length?'<section class="game-news"><div class="section-t">'+(fr?"Actualités et mises à jour":"News and updates")+'</div>'+news.map(entry=>{
-    const time=Number(entry.publishedAt);
-    const date=Number.isFinite(time)&&time>0?new Date(time).toLocaleDateString(fr?"fr-FR":"en-US",{day:"numeric",month:"short",year:"numeric"}):"";
-    return '<article class="game-news-card"><div class="game-news-meta">'+[entry.category,date].filter(Boolean).map(esc).join(" · ")+'</div><h4>'+esc(entry.title||"")+'</h4>'+(entry.summary?'<p class="synopsis">'+esc(entry.summary)+'</p>':"")+'</article>';
-  }).join("")+'</section>':"";
+  const newsHtml=gameNewsHtml(m);
   const gameFacts=m.type==="game"?'<dl class="game-detail-facts">'+(m.platform?'<dt>'+(fr?"Plateformes":"Platforms")+'</dt><dd>'+esc(m.platform)+'</dd>':"")+(m.releaseDate?'<dt>'+(fr?"Sortie":"Release date")+'</dt><dd>'+esc(m.releaseDate)+'</dd>':"")+'</dl>':"";
   return publicationInformation(m)+gameFacts+(tags.length?'<div class="tags">'+tags.map(x=>'<span class="tag">'+esc(x)+'</span>').join("")+'</div>':"")+
     (m.type==="game"&&m.price?'<p class="detail-price">'+esc(m.price)+'</p>':"")+
@@ -1997,7 +2012,7 @@ function catalogInformation(m) {
     ((m.authors||[]).length?'<div class="section-t">'+(fr?"Auteurs":"Creators")+'</div><p>'+m.authors.map(esc).join(" · ")+'</p>':"")+
     ((m.alternativeTitles||[]).length?'<div class="section-t">'+(fr?"Autres titres":"Alternative titles")+'</div><ul class="synopsis">'+m.alternativeTitles.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>':"")+
     ((m.cast||[]).length?'<div class="section-t">'+(fr?"Distribution et personnages":"Cast and characters")+'</div><div class="cast-strip scroll-x">'+m.cast.map(c=>'<div class="cast-card"><div class="cast-av">'+(c.image?'<img src="'+esc(c.image)+'" alt="" loading="lazy">':'')+'</div><b>'+esc(c.name)+'</b><small>'+esc(c.character||c.role||"")+'</small></div>').join("")+'</div>':"")+
-    embeddedTrailer(m.trailerUrl,m.trailer)+newsHtml+(m.type==="game"?'<section class="game-rewards"><div class="section-t">'+(fr?"Codes et récompenses":"Codes and rewards")+'</div><p class="sub">'+(fr?"Aucun code actif vérifié disponible pour ce jeu pour le moment.":"No verified active codes are available for this game yet.")+'</p></section>':"");
+    embeddedTrailer(m.trailerUrl,m.trailer)+newsHtml+(m.type==="game"?gameRewardsHtml():"");
 }
 let previewRequest=0;
 function openCatalogPreview(m) {
@@ -2045,6 +2060,7 @@ function addFromCatalog(m, btn) {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, coverFallback: m.coverFallback || undefined, synopsis: m.synopsis || undefined,
     releaseStatus:m.releaseStatus,releaseScope:m.releaseScope,releaseSource:m.releaseSource,catalogTags:m.catalogTags||m.tags||[],
     trailerUrl:m.trailerUrl, trailer:m.trailer, cast:m.cast, tags:m.tags||[], genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds, alternativeTitles:m.alternativeTitles, authors:m.authors, anilistId:m.anilistId,
+    news:m.type==="game"&&Array.isArray(m.news)?m.news.slice(0,8):undefined,platforms:m.platforms,
     source:m.source,storeLinks:m.type==="game"?[...new Set([m.url,...(Array.isArray(m.storeLinks)?m.storeLinks:[])].map(safeStoreLink).filter(Boolean))].slice(0,24):[],gameEnrichedAt:m.gameEnrichedAt,
     format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),

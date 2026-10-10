@@ -2077,3 +2077,25 @@ describe("Steam media selection",()=>{
   expect(detail.trailer).toBe("https://media.example/clip.mp4");
  });
 });
+
+describe("recent Steam announcements",()=>{
+ it("keeps recent unique announcements in date order and only safe Steam source links",async()=>{
+  const w=worker(),now=Math.floor(Date.now()/1000);
+  w.ctx.fetch=async()=>({ok:true,json:async()=>({appnews:{appid:620,newsitems:[
+    {gid:"old",title:"Old",date:now-31*86400},
+    {gid:"future",title:"Future",date:now+86400},
+    {gid:"missing",title:"No date"},
+    {gid:"a",title:"Recent",date:now-500,url:"https://steamcommunity.com/games/620/announcements/detail/1"},
+    {gid:"b",title:"Newest",date:now-100,url:"javascript:alert(1)"},
+    {gid:"a",title:"Duplicate",date:now-500},
+  ]}})});
+  const news=await w.run('steamNews("620")');
+  expect(news.map((n:any)=>n.title)).toEqual(["Newest","Recent"]);
+  expect(news[0].url).toBe("");
+  expect(news[1].url).toBe("https://steamcommunity.com/games/620/announcements/detail/1");
+ });
+ it("rejects news for another Steam app",async()=>{
+  const w=worker();w.ctx.fetch=async()=>({ok:true,json:async()=>({appnews:{appid:400,newsitems:[]}})});
+  await expect(w.run('steamNews("620")')).rejects.toThrow("catalog_identity_mismatch");
+ });
+});

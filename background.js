@@ -1382,20 +1382,37 @@ function steamAppId(value) {
     return url.pathname.match(/^\/app\/([1-9]\d{0,14})(?:\/|$)/)?.[1]||"";
   }catch{return "";}
 }
+function steamNewsUrl(value) {
+  try {
+    const url=new URL(value);
+    if(url.protocol!=="https:"||url.username||url.password||url.port||!["steamcommunity.com","store.steampowered.com"].includes(url.hostname))return "";
+    return url.href;
+  }catch{return "";}
+}
 async function steamNews(appid) {
-  const url = `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appid}&count=8&maxlength=500&format=json`;
+  const url = `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appid}&count=20&maxlength=500&format=json`;
   const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`steam_news_${res.status}`);
-  const data = await res.json();
-  return (data?.appnews?.newsitems || []).filter((entry) => entry?.title).slice(0, 8).map((entry) => ({
-    id: String(entry.gid || entry.url || entry.title),
-    title: String(entry.title).trim(),
-    author: String(entry.author || "").trim(),
-    summary: stripHtml(entry.contents || "").slice(0, 500),
-    publishedAt: Number(entry.date || 0) * 1000 || undefined,
-    category: String(entry.feedlabel || "").trim(),
-  }));
+  const data = await res.json(),now=Date.now();
+  if(data?.appnews?.appid!==undefined&&String(data.appnews.appid)!==String(appid))throw Error("catalog_identity_mismatch");
+  const seen=new Set();
+  return (Array.isArray(data?.appnews?.newsitems)?data.appnews.newsitems:[])
+    .filter(entry=>entry&&typeof entry.title==="string"&&entry.title.trim())
+    .map(entry=>({
+      id:String(entry.gid||entry.url||entry.title),
+      title:entry.title.trim().slice(0,500),
+      author:String(entry.author||"").trim().slice(0,100),
+      summary:stripHtml(String(entry.contents||"")).slice(0,500),
+      publishedAt:Number(entry.date)*1000,
+      category:String(entry.feedlabel||"").trim().slice(0,100),
+      url:steamNewsUrl(entry.url),
+    }))
+    .filter(entry=>Number.isFinite(entry.publishedAt)&&entry.publishedAt<=now&&entry.publishedAt>=now-30*86400000)
+    .sort((a,b)=>b.publishedAt-a.publishedAt)
+    .filter(entry=>!seen.has(entry.id)&&seen.add(entry.id))
+    .slice(0,8);
 }
+
 function steamTrailer(movies) {
   for(const movie of (Array.isArray(movies)?movies:[])) {
     for(const value of [movie?.mp4?.max,movie?.mp4?.["480"],movie?.webm?.max,movie?.webm?.["480"]]) {
