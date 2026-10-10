@@ -47,6 +47,13 @@ export async function ensureSchema(client: SqlClient): Promise<void> {
     PRIMARY KEY (provider,event_id)
   )`);
   await client.query("CREATE INDEX IF NOT EXISTS billing_events_user_id_idx ON billing_events (user_id)");
+  await client.query(`CREATE TABLE IF NOT EXISTS billing_heads (
+    provider TEXT NOT NULL,resource_id TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    occurred_at BIGINT NOT NULL,plan TEXT NOT NULL,
+    PRIMARY KEY (provider,resource_id)
+  )`);
+  await client.query("CREATE INDEX IF NOT EXISTS billing_heads_user_id_idx ON billing_heads (user_id)");
 }
 
 const normEmail = (e: string) => (e || "").trim().toLowerCase();
@@ -68,10 +75,17 @@ export function createPostgresStore(client: SqlClient): Store {
       const connection=await client.connect();
       try {
         await connection.query("BEGIN");
+        const ordered=receipt.resourceId!==undefined&&receipt.occurredAt!==undefined;
+        if(ordered)await connection.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[receipt.provider+":"+receipt.resourceId]);
         const locked=await connection.query("SELECT * FROM users WHERE id = $1 FOR UPDATE",[userId]);
         if(!locked.rows[0]){await connection.query("ROLLBACK");return {ok:false,reason:"user_not_found"};}
         const recorded=await connection.query("INSERT INTO billing_events (provider,event_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING RETURNING event_id",[receipt.provider,receipt.eventId,userId]);
         if(!recorded.rows.length){await connection.query("COMMIT");return {ok:true,unchanged:true};}
+        const head=ordered?(await connection.query("SELECT * FROM billing_heads WHERE provider=$1 AND resource_id=$2",[receipt.provider,receipt.resourceId])).rows[0]:undefined;
+        if(head&&head.user_id!==userId){await connection.query("ROLLBACK");return {ok:false,reason:"billing_resource_conflict"};}
+        if(head&&receipt.occurredAt===Number(head.occurred_at)&&plan!==head.plan){await connection.query("ROLLBACK");return {ok:false,reason:"billing_order_ambiguous"};}
+        if(head&&receipt.occurredAt!<=Number(head.occurred_at)){await connection.query("COMMIT");return {ok:true,unchanged:true};}
+        if(ordered)await connection.query("INSERT INTO billing_heads (provider,resource_id,user_id,occurred_at,plan) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (provider,resource_id) DO UPDATE SET occurred_at=EXCLUDED.occurred_at,plan=EXCLUDED.plan",[receipt.provider,receipt.resourceId,userId,receipt.occurredAt,plan]);
         const oldPlan=locked.rows[0].plan,nextPlan=oldPlan==="lifetime"?oldPlan:plan;
         if(oldPlan!==nextPlan)await connection.query("UPDATE users SET plan = $2 WHERE id = $1",[userId,nextPlan]);
         await connection.query("COMMIT");

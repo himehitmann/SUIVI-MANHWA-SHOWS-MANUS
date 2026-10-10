@@ -165,6 +165,7 @@ export function createApiRouter(
       if(intent&&!receipt)return res.status(400).json({error:"invalid_billing_event"});
       const result = await applyPlanIntent(store,intent,receipt||undefined);
       if(result.reason==="user_not_found")return res.status(503).json({error:"billing_account_unavailable"});
+      if(result.reason==="billing_order_ambiguous"||result.reason==="billing_resource_conflict")return res.status(503).json({error:result.reason});
       return res.json({
         received: true,
         applied: result.ok,
@@ -194,6 +195,7 @@ export function createApiRouter(
       if(intent&&!receipt)return res.status(400).json({error:"invalid_billing_event"});
       const result = await applyPlanIntent(store,intent,receipt||undefined);
       if(result.reason==="user_not_found")return res.status(503).json({error:"billing_account_unavailable"});
+      if(result.reason==="billing_order_ambiguous"||result.reason==="billing_resource_conflict")return res.status(503).json({error:result.reason});
       return res.json({
         received: true,
         applied: result.ok,

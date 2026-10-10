@@ -115,6 +115,22 @@ try {
     assert.equal(Number((await billingReader.query("SELECT count(*) AS n FROM billing_events WHERE user_id=$1",['account-3'])).rows[0].n),2);
    }finally{await billingReader.end();}
    report.results.push({name:'postgres-billing-replay',concurrentDuplicateAppliedOnce:true,replayAfterCancelIgnored:true,independentPoolPersistence:true});
+   const orderedReceipt=(eventId,occurredAt)=>({provider:'stripe',eventId,resourceId:'sub_ordered',occurredAt});
+   await Promise.all([
+    billingStore.applyBillingEvent('account-4','pro',orderedReceipt('evt_order_old',1000)),
+    billingStore.applyBillingEvent('account-4','free',orderedReceipt('evt_order_new',2000)),
+   ]);
+   assert.equal((await billingStore.getUserById('account-4')).plan,'free');
+   assert.equal((await billingStore.applyBillingEvent('account-4','pro',orderedReceipt('evt_order_tie',2000))).reason,'billing_order_ambiguous');
+   assert.equal((await billingStore.applyBillingEvent('account-5','pro',orderedReceipt('evt_order_other_user',3000))).reason,'billing_resource_conflict');
+   const orderedReader=new pg.Pool({...poolConfig,options:'-c search_path='+schema});
+   try{
+    const restarted=createPostgresStore(orderedReader);
+    await restarted.applyBillingEvent('account-4','pro',orderedReceipt('evt_order_late',1500));
+    assert.equal((await restarted.getUserById('account-4')).plan,'free');
+    assert.equal(Number((await orderedReader.query("SELECT count(*) AS n FROM billing_events WHERE event_id IN ($1,$2)",['evt_order_tie','evt_order_other_user'])).rows[0].n),0);
+   }finally{await orderedReader.end();}
+   report.results.push({name:'postgres-billing-order',newestStateWinsConcurrentDelivery:true,olderDistinctEventIgnored:true,ambiguousTieRolledBack:true,resourceOwnershipChecked:true,persistedAcrossConnections:true});
    const rights=createPostgresAccessStore(pool),owners=new Set(['account-0']),request={requestId:'gift-duplicate',expectedVersion:0,kind:'gift',days:30,reason:'Isolated persistence probe'};
    const duplicate=await Promise.all([rights.change('account-0','account-1',request,owners),rights.change('account-0','account-1',request,owners)]);
    assert.deepEqual(duplicate[0],duplicate[1]);assert.equal((await rights.audit()).length,1);

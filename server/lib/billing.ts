@@ -194,6 +194,11 @@ export async function applyPlanIntent(store: Store, intent: PlanIntent | null, r
 /** Event identity is taken only from the signature-verified provider envelope. */
 export function billingReceipt(provider: "stripe"|"paddle", event: any): BillingReceipt | null {
   const eventId=provider==="stripe"?event?.id:event?.event_id;
-  if(typeof eventId!=="string"||eventId.length>255||!/^[A-Za-z0-9_-]+$/.test(eventId))return null;
-  return {provider,eventId};
+  const object=provider==="stripe"?event?.data?.object:event?.data;
+  const resourceId=provider==="paddle"?(object?.subscription_id||object?.id):object?.id;
+  const occurredAt=provider==="stripe"?(typeof event?.created==="number"?event.created*1000:NaN):
+    (typeof event?.occurred_at==="string"&&/^\d{4}-\d{2}-\d{2}T/.test(event.occurred_at)?Date.parse(event.occurred_at):NaN);
+  const validId=(value:unknown)=>typeof value==="string"&&value.length<=255&&/^[A-Za-z0-9_-]+$/.test(value);
+  if(!validId(eventId)||!validId(resourceId)||!Number.isSafeInteger(occurredAt)||occurredAt<0)return null;
+  return {provider,eventId,resourceId,occurredAt};
 }

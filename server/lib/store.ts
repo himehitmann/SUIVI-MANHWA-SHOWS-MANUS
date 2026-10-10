@@ -34,7 +34,7 @@ export interface SessionRecord {
   createdAt: number;
   expiresAt: number;
 }
-export interface BillingReceipt { provider: "stripe" | "paddle"; eventId: string; }
+export interface BillingReceipt { provider: "stripe" | "paddle"; eventId: string; resourceId?: string; occurredAt?: number; }
 export interface BillingResult { ok: boolean; plan?: UserRecord["plan"]; unchanged?: boolean; reason?: string; }
 export interface Store {
   applyBillingEvent(userId: string, plan: UserRecord["plan"], receipt: BillingReceipt): Promise<BillingResult>;
@@ -57,10 +57,11 @@ interface Snapshot {
   sessions: SessionRecord[];
   sync: Record<string, SyncRecord>;
   billing: (BillingReceipt & { userId: string })[];
+  billingHeads: (BillingReceipt & {userId:string;plan:UserRecord["plan"]})[];
 }
 
 export function createStore(filePath?: string): Store {
-  let snap: Snapshot = { users: [], sync: {}, sessions: [], billing: [] };
+  let snap: Snapshot = { users: [], sync: {}, sessions: [], billing: [], billingHeads: [] };
   if (filePath && existsSync(filePath)) {
     try {
       Object.assign(snap, JSON.parse(readFileSync(filePath, "utf8")));
@@ -92,8 +93,15 @@ export function createStore(filePath?: string): Store {
       const user=snap.users.find(u=>u.id===userId);
       if(!user)return {ok:false,reason:"user_not_found"};
       if(snap.billing.some(r=>r.provider===receipt.provider&&r.eventId===receipt.eventId))return {ok:true,unchanged:true};
+      const ordered=receipt.resourceId!==undefined&&receipt.occurredAt!==undefined;
+      const head=ordered?snap.billingHeads.find(h=>h.provider===receipt.provider&&h.resourceId===receipt.resourceId):undefined;
+      if(head&&head.userId!==userId)return {ok:false,reason:"billing_resource_conflict"};
+      if(head&&receipt.occurredAt===head.occurredAt&&plan!==head.plan)return {ok:false,reason:"billing_order_ambiguous"};
+      const stale=head&&receipt.occurredAt!<=head.occurredAt!;
+      if(stale){persist({...snap,billing:[...snap.billing,{...receipt,userId}]});return {ok:true,unchanged:true};}
       const nextPlan=user.plan==="lifetime"?user.plan:plan;
-      persist({...snap,users:snap.users.map(u=>u.id===userId?{...u,plan:nextPlan}:u),billing:[...snap.billing,{...receipt,userId}]});
+      const billingHeads=ordered?[...snap.billingHeads.filter(h=>h.provider!==receipt.provider||h.resourceId!==receipt.resourceId),{...receipt,userId,plan}]:snap.billingHeads;
+      persist({...snap,users:snap.users.map(u=>u.id===userId?{...u,plan:nextPlan}:u),billing:[...snap.billing,{...receipt,userId}],billingHeads});
       return user.plan===nextPlan?{ok:true,unchanged:true}:{ok:true,plan:nextPlan};
     },
     async createSession(session) {
@@ -126,6 +134,7 @@ export function createStore(filePath?: string): Store {
         ...snap,
         users: snap.users.filter(u => u.id !== userId),
         billing: snap.billing.filter(r=>r.userId!==userId),
+        billingHeads: snap.billingHeads.filter(r=>r.userId!==userId),
         sessions: snap.sessions.filter(s => s.userId !== userId),
         sync,
       });
