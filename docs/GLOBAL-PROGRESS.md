@@ -1,6 +1,6 @@
 # Suivi global Yomu
 
-Mise à jour : 9 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 10 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
@@ -17,6 +17,9 @@ La livraison a été trop fragmentée en petits correctifs. Priorité : terminer
 G03 est désormais validé : la revue visuelle sur données réelles a été réalisée sur ordinateur et mobile, après correction des proportions des cartes Jeux. La collecte régionale réelle et les tests de fraîcheur, de panne et de recommandations complètent cette revue. Le dénominateur reste 60. G09 est également validé depuis la CI #614 : combinaison des filtres et distinction explicite entre œuvre/série terminée, saison/partie terminée et portée inconnue, avec sauvegarde et rechargement vérifiés dans Chrome.
 
 ## Preuves actuelles
+
+[CI #642](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38031676108), commit fae9c39c3551b645987e8fba7809c9d4496b54e6 : contrôles complets réussis. Depuis #638, le vrai popup Chrome est aussi testé pour changement français vers espagnol (réponse linguistique réseau simulée, OCR réel) et désactivation, avec navigation puis restauration. L’attribution Stripe/Paddle exige un produit configuré et un état connu : aucun Pro par défaut ni accès à vie sans preuve de produit. Les achats Stripe ponctuels signés sans line_items sont complétés côté serveur auprès de api.stripe.com : URL fixe, identifiant borné, délai 5 s, corps 64 Ko, redirections interdites et erreur 503 pour nouvelle livraison du webhook en cas de récupération impossible. Tests des achats reconnus, inconnus, impayés, tronqués, de la panne et des identifiants invalides. Clé STRIPE_SECRET_KEY documentée côté serveur uniquement. Pas de paiement réel effectué. Le rejeu/ordre durable des événements, les remboursements et le cycle déployé restent ouverts. Total inchangé à 20/60.
+
 
 [CI #632](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/37951217876), commit e5a386d8301a82a94bad7ef2c114a4a6d3a3e6d2 : correction du popup après refus/erreur de permission. Les langues affichées reviennent à la règle active, tous les contrôles sont déverrouillés, les valeurs envoyées sont figées pendant la requête. Tests dans le véritable popup : réponses de permission refusée et exception simulées, règle persistée inchangée. Le parcours normal conserve les API de permissions réelles. Tous les contrôles passent ; le premier dialogue natif sur une nouvelle origine reste non vérifié. G17 partiel, 20/60 inchangé.
 
@@ -56,7 +59,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G17 | Traduction automatique par site, arrêt/restauration et permissions | P | CI #618 : paquet Chrome sur page HTTPS, permission réelle, OCR image réel, navigation entre chapitres, désactivation et restauration texte/images vérifiés. CI #628 : activation depuis le véritable popup Chrome et langues choisies vérifiées sans simuler les API de permissions. Première demande native sur site non autorisé encore à vérifier. |
 | G18 | Rôles propriétaires/admin et cadeaux contrôlés côté serveur | V | Tests HTTP, rôle revérifié, expiration, rejeu, transaction PostgreSQL et journal durable. Activation du propriétaire réel distincte. |
 | G19 | Console admin utilisable : recherche exacte, confirmation, motif et mobile | V | Parcours web annulation/confirmation et écran étroit ; API simulée pour ce parcours, tests serveur séparés. |
-| G20 | Paiement, renouvellement, annulation, remboursement et droits de bout en bout | P | Signature/webhooks et garde de destination présents ; aucun cycle complet du prestataire déployé vérifié. |
+| G20 | Paiement, renouvellement, annulation, remboursement et droits de bout en bout | P | CI #642 : produits/états reconnus exigés, détails Stripe manquants récupérés côté serveur, panne réessayable et réponses bornées. Rejeu/ordre durable, remboursements et cycle complet déployé restant à vérifier. |
 | G21 | Prix et avantages cohérents, coûts bornés et marge mesurée | P | Recherche tarifaire réalisée ; droits gratuits/Pro à réconcilier, frais réels et consommation à instrumenter avant engagement commercial. |
 | G22 | Guide de prise en main accessible depuis accueil et réglages | V | Guide illustré FR/EN et parcours web navigation/mobile. Il est étiqueté comme exemple ; aucune fausse vidéo de démonstration. |
 | G23 | Déploiement robuste, conformité, sauvegarde restaurable et charge prolongée | P | Sonde CI PostgreSQL réussie ; ce n’est pas une capacité de production. Informations exploitant, droits sources/images, sauvegarde/restore, endurance et coûts réels restent ouverts. |
