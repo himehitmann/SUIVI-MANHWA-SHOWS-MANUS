@@ -207,8 +207,11 @@ try {
   });
   await page.locator("[data-feature-step='1']").click();
   assert.equal(await page.locator(".home-feature h2").innerText(),"Home fixture");
-  await page.locator("#feature-pause").click();
-  assert.equal(await page.locator("#feature-pause").getAttribute("aria-pressed"),"true");
+  assert.equal(await page.locator("#feature-pause").count(),0);
+  const heroHeight=await page.locator(".home-feature").evaluate(el=>el.getBoundingClientRect().height);
+  await page.locator("[data-feature-step='-1']").click();
+  assert.equal(await page.locator(".home-feature").evaluate(el=>el.getBoundingClientRect().height),heroHeight);
+  await page.locator("[data-feature-step='1']").click();
   await page.locator("[data-feature-details]").first().click();
   assert.equal(await page.locator("#drawer .drawer-title").innerText(),"Home fixture");
   await page.locator("#preview-close").click();
@@ -294,6 +297,8 @@ try {
   assert.equal(await page.locator('#add-game').count(),0);
   assert.equal(await page.locator('#view-games .game-card iframe, #view-games .game-card video, #view-games .game-card a').count(),0);
   await page.locator('#search-games').click();
+  assert.equal(await page.locator('#view-games').isVisible(),true);
+  assert.equal(await page.locator('#view-games #search-results').count(),1);
   await page.locator('#q').fill('Unlisted game fixture');
   await page.locator('#manual-game').waitFor();
   await page.locator('#manual-game').click();
@@ -687,8 +692,9 @@ try {
   let trailerRequests=0;
   await page.route('https://www.youtube-nocookie.com/embed/*',async route=>{trailerRequests++;await route.fulfill({contentType:'text/html',body:'<title>Fixture trailer</title><p>Trailer fixture</p>'});});
   await page.evaluate(()=>{const probe=document.createElement('div');probe.id='trailer-consent-probe';probe.innerHTML=embeddedTrailer('https://www.youtube.com/watch?v=abcdefghijk');document.body.append(probe);});
-  assert.equal(await page.locator('#trailer-consent-probe iframe').count(),0);assert.equal(trailerRequests,0);
-  await page.locator('#trailer-consent-probe button').focus();await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#trailer-consent-probe iframe').count(),1);
+  assert.equal(await page.locator('#trailer-consent-probe button').count(),0);
+  await page.locator('#trailer-consent-probe iframe').scrollIntoViewIfNeeded();
   await page.locator('#trailer-consent-probe iframe').waitFor();
   assert.equal(await page.locator('#trailer-consent-probe iframe').getAttribute('src'),'https://www.youtube-nocookie.com/embed/abcdefghijk');
   await page.evaluate(()=>document.getElementById('trailer-consent-probe').remove());

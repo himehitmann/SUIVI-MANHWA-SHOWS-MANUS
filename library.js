@@ -342,9 +342,21 @@ function discoBadges(m, opts) {
   const price = m.price ? `<span class="badge-price">${esc(m.price)}</span>` : "";
   return { soon, price };
 }
+function discoveryArtwork(m){
+  if(m.type!=="game")return covImg(m.cover,m.coverFallback);
+  for(const value of [m.coverFallback,m.cover].filter(Boolean)){
+    try{const url=new URL(value);
+      if(/(^|\.)(steamstatic\.com|steamcdn-a\.akamaihd\.net)$/.test(url.hostname)&&/\/steam\/apps\/\d+\//.test(url.pathname)){
+        url.pathname=url.pathname.replace(/[^/]+$/,"header.jpg");
+        return covImg(url.href,m.cover);
+      }
+    }catch{}
+  }
+  return covImg(m.cover,m.coverFallback);
+}
 function discoCard(m, idx, opts = {}) {
   const sub=(m.genres||[]).slice(0,2).join(" · ")||catLabel(m);
-  return `<article class="disco ${m.type==="game"?"disco-game":""}"><button class="art" data-preview-disco="${idx}" aria-label="${esc(t("details")+": "+m.title)}"><span class="cover-ph">${esc((m.title||"?")[0])}</span>${covImg(m.cover,m.coverFallback)}</button><h4><button class="link-btn" data-preview-disco="${idx}">${esc(m.title)}</button></h4><small>${esc(sub)}</small>${opts.soon?`<small>${esc(m.releaseDate||t("comingSoon"))}</small>`:""}</article>`;
+  return `<article class="disco ${m.type==="game"?"disco-game":""}"><button class="art" data-preview-disco="${idx}" aria-label="${esc(t("details")+": "+m.title)}"><span class="cover-ph">${esc((m.title||"?")[0])}</span>${discoveryArtwork(m)}</button><h4><button class="link-btn" data-preview-disco="${idx}">${esc(m.title)}</button></h4><small>${esc(sub)}</small>${opts.soon?`<small>${esc(m.releaseDate||t("comingSoon"))}</small>`:""}</article>`;
 }
 function rankCard(m, idx, rank, opts = {}) { return discoCard(m,idx,opts); }
 function rankRow(titleText, list, opts = {}) {
@@ -514,7 +526,7 @@ function renderGamesDiscover() {
 function fitDiscoveryArtwork(image){
   const card=image.closest(".disco-game");
   if(!card||!image.naturalWidth||!image.naturalHeight)return;
-  card.style.setProperty("--cover-aspect",String(image.naturalWidth/image.naturalHeight));
+  // The row owns a uniform aspect ratio; source dimensions must not resize cards.
   card.closest(".carousel-shell")?.refreshCarousel?.();
 }
 function enhanceCarousels(root) {
@@ -643,10 +655,10 @@ function renderHome() {
 function spotHtml(entry) {
   if(!entry)return "";
   const i=entry.item,fr=settings.lang==="fr",u=coverUrl(i),catalog=entry.catalog;
-  const synopsis=i.synopsis?i.synopsis.slice(0,260)+(i.synopsis.length>260?"…":""):catalog?(fr?"Ouvrez la fiche pour en savoir plus et choisir où garder cette découverte.":"Open the details to explore this title and choose where to save it."):marker(i);
+  const synopsis=i.synopsis?i.synopsis:catalog?(fr?"Ouvrez la fiche pour en savoir plus et choisir où garder cette découverte.":"Open the details to explore this title and choose where to save it."):marker(i);
   const destination=!catalog&&safeNavigationUrl(i.url);
   return '<article class="home-feature">'+(u?'<div class="home-feature-backdrop" aria-hidden="true">'+covImg(u,i.coverFallback)+'</div>':"")+
-    '<div class="home-feature-copy"><span class="home-eyebrow">'+esc(entry.label)+'</span><h2>'+esc(i.title||"Untitled")+'</h2><p class="home-feature-meta">'+esc([catLabel(i),i.year||i.seasonYear,...(i.genres||i.tags||[]).slice(0,2)].filter(Boolean).join(" · "))+'</p><p class="home-feature-synopsis">'+esc(synopsis)+'</p><div class="spot-cta">'+
+    '<div class="home-feature-copy"><span class="home-eyebrow">'+esc(entry.label)+'</span><h2>'+esc(i.title||"Untitled")+'</h2><p class="home-feature-meta">'+esc([catLabel(i),i.year||i.seasonYear,...(i.genres||i.tags||[]).slice(0,2)].filter(Boolean).join(" · "))+'</p><p class="home-feature-synopsis" tabindex="0">'+esc(synopsis)+'</p><div class="spot-cta">'+
     (destination?'<a class="btn-glass" href="'+esc(destination)+'" target="_blank" rel="noopener noreferrer">'+I.play+' '+t("resume")+'</a>':"")+
     '<button class="btn-glass '+(destination?'ghost':'')+'" data-feature-details>'+(fr?"Voir la fiche":"Explore title")+'</button></div></div>'+
     (u?'<button class="home-feature-art" data-feature-details aria-label="'+esc(t("details")+": "+i.title)+'">'+covImg(u,i.coverFallback)+'</button>':"")+'</article>';
@@ -656,17 +668,9 @@ let spotPaused=false;
 function spotControls(){
   if(spotItems.length<2)return "";
   const fr=settings.lang==="fr";
-  return '<div class="home-feature-controls"><button class="feature-arrow" data-feature-step="-1" aria-label="'+(fr?"Précédent":"Previous")+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="feature-dots">'+spotItems.map((entry,index)=>'<button data-dot="'+index+'" aria-label="'+esc(entry.item.title)+'" aria-pressed="'+(index===spotIdx)+'" class="'+(index===spotIdx?'on':'')+'"></button>').join("")+'</div><button class="feature-arrow" data-feature-step="1" aria-label="'+(fr?"Suivant":"Next")+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button><button class="feature-pause" id="feature-pause" aria-pressed="'+spotPaused+'">'+(spotPaused?(fr?"Reprendre":"Play"):(fr?"Pause":"Pause"))+'</button></div>';
+  return '<div class="home-feature-controls"><button class="feature-arrow" data-feature-step="-1" aria-label="'+(fr?"Précédent":"Previous")+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="feature-dots">'+spotItems.map((entry,index)=>'<button data-dot="'+index+'" aria-label="'+esc(entry.item.title)+'" aria-pressed="'+(index===spotIdx)+'" class="'+(index===spotIdx?'on':'')+'"></button>').join("")+'</div><button class="feature-arrow" data-feature-step="1" aria-label="'+(fr?"Suivant":"Next")+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>';
 }
-function startSpot(){
-  clearInterval(spotTimer);
-  if(spotItems.length<2||matchMedia("(prefers-reduced-motion: reduce)").matches)return;
-  spotTimer=setInterval(()=>{
-    const wrap=document.getElementById("spot-wrap");
-    if(view!=="home"||document.visibilityState!=="visible"||spotPaused||!wrap||wrap.matches(":hover")||wrap.contains(document.activeElement)||document.getElementById("drawer").classList.contains("open"))return;
-    spotIdx=(spotIdx+1)%spotItems.length;refreshSpot();
-  },9000);
-}
+function startSpot(){ clearInterval(spotTimer); }
 function refreshSpot(){
   const wrap=document.getElementById("spot-wrap");if(!wrap||!spotItems.length)return;
   wrap.innerHTML=spotHtml(spotItems[spotIdx])+spotControls();bindHome();
@@ -801,7 +805,8 @@ function renderGrid() {
 // Always give a working link to the game: its stored store/official URL, else a
 // Steam search for the title so the user still lands on the game's page.
 function gameStoreButtons(item) {
-  const links=[...new Set([item.url,...(Array.isArray(item.storeLinks)?item.storeLinks:[])].map(safeStoreLink).filter(Boolean))].slice(0,24);
+  const canonical=value=>{const safe=safeStoreLink(value);if(!safe)return "";const url=new URL(safe);const steam=url.pathname.match(/^\/app\/(\d+)/);if(url.hostname==="store.steampowered.com"&&steam)return "https://store.steampowered.com/app/"+steam[1]+"/";url.hash="";return url.href;};
+  const links=[...new Set([item.url,...(Array.isArray(item.storeLinks)?item.storeLinks:[])].map(canonical).filter(Boolean))].slice(0,24);
   return links.length?'<div class="game-store-links" style="display:flex;gap:8px;flex-wrap:wrap" aria-label="'+(settings.lang==="fr"?"Boutiques":"Stores")+'">'+links.map(url=>'<a class="btn" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(gameLinkLabel({url}))+' '+I.open+'</a>').join("")+'</div>':"";
 }
 function gameSourceCredit(item) {
@@ -829,10 +834,11 @@ function gameCardHtml(i) {
   return '<article class="game-card"><button class="game-cover" data-open="'+esc(i.id)+'" aria-label="'+esc(t("details")+": "+i.title)+'">'+coverInner(i,24)+'</button><div class="game-body"><h3><button class="link-btn" data-open="'+esc(i.id)+'">'+esc(i.title)+'</button></h3><p class="game-platform">'+esc(i.platform|| (fr?"Jeu vidéo":"Video game"))+'</p><div class="game-genres">'+genres.map(g=>'<span>'+esc(g)+'</span>').join("")+'</div>'+(i.releaseDate?'<p class="game-release">'+esc(i.releaseDate)+(isSoon(i)?" · "+t("comingSoon"):isReleased(i)?" · "+t("released"):"")+'</p>':"")+'</div></article>';
 }
 function renderGames() {
-  const el=document.getElementById("view-games"),fr=settings.lang==="fr";
+  const el=document.getElementById("view-games"),fr=settings.lang==="fr",searchResults=document.getElementById("search-results");
   const games=items.filter(i=>i.type==="game").sort((a,b)=>(parseDate(a.releaseDate)||9e15)-(parseDate(b.releaseDate)||9e15));
   el.innerHTML='<div class="section-h" style="margin-top:0"><div><h1 style="margin:0">'+t("games")+'</h1><p class="sub">'+(fr?"Vos jeux, leurs sorties et leurs actualités.":"Your games, upcoming releases and latest news.")+'</p></div><button class="btn" id="search-games">'+I.search+' '+(fr?"Rechercher un jeu":"Find a game")+'</button></div>'+(games.length?'<section aria-label="'+(fr?"Mes jeux":"My games")+'"><h2 class="games-section-title">'+(fr?"Mes jeux":"My games")+' <span>'+games.length+'</span></h2><div class="games-grid">'+games.map(gameCardHtml).join("")+'</div></section>':'<p class="games-empty">'+(fr?"Ouvrez une fiche ci-dessous pour enregistrer un jeu dans la liste de votre choix.":"Open a game below to save it to a list of your choice.")+'</p>')+renderGamesDiscover();
-  document.getElementById("search-games").onclick=()=>{searchFacets={kind:"GAME",genre:"all",year:"",release:"all",price:200};switchView("library");document.getElementById("q").focus();};
+  el.querySelector(".section-h").after(searchResults);
+  document.getElementById("search-games").onclick=()=>{searchFacets={kind:"GAME",genre:"all",year:"",release:"all",price:200};document.getElementById("q").focus();};
   bindDisco("#view-games");
   if(!discoverTried)loadDiscover(false);
   el.querySelectorAll("[data-open]").forEach(n=>n.onclick=()=>openDrawer(n.dataset.open));
@@ -1674,8 +1680,8 @@ function switchView(v) {
   document.querySelectorAll(".view").forEach((s) => s.classList.toggle("active", s.id === `view-${v}`));
   document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.v === v));
   if (v === "home") { renderHome(); } else clearInterval(spotTimer);
-  if (v === "library") { currentListId = null; if (!currentListId) { document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true; } renderLists(); renderSites(); renderGrid(); }
-  if (v === "games") renderGames();
+  if (v === "library") { document.getElementById("lib-main").prepend(document.getElementById("search-results")); currentListId = null; if (!currentListId) { document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true; } renderLists(); renderSites(); renderGrid(); }
+  if (v === "games") { searchFacets={...searchFacets,kind:"GAME"}; renderGames(); }
   if (v === "plans") renderPlans();
   if (v === "settings") renderSettings();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1718,7 +1724,7 @@ document.getElementById("go-pro").onclick = () => { clearSearchResults(); switch
 document.addEventListener("click", (e) => { if (!e.target.closest(".top-right")) closeMenus(); if (!e.target.closest(".qa-menu") && !e.target.closest(".quick-add")) closeQuickAdd(); });
 document.getElementById("q").addEventListener("input", (e) => {
   clearSearchResults(); query = e.target.value; currentListId = null;
-  if (view !== "library") switchView("library");
+  if (view !== "library" && view !== "games") switchView("library");
   document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true;
   renderGrid(); const q = query.trim();
   if (q.length >= 2) {
@@ -1727,7 +1733,7 @@ document.getElementById("q").addEventListener("input", (e) => {
     searchTimer = setTimeout(() => catalogSearch(q), 300);
   }
 });
-document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library") switchView("library"); catalogSearch(query.trim()); } });
+document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library" && view !== "games") switchView("library"); catalogSearch(query.trim()); } });
 
 let searchVersion = 0, searchTimer = null;
 let srCountry = "all";
@@ -1844,7 +1850,12 @@ function renderSearchResults(q) {
   const genres=[...new Set([...lastResults.filter(m=>f.kind==="all"||resultKind(m)===f.kind).flatMap(m=>m.genres||[]),...(f.genre!=="all"?[f.genre]:[])])].sort();
   const labels={GAME:fr?"Jeux":"Games",MOVIE:fr?"Films":"Films",ANIME:"Anime",MANGA:"Manga",MANHWA:"Manhwa",MANHUA:"Manhua",KDRAMA:"K-drama",CDRAMA:"C-drama",JDRAMA:"J-drama",SERIES:fr?"Séries":"Series",US_SERIES:fr?"Séries américaines":"US series",NOVEL:fr?"Romans":"Novels",BOOK:fr?"Livres":"Books"};
   const select=(id,label,values,value)=>'<label>'+label+'<select class="field" id="'+id+'"><option value="all">'+t("all")+'</option>'+values.map(([key,name])=>'<option value="'+esc(key)+'"'+(value===key?' selected':'')+'>'+esc(name)+'</option>').join("")+'</select></label>';
-  const shown=lastResults.filter(matchesSearchFacets);
+  const relevance=m=>{
+    const term=normTitle(q),titles=[m.title,...(m.alternativeTitles||[])].map(normTitle).filter(Boolean);
+    if(!term)return 0;
+    return Math.max(0,...titles.map(title=>title===term?1000:title.startsWith(term)?700:title.includes(term)?500:term.split(" ").filter(word=>title.includes(word)).length*30));
+  };
+  const shown=lastResults.filter(matchesSearchFacets).sort((a,b)=>relevance(b)-relevance(a)||(Number(b.popularity)||0)-(Number(a.popularity)||0));
   el.innerHTML='<div class="sr-wrap"><div class="sr-head"><b>'+t("searchTitle")+'</b> · '+esc(q)+' · '+shown.length+'/'+lastResults.length+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0">'+
     select("sf-kind",fr?"Type d’œuvre":"Media type",kinds.map(k=>[k,labels[k]||k]),f.kind)+
     select("sf-genre",fr?"Genre":"Genre",genres.map(g=>[g,g]),f.genre)+
@@ -1889,28 +1900,19 @@ function refreshCatalogSaveLabels(root,results) {
 function embeddedTrailer(url) {
   if(!url)return "";
   try {
-    const parsed=new URL(url);if(parsed.protocol!=="https:"||parsed.username||parsed.password)return "";
+    const parsed=new URL(url);if(parsed.protocol==="http:"&&/(^|\.)(steamstatic\.com|steampowered\.com|akamaihd\.net)$/.test(parsed.hostname))parsed.protocol="https:";if(parsed.protocol!=="https:"||parsed.username||parsed.password)return "";
     let id="",src="",kind="";
     if(["www.youtube.com","youtube.com","m.youtube.com"].includes(parsed.hostname))id=parsed.searchParams.get("v")||parsed.pathname.split("/").pop();
     if(parsed.hostname==="youtu.be")id=parsed.pathname.slice(1);
     if(/^[\w-]{11}$/.test(id)){src="https://www.youtube-nocookie.com/embed/"+id;kind="youtube";}
     else if(/\.(mp4|webm)$/i.test(parsed.pathname)){src=parsed.href;kind="video";}
     if(!src)return "";
-    const fr=settings.lang==="fr";
-    return '<div class="trailer-consent" style="width:100%"><button type="button" class="btn" data-trailer-src="'+esc(src)+'" data-trailer-kind="'+kind+'">'+esc(t("watchTrailer"))+'</button><p class="sub">'+esc(fr?"Le lecteur externe ne se charge qu’après ton clic. Le fournisseur reçoit alors ton adresse IP et les données nécessaires à la lecture.":"The external player loads only after you click. Its provider then receives your IP address and the data needed for playback.")+'</p></div>';
+    const title=esc(t("watchTrailer"));
+    return '<section class="detail-trailer"><div class="section-t">'+(settings.lang==="fr"?"Bande-annonce":"Trailer")+'</div>'+
+      (kind==="youtube"?'<iframe src="'+esc(src)+'" title="'+title+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>':
+      '<video controls playsinline preload="metadata" src="'+esc(src)+'" aria-label="'+title+'"></video>')+'</section>';
   }catch{return "";}
 }
-document.addEventListener("click",event=>{
-  const button=event.target.closest?.("[data-trailer-src]");if(!button)return;
-  const src=safeNavigationUrl(button.dataset.trailerSrc);if(!src)return;
-  const youtube=button.dataset.trailerKind==="youtube",url=new URL(src);
-  if(url.protocol!=="https:"||(youtube&&(url.hostname!=="www.youtube-nocookie.com"||!/^\/embed\/[\w-]{11}$/.test(url.pathname))))return;
-  const player=document.createElement(youtube?"iframe":"video");
-  player.style.cssText="width:100%;aspect-ratio:16/9;border:0;border-radius:12px";
-  if(youtube){player.title=t("watchTrailer");player.allow="encrypted-media; picture-in-picture; fullscreen";player.allowFullscreen=true;player.referrerPolicy="strict-origin-when-cross-origin";}
-  else{player.controls=true;player.playsInline=true;player.preload="metadata";}
-  player.src=src;button.closest(".trailer-consent").replaceWith(player);player.focus();
-});
 
 function safeStoreLink(value) {
   try {const url=new URL(value);return url.protocol==="https:"&&["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com","apps.apple.com","play.google.com"].includes(url.hostname)&&!url.port&&!url.username&&!url.password?url.href:"";}catch{return "";}
@@ -1985,7 +1987,7 @@ function catalogInformation(m) {
     ((m.authors||[]).length?'<div class="section-t">'+(fr?"Auteurs":"Creators")+'</div><p>'+m.authors.map(esc).join(" · ")+'</p>':"")+
     ((m.alternativeTitles||[]).length?'<div class="section-t">'+(fr?"Autres titres":"Alternative titles")+'</div><ul class="synopsis">'+m.alternativeTitles.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>':"")+
     ((m.cast||[]).length?'<div class="section-t">'+(fr?"Distribution et personnages":"Cast and characters")+'</div><div class="cast-strip scroll-x">'+m.cast.map(c=>'<div class="cast-card"><div class="cast-av">'+(c.image?'<img src="'+esc(c.image)+'" alt="" loading="lazy">':'')+'</div><b>'+esc(c.name)+'</b><small>'+esc(c.character||c.role||"")+'</small></div>').join("")+'</div>':"")+
-    embeddedTrailer(m.trailerUrl||m.trailer)+newsHtml;
+    embeddedTrailer(m.trailerUrl||m.trailer)+newsHtml+(m.type==="game"?'<section class="game-rewards"><div class="section-t">'+(fr?"Codes et récompenses":"Codes and rewards")+'</div><p class="sub">'+(fr?"Aucun code actif vérifié disponible pour ce jeu pour le moment.":"No verified active codes are available for this game yet.")+'</p></section>':"");
 }
 let previewRequest=0;
 function openCatalogPreview(m) {

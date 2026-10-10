@@ -1412,7 +1412,7 @@ async function steamAppDetails(appid) {
     synopsis: (d.short_description || "").trim(),
     releaseDate: d.release_date && d.release_date.date ? d.release_date.date : undefined,
     cover:d.header_image||undefined,
-    trailer: d.movies?.find(m=>m.mp4?.max||m.webm?.max)?.mp4?.max || d.movies?.find(m=>m.webm?.max)?.webm?.max,
+    trailer: (Array.isArray(d.movies)?d.movies:[]).flatMap(m=>[m.mp4?.max,m.mp4?.["480"],m.webm?.max,m.webm?.["480"]]).find(value=>typeof value==="string"&&/^https?:\/\//.test(value)),
     comingSoon: typeof d.release_date?.coming_soon === "boolean" ? d.release_date.coming_soon : undefined,
     news,
   };
