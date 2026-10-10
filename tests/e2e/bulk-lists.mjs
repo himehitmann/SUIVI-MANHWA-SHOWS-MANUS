@@ -240,8 +240,7 @@ try {
  await p.locator('[data-feature-step="1"]').focus();
  await p.keyboard.press("Enter");
  assert.equal(await p.evaluate(()=>document.activeElement?.getAttribute("data-feature-step")),"1","Carousel keeps keyboard focus");
- await p.locator("#feature-pause").focus();await p.keyboard.press("Enter");
- assert.equal(await p.evaluate(()=>document.activeElement?.id),"feature-pause");
+ assert.equal(await p.locator("#feature-pause").count(),0,"Manual carousel does not need a pause control");
 
  const recognition=await p.evaluate(()=>{
    const saved=discoverySavedMatcher([
