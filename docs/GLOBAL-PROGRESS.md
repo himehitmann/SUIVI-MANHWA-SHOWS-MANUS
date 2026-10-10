@@ -18,6 +18,9 @@ G03 avait été validé, mais les captures utilisateur du 10 octobre montrent de
 
 ## Preuves actuelles
 
+[CI #676](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38073388813), commit 2f617ad4d0c48ab7693edee45b5e9894efec96dd : contrôles complets réussis. Sélection Steam des vidéos MP4/WebM valides avec repli 480p, refus des URL à identifiants/ports et mise à niveau HTTPS limitée aux domaines Steam connus. La fiche essaie le second champ vidéo si le premier est inutilisable ; vérification dans Chrome sur un jeu sauvegardé. Synopsis long Steam, développeurs et plateformes Windows/macOS/Linux réellement indiquées par le fournisseur récupérés. Lecteur pleine largeur. Ne garantit pas la disponibilité des vidéos externes, ne prend pas encore en charge les flux HLS seuls et ne clôt pas G06. Score inchangé : 19/60.
+
+
 Lot interface du 10 octobre : CI #670 entièrement réussie (f5e19144b649752cb741c62a564b4870a13dff89), puis correction du repli des images Steam dans 0d44f24bdb97d5e5f12ef79019714e233c252893, validée par [CI #672](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38069839331) entièrement réussie. La nouvelle sonde réelle ne signale aucune image en échec ni débordement à 1440 et 390 pixels ; les visuels Steam sont à nouveau présents. Leur résolution fournisseur reste variable. Cartes de dimensions fixes, alignement haut, bannière sans lecture automatique, synopsis complet dans une zone défilante, recherche Jeux dans son onglet, classement par titre, prix différenciés, lecteurs intégrés et liens Steam dédupliqués jusque dans les données sauvegardées. Rubrique codes/récompenses ajoutée avec état vide honnête ; collecte des codes non implémentée, G11 reste NV. La revue réelle de #670 a montré deux images Steam absentes, justifiant le correctif de repli et le maintien de G03/G06 partiels. Les entrées plus anciennes ci-dessous conservent leur score historique ; le score courant est 19/60.
 
 
