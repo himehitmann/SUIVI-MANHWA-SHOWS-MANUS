@@ -349,9 +349,10 @@ try {
  await activityImage.evaluate(image=>image.decode());
  const dimensions=await activityImage.evaluate(image=>{
    const box=image.getBoundingClientRect(),frame=image.parentElement.getBoundingClientRect();
-   return {ratio:box.width/box.height,extraHeight:frame.height-box.height,background:getComputedStyle(image).backgroundImage};
+   return {ratio:box.width/box.height,extraHeight:frame.height-box.height,background:getComputedStyle(image).backgroundImage,fit:getComputedStyle(image).objectFit};
  });
- assert(Math.abs(dimensions.ratio-2.5)<0.02,"Continue artwork keeps its full aspect ratio");
+ assert.equal(dimensions.fit,"contain","Continue artwork is fully visible without stretching");
+ assert(Math.abs(dimensions.ratio-2/3)<0.02,"Continue cards share a fixed portrait frame");
  assert(Math.abs(dimensions.extraHeight)<1,"Continue artwork has no letterbox");
  assert.equal(dimensions.background,"none");
  await p.evaluate(cover=>openCatalogPreviewResolved({title:"Landscape detail",type:"game",cover,manual:true}),landscapeArt);
@@ -373,11 +374,13 @@ try {
    switchView("home");
  });
  await p.locator("#view-home .disco-game img").evaluateAll(images=>Promise.all(images.map(image=>image.decode())));
- await p.waitForFunction(()=>[...document.querySelectorAll("#view-home .disco-game")].every(card=>card.style.getPropertyValue("--cover-aspect")));
- const gameArt=await p.locator("#view-home .disco-game img").evaluateAll(images=>images.map(image=>{const r=image.getBoundingClientRect();return {width:r.width,height:r.height,ratio:image.naturalWidth/image.naturalHeight};}));
+
+ const gameArt=await p.locator("#view-home .disco-game img").evaluateAll(images=>images.map(image=>{const r=image.getBoundingClientRect();return {width:r.width,height:r.height,ratio:image.naturalWidth/image.naturalHeight,fit:getComputedStyle(image).objectFit,top:r.top};}));
  assert(Math.abs(gameArt[0].height-gameArt[1].height)<1,"Mixed game formats share a consistent artwork height");
- for(const art of gameArt)assert(Math.abs(art.width/art.height-art.ratio)<0.02,"Each game retains its full artwork proportions");
- assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Variable card widths stay inside their carousel");
+ assert(Math.abs(gameArt[0].width-gameArt[1].width)<1,"Mixed game sources share a consistent card width");
+ assert(Math.abs(gameArt[0].top-gameArt[1].top)<1,"Mixed game sources align at the top");
+ for(const art of gameArt)assert.equal(art.fit,"contain","Game artwork remains whole without stretching");
+ assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Uniform cards stay inside their carousel");
 
  // The search UI keeps existing matches and filters while requesting the next page.
  await w.evaluate(()=>{
