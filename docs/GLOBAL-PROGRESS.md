@@ -6,7 +6,7 @@ Mise à jour : 10 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
-**20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+**19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
 ## Pourquoi le compteur est resté à 30 %, puis passe à 33 %
 
@@ -14,9 +14,12 @@ Le compteur attribue un point uniquement à un critère entièrement vérifié. 
 
 La livraison a été trop fragmentée en petits correctifs. Priorité : terminer des parcours cohérents, puis les comparer aux critères de réception. Ne pas ajouter de critères plus faciles ni reclasser un critère uniquement pour augmenter le score.
 
-G03 est désormais validé : la revue visuelle sur données réelles a été réalisée sur ordinateur et mobile, après correction des proportions des cartes Jeux. La collecte régionale réelle et les tests de fraîcheur, de panne et de recommandations complètent cette revue. Le dénominateur reste 60. G09 est également validé depuis la CI #614 : combinaison des filtres et distinction explicite entre œuvre/série terminée, saison/partie terminée et portée inconnue, avec sauvegarde et rechargement vérifiés dans Chrome.
+G03 avait été validé, mais les captures utilisateur du 10 octobre montrent des écarts visuels importants. Il repasse partiel : la validation antérieure était insuffisante. Les corrections de hauteur de bannière, de cartes uniformes et de navigation sont en cours de revalidation. Le dénominateur reste 60. G09 est également validé depuis la CI #614 : combinaison des filtres et distinction explicite entre œuvre/série terminée, saison/partie terminée et portée inconnue, avec sauvegarde et rechargement vérifiés dans Chrome.
 
 ## Preuves actuelles
+
+Lot interface du 10 octobre : CI #670 entièrement réussie (f5e19144b649752cb741c62a564b4870a13dff89), puis correction du repli des images Steam dans 0d44f24bdb97d5e5f12ef79019714e233c252893, validée par [CI #672](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38069839331) entièrement réussie. La nouvelle sonde réelle ne signale aucune image en échec ni débordement à 1440 et 390 pixels ; les visuels Steam sont à nouveau présents. Leur résolution fournisseur reste variable. Cartes de dimensions fixes, alignement haut, bannière sans lecture automatique, synopsis complet dans une zone défilante, recherche Jeux dans son onglet, classement par titre, prix différenciés, lecteurs intégrés et liens Steam dédupliqués jusque dans les données sauvegardées. Rubrique codes/récompenses ajoutée avec état vide honnête ; collecte des codes non implémentée, G11 reste NV. La revue réelle de #670 a montré deux images Steam absentes, justifiant le correctif de repli et le maintien de G03/G06 partiels. Les entrées plus anciennes ci-dessous conservent leur score historique ; le score courant est 19/60.
+
 
 [CI #652](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38032629279), commit af1e0302dbde4b34f7049c9bb08c8434ab457b73 : ordre des notifications par fournisseur/abonnement conservé durablement. Les dates provider created/occurred_at sont validées ; PostgreSQL sérialise chaque ressource, verrouille le compte et persiste le dernier état dans la transaction du reçu. Un événement distinct plus ancien est enregistré sans modifier les droits. À date égale et plans contradictoires, transaction annulée et 503 ; aucun ordre inventé entre identifiants. Une ressource déjà liée à un autre compte est refusée. Paddle récurrent suit les événements d’abonnement, pas les confirmations de transaction tardives. Tests mémoire/fichier et PostgreSQL réel : livraisons anciennes/nouvelles concurrentes, annulation préservée, redémarrage/reconnexion, conflit égal et propriété de ressource avec absence de reçu après rollback. Contrôles complets réussis. Réconciliation des dates égales par API prestataire, agrégation multi-abonnements, remboursements et cycle réel restent ouverts. Total 20/60 inchangé.
 
@@ -48,7 +51,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 |---|---|---|---|
 | G01 | Identité entre sites et langues, titres alternatifs et auteurs sur une collection représentative | P | Fusions confirmées et conflits testés ; mesurer rappel/précision sur corpus réel multilingue. Ne pas fusionner adaptations/remakes sur le seul titre. |
 | G02 | Couverture multi-fournisseur et fonctionnement dégradé sans AniList | P | Sources/replis disponibles selon média ; sources demandées non toutes intégrées. Aucune exhaustivité revendiquée. |
-| G03 | Accueil actuel, catégories pertinentes et recommandations texte/goûts | V | Trois rangées variées, recommandations par tags et synopsis, catégories sauvegardées, cache borné et récupération après panne testés. Catalogues régionaux réels contrôlés ; revue visuelle à 1440 et 390 pixels et correction des cartes Jeux, CI #559. Cette validation ne couvre pas l'exhaustivité des sources ni toutes les fiches/vidéos. |
+| G03 | Accueil actuel, catégories pertinentes et recommandations texte/goûts | P | Rouvert le 10 octobre après les captures utilisateur : tailles irrégulières, synopsis tronqué et présentation insatisfaisante. Formats fixes, bannière manuelle stable et synopsis intégral défilant corrigés. Revue réelle encore nécessaire pour la qualité des images Jeux et la cohérence globale. |
 | G04 | Nouveautés à rattraper disparaissant après lecture/visionnage | P | Données épisodes compatibles ; chapitres manga et calendrier global incomplets. |
 | G05 | Fiches internes complètes avec tags, personnages, acteurs et titres lisibles | P | Fiches internes présentes ; complétude des fournisseurs et présentation à élargir. |
 | G06 | Images et bandes-annonces robustes, sans recadrage gênant | P | Replis, proportions et activation volontaire présents ; vidéos indisponibles et portrait réel à vérifier. |
@@ -166,7 +169,7 @@ Limites confirmées : Jikan manga/anime échoue dans cet environnement après en
 
 ## Priorités de livraison
 
-1. Maintenir G03 validé : conserver les contrôles Chrome, la sonde de catalogues réels et les captures ordinateur/mobile lors des changements de l’accueil.
+1. Revalider G03 après les défauts signalés le 10 octobre : conserver les contrôles Chrome, la sonde de catalogues réels et les captures ordinateur/mobile lors des changements de l’accueil.
 2. Étendre recherche/fiches/jeux multi-boutiques et corriger les écarts de présentation avec un corpus réel.
 3. Réconcilier avantages gratuits/Pro et limites de traduction avec une mesure de coûts. Tester paiement, annulation et révocation avant activation commerciale.
 4. Configurer et vérifier le propriétaire ; voir ADMINISTRATION.md. Aucune promotion réelle n’a été faite par simple modification du code.
