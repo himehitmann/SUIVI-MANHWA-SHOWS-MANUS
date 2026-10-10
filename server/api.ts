@@ -21,6 +21,7 @@ import { mergeBlobs, type SyncBlob } from "./lib/merge";
 import { createStore, type Store } from "./lib/store";
 import {
   applyPlanIntent,
+  billingReceipt,
   planFromPaddleEvent,
   planFromStripeEvent,
   verifyPaddleSignature,
@@ -159,10 +160,11 @@ export function createApiRouter(
         try { event = await completeStripeCheckout(event, process.env.STRIPE_SECRET_KEY || ""); }
         catch { return res.status(503).json({ error: "billing_lookup_unavailable" }); }
       }
-      const result = await applyPlanIntent(
-        store,
-        planFromStripeEvent(event, STRIPE_PRICES)
-      );
+      const intent=planFromStripeEvent(event, STRIPE_PRICES);
+      const receipt=billingReceipt("stripe",event);
+      if(intent&&!receipt)return res.status(400).json({error:"invalid_billing_event"});
+      const result = await applyPlanIntent(store,intent,receipt||undefined);
+      if(result.reason==="user_not_found")return res.status(503).json({error:"billing_account_unavailable"});
       return res.json({
         received: true,
         applied: result.ok,
@@ -187,10 +189,11 @@ export function createApiRouter(
       } catch {
         return res.status(400).json({ error: "invalid_json" });
       }
-      const result = await applyPlanIntent(
-        store,
-        planFromPaddleEvent(event, PADDLE_PRICES)
-      );
+      const intent=planFromPaddleEvent(event, PADDLE_PRICES);
+      const receipt=billingReceipt("paddle",event);
+      if(intent&&!receipt)return res.status(400).json({error:"invalid_billing_event"});
+      const result = await applyPlanIntent(store,intent,receipt||undefined);
+      if(result.reason==="user_not_found")return res.status(503).json({error:"billing_account_unavailable"});
       return res.json({
         received: true,
         applied: result.ok,

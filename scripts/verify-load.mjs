@@ -103,6 +103,18 @@ try {
   }
 
   if(scenario.total===100000){
+   const billingStore=createPostgresStore(pool),billingReceipt={provider:'stripe',eventId:'evt-replayed'};
+   const billed=await Promise.all(Array.from({length:10},()=>billingStore.applyBillingEvent('account-3','pro',billingReceipt)));
+   assert.equal(billed.filter(r=>r.plan==='pro').length,1);
+   await billingStore.applyBillingEvent('account-3','free',{provider:'stripe',eventId:'evt-canceled'});
+   const billingReader=new pg.Pool({...poolConfig,options:'-c search_path='+schema});
+   try{
+    const restarted=createPostgresStore(billingReader);
+    assert.equal((await restarted.applyBillingEvent('account-3','pro',billingReceipt)).unchanged,true);
+    assert.equal((await restarted.getUserById('account-3')).plan,'free');
+    assert.equal(Number((await billingReader.query("SELECT count(*) AS n FROM billing_events WHERE user_id=$1",['account-3'])).rows[0].n),2);
+   }finally{await billingReader.end();}
+   report.results.push({name:'postgres-billing-replay',concurrentDuplicateAppliedOnce:true,replayAfterCancelIgnored:true,independentPoolPersistence:true});
    const rights=createPostgresAccessStore(pool),owners=new Set(['account-0']),request={requestId:'gift-duplicate',expectedVersion:0,kind:'gift',days:30,reason:'Isolated persistence probe'};
    const duplicate=await Promise.all([rights.change('account-0','account-1',request,owners),rights.change('account-0','account-1',request,owners)]);
    assert.deepEqual(duplicate[0],duplicate[1]);assert.equal((await rights.audit()).length,1);

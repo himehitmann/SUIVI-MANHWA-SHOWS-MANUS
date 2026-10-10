@@ -41,6 +41,12 @@ export async function ensureSchema(client: SqlClient): Promise<void> {
       updated_at BIGINT NOT NULL
     )
   `);
+  await client.query(`CREATE TABLE IF NOT EXISTS billing_events (
+    provider TEXT NOT NULL,event_id TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (provider,event_id)
+  )`);
+  await client.query("CREATE INDEX IF NOT EXISTS billing_events_user_id_idx ON billing_events (user_id)");
 }
 
 const normEmail = (e: string) => (e || "").trim().toLowerCase();
@@ -57,6 +63,22 @@ function toUser(row: any): UserRecord {
 
 export function createPostgresStore(client: SqlClient): Store {
   return {
+    async applyBillingEvent(userId, plan, receipt) {
+      if(!client.connect)throw new Error("Billing transactions require a connection pool");
+      const connection=await client.connect();
+      try {
+        await connection.query("BEGIN");
+        const locked=await connection.query("SELECT * FROM users WHERE id = $1 FOR UPDATE",[userId]);
+        if(!locked.rows[0]){await connection.query("ROLLBACK");return {ok:false,reason:"user_not_found"};}
+        const recorded=await connection.query("INSERT INTO billing_events (provider,event_id,user_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING RETURNING event_id",[receipt.provider,receipt.eventId,userId]);
+        if(!recorded.rows.length){await connection.query("COMMIT");return {ok:true,unchanged:true};}
+        const oldPlan=locked.rows[0].plan,nextPlan=oldPlan==="lifetime"?oldPlan:plan;
+        if(oldPlan!==nextPlan)await connection.query("UPDATE users SET plan = $2 WHERE id = $1",[userId,nextPlan]);
+        await connection.query("COMMIT");
+        return oldPlan===nextPlan?{ok:true,unchanged:true}:{ok:true,plan:nextPlan};
+      } catch(error){await connection.query("ROLLBACK");throw error;}
+      finally{connection.release();}
+    },
     async createSession(s) {
       await client.query("DELETE FROM sessions WHERE expires_at <= $1", [
         Date.now(),

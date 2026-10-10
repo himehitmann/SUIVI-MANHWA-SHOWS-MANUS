@@ -34,7 +34,10 @@ export interface SessionRecord {
   createdAt: number;
   expiresAt: number;
 }
+export interface BillingReceipt { provider: "stripe" | "paddle"; eventId: string; }
+export interface BillingResult { ok: boolean; plan?: UserRecord["plan"]; unchanged?: boolean; reason?: string; }
 export interface Store {
+  applyBillingEvent(userId: string, plan: UserRecord["plan"], receipt: BillingReceipt): Promise<BillingResult>;
   createSession(session: SessionRecord): Promise<void>;
   getSession(id: string): Promise<SessionRecord | null>;
   revokeSession(id: string): Promise<void>;
@@ -53,10 +56,11 @@ interface Snapshot {
   users: UserRecord[];
   sessions: SessionRecord[];
   sync: Record<string, SyncRecord>;
+  billing: (BillingReceipt & { userId: string })[];
 }
 
 export function createStore(filePath?: string): Store {
-  let snap: Snapshot = { users: [], sync: {}, sessions: [] };
+  let snap: Snapshot = { users: [], sync: {}, sessions: [], billing: [] };
   if (filePath && existsSync(filePath)) {
     try {
       Object.assign(snap, JSON.parse(readFileSync(filePath, "utf8")));
@@ -84,6 +88,14 @@ export function createStore(filePath?: string): Store {
   const norm = (e: string) => e.trim().toLowerCase();
 
   return {
+    async applyBillingEvent(userId, plan, receipt) {
+      const user=snap.users.find(u=>u.id===userId);
+      if(!user)return {ok:false,reason:"user_not_found"};
+      if(snap.billing.some(r=>r.provider===receipt.provider&&r.eventId===receipt.eventId))return {ok:true,unchanged:true};
+      const nextPlan=user.plan==="lifetime"?user.plan:plan;
+      persist({...snap,users:snap.users.map(u=>u.id===userId?{...u,plan:nextPlan}:u),billing:[...snap.billing,{...receipt,userId}]});
+      return user.plan===nextPlan?{ok:true,unchanged:true}:{ok:true,plan:nextPlan};
+    },
     async createSession(session) {
       persist({
         ...snap,
@@ -113,6 +125,7 @@ export function createStore(filePath?: string): Store {
       persist({
         ...snap,
         users: snap.users.filter(u => u.id !== userId),
+        billing: snap.billing.filter(r=>r.userId!==userId),
         sessions: snap.sessions.filter(s => s.userId !== userId),
         sync,
       });
