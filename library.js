@@ -347,8 +347,8 @@ function discoveryArtwork(m){
   for(const value of [m.coverFallback,m.cover].filter(Boolean)){
     try{const url=new URL(value);
       if(/(^|\.)(steamstatic\.com|steamcdn-a\.akamaihd\.net)$/.test(url.hostname)&&/\/steam\/apps\/\d+\//.test(url.pathname)){
-        url.pathname=url.pathname.replace(/[^/]+$/,"header.jpg");
-        return covImg(url.href,m.cover);
+        const app=url.pathname.match(/\/steam\/apps\/(\d+)\//)[1];
+        return covImg("https://cdn.cloudflare.steamstatic.com/steam/apps/"+app+"/header.jpg",m.coverFallback||m.cover);
       }
     }catch{}
   }
