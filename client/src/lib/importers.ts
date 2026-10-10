@@ -6,6 +6,7 @@
  *  - Generic CSV with a header row (Trakt/Simkl/spreadsheet exports)
  *  - Generic JSON array of { title, type, chapter/episode, url, ... }
  */
+import {normalizeLibraryItem} from "./library-merge";
 import { createItem, type ItemInput } from "./item";
 import type { ContentType, ItemStatus, LibraryItem } from "./types";
 
@@ -21,7 +22,7 @@ function malStatus(s: string): ItemStatus {
   if (v.includes("complete")) return "completed";
   if (v.includes("hold")) return "on_hold";
   if (v.includes("plan")) return "planned";
-  if (v.includes("drop")) return "on_hold";
+  if (v.includes("drop")) return "dropped";
   return "in_progress";
 }
 
@@ -136,27 +137,7 @@ export function parseCsv(text: string): LibraryItem[] {
   return items;
 }
 
-function normalizeItems(raw: unknown[]): LibraryItem[] {
-  return raw
-    .filter((r): r is Record<string, unknown> => Boolean(r) && typeof r === "object")
-    .map((r) => {
-      // Already a Dasi item (has accent + progress + id): keep, but ensure required fields.
-      if (typeof r.accent === "string" && typeof r.id === "string" && typeof r.progress === "number") {
-        return { ...(r as unknown as LibraryItem), sources: Array.isArray(r.sources) ? (r.sources as string[]) : [] };
-      }
-      const input: ItemInput = {
-        title: String(r.title ?? r.name ?? "Untitled"),
-        type: (r.type === "watching" || r.type === "reading" ? r.type : undefined) as ContentType | undefined,
-        chapter: typeof r.chapter === "number" ? r.chapter : undefined,
-        episode: typeof r.episode === "number" ? r.episode : undefined,
-        season: typeof r.season === "number" ? r.season : undefined,
-        progress: typeof r.progress === "number" ? r.progress : undefined,
-        url: typeof r.url === "string" ? r.url : undefined,
-        cover: typeof r.cover === "string" ? r.cover : undefined,
-      };
-      return createItem(input);
-    });
-}
+function normalizeItems(raw:unknown[]):LibraryItem[]{return raw.map(normalizeLibraryItem).filter((i):i is LibraryItem=>Boolean(i));}
 
 export function parseImport(text: string): ImportResult {
   const trimmed = text.trim();
@@ -169,7 +150,7 @@ export function parseImport(text: string): ImportResult {
       if (Array.isArray(data)) return { format: "json", items: normalizeItems(data) };
       if (Array.isArray(data.items)) {
         const isDasi = data.version === 1 || data.items.some((i: Record<string, unknown>) => typeof i.accent === "string");
-        return { format: isDasi ? "dasi" : "json", items: normalizeItems(data.items) };
+        return { format: "dasi", items: normalizeItems(data.items) };
       }
     } catch {
       /* fall through */

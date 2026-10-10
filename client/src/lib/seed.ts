@@ -114,10 +114,10 @@ export const seedNotifications: AppNotification[] = [
 
 export function seedState(): DasiState {
   return {
-    items: seedItems,
-    lists: seedLists,
-    sites: seedSites,
-    notifications: seedNotifications,
+    items: [],
+    lists: [],
+    sites: [],
+    notifications: [],
     plan: "free",
     learn: { lang: "ko", xp: 0, streak: 0, lastStudied: null, mastery: {}, srs: {}, dailyGoal: 20, daily: {}, achievements: [], perfectQuizzes: 0 },
     version: 1,

@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Privacy Policy — Yomu</title>
-    <meta name="description" content="How Yomu handles your data: local-first by default, optional encrypted sync, no ad tracking." />
+    <title>Privacy Policy · Yomu</title>
+    <meta name="description" content="How Yomu handles your data: local-first by default, browser and optional account sync, no ad tracking." />
     <link rel="canonical" href="https://yomu.app/privacy.html" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="robots" content="index,follow" />
@@ -35,10 +35,10 @@
         <span class="logo"><i></i></span><span class="brand">Yomu</span>
       </header>
       <h1>Privacy Policy</h1>
-      <p class="updated">Last updated: 6 September 2026</p>
+      <p class="updated">Last updated: 16 September 2026</p>
 
       <div class="card">
-        <p><strong>The short version.</strong> Yomu is built to keep your data on your own device. Your library, lists, progress and settings live in your browser. You can use Yomu fully without an account, without payment, and without sending your library anywhere. Optional features (cross-device sync, subscriptions, translation) are clearly separate and described below. We do not sell your data and we do not use advertising trackers.</p>
+        <p><strong>The short version.</strong> Yomu is built to keep your data on your own device. Your library, lists, progress and settings live in your browser. Local tracking does not require a Yomu account. The extension can also mirror library data through your browser’s synchronization service, independently of a Yomu account. Optional features (cross-device sync, subscriptions, translation) are clearly separate and described below. We do not sell your data and we do not use advertising trackers.</p>
       </div>
 
       <h2>1. Who we are</h2>
@@ -46,37 +46,40 @@
       <p class="note">Operator / data controller and contact details to be completed by the publisher before release.</p>
 
       <h2>2. Data stored on your device</h2>
-      <p>By default, everything Yomu records is stored locally in your browser (via <code>localStorage</code> and the extension’s local storage): the works you track, your reading/watching progress, lists, tags, ratings, favorite sites, notifications and preferences. This data never leaves your device unless you turn on optional sync (see §4). You can export or delete it at any time from Settings.</p>
+      <p>By default, everything Yomu records is stored locally in your browser (via <code>localStorage</code> and the extension’s local storage): the works you track, your reading/watching progress, lists, tags, ratings, favorite sites, notifications and preferences. The extension also attempts to mirror library records, lists, notifications and selected preferences to <code>chrome.storage.sync</code> when no Yomu account session is active. Your browser may synchronize this data through your browser account, subject to its settings and quotas. Service keys and Yomu session tokens are excluded from that automatic mirror. You can export or delete it at any time from Settings.</p>
 
       <h2>3. Data we do <em>not</em> collect</h2>
       <ul>
         <li>No advertising or third-party tracking cookies.</li>
         <li>No sale or sharing of personal data with advertisers or data brokers.</li>
-        <li>No collection of your browsing history. Yomu only reads the page you are on when you explicitly click “Save” or “Translate”.</li>
+        <li>Yomu does not request the browser history API. On permitted pages, detection can read titles, URLs and progress. Automatic tracking can update a saved work while you watch; it can be disabled in settings. Saved source URLs and progress form part of your library.</li>
       </ul>
 
       <h2>4. Optional account &amp; cross-device sync</h2>
       <p>If you choose to create an account to sync across devices, we store:</p>
       <ul>
         <li>Your email address (to identify your account).</li>
-        <li>A one-way, salted <strong>scrypt</strong> hash of your password — never the password itself.</li>
+        <li>A one-way, salted <strong>scrypt</strong> hash of your password · never the password itself.</li>
         <li>Your synced library “blob” (the same tracking data described in §2), so it can be restored on your other devices.</li>
         <li>Your subscription plan (free / pro / lifetime).</li>
       </ul>
-      <p>Sync is off until you sign in. You can stop syncing and delete your account data at any time by contacting us.</p>
+      <p>Yomu account sync starts after sign-in; it is separate from browser synchronization described above. Account sync stores readable library data on the configured server. It is not end-to-end encrypted. Production connections must use HTTPS. Signing out stops account synchronization. Account deletion and export controls are available in Settings; retention of operator backups and payment records must be documented for the actual deployment.</p>
 
       <h2>5. Payments</h2>
-      <p>Yomu’s paid tiers are processed by third-party payment providers (Stripe and/or Paddle). Your card details are entered on the provider’s secure checkout and are handled by them — Yomu never sees or stores your full card number. The provider tells us only which plan you purchased, so we can unlock Pro features on your account. See the provider’s own privacy policy for how they process payment data.</p>
+      <p>Yomu’s paid tiers are processed by third-party payment providers (Stripe and/or Paddle). Your card details are entered on the provider’s secure checkout and are handled by them · Yomu never sees or stores your full card number. The integration receives provider events and account references needed to update your plan. Hosted checkout may receive your account identifier and email address to associate the payment with your account. See the provider’s own privacy policy for how they process payment data.</p>
 
       <h2>6. Translation &amp; discovery</h2>
       <ul>
-        <li><strong>Image (OCR) translation</strong> runs locally inside the extension using a bundled engine — panel images are read on your device and are not uploaded. If the local engine fails, a fallback OCR service may be used only if you have enabled it.</li>
-        <li><strong>Text translation</strong> sends the selected page text to a translation service (e.g. Google Translate’s public endpoint, with a MyMemory fallback) to return the translation. Only the text to translate is sent.</li>
-        <li><strong>Discover / search</strong> sends the title you look up to public catalog services (AniList, Steam, TVMaze, OpenLibrary, Wikipedia) to fetch covers, descriptions, cast and release info. Only your query is sent — not your library.</li>
+        <li><strong>Image (OCR) translation</strong> runs locally inside the extension using a bundled engine · panel images are read on your device and are not uploaded. If the local engine fails, a fallback OCR service may be used only if you have enabled it.</li>
+        <li><strong>Text translation</strong> sends the selected page text to a translation service (e.g. Google Translate’s public endpoint, with a MyMemory fallback) to return the translation. The provider also receives normal connection metadata, including your IP address.</li>
+        <li><strong>Discover / search</strong> sends the title you look up to public catalog services (AniList, Jikan, Steam, TVMaze, OpenLibrary, Wikipedia) to fetch covers, descriptions, cast and release info. Queries can also be generated from imported or saved titles to complete their metadata. Providers receive queries or work identifiers and normal connection metadata. Cover and character images are loaded from their respective hosts.</li>
       </ul>
 
+      <h2>External players and storage</h2>
+      <p>Trailer players in the extension load only after you activate their button. The video provider then receives the connection and playback data necessary to serve the video. Browser storage holds preferences, library data and account session information. These functional stores are separate from advertising trackers. This repository does not include an advertising or analytics script in its main web entry point; an operator must check any additional scripts, hosting logs and payment integrations before publishing a deployment.</p>
+
       <h2>7. Browser permissions</h2>
-      <p>The extension requests only what it needs: access to the current tab when you act on it, local storage, notifications for new-chapter/episode alerts, and (optionally) broader page access for on-page translation. Permissions are used solely to deliver the feature you triggered.</p>
+      <p>The extension uses active-tab access, scripting, tabs, storage, notifications, alarms and an offscreen document. Declared catalog, translation and OCR hosts can be contacted for those features. Optional broader site access enables on-page tools on sites you approve. Scheduled refreshes and automatic tracking can run without a new click; their behavior depends on your settings.</p>
 
       <h2>8. Data retention &amp; your rights</h2>
       <p>Local data stays until you clear it. Account data (if you use sync) is kept while your account exists and deleted on request. Depending on where you live, you may have rights to access, correct, export or delete your personal data; email <a href="mailto:support@yomu.app">support@yomu.app</a> and we will help.</p>

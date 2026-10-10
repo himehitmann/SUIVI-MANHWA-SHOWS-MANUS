@@ -1,6 +1,6 @@
-# Dasi — Continue Reading & Watching
+# Yomu — Continue Reading & Watching
 
-Dasi is a **local-first**, premium browser extension (plus a companion web app)
+Yomu is a **local-first**, premium browser extension (plus a companion web app)
 that remembers where you stopped in anything you read or watch online — manga,
 manhwa, webtoons, comics, novels, anime, series, films and videos. One click
 saves your place; the library brings it back.
@@ -20,7 +20,7 @@ required to use it; cloud sync is an optional, non-critical upgrade.
   detections are flagged for review instead of being saved silently.
 - **One-click save** from the popup, or `Ctrl+Shift+S`.
 - **Add works manually** with an optional online title search (AniList — free, best-effort), so anything can be tracked even without visiting a page.
-- **Import from other trackers** — MyAnimeList XML export, generic CSV, JSON, and Dasi backups, auto-detected.
+- **Import from other trackers** — MyAnimeList XML export, generic CSV, JSON, and Yomu backups, auto-detected.
 - **Library** with continue queue, Reading/Watching/Favorites filters, search,
   favorites and delete.
 - **Quick-access sites** — save your reading/streaming sites for one-click access.
@@ -43,7 +43,7 @@ client/            Web app (library + companion page): React + Vite
   src/store/       Local-first persistent store (localStorage)
   src/pages/       Home, Collections, ListDetail, Pricing
   src/components/  Header, Notifications, LanguageSwitch, Loader, bits
-extension/         Manifest V3 extension
+Repository root    Manifest V3 extension files
   content.js       Generic-first detector + isolated site adapters
   background.js    On-demand injection, local merge policy, storage
   popup.*          One-click confirm/save + video tools
@@ -53,20 +53,12 @@ tests/             Vitest suite for the detection heuristics
 docs/              ARCHITECTURE.md, PRICING.md
 ```
 
-## Install the extension
+## Install and update the extension
 
-See **[INSTALL.md](INSTALL.md)** for step-by-step instructions and screenshots.
-In short:
-
-- **Easiest:** download `dasi-extension.zip` from the **Releases** page, unzip,
-  then in `chrome://extensions` (Developer mode on) → **Load unpacked** → select
-  the unzipped folder.
-- **From a repo ZIP:** load the inner **`extension/`** folder, *not* the repo
-  root — Chrome needs the folder that directly contains `manifest.json`
-  (loading the root fails with _"Manifest file is missing or unreadable"_).
-
-Then open a chapter, episode or video, click the Dasi icon, review the
-detection, and hit **Save my position** (shortcut `Ctrl+Shift+S`).
+See [INSTALL.md](INSTALL.md). Use the verified `yomu-extension.zip` from a
+successful GitHub Actions run. The manifest is at the package root.
+Existing unpacked installations must be updated in the same folder and reloaded
+in Chrome; GitHub changes do not install themselves.
 
 ### Where your data is stored
 
@@ -124,3 +116,36 @@ extension-buyer model. The full competitor survey and cost/margin analysis is in
 Encrypted sync backend behind a swappable interface, a "find again" flow for dead
 URLs, reading calendar/statistics, and additional site adapters and languages —
 all kept off the critical path so the local-first core stays independent.
+
+## Delivery status, reviewed 2026-09-14
+
+Latest verified extension: **0.4.16**, branch `fix/yomu-p0-reliability`.
+[Successful automated verification](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/34867367235).
+The historical feature descriptions above are not a production readiness guarantee.
+
+### Implemented and covered by automated checks
+
+- Internal catalog previews, explicit list selection and already-saved recognition.
+- Confirmed identity matching, conservative duplicate repair, season-aware selection.
+- Persistent import enrichment queue and exact-ID metadata recovery.
+- Tracked episode release dates, catch-up views and category discovery rows.
+- Library format/unlisted filters and sorting.
+- Extension packaging, persistent-profile upgrade, crop controls, list operations and video checks.
+
+### Still incomplete or needing broader verification
+
+- Recognition of legacy brand-only titles, unidentified records and ambiguous multilingual matches.
+- Real user import samples: original watched history cannot be inferred from catalog episode totals.
+- Coverage and reliability of covers, synopsis, authors, cast and embedded trailers across providers.
+- Live image translation quality, difficult panels and provider failures; fixture OCR is not universal validation.
+- Full visual/accessibility audit of every popup, bubble, drawer, error state and narrow viewport.
+- Manga chapter release dates, upcoming calendar and richer per-episode/reading history.
+- Recommendation quality, regional trends and sufficient catalog coverage; no exhaustive competitor parity.
+- Web/extension feature parity and production account/sync/email/payment deployment verification.
+- Personal Chrome installation/reload: local access is blocked; remote tests do not update that browser.
+- Documentation cleanup: older architecture/backend descriptions may not match the current implementation.
+
+Requested sources such as MangaUpdates, Nautiljon, Manga-news, Booknode, ComicWalker,
+Fandom, TVTropes and Anime-Planet are not all integrated. A complete competitor
+feature inventory remains to be established. No claim of full implementation or
+measured overall completion percentage is made by this status record.

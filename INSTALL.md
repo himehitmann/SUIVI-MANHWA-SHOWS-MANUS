@@ -1,55 +1,53 @@
-# Installing the Dasi extension
+# Installer et actualiser Yomu
 
-`manifest.json` sits at the **repository root**, so the downloaded project folder
-loads directly as an unpacked extension — no subfolder to hunt for.
+## Paquet vérifié
 
-## From the repository "Download ZIP"
+Utiliser un workflow **Yomu quality réussi** sur la branche `fix/yomu-p0-reliability`.
+Télécharger son artifact `yomu-verification`, extraire cette archive, puis extraire
+`yomu-extension.zip`. Le dossier final contient directement `manifest.json`,
+`background.js`, `library.html`, `tesseract/` et `vendor/`.
 
-1. On GitHub, **Code → Download ZIP** (or download the branch) and unzip it.
-2. Open `chrome://extensions` (or `edge://extensions`).
-3. Turn on **Developer mode** (top-right).
-4. Click **Load unpacked** and select the **unzipped project folder** — the one
-   that directly contains `manifest.json` (e.g.
-   `SUIVI-MANHWA-SHOWS-MANUS-main/`). The other folders (`client/`, `server/`,
-   `docs/`, …) are ignored by Chrome.
+La version 0.4.16 a été vérifiée dans le [workflow 34867367235](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/34867367235).
 
-## Prefer a clean zip (for the Chrome Web Store, or a tidy load)
+## Première installation
 
-Run `bash scripts/pack-extension.sh` to build **`dasi-extension.zip`** — just the
-extension files, `manifest.json` at the zip root. The GitHub Actions workflow
-also publishes it as the **"Dasi extension (latest)"** release. Unzip and **Load
-unpacked** the unzipped folder, or upload the zip straight to the Web Store.
+1. Ouvrir `chrome://extensions` et activer le mode développeur.
+2. Choisir **Charger l’extension non empaquetée**.
+3. Sélectionner le dossier qui contient directement `manifest.json`.
 
-## Where is my data stored? Is it kept?
+Le manifeste se trouve à la racine du paquet. Il n’y a pas de sous-dossier
+`extension/` à choisir. Ne pas sélectionner une archive ZIP ou le dossier
+parent qui contient seulement `yomu-extension.zip`.
 
-- Your library is stored **in your browser** via `chrome.storage`. It survives
-  browser restarts.
-- Dasi now also mirrors it to **`chrome.storage.sync`**, so if you install the
-  extension on **another computer signed into the same browser account**, your
-  library comes back automatically (subject to the browser's sync quota).
-- **Uninstalling** the extension clears its storage. To be safe against
-  accidental removal or a brand-new machine/account, use **Export backup** in the
-  library (and **Import backup** to restore). Keep that JSON file somewhere safe.
-- A future optional **account + cloud sync** (see `docs/PRICING.md`) will make
-  cross-device recovery automatic without relying on browser sync.
+## Actualiser une installation existante
 
-## Optional: cloud sync across devices (same account as the web app)
+1. Exporter une sauvegarde depuis Yomu avant la mise à jour.
+2. Remplacer les fichiers du **dossier déjà chargé par Chrome** avec ceux du nouveau paquet.
+3. Conserver ce dossier et l’extension existante; ne pas la désinstaller.
+4. Dans `chrome://extensions`, cliquer sur **Recharger** pour Yomu.
+5. Vérifier la version affichée, puis actualiser les onglets Yomu et les pages où la bulle est utilisée.
 
-If you run the Dasi backend (see `docs/BACKEND.md`), the extension can sync to
-the **same account** as the web app so both share one library:
+Une extension chargée manuellement ne reçoit pas les modifications GitHub
+automatiquement. Publier un commit ou un artifact ne met pas à jour Chrome.
+Une nouvelle installation dans un autre dossier peut avoir une autre identité
+et ne pas retrouver les données de l’ancienne.
 
-1. Right-click the Dasi toolbar icon → **Options** (or click **Set up sync →**
-   in the popup footer). The **Cloud sync** settings tab opens.
-2. Enter your **Backend URL** (the API base, e.g. `https://your-host/api`), your
-   **email** and **password**, then **Sign in** — or **Create account** for a
-   new one. The same credentials work in the web app's Settings page.
-3. That's it. The extension pulls your existing library, merges it with what's
-   on this device, and keeps syncing after each save (best-effort). Use **Sync
-   now** to force a round-trip.
+## Données
 
-Notes:
-- Your credentials/token are stored **only on this device** (`chrome.storage.local`)
-  and are **never** mirrored to browser sync.
-- Sync is entirely optional — with it off, everything keeps working locally.
-- The extension only owns items/sites/notifications; your web-app lists, learning
-  progress and plan are preserved on the server and never overwritten by a push.
+Les données sont conservées dans le stockage du navigateur, séparément des
+fichiers du paquet. La sauvegarde JSON reste nécessaire avant une désinstallation
+ou un changement de profil. Le miroir du navigateur est limité par ses quotas;
+il ne remplace pas une sauvegarde exportée. La synchronisation avec un compte
+nécessite un serveur configuré et fonctionnel.
+
+## Construire le paquet
+
+Depuis le dépôt, après installation des dépendances :
+
+```sh
+pnpm build:extension
+pnpm test:package
+```
+
+Le script produit `yomu-extension.zip`, vérifie ses fichiers et inclut les
+ressources OCR locales. Préférer ce paquet à un téléchargement brut du dépôt.
