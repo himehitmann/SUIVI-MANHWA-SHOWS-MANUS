@@ -150,8 +150,9 @@ try {
   await page.evaluate(()=>loadDiscover(true));
   await page.locator('#view-home [data-preview-disco]').first().waitFor();
   await page.waitForFunction(()=>{const im=document.querySelector('#view-home .disco img.cov');return im&&im.complete&&im.naturalWidth>0;});
-  const artRatio=await page.locator('#view-home .disco img.cov').first().evaluate(im=>({rendered:im.clientWidth/im.clientHeight,native:im.naturalWidth/im.naturalHeight,frameHeight:im.parentElement.clientHeight,height:im.clientHeight}));
-  assert(Math.abs(artRatio.rendered-artRatio.native)<0.02,"Discovery artwork distorted");
+  const artRatio=await page.locator('#view-home .disco img.cov').first().evaluate(im=>({rendered:im.clientWidth/im.clientHeight,native:im.naturalWidth/im.naturalHeight,frameHeight:im.parentElement.clientHeight,height:im.clientHeight,fit:getComputedStyle(im).objectFit}));
+  assert.equal(artRatio.fit,"contain","Artwork must remain complete without stretching or cropping");
+  assert(Math.abs(artRatio.rendered-2/3)<0.02,"Poster frames must have a consistent ratio");
   assert(Math.abs(artRatio.frameHeight-artRatio.height)<2,"Artificial bands around discovery artwork");
   assert.equal(await page.locator('#view-home .carousel-arrow:visible').count(),0,"Arrows shown without overflowing content");
   await page.locator('#view-home [data-preview-disco]').first().click();
