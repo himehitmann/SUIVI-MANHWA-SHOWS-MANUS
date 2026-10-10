@@ -1768,9 +1768,9 @@ function catalogSearch(q,more=null) {
   searchPageState={...searchPageState,pending:true,error:false};
   renderSearchProgress(q);
   let previous=more===null?"":JSON.stringify(lastResults),attempts=0;
-  const poll=()=>{if(version!==searchVersion||view!=="library"||query.trim()!==q)return;api.runtime.sendMessage({type:"CATALOG_SEARCH",query:q,progressive:true,retry:attempts===0&&more===null,more},r=>{
+  const poll=()=>{if(version!==searchVersion||(view!=="library"&&view!=="games")||query.trim()!==q)return;api.runtime.sendMessage({type:"CATALOG_SEARCH",query:q,progressive:true,retry:attempts===0&&more===null,more},r=>{
     const error=api.runtime.lastError;
-    if(version!==searchVersion||view!=="library"||query.trim()!==q)return;
+    if(version!==searchVersion||(view!=="library"&&view!=="games")||query.trim()!==q)return;
     if(error||!r?.ok) {
       searchPageState={...searchPageState,pending:false,error:true,retryMore:r?.error==="search_expired"?null:more};
       if(!lastResults.length)el.innerHTML='<div class="sr-wrap">'+(settings.lang==="fr"?"Recherche indisponible.":"Search unavailable.")+'</div>';
