@@ -51,9 +51,8 @@ try {
  await p.evaluate(()=>openCatalogPreview({title:"Unsaved fixture",type:"reading",externalIds:{anilist:"999"},cover:"",genres:["Fantasy"]}));
  assert(await p.locator("#preview-add").isDisabled(),"A destination must be selected");
  await p.waitForFunction(()=>document.querySelector("#preview-info").textContent.includes("Actor"));
- assert.equal(await p.locator("#preview-info iframe").count(),0,"No third-party player before activation");
- await p.locator("#preview-info [data-trailer-src]").click();
- assert.equal(await p.locator("#preview-info iframe").count(),1,"Trailer stays inside Yomu after activation");
+ assert.equal(await p.locator("#preview-info iframe").count(),1,"Trailer is embedded directly in the details");
+ assert.equal(await p.locator("#preview-info [data-trailer-src]").count(),0,"No redundant activation button");
  assert.equal(await p.locator("#drawer a[target='_blank']").count(),0,"Preview must not redirect to a catalog");
  assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].length),7,"Browsing must not save");
  await p.locator("#preview-list").selectOption("destination");
