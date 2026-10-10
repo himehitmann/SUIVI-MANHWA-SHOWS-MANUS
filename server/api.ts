@@ -5,6 +5,7 @@
  * are HMAC-signed tokens, and storage is behind a swappable interface.
  */
 import { z } from "zod";
+import { completeStripeCheckout } from "./lib/stripe-checkout";
 import { AccessError, createMemoryAccessStore, effectivePlan, effectiveRole, type AccessStore } from "./lib/access";
 import {createCatalog} from "./lib/catalog";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -153,6 +154,10 @@ export function createApiRouter(
         event = JSON.parse(raw);
       } catch {
         return res.status(400).json({ error: "invalid_json" });
+      }
+      if (STRIPE_PRICES.lifetime) {
+        try { event = await completeStripeCheckout(event, process.env.STRIPE_SECRET_KEY || ""); }
+        catch { return res.status(503).json({ error: "billing_lookup_unavailable" }); }
       }
       const result = await applyPlanIntent(
         store,
