@@ -1144,7 +1144,7 @@ function openDrawer(id) {
         <div class="section-t">${t("games")}</div>
         ${Array.isArray(i.genres)&&i.genres.length?`<div class="tags">${i.genres.filter(x=>typeof x==="string").map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
         <div class="game-meta">${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}</span>` : ""}${i.price ? `<span class="meta-pill price">${esc(i.price)}</span>` : ""}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${embeddedTrailer(i.trailer||i.trailerUrl)}${gameStoreButtons(i)}${gameSourceCredit(i)}<label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${embeddedTrailer(i.trailer,i.trailerUrl)}${gameStoreButtons(i)}${gameSourceCredit(i)}<label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
       : `
         <div class="section-t">${t("progress")}</div>
         <p class="field-hint">${isWatch ? t("progHintWatch") : t("progHintRead")}</p>
@@ -1897,7 +1897,11 @@ function refreshCatalogSaveLabels(root,results) {
     });
   }
 }
-function embeddedTrailer(url) {
+function embeddedTrailer(...urls) {
+  for(const url of urls) {const html=trailerPlayer(url);if(html)return html;}
+  return "";
+}
+function trailerPlayer(url) {
   if(!url)return "";
   try {
     const parsed=new URL(url);if(parsed.protocol==="http:"&&/(^|\.)(steamstatic\.com|steampowered\.com|akamaihd\.net)$/.test(parsed.hostname))parsed.protocol="https:";if(parsed.protocol!=="https:"||parsed.username||parsed.password)return "";
@@ -1993,7 +1997,7 @@ function catalogInformation(m) {
     ((m.authors||[]).length?'<div class="section-t">'+(fr?"Auteurs":"Creators")+'</div><p>'+m.authors.map(esc).join(" · ")+'</p>':"")+
     ((m.alternativeTitles||[]).length?'<div class="section-t">'+(fr?"Autres titres":"Alternative titles")+'</div><ul class="synopsis">'+m.alternativeTitles.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>':"")+
     ((m.cast||[]).length?'<div class="section-t">'+(fr?"Distribution et personnages":"Cast and characters")+'</div><div class="cast-strip scroll-x">'+m.cast.map(c=>'<div class="cast-card"><div class="cast-av">'+(c.image?'<img src="'+esc(c.image)+'" alt="" loading="lazy">':'')+'</div><b>'+esc(c.name)+'</b><small>'+esc(c.character||c.role||"")+'</small></div>').join("")+'</div>':"")+
-    embeddedTrailer(m.trailerUrl||m.trailer)+newsHtml+(m.type==="game"?'<section class="game-rewards"><div class="section-t">'+(fr?"Codes et récompenses":"Codes and rewards")+'</div><p class="sub">'+(fr?"Aucun code actif vérifié disponible pour ce jeu pour le moment.":"No verified active codes are available for this game yet.")+'</p></section>':"");
+    embeddedTrailer(m.trailerUrl,m.trailer)+newsHtml+(m.type==="game"?'<section class="game-rewards"><div class="section-t">'+(fr?"Codes et récompenses":"Codes and rewards")+'</div><p class="sub">'+(fr?"Aucun code actif vérifié disponible pour ce jeu pour le moment.":"No verified active codes are available for this game yet.")+'</p></section>':"");
 }
 let previewRequest=0;
 function openCatalogPreview(m) {

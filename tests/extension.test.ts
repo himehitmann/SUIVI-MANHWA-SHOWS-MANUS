@@ -2058,3 +2058,22 @@ describe("publication scope and saved metadata",()=>{
     expect(result.item).toMatchObject({releaseStatus:"FINISHED",releaseScope:"installment",releaseSource:"anilist",catalogTags:["Yandere"]});
   });
 });
+
+describe("Steam media selection",()=>{
+ it("skips malformed or unsupported primary video sources and retains a playable fallback",()=>{
+  const w=worker();
+  expect(w.run('steamTrailer([{mp4:{max:"https://media.example/video.m3u8",480:"https://media.example/clip.mp4"}}])')).toBe("https://media.example/clip.mp4");
+  expect(w.run('steamTrailer([{mp4:{max:"https://user:password@media.example/clip.mp4"}},{webm:{max:"https://media.example/clip.webm"}}])')).toBe("https://media.example/clip.webm");
+  expect(w.run('steamTrailer([{mp4:{max:"http://cdn.akamai.steamstatic.com/clip.mp4"}}])')).toBe("https://cdn.akamai.steamstatic.com/clip.mp4");
+  expect(w.run('steamTrailer([{mp4:{max:"http://unknown.example/clip.mp4"}}])')).toBeUndefined();
+ });
+ it("retains long synopsis and actual platform availability from Steam",async()=>{
+  const w=worker();
+  w.ctx.fetch=async(url:string)=>({ok:true,json:async()=>String(url).includes("GetNewsForApp")?{appnews:{newsitems:[]}}:{"620":{success:true,data:{steam_appid:620,short_description:"Short",detailed_description:"<p>Complete game description</p>",platforms:{windows:true,mac:false,linux:true,unknown:true},developers:["Valve"],movies:[{mp4:{480:"https://media.example/clip.mp4"}}]}}}});
+  const detail=await w.run('steamAppDetails("620")');
+  expect(detail.synopsis).toBe("Complete game description");
+  expect(detail.platforms).toEqual(["Windows","Linux"]);
+  expect(detail.authors).toEqual(["Valve"]);
+  expect(detail.trailer).toBe("https://media.example/clip.mp4");
+ });
+});

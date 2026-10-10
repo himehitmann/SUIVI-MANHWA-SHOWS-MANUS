@@ -1396,6 +1396,19 @@ async function steamNews(appid) {
     category: String(entry.feedlabel || "").trim(),
   }));
 }
+function steamTrailer(movies) {
+  for(const movie of (Array.isArray(movies)?movies:[])) {
+    for(const value of [movie?.mp4?.max,movie?.mp4?.["480"],movie?.webm?.max,movie?.webm?.["480"]]) {
+      if(typeof value!=="string")continue;
+      try {
+        const url=new URL(value);
+        if(url.username||url.password||url.port||!/\.(mp4|webm)$/i.test(url.pathname))continue;
+        if(url.protocol==="http:"&&/(^|\.)(steamstatic\.com|steampowered\.com|akamaihd\.net)$/.test(url.hostname))url.protocol="https:";
+        if(url.protocol==="https:")return url.href;
+      }catch{}
+    }
+  }
+}
 async function steamAppDetails(appid) {
   const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&filters=basic,genres,release_date,movies`;
   const [res, news] = await Promise.all([
@@ -1409,10 +1422,12 @@ async function steamAppDetails(appid) {
   if(d.steam_appid!==undefined&&String(d.steam_appid)!==String(appid))throw Error("catalog_identity_mismatch");
   return {
     genres: Array.isArray(d.genres) ? [...new Set(d.genres.map((g) => typeof g?.description==="string"?g.description.trim():"").filter(Boolean))].slice(0,80) : [],
-    synopsis: (d.short_description || "").trim(),
+    synopsis: stripHtml(d.detailed_description || d.about_the_game || d.short_description || "").trim().slice(0,20000),
+    platforms: Object.entries(d.platforms||{}).filter(([key,value])=>value===true&&["windows","mac","linux"].includes(key)).map(([key])=>({windows:"Windows",mac:"macOS",linux:"Linux"})[key]),
+    authors: (Array.isArray(d.developers)?d.developers:[]).filter(value=>typeof value==="string").slice(0,20),
     releaseDate: d.release_date && d.release_date.date ? d.release_date.date : undefined,
     cover:d.header_image||undefined,
-    trailer: (Array.isArray(d.movies)?d.movies:[]).flatMap(m=>[m.mp4?.max,m.mp4?.["480"],m.webm?.max,m.webm?.["480"]]).find(value=>typeof value==="string"&&/^https?:\/\//.test(value)),
+    trailer: steamTrailer(d.movies),
     comingSoon: typeof d.release_date?.coming_soon === "boolean" ? d.release_date.coming_soon : undefined,
     news,
   };

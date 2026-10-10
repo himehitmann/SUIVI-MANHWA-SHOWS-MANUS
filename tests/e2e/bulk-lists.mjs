@@ -82,7 +82,7 @@ try {
  await p.locator("#dr-home-toggle").click();
  await p.waitForFunction(()=>items.find(i=>i.id==="fixture0").homeHidden===false);
  assert(await p.locator('#view-home [data-open="fixture0"]').count()>0);
- await p.evaluate(()=>{items.push({id:"game-trailer",title:"Game",type:"game",trailer:"https://www.youtube.com/watch?v=abcdefghijk"});openDrawer("game-trailer");});
+ await p.evaluate(()=>{items.push({id:"game-trailer",title:"Game",type:"game",trailer:"https://media.example/unsupported.m3u8",trailerUrl:"https://www.youtube.com/watch?v=abcdefghijk"});openDrawer("game-trailer");});
  assert.equal(await p.locator("#drawer [data-trailer-src]").count(),0);
  assert.equal(await p.locator("#drawer iframe").count(),1);
  assert.equal(await p.locator('#drawer a[href*="youtube.com"]').count(),0);
