@@ -150,7 +150,8 @@ export function planFromPaddleEvent(event: any, map: PriceMap): PlanIntent | nul
   if (!plan) return null;
   switch (event?.event_type) {
     case "transaction.completed":
-      return data.status === "completed" ? { ...ref, plan } : null;
+      // Recurring access follows subscription state, not a late transaction receipt.
+      return data.status === "completed" && plan === "lifetime" ? { ...ref, plan } : null;
     case "subscription.created":
     case "subscription.updated":
       if (plan !== "pro") return null;

@@ -145,3 +145,10 @@ describe("billing rejects unrecognized or incomplete purchases", () => {
     expect(planFromPaddleEvent({event_type:"subscription.updated",data:{status:"unknown",items:[{price:{id:"price_month"}}]}},MAP)).toBeNull();
   });
 });
+
+describe("recurring Paddle access",()=>{
+  it("does not reactivate an ended subscription from a delayed transaction",()=>{
+    expect(planFromPaddleEvent({event_type:"transaction.completed",data:{status:"completed",subscription_id:"sub_1",items:[{price:{id:"price_month"}}]}},MAP)).toBeNull();
+    expect(planFromPaddleEvent({event_type:"subscription.updated",data:{status:"active",items:[{price:{id:"price_month"}}]}},MAP)?.plan).toBe("pro");
+  });
+});
