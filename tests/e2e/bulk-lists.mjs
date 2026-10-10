@@ -83,8 +83,7 @@ try {
  await p.waitForFunction(()=>items.find(i=>i.id==="fixture0").homeHidden===false);
  assert(await p.locator('#view-home [data-open="fixture0"]').count()>0);
  await p.evaluate(()=>{items.push({id:"game-trailer",title:"Game",type:"game",trailer:"https://www.youtube.com/watch?v=abcdefghijk"});openDrawer("game-trailer");});
- assert.equal(await p.locator("#drawer iframe").count(),0);
- await p.locator("#drawer [data-trailer-src]").click();
+ assert.equal(await p.locator("#drawer [data-trailer-src]").count(),0);
  assert.equal(await p.locator("#drawer iframe").count(),1);
  assert.equal(await p.locator('#drawer a[href*="youtube.com"]').count(),0);
 
@@ -96,7 +95,7 @@ try {
  assert.deepEqual(await p.evaluate(()=>discoPools().map(pool=>pool.key)),["manga"]);
  assert(await p.evaluate(()=>discoItems.every(item=>item.title.startsWith("Manga "))));
  assert(await p.locator("#view-home .carousel-arrow").count()>0);
- await p.evaluate(()=>openCatalogPreview({title:"Store fixture",type:"game",externalIds:{rawg:"123"},gameEnrichedAt:1,storeLinks:["https://www.gog.com/game/example","https://store.epicgames.com/en-US/p/example","https://www.gog.com/game/example","javascript:alert(1)","https://www.gog.com.evil.test/game/x"],url:"https://store.steampowered.com/app/123/",price:"$12.99",platform:"Nintendo Switch · PlayStation 5",releaseDate:"2028-04-12",genres:["Adventure"],alternativeTitles:["Other title"]}));
+ await p.evaluate(()=>openCatalogPreview({title:"Store fixture",type:"game",externalIds:{rawg:"123"},gameEnrichedAt:1,storeLinks:["https://store.steampowered.com/app/123/Example/?utm_source=test","https://www.gog.com/game/example","https://store.epicgames.com/en-US/p/example","https://www.gog.com/game/example","javascript:alert(1)","https://www.gog.com.evil.test/game/x"],url:"https://store.steampowered.com/app/123/",price:"$12.99",platform:"Nintendo Switch · PlayStation 5",releaseDate:"2028-04-12",genres:["Adventure"],alternativeTitles:["Other title"]}));
  await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').waitFor();
  assert.equal(await p.locator('#preview-info a[href="https://store.steampowered.com/app/123/"]').count(),1);
  assert.equal(await p.locator("#preview-info details").count(),0);
