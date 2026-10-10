@@ -1915,7 +1915,13 @@ function embeddedTrailer(url) {
 }
 
 function safeStoreLink(value) {
-  try {const url=new URL(value);return url.protocol==="https:"&&["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com","apps.apple.com","play.google.com"].includes(url.hostname)&&!url.port&&!url.username&&!url.password?url.href:"";}catch{return "";}
+  try {
+    const url=new URL(value);
+    if(url.protocol!=="https:"||!["store.steampowered.com","store.epicgames.com","www.gog.com","www.playstation.com","store.playstation.com","www.xbox.com","www.nintendo.com","apps.apple.com","play.google.com"].includes(url.hostname)||url.port||url.username||url.password)return "";
+    const app=url.pathname.match(/^\/app\/(\d+)(?:\/|$)/);
+    if(url.hostname==="store.steampowered.com"&&app)return "https://store.steampowered.com/app/"+app[1]+"/";
+    url.hash="";return url.href;
+  }catch{return "";}
 }
 
 function episodeGuideSlot(item) {
