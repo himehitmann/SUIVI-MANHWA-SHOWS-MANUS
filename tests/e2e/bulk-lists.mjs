@@ -503,6 +503,22 @@ try {
  assert(await p.locator("#sites-help").innerText().then(text=>text.includes("お気に入り")));
  assert.equal(await p.locator("#collection-title").innerText(),"保存した作品");
  assert.equal(await p.locator("#sites-block").isVisible(),true);
+ assert.equal(await p.locator("#dash-edit-banner").innerText(),"バナーを変更");
+ assert.equal(await p.locator("#dash-bio").getAttribute("data-ph"),"自己紹介を書く…");
+ assert.equal(await p.locator("#library-sort option[value=title]").innerText(),"タイトル");
+ assert.equal(await p.locator("#library-unlisted").locator("..").innerText(),"リストに未登録");
+ assert.equal(await p.locator("#skip-content").innerText(),"本文へ移動");
+ const libraryLocales=await p.evaluate(()=>{
+   const before=settings.lang,results=[];
+   for(const code of ["en","fr","es","de","ja","ko","pt","zh-CN"]){
+     settings.lang=code;renderNav();renderLibHeader();renderGrid();
+     results.push({code,banner:document.getElementById("dash-edit-banner").textContent.trim(),sort:document.querySelector("#library-sort option[value=title]").textContent,missing:LIBRARY_LOCALE_KEYS.filter(key=>!LANGS[code][key])});
+   }
+   settings.lang=before;renderNav();renderLibHeader();renderGrid();return results;
+ });
+ assert(libraryLocales.every(row=>row.missing.length===0),"Library labels exist in every offered language");
+ assert(libraryLocales.filter(row=>row.code!=="en").every(row=>row.banner!=="Change banner"),"Profile labels do not fall back to English");
+
  const aliases=await p.evaluate(()=>distinctAlternativeTitles({title:"Example",alternativeTitles:["Example","example","Different","Different","別名"]}));
  assert.deepEqual(aliases,["Different","別名"]);
  assert.deepEqual(await p.evaluate(()=>distinctAlternativeTitles({title:"Пример",alternativeTitles:["Пример","Другое","Ещё","Другое","عنوان"]})),["Другое","Ещё","عنوان"]);

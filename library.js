@@ -120,6 +120,122 @@ const DASHBOARD_LOCALES={"en":["Discover today","Your reading, your shows and wh
 const DASHBOARD_KEYS=["homeToday","homeIntro","myLibrary","featured","exploreTitle","discoverNow","trendingNow","recentlyAiring","sitesHelp","sitesEmpty","collectionTitle","collectionHelp","listsHelp","libraryIntro"];
 for(const [code,values] of Object.entries(DASHBOARD_LOCALES)){if(LANGS[code])DASHBOARD_KEYS.forEach((key,index)=>LANGS[code][key]=values[index]);}
 for(const [code,value] of Object.entries({en:"Your sites",fr:"Vos sites favoris",ja:"お気に入りのサイト",es:"Tus sitios",de:"Deine Seiten",ko:"즐겨찾는 사이트",pt:"Os teus sites","zh-CN":"收藏的网站"}))if(LANGS[code])LANGS[code].sitesTitle=value;
+const LIBRARY_LOCALE_KEYS=["changeBanner","bioPh","sortBy","sortRecent","sortTitle","sortRating","sortRemaining","sortAdded","formatLabel","withoutList","showAll","skipContent"];
+const LIBRARY_LOCALES={
+  "en": [
+    "Change banner",
+    "Write a short bio…",
+    "Sort by",
+    "Recent activity",
+    "Title",
+    "My rating",
+    "Remaining",
+    "Recently added",
+    "Format",
+    "Without an active list",
+    "Show all",
+    "Skip to content"
+  ],
+  "fr": [
+    "Changer la bannière",
+    "Écris une petite bio…",
+    "Trier par",
+    "Activité récente",
+    "Titre",
+    "Ma note",
+    "À rattraper",
+    "Ajout récent",
+    "Format",
+    "Sans liste active",
+    "Tout afficher",
+    "Aller au contenu"
+  ],
+  "ja": [
+    "バナーを変更",
+    "自己紹介を書く…",
+    "並べ替え",
+    "最近のアクティビティ",
+    "タイトル",
+    "自分の評価",
+    "未読・未視聴",
+    "最近追加した順",
+    "形式",
+    "リストに未登録",
+    "すべて表示",
+    "本文へ移動"
+  ],
+  "es": [
+    "Cambiar banner",
+    "Escribe una breve biografía…",
+    "Ordenar por",
+    "Actividad reciente",
+    "Título",
+    "Mi valoración",
+    "Pendiente",
+    "Añadido recientemente",
+    "Formato",
+    "Sin lista activa",
+    "Mostrar todo",
+    "Ir al contenido"
+  ],
+  "de": [
+    "Banner ändern",
+    "Schreibe eine kurze Biografie…",
+    "Sortieren nach",
+    "Letzte Aktivität",
+    "Titel",
+    "Meine Bewertung",
+    "Noch offen",
+    "Zuletzt hinzugefügt",
+    "Format",
+    "Ohne aktive Liste",
+    "Alle anzeigen",
+    "Zum Inhalt springen"
+  ],
+  "ko": [
+    "배너 변경",
+    "짧은 소개를 작성하세요…",
+    "정렬 기준",
+    "최근 활동",
+    "제목",
+    "내 평점",
+    "남은 작품",
+    "최근 추가",
+    "형식",
+    "목록에 없는 작품",
+    "모두 보기",
+    "본문으로 이동"
+  ],
+  "pt": [
+    "Alterar banner",
+    "Escreve uma breve biografia…",
+    "Ordenar por",
+    "Atividade recente",
+    "Título",
+    "A minha avaliação",
+    "Por terminar",
+    "Adicionados recentemente",
+    "Formato",
+    "Sem lista ativa",
+    "Mostrar tudo",
+    "Ir para o conteúdo"
+  ],
+  "zh-CN": [
+    "更换横幅",
+    "写一段简介…",
+    "排序方式",
+    "最近活动",
+    "标题",
+    "我的评分",
+    "待完成",
+    "最近添加",
+    "类型",
+    "未加入清单",
+    "显示全部",
+    "跳转到正文"
+  ]
+};
+for(const [code,values] of Object.entries(LIBRARY_LOCALES))LIBRARY_LOCALE_KEYS.forEach((key,index)=>LANGS[code][key]=values[index]);
 const t = (k, p) => { let s = (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || k; if (p) for (const key in p) s = s.replace(`{${key}}`, p[key]); return s; };
 // Array-valued i18n (plan feature lists), falls back to English.
 const tArr = (k) => (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || [];
@@ -795,14 +911,13 @@ function renderGrid() {
     return `${i.title} ${(i.alternativeTitles || []).join(" ")} ${(i.authors || []).join(" ")} ${marker(i)} ${(i.tags || []).join(" ")}`.toLowerCase().includes(q);
   });
   const total=items.filter(i=>i.type!=="game").length;
-  const count='<p class="sub" role="status">'+list.length+' / '+total+' '+t("tracked")+(list.length<total?' <button class="link-btn" id="reset-library-filters">'+(settings.lang==="fr"?"Tout afficher":"Show all")+'</button>':'')+'</p>';
-  const fr=settings.lang==="fr";
+  const count='<p class="sub" role="status">'+list.length+' / '+total+' '+t("tracked")+(list.length<total?' <button class="link-btn" id="reset-library-filters">'+t("showAll")+'</button>':'')+'</p>';
   const formats=[...new Set(items.filter(i=>i.type!=="game").map(i=>String(i.format||"").toUpperCase()).filter(Boolean))].sort();
   const controls='<div style="grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'+
-    '<label>'+ (fr?"Trier par":"Sort by")+' <select class="field" id="library-sort">'+
-    [["recent",fr?"Activité récente":"Recent activity"],["title",fr?"Titre":"Title"],["rating",fr?"Ma note":"My rating"],["remaining",fr?"À rattraper":"Remaining"],["added",fr?"Ajout récent":"Recently added"]].map(([v,label])=>'<option value="'+v+'"'+((settings.librarySort||"recent")===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>'+
-    '<label>'+ (fr?"Format":"Format")+' <select class="field" id="library-format"><option value="all">'+(fr?"Tous":"All")+'</option>'+formats.map(v=>'<option value="'+esc(v)+'"'+(libraryFormat===v?' selected':'')+'>'+esc(v)+'</option>').join("")+'</select></label>'+
-    '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="library-unlisted"'+(libraryUnlisted?' checked':'')+'>'+ (fr?"Sans liste active":"Without an active list")+'</label></div>';
+    '<label>'+ t("sortBy")+' <select class="field" id="library-sort">'+
+    [["recent",t("sortRecent")],["title",t("sortTitle")],["rating",t("sortRating")],["remaining",t("sortRemaining")],["added",t("sortAdded")]].map(([v,label])=>'<option value="'+v+'"'+((settings.librarySort||"recent")===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>'+
+    '<label>'+ t("formatLabel")+' <select class="field" id="library-format"><option value="all">'+t("all")+'</option>'+formats.map(v=>'<option value="'+esc(v)+'"'+(libraryFormat===v?' selected':'')+'>'+esc(v)+'</option>').join("")+'</select></label>'+
+    '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="library-unlisted"'+(libraryUnlisted?' checked':'')+'>'+ t("withoutList")+'</label></div>';
   grid.innerHTML = controls + count + (list.length ? [...list].sort(libraryCompare).map(cardHtml).join("") : `<p class="empty">${t("welcomeBody")}</p>`);
   document.getElementById("library-sort").onchange=e=>{settings.librarySort=e.target.value;api.runtime.sendMessage({type:"SET_SETTINGS",patch:{librarySort:settings.librarySort}});renderGrid();document.getElementById("library-sort").focus();};
   document.getElementById("library-format").onchange=e=>{libraryFormat=e.target.value;renderGrid();document.getElementById("library-format").focus();};
@@ -1619,7 +1734,7 @@ function updateNavigationAccessibility() {
   document.getElementById("q").setAttribute("aria-label",fr?"Rechercher dans la bibliothèque et les catalogues":"Search your library and catalog");
   document.getElementById("lang-btn").setAttribute("aria-label",fr?"Choisir la langue":"Choose language");
   document.getElementById("nav").setAttribute("aria-label",fr?"Navigation principale":"Main navigation");
-  document.getElementById("skip-content").textContent=fr?"Aller au contenu":"Skip to content";
+  document.getElementById("skip-content").textContent=t("skipContent");
   document.querySelectorAll("#nav button").forEach(button=>{if(button.dataset.v===view)button.setAttribute("aria-current","page");else button.removeAttribute("aria-current");});
 }
 function renderNav() {
