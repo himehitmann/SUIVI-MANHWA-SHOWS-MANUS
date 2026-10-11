@@ -18,6 +18,9 @@ G03 avait été validé, mais les captures utilisateur du 10 octobre montrent de
 
 ## Preuves actuelles
 
+[CI #688](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38125410353), commit 4de301f96da01b024121ef9cc2db3a93d745bbd5 : contrôles complets réussis. Classement par titres exacts, alias, phrases et mots entiers après normalisation des accents ; tags et synopsis en repli. La normalisation précédente supprimait les espaces avant la comparaison multi-mots. Scores calculés une fois par résultat et index d’origine conservé pour ouvrir la bonne fiche, sans recherche quadratique des index. Saisie d’année et curseur de prix conservés pendant les résultats progressifs. Tests Chrome : mots multiples, accents, faux sous-mot art/heart, identité des résultats, popularité non finie, saisie d’année avant perte de focus ; pagination et remplacement d’une requête en attente toujours validés. Cela améliore les résultats reçus, sans prouver l’exhaustivité des catalogues. Total inchangé 19/60.
+
+
 [CI #684](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38124740596), commit e70248913a808d20899ff3ed1c4b50c2d1704bae : contrôles complets réussis le 11 octobre. Fiches Steam mises en mémoire dix minutes, avec regroupement des appels simultanés pour un même identifiant, copies indépendantes des résultats, maximum 48 entrées et quatre chargements de jeux différents en parallèle. Actualisation explicite transmise à Steam, échecs non mémorisés, identifiants invalides refusés. Tests de concurrence, mutation, expiration, nouvelle tentative et bornes mémoire. Aucun gain de latence réel chiffré ; ne valide pas la capacité de production ni l’ensemble des performances du catalogue. Score inchangé : 19/60.
 
 
