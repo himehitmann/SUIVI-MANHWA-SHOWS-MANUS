@@ -1,6 +1,6 @@
 # Suivi global Yomu
 
-Mise à jour : 10 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 11 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
@@ -17,6 +17,9 @@ La livraison a été trop fragmentée en petits correctifs. Priorité : terminer
 G03 avait été validé, mais les captures utilisateur du 10 octobre montrent des écarts visuels importants. Il repasse partiel : la validation antérieure était insuffisante. Les corrections de hauteur de bannière, de cartes uniformes et de navigation sont en cours de revalidation. Le dénominateur reste 60. G09 est également validé depuis la CI #614 : combinaison des filtres et distinction explicite entre œuvre/série terminée, saison/partie terminée et portée inconnue, avec sauvegarde et rechargement vérifiés dans Chrome.
 
 ## Preuves actuelles
+
+[CI #684](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38124740596), commit e70248913a808d20899ff3ed1c4b50c2d1704bae : contrôles complets réussis le 11 octobre. Fiches Steam mises en mémoire dix minutes, avec regroupement des appels simultanés pour un même identifiant, copies indépendantes des résultats, maximum 48 entrées et quatre chargements de jeux différents en parallèle. Actualisation explicite transmise à Steam, échecs non mémorisés, identifiants invalides refusés. Tests de concurrence, mutation, expiration, nouvelle tentative et bornes mémoire. Aucun gain de latence réel chiffré ; ne valide pas la capacité de production ni l’ensemble des performances du catalogue. Score inchangé : 19/60.
+
 
 [CI #680](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38075195625), commit ae8917d3ba81dbf8e0fbde54a720f1fad5d84c2d : contrôles complets réussis. Actualités Steam limitées aux 30 derniers jours, triées par date et dédupliquées, dates futures/inconnues exclues, identité de jeu vérifiée, liens sources restreints aux hôtes Steam HTTPS sans identifiants ni ports. Le même rendu filtre aussi les anciennes données locales. Les actualités sont conservées à l’ajout à la bibliothèque ; test Chrome de sauvegarde et affichage dans la fiche enregistrée. La rubrique codes/récompenses reste visible après sauvegarde mais n’invente aucun code actif : collecte toujours absente, G11 NV. Fenêtre de publication récente ne signifie pas qu’un événement est encore actif. Total inchangé 19/60.
 
