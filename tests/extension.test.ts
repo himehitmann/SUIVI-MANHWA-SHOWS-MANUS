@@ -1344,7 +1344,7 @@ describe("resilient game detail providers",()=>{
     const w=worker();let mismatch=false;
     w.ctx.fetch=async(url:string)=>({ok:true,json:async()=>String(url).includes("GetNewsForApp")?{appnews:{newsitems:[]}}:{"620":{success:true,data:{steam_appid:mismatch?400:620,short_description:"Summary",genres:Array.from({length:10},(_,n)=>({description:"Genre "+n}))}}}});
     expect((await w.run('steamAppDetails("620")')).genres).toHaveLength(10);
-    mismatch=true;await expect(w.run('steamAppDetails("620")')).rejects.toThrow("catalog_identity_mismatch");
+    mismatch=true;await expect(w.run('steamAppDetails("620",true)')).rejects.toThrow("catalog_identity_mismatch");
   });
   it("persists merged metadata through refresh while keeping the user's tags and synopsis",async()=>{
     const w=worker({"dasi.items":[{id:"game",title:"Game",type:"game",externalIds:{steam:"620",rawg:"123"},platform:"PlayStation 5",tags:["Custom"],synopsis:"Custom summary",updatedAt:1}]});
@@ -2097,5 +2097,37 @@ describe("recent Steam announcements",()=>{
  it("rejects news for another Steam app",async()=>{
   const w=worker();w.ctx.fetch=async()=>({ok:true,json:async()=>({appnews:{appid:400,newsitems:[]}})});
   await expect(w.run('steamNews("620")')).rejects.toThrow("catalog_identity_mismatch");
+ });
+});
+
+describe("Steam detail request budgeting",()=>{
+ it("coalesces simultaneous opens, isolates results and supports explicit refresh",async()=>{
+  const w=worker();let calls=0;
+  w.ctx.fetch=async(url:string)=>{calls++;return {ok:true,json:async()=>String(url).includes("GetNewsForApp")?{appnews:{newsitems:[]}}:{"620":{success:true,data:{steam_appid:620,short_description:"Original",genres:[{description:"Puzzle"}]}}}};};
+  const [first,second]=await Promise.all([w.run('steamAppDetails("620")'),w.run('steamAppDetails("620")')]);
+  expect(calls).toBe(2);
+  first.genres.push("User edit");expect(second.genres).toEqual(["Puzzle"]);
+  expect((await w.run('steamAppDetails("620")')).genres).toEqual(["Puzzle"]);expect(calls).toBe(2);
+  await w.run('steamAppDetails("620",true)');expect(calls).toBe(4);
+ });
+ it("retries failed requests and bounds parallel requests for different games",async()=>{
+  const w=worker();w.run('fetchSteamAppDetails=async()=>{throw Error("offline")}');
+  await expect(w.run('steamAppDetails("620")')).rejects.toThrow("offline");
+  w.run('fetchSteamAppDetails=async()=>({synopsis:"Recovered"})');
+  expect((await w.run('steamAppDetails("620")')).synopsis).toBe("Recovered");
+  w.run('var finishSteamRequests=[];fetchSteamAppDetails=()=>new Promise(resolve=>finishSteamRequests.push(resolve))');
+  const pending=[1,2,3,4].map(id=>w.run('steamAppDetails("'+id+'")'));
+  await expect(w.run('steamAppDetails("5")')).rejects.toThrow("steam_busy");
+  w.run('finishSteamRequests.forEach(resolve=>resolve({synopsis:"Done"}))');await Promise.all(pending);
+  expect(w.run('steamDetailsInflight.size')).toBe(0);
+ });
+ it("expires entries and bounds memory to 48 games",async()=>{
+  const w=worker();w.run('var steamFetches=0;fetchSteamAppDetails=async()=>({synopsis:String(++steamFetches)})');
+  await w.run('steamAppDetails("620")');
+  w.run('steamDetailsCache.get("620").expires=0');
+  expect((await w.run('steamAppDetails("620")')).synopsis).toBe("2");
+  for(let id=1;id<=55;id++)await w.run('steamAppDetails("'+id+'")');
+  expect(w.run('steamDetailsCache.size')).toBe(48);
+  await expect(w.run('steamAppDetails("../other")')).rejects.toThrow("invalid_steam_id");
  });
 });

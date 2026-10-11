@@ -931,7 +931,7 @@ async function knownGameDetails(item,force=false) {
   if(ids.steam&&urlId&&ids.steam!==urlId)throw Error("catalog_identity_mismatch");
   const steam=ids.steam||urlId,tasks=[];
   if(/^[1-9]\d{0,14}$/.test(steam||""))tasks.push((async()=>{
-    const detail=await steamAppDetails(steam);
+    const detail=await steamAppDetails(steam,force);
     if(!detail)throw Error("details_unavailable");
     return {...detail,externalIds:{steam},storeLinks:["https://store.steampowered.com/app/"+steam+"/"]};
   })());
@@ -1426,7 +1426,27 @@ function steamTrailer(movies) {
     }
   }
 }
-async function steamAppDetails(appid) {
+const steamDetailsCache=new Map(),steamDetailsInflight=new Map();
+async function steamAppDetails(appid,force=false) {
+  const key=String(appid);
+  if(!/^[1-9]\d{0,14}$/.test(key))throw Error("invalid_steam_id");
+  const cached=steamDetailsCache.get(key);
+  if(!force&&cached&&cached.expires>Date.now())return structuredClone(cached.value);
+  if(steamDetailsInflight.has(key))return structuredClone(await steamDetailsInflight.get(key));
+  if(steamDetailsInflight.size>=4)throw Error("steam_busy");
+  const task=(async()=>{
+    const value=await fetchSteamAppDetails(key);
+    if(value){
+      steamDetailsCache.delete(key);
+      while(steamDetailsCache.size>=48)steamDetailsCache.delete(steamDetailsCache.keys().next().value);
+      steamDetailsCache.set(key,{value:structuredClone(value),expires:Date.now()+10*60*1000});
+    }
+    return value;
+  })();
+  steamDetailsInflight.set(key,task);
+  try{return structuredClone(await task);}finally{steamDetailsInflight.delete(key);}
+}
+async function fetchSteamAppDetails(appid) {
   const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&filters=basic,genres,release_date,movies`;
   const [res, news] = await Promise.all([
     fetchRemote(url),
