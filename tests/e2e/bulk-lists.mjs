@@ -483,6 +483,8 @@ try {
    discover={manga:[{title:"Original title",type:"reading",cover:"cover",synopsis:"Original synopsis",genres:["Adventure"]}],anime:[{title:"Second title",type:"watching",cover:"cover"}]};switchView("home");
  });
  assert.equal(await p.locator(".home-heading h1").innerText(),"今日のおすすめ");
+ await p.emulateMedia({reducedMotion:"no-preference"});
+ await p.bringToFront();
  await p.mouse.move(0,0);
  const initialSpot=await p.evaluate(()=>spotIdx);
  await p.evaluate(()=>{document.activeElement?.blur();advanceSpot();});
@@ -493,7 +495,11 @@ try {
  const hoveredSpot=await p.evaluate(()=>spotIdx);
  await p.evaluate(()=>advanceSpot());
  assert.equal(await p.evaluate(()=>spotIdx),hoveredSpot,"Hover pauses the featured rotation");
- await p.evaluate(()=>{switchView("library");});
+ await p.mouse.move(0,0);
+ await p.emulateMedia({reducedMotion:"reduce"});
+ await p.evaluate(()=>advanceSpot());
+ assert.equal(await p.evaluate(()=>spotIdx),hoveredSpot,"Reduced motion disables automatic rotation");
+ await p.evaluate(()=>{query="";document.getElementById("q").value="";clearSearchResults();switchView("library");});
  assert(await p.locator("#sites-help").innerText().then(text=>text.includes("お気に入り")));
  assert.equal(await p.locator("#collection-title").innerText(),"保存した作品");
  assert.equal(await p.locator("#sites-block").isVisible(),true);
