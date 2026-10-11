@@ -479,8 +479,8 @@ try {
  // Locale display never overwrites provider content and reuses completed translations.
  await p.waitForFunction(()=>!catalogLocaleBusy);
  await p.evaluate(()=>{
-   closeDrawer();settings.lang="ja";renderNav();items=[];settings.homeCats=["manga"];
-   discover={manga:[{title:"Original title",type:"reading",synopsis:"Original synopsis",genres:["Adventure"]},{title:"Second title",type:"reading"}]};switchView("home");
+   closeDrawer();settings.lang="ja";renderNav();items=[];settings.homeCats=["manga","anime"];
+   discover={manga:[{title:"Original title",type:"reading",cover:"cover",synopsis:"Original synopsis",genres:["Adventure"]}],anime:[{title:"Second title",type:"watching",cover:"cover"}]};switchView("home");
  });
  assert.equal(await p.locator(".home-heading h1").innerText(),"今日のおすすめ");
  await p.mouse.move(0,0);
@@ -488,7 +488,7 @@ try {
  await p.evaluate(()=>{document.activeElement?.blur();advanceSpot();});
  const afterSpot=await p.evaluate(()=>spotIdx);
  // Some feeds contain only one featured category, which intentionally has no rotation.
- if(await p.evaluate(()=>spotItems.length>1))assert.notEqual(afterSpot,initialSpot);
+ assert.equal(await p.evaluate(()=>spotItems.length),2);assert.notEqual(afterSpot,initialSpot);
  await p.locator("#spot-wrap").hover();
  const hoveredSpot=await p.evaluate(()=>spotIdx);
  await p.evaluate(()=>advanceSpot());
@@ -499,6 +499,7 @@ try {
  assert.equal(await p.locator("#sites-block").isVisible(),true);
  const aliases=await p.evaluate(()=>distinctAlternativeTitles({title:"Example",alternativeTitles:["Example","example","Different","Different","別名"]}));
  assert.deepEqual(aliases,["Different","別名"]);
+ assert.deepEqual(await p.evaluate(()=>distinctAlternativeTitles({title:"Пример",alternativeTitles:["Пример","Другое","Ещё","Другое","عنوان"]})),["Другое","Ещё","عنوان"]);
  console.log("LIBRARY_JA_VISUAL "+(await p.screenshot({path:"test-results/library-japanese.png",type:"png",fullPage:true})).toString("base64"));
  const localeProbe=await p.evaluate(async()=>{
    settings.lang="en";

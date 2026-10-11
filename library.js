@@ -463,7 +463,7 @@ function renderDiscover() {
   if(!discover)return `<div class="section-h"><h2>${settings.lang==="fr"?"Découvrir":"Discover"}</h2>${discoverRefreshButton()}</div>${homeCategoryControls()}<p class="sub" role="status">${discoverTried&&!discoverLoading?(settings.lang==="fr"?"Les tendances sont momentanément indisponibles. Réessaie ou utilise la recherche.":"Trends are temporarily unavailable. Retry or use search."):t("loadingReco")}</p>`;
   discoItems=[];
   const pools=discoPools();
-  let out=`<div class="section-h discover-h"><h2>${settings.lang==="fr"?"À découvrir maintenant":"Discover now"}</h2><div class="disco-h-actions">${discoverRefreshButton()}</div></div>`;
+  let out=`<div class="section-h discover-h"><h2>${t("discoverNow")}</h2><div class="disco-h-actions">${discoverRefreshButton()}</div></div>`;
   if(discover.stale)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Certains catalogues sont indisponibles. Les derniers résultats disponibles sont conservés temporairement.":"Some catalogs are unavailable. Recent cached results are temporarily retained.")+'</p>';
   out+=homeCategoryControls();
   if(!HOME_CAT_KEYS.some(homeCatAllowed))return out+'<p class="sub" role="status">'+(settings.lang==="fr"?"Choisissez au moins une catégorie ci-dessus pour afficher vos découvertes. Votre suivi reste accessible.":"Choose at least one category above to see discoveries. Your activity remains available.")+'</p>';
@@ -2033,7 +2033,7 @@ function gameRewardsHtml() {
   const fr=settings.lang==="fr";
   return '<section class="game-rewards"><div class="section-t">'+(fr?"Codes et récompenses":"Codes and rewards")+'</div><p class="sub">'+(fr?"Aucun code actif vérifié disponible pour ce jeu pour le moment.":"No verified active codes are available for this game yet.")+'</p></section>';
 }
-function distinctAlternativeTitles(item){const seen=new Set([normTitle(item.title)]);return (Array.isArray(item.alternativeTitles)?item.alternativeTitles:[]).filter(value=>{if(typeof value!=="string"||!value.trim())return false;const key=normTitle(value);if(seen.has(key))return false;seen.add(key);return true;});}
+function distinctAlternativeTitles(item){const keyOf=value=>String(value||"").normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,"");const seen=new Set([keyOf(item.title)]);return (Array.isArray(item.alternativeTitles)?item.alternativeTitles:[]).filter(value=>{if(typeof value!=="string"||!value.trim())return false;const key=keyOf(value);if(!key||seen.has(key))return false;seen.add(key);return true;});}
 function catalogInformation(m) {
   const fr=settings.lang==="fr";
   const tags=[...new Set([...(m.genres||[]),...(m.tags||[]),...(m.catalogTags||[])])].filter(x=>typeof x==="string");
