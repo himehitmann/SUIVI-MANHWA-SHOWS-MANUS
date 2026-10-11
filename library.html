@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Yomu · Home</title>
+    <title>Yomu — Home</title>
     <meta name="description" content="Your personal library for manga, anime, series, films and games. Save your progress, organize lists and discover current releases." />
     <link rel="icon" type="image/png" href="icon.png" />
     <style>
@@ -638,6 +638,16 @@ main:focus{outline:none}
 }
 
 .detail-trailer{width:100%;min-width:0;flex-basis:100%}
+
+.top-right{position:relative}.top-right .menu,.top-right .lang-menu{top:calc(100% + 12px);right:0;max-width:calc(100vw - 32px)}
+.library-section{margin:28px 0;padding:24px 0;border-top:1px solid var(--line);min-width:0}
+.library-section h2{margin:0 0 8px;font-size:20px}.library-section>.sub{margin:0 0 18px;max-width:72ch;line-height:1.6}
+.library-section .filters{margin-top:20px;gap:10px;flex-wrap:wrap}.site-chips{display:flex;flex-wrap:wrap;gap:12px}.site-chip{max-width:100%;overflow-wrap:anywhere}
+.section-t{line-height:1.6;overflow-wrap:anywhere}.row{gap:12px;flex-wrap:wrap}.row .grow{min-width:0}
+.guide-episode{align-items:start}.guide-episode>div{min-width:0}.guide-episode b,.guide-episode small{line-height:1.6}
+.home-feature{animation:feature-enter .35s ease-out}@keyframes feature-enter{from{opacity:.7}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.home-feature{animation:none}}
+@media(max-width:640px){.library-section{margin:20px 0;padding:18px 0}.top-right .notif-menu{width:min(300px,calc(100vw - 32px))}}
 </style>
   </head>
   <body>
@@ -661,15 +671,15 @@ main:focus{outline:none}
       <section class="view active" id="view-home"></section>
       <section class="view" id="view-library">
         <div id="lib-main">
-          <div id="lib-header"></div>
+          <div id="lib-header"></div><p class="library-intro sub" data-t="libraryIntro"></p>
           <div id="search-results"></div>
           <div class="stats" id="stats"></div>
           <div class="metadata-notice" id="library-metadata-status" hidden></div>
-          <div class="lists-strip-head"><h2 data-t="lists"></h2><button class="btn sm" id="add-list-inline"></button></div>
-          <div class="scroll-x" id="list-strip"></div>
-          <div id="sites-block" hidden><div class="lists-strip-head"><h2 id="sites-h">Your sites</h2></div><div class="site-chips" id="site-strip"></div></div>
-          <div class="filters" id="filters"></div>
-          <div class="grid" id="grid"></div>
+          <section class="library-section" aria-labelledby="library-lists-title"><div class="lists-strip-head"><h2 id="library-lists-title" data-t="lists"></h2><button class="btn sm" id="add-list-inline"></button></div>
+          <p class="sub" data-t="listsHelp"></p><div class="scroll-x" id="list-strip"></div></section>
+          <section id="sites-block" class="library-section" aria-labelledby="sites-h"><div class="lists-strip-head"><h2 id="sites-h">Your sites</h2></div><p class="sub" id="sites-help" data-t="sitesHelp"></p><div class="site-chips" id="site-strip"></div></section>
+          <section class="library-section" aria-labelledby="collection-title"><h2 id="collection-title" data-t="collectionTitle"></h2><p class="sub" data-t="collectionHelp"></p><div class="filters" id="filters"></div>
+          <div class="grid" id="grid"></div></section>
         </div>
         <div id="list-detail" hidden></div>
       </section>
@@ -684,7 +694,7 @@ main:focus{outline:none}
     <div class="crop-scrim" id="crop-scrim"></div>
     <div class="cropper" id="cropper" role="dialog" aria-modal="true" aria-labelledby="crop-title">
       <h3 id="crop-title">Adjust image</h3>
-      <p class="crop-hint" id="crop-hint">Drag to reposition · slide to zoom</p>
+      <p class="crop-hint" id="crop-hint">Drag to reposition — slide to zoom</p>
       <div class="crop-view" id="crop-view"><canvas id="crop-canvas" width="280" height="280"></canvas></div>
       <input type="range" id="crop-zoom" aria-label="Image zoom" min="1" max="3" step="0.01" value="1" />
       <div class="crop-actions">

@@ -475,5 +475,49 @@ try {
  await p.evaluate(()=>renderSearchResults("art"));
  assert.equal(await p.locator("#sf-year").inputValue(),"2028");
  assert.equal(await p.locator("#search-results .sr-row").count(),1);
+
+ // Locale display never overwrites provider content and reuses completed translations.
+ await p.waitForFunction(()=>!catalogLocaleBusy);
+ await p.evaluate(()=>{
+   closeDrawer();settings.lang="ja";renderNav();items=[];settings.homeCats=["manga"];
+   discover={manga:[{title:"Original title",type:"reading",synopsis:"Original synopsis",genres:["Adventure"]},{title:"Second title",type:"reading"}]};switchView("home");
+ });
+ assert.equal(await p.locator(".home-heading h1").innerText(),"今日のおすすめ");
+ await p.mouse.move(0,0);
+ const initialSpot=await p.evaluate(()=>spotIdx);
+ await p.evaluate(()=>{document.activeElement?.blur();advanceSpot();});
+ const afterSpot=await p.evaluate(()=>spotIdx);
+ // Some feeds contain only one featured category, which intentionally has no rotation.
+ if(await p.evaluate(()=>spotItems.length>1))assert.notEqual(afterSpot,initialSpot);
+ await p.locator("#spot-wrap").hover();
+ const hoveredSpot=await p.evaluate(()=>spotIdx);
+ await p.evaluate(()=>advanceSpot());
+ assert.equal(await p.evaluate(()=>spotIdx),hoveredSpot,"Hover pauses the featured rotation");
+ await p.evaluate(()=>{switchView("library");});
+ assert(await p.locator("#sites-help").innerText().then(text=>text.includes("お気に入り")));
+ assert.equal(await p.locator("#collection-title").innerText(),"保存した作品");
+ assert.equal(await p.locator("#sites-block").isVisible(),true);
+ const aliases=await p.evaluate(()=>distinctAlternativeTitles({title:"Example",alternativeTitles:["Example","example","Different","Different","別名"]}));
+ assert.deepEqual(aliases,["Different","別名"]);
+ await p.screenshot({path:"test-results/library-japanese.png"});
+ const localeProbe=await p.evaluate(async()=>{
+   settings.lang="en";
+   document.querySelectorAll(".view").forEach(node=>node.hidden=true);
+   while(catalogLocaleBusy)await new Promise(resolve=>setTimeout(resolve,50));
+   clearTimeout(catalogLocaleTimer);
+   const original=api.runtime.sendMessage,probe=document.createElement("p");probe.className="home-feature-synopsis";probe.textContent="Probe synopsis";document.body.prepend(probe);
+   let calls=0;
+   api.runtime.sendMessage=(message,callback)=>{if(message.type==="DASI_MT"){calls++;callback({ok:true,translations:message.texts.map(text=>"翻訳 "+text)});return;}return original(message,callback);};
+   try{
+     settings.lang="ja";await localizeVisibleCatalog();
+     const translated=probe.textContent,source=probe.dataset.catalogSource;
+     await localizeVisibleCatalog();
+     return {translated,source,calls};
+   }finally{api.runtime.sendMessage=original;probe.remove();settings.lang="en";document.querySelectorAll(".view").forEach(node=>node.hidden=false);clearTimeout(catalogLocaleTimer);}
+ });
+ assert.equal(localeProbe.translated,"翻訳 Probe synopsis");
+ assert.equal(localeProbe.source,"Probe synopsis");
+ assert.equal(localeProbe.calls,1,"Repeat display reuses the locale cache");
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
