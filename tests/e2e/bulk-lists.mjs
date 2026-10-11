@@ -444,5 +444,36 @@ try {
  assert.equal(await p.locator("#search-results .sr-row").count(),1);
  assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Paginated search fits the viewport");
 
+
+ // Ranking understands separate words and accent variants, while preserving original result identities.
+ const ranking=await p.evaluate(()=>{
+   const results=[
+     {title:"Heart",popularity:999999},
+     {title:"Art of War",popularity:10},
+     {title:"War and Art",popularity:20},
+     {title:"Art",popularity:1},
+     {title:"Different title",alternativeTitles:["Árt"],popularity:5},
+     {title:"Unrelated",tags:["Art"],popularity:100}
+   ];
+   return {
+     single:rankCatalogResults(results,"art").map(row=>row.item.title),
+     multiple:rankCatalogResults(results,"war art").map(row=>row.item.title),
+     identity:rankCatalogResults(results,"art").map(row=>results[row.index]===row.item),
+     malformed:rankCatalogResults([{title:"Art",alternativeTitles:"bad",popularity:"Infinity"}],"art")[0].popularity
+   };
+ });
+ assert.deepEqual(ranking.single,["Art","Different title","Art of War","War and Art","Unrelated","Heart"]);
+ assert.deepEqual(ranking.multiple.slice(0,2),["War and Art","Art of War"]);
+ assert(ranking.identity.every(Boolean));
+ assert.equal(ranking.malformed,0);
+ await p.evaluate(()=>{
+   searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};
+   lastResults=[{title:"Art future",type:"game",year:2028}];renderSearchResults("art");
+ });
+ await p.locator("#sf-year").fill("2028");
+ // Incoming results can render before the field loses focus.
+ await p.evaluate(()=>renderSearchResults("art"));
+ assert.equal(await p.locator("#sf-year").inputValue(),"2028");
+ assert.equal(await p.locator("#search-results .sr-row").count(),1);
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
