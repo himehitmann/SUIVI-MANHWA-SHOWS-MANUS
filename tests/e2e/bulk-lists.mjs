@@ -499,7 +499,7 @@ try {
  assert.equal(await p.locator("#sites-block").isVisible(),true);
  const aliases=await p.evaluate(()=>distinctAlternativeTitles({title:"Example",alternativeTitles:["Example","example","Different","Different","別名"]}));
  assert.deepEqual(aliases,["Different","別名"]);
- await p.screenshot({path:"test-results/library-japanese.png"});
+ console.log("LIBRARY_JA_VISUAL "+(await p.screenshot({path:"test-results/library-japanese.png",type:"png",fullPage:true})).toString("base64"));
  const localeProbe=await p.evaluate(async()=>{
    settings.lang="en";
    document.querySelectorAll(".view").forEach(node=>node.hidden=true);

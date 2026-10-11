@@ -344,7 +344,7 @@ try {
   assert(await page.locator("#drawer").evaluate(el=>el.inert),"Hidden drawer remained keyboard-accessible");
   assert(await page.locator("#q").getAttribute("aria-label"));
   assert.equal(await page.locator('#nav [aria-current="page"]').getAttribute("data-v"),"library");
-  assert((await page.title()).startsWith("Yomu · "));
+  assert((await page.title()).startsWith("Yomu — "));
   const markupCheck=await page.evaluate(()=>{
     const id='bad"><img id="injected" src="x" onerror="alert(1)">';
     const holder=document.createElement("div");holder.innerHTML=cardHtml({id,title:'<script>alert(1)</script>',type:"reading",tags:['<img onerror="alert(1)">'],accent:'red" onmouseover="alert(1)'});
