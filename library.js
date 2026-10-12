@@ -2638,7 +2638,7 @@ function renderSearchResults(q) {
   const kinds=[...new Set([...lastResults.map(resultKind),...(f.kind!=="all"?[f.kind]:[])])].sort();
   const genres=[...new Set([...lastResults.filter(m=>f.kind==="all"||resultKind(m)===f.kind).flatMap(m=>m.genres||[]),...(f.genre!=="all"?[f.genre]:[])])].sort();
   const labels={GAME:t("games"),MOVIE:t("mediaFilms"),ANIME:t("catAnime"),MANGA:t("catManga"),MANHWA:t("catManhwa"),MANHUA:t("catManhua"),KDRAMA:t("catKdrama"),CDRAMA:t("catCdrama"),JDRAMA:t("catJdrama"),SERIES:t("catSeries"),US_SERIES:t("mediaUSSeries"),NOVEL:t("mediaNovels"),BOOK:t("mediaBooks")};
-  const select=(id,label,values,value)=>'<label>'+label+'<select class="field" id="'+id+'"><option value="all">'+t("all")+'</option>'+values.map(([key,name])=>'<option value="'+esc(key)+'"'+(value===key?' selected':'')+'>'+esc(name)+'</option>').join("")+'</select></label>';
+  const select=(id,label,values,value)=>'<label>'+label+'<select class="field" id="'+id+'"><option value="all">'+t("all")+'</option>'+values.map(([key,name])=>'<option value="'+esc(key)+'"'+(id==="sf-genre"?' data-catalog-text':'')+(value===key?' selected':'')+'>'+esc(name)+'</option>').join("")+'</select></label>';
   const ranked=rankCatalogResults(lastResults,q);
   const shown=ranked.filter(({item})=>matchesSearchFacets(item));
   el.innerHTML='<div class="sr-wrap"><div class="sr-head"><b>'+t("searchTitle")+'</b> — '+esc(q)+' — '+shown.length+'/'+lastResults.length+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0">'+
@@ -2664,11 +2664,11 @@ function renderSearchResults(q) {
   el.querySelectorAll("[data-preview]").forEach(button=>button.onclick=()=>openCatalogPreview(lastResults[Number(button.dataset.preview)]));
 }
 function srRow(m, idx) {
-  const tags = (m.genres || []).slice(0, 3).map((g) => `<span class="tag">${esc(g)}</span>`).join("");
+  const tags = (m.genres || []).slice(0, 3).map((g) => `<span class="tag" data-catalog-text>${esc(g)}</span>`).join("");
   const meta = [resultYear(m)].filter(Boolean).join(" — ");
   return `<div class="sr-row">
     <button class="sc" data-preview="${idx}" aria-label="${esc(t("details") + ": " + m.title)}"><span class="cover-ph">${esc((m.title || "?")[0].toUpperCase())}</span>${covImg(m.cover, m.coverFallback)}</button>
-    <div class="si"><b><button class="link-btn" data-preview="${idx}">${esc(m.title)}</button><span class="cat">${esc(catLabel(m))}</span></b><small>${esc(meta)}${m.synopsis ? (meta ? " — " : "") + esc(m.synopsis.slice(0, 90)) + "…" : ""}</small><div class="st">${tags}</div></div>
+    <div class="si"><b><button class="link-btn" data-preview="${idx}">${esc(m.title)}</button><span class="cat">${esc(catLabel(m))}</span></b><small>${esc(meta)}${m.synopsis ? (meta ? " — " : "") + '<span data-catalog-text>' + esc(m.synopsis.slice(0, 90)) + (m.synopsis.length>90?"…":"") + "</span>" : ""}</small><div class="st">${tags}</div></div>
     <button class="btn" data-preview="${idx}" data-saved-label="${idx}">${t("details")}</button>
   </div>`;
 }
@@ -2968,10 +2968,12 @@ async function localizeVisibleCatalog(){
   if(catalogLocaleBusy)return;
   const language=settings.lang||"en";
   if(language==="en")return;
-  const selectors=".home-feature-synopsis,.home-feature-meta,.home-eyebrow,p.synopsis,.tags > .tag,.disco > small,.section-t,#episode-guide h3,#episode-guide .sub";
+  const selectors="[data-catalog-text],.home-feature-synopsis,.home-feature-meta,.home-eyebrow,p.synopsis,.tags > .tag,.disco > small,.section-t,#episode-guide h3,#episode-guide .sub";
   const nodes=[...document.querySelectorAll(selectors)].filter(node=>{
-    const rect=node.getBoundingClientRect();
-    return rect.width&&rect.height&&rect.bottom>0&&rect.top<innerHeight+300&&!node.closest("[hidden],[data-i18n-static]");
+    const visible=node.tagName==="OPTION"?node.closest("select"):node;
+    if(!visible)return false;
+    const rect=visible.getBoundingClientRect();
+    return rect.width&&rect.height&&rect.bottom>0&&rect.top<innerHeight+300&&!visible.closest("[hidden],[data-i18n-static]");
   });
   const jobs=[];
   for(const node of nodes){

@@ -620,5 +620,62 @@ try {
  assert.equal(await p.locator("#search-more").innerText(),"Charger plus de résultats");
  assert.equal(await p.evaluate(()=>JSON.stringify({query,searchFacets,lastResults,searchPageState})),beforeLocaleSearch);
 
+
+ // Translate provider snippets and genre labels only; filters keep their raw values.
+ await p.waitForFunction(()=>!catalogLocaleBusy);
+ await p.setViewportSize({width:1440,height:1200});
+ const translatedResults=await p.evaluate(async()=>{
+   settings.lang="en";clearTimeout(catalogLocaleTimer);closeDrawer();switchView("library");
+   query="translation fixture";document.getElementById("q").value=query;
+   searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};
+   searchPageState={pending:false,error:false,hasMore:false};
+   lastResults=[{title:"Official title",type:"reading",format:"MANGA",year:2028,genres:["Adventure"],synopsis:"A complete synopsis."}];
+   settings.lang="ja";renderSearchResults(query);
+   document.getElementById("search-results").scrollIntoView();
+   const original=api.runtime.sendMessage;let calls=0;
+   api.runtime.sendMessage=(message,callback)=>{
+     if(message.type==="DASI_MT"){calls++;callback({ok:true,translations:message.texts.map(text=>"訳 "+text)});return;}
+     return original.call(api.runtime,message,callback);
+   };
+   try{
+     for(let pass=0;pass<4;pass++)await localizeVisibleCatalog();
+     const option=document.querySelector('#sf-genre option[value="Adventure"]');
+     const translated=option.textContent;
+     const snippet=document.querySelector(".sr-row small [data-catalog-text]").textContent;
+     const title=document.querySelector(".sr-row .si b button").textContent;
+     const beforeCache=calls;await localizeVisibleCatalog();const cached=calls===beforeCache;
+     document.getElementById("sf-genre").value="Adventure";
+     document.getElementById("sf-genre").dispatchEvent(new Event("change"));
+     return {translated,snippet,title,cached,genre:searchFacets.genre,count:document.querySelectorAll(".sr-row").length,source:lastResults[0],year:document.querySelector(".sr-row small").textContent.startsWith("2028")};
+   }finally{api.runtime.sendMessage=original;settings.lang="en";clearTimeout(catalogLocaleTimer);}
+ });
+ assert.equal(translatedResults.translated,"訳 Adventure");
+ assert.equal(translatedResults.snippet,"訳 A complete synopsis.");
+ assert.equal(translatedResults.title,"Official title");
+ assert.equal(translatedResults.genre,"Adventure");
+ assert.equal(translatedResults.count,1);
+ assert(translatedResults.cached&&translatedResults.year);
+ assert.equal(translatedResults.source.synopsis,"A complete synopsis.");
+ assert.deepEqual(translatedResults.source.genres,["Adventure"]);
+
+ // A late translation cannot modify replacement results or another language.
+ const staleTranslation=await p.evaluate(async()=>{
+   settings.lang="en";while(catalogLocaleBusy)await new Promise(resolve=>setTimeout(resolve,20));
+   clearTimeout(catalogLocaleTimer);
+   const original=api.runtime.sendMessage,panel=document.createElement("div");document.body.prepend(panel);
+   document.querySelectorAll(".view").forEach(node=>node.hidden=true);
+   panel.innerHTML='<span data-catalog-text>Old isolated snippet</span>';
+   panel.scrollIntoView();const old=panel.firstElementChild;let pending;
+   api.runtime.sendMessage=(message,callback)=>{if(message.type==="DASI_MT"){pending=()=>callback({ok:true,translations:message.texts.map(()=>"Late translation")});return;}return original.call(api.runtime,message,callback);};
+   try{
+     settings.lang="ja";const task=localizeVisibleCatalog();
+     panel.innerHTML='<span data-catalog-text>Replacement snippet</span>';settings.lang="fr";
+     if(!pending)throw Error("Expected translation request");
+     pending();await task;
+     return {replacement:panel.textContent,detached:!old.isConnected,original:old.textContent};
+   }finally{api.runtime.sendMessage=original;panel.remove();settings.lang="en";document.querySelectorAll(".view").forEach(node=>node.hidden=false);clearTimeout(catalogLocaleTimer);}
+ });
+ assert.deepEqual(staleTranslation,{replacement:"Replacement snippet",detached:true,original:"Old isolated snippet"});
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
