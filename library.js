@@ -236,6 +236,419 @@ const LIBRARY_LOCALES={
   ]
 };
 for(const [code,values] of Object.entries(LIBRARY_LOCALES))LIBRARY_LOCALE_KEYS.forEach((key,index)=>LANGS[code][key]=values[index]);
+const DETAIL_LOCALES={
+  "publication": [
+    "Publication / airing",
+    "Publication / diffusion",
+    "公開・放送状況",
+    "Publicación / emisión",
+    "Veröffentlichung / Ausstrahlung",
+    "연재 / 방영",
+    "Publicação / exibição",
+    "出版 / 播出"
+  ],
+  "seriesEnded": [
+    "Series ended",
+    "Série terminée",
+    "シリーズ完結",
+    "Serie finalizada",
+    "Serie beendet",
+    "시리즈 완결",
+    "Série terminada",
+    "系列已完结"
+  ],
+  "workFinished": [
+    "Work finished",
+    "Œuvre terminée",
+    "作品完結",
+    "Obra finalizada",
+    "Werk abgeschlossen",
+    "작품 완결",
+    "Obra terminada",
+    "作品已完结"
+  ],
+  "partFinished": [
+    "Season or installment finished",
+    "Saison ou partie terminée",
+    "シーズン・部が完結",
+    "Temporada o parte finalizada",
+    "Staffel oder Teil beendet",
+    "시즌 또는 파트 완결",
+    "Temporada ou parte terminada",
+    "季或篇章已完结"
+  ],
+  "endUnspecified": [
+    "Ended, scope unspecified",
+    "Fin indiquée, portée non précisée",
+    "終了（対象範囲不明）",
+    "Finalizada, alcance no especificado",
+    "Beendet, Umfang unklar",
+    "종료됨, 범위 불명",
+    "Terminada, âmbito não especificado",
+    "已结束，范围未注明"
+  ],
+  "pubOngoing": [
+    "Ongoing",
+    "En cours",
+    "連載・放送中",
+    "En curso",
+    "Laufend",
+    "연재·방영 중",
+    "Em curso",
+    "连载 / 播出中"
+  ],
+  "pubUpcoming": [
+    "Upcoming",
+    "À venir",
+    "公開予定",
+    "Próximamente",
+    "Demnächst",
+    "공개 예정",
+    "Em breve",
+    "即将推出"
+  ],
+  "pubHiatus": [
+    "On hiatus",
+    "En pause",
+    "休止中",
+    "En pausa",
+    "Pausiert",
+    "휴재·휴방 중",
+    "Em pausa",
+    "暂停中"
+  ],
+  "pubCancelled": [
+    "Cancelled",
+    "Annulée",
+    "中止",
+    "Cancelada",
+    "Abgebrochen",
+    "취소됨",
+    "Cancelada",
+    "已取消"
+  ],
+  "pubUnknown": [
+    "Status unspecified",
+    "Statut non renseigné",
+    "状況不明",
+    "Estado no especificado",
+    "Status unbekannt",
+    "상태 미상",
+    "Estado não indicado",
+    "状态未知"
+  ],
+  "partNote": [
+    "This status applies to this entry. It does not confirm the end of the entire series.",
+    "Ce statut concerne cette fiche. Il ne confirme pas la fin de toute la série.",
+    "この状況はこの項目にのみ適用されます。シリーズ全体の完結を示すものではありません。",
+    "Este estado corresponde a esta ficha. No confirma el final de toda la serie.",
+    "Dieser Status gilt für diesen Eintrag. Er bestätigt nicht das Ende der gesamten Serie.",
+    "이 상태는 이 항목에만 적용됩니다. 전체 시리즈의 완결을 의미하지 않습니다.",
+    "Este estado aplica-se a esta ficha. Não confirma o fim de toda a série.",
+    "此状态仅适用于本条目，不代表整个系列已完结。"
+  ],
+  "endNote": [
+    "The source does not specify whether the entire series has ended.",
+    "La source ne précise pas si toute la série est terminée.",
+    "情報源にはシリーズ全体が完結したかどうかの記載がありません。",
+    "La fuente no indica si ha terminado toda la serie.",
+    "Die Quelle gibt nicht an, ob die gesamte Serie beendet ist.",
+    "출처에서 전체 시리즈의 완결 여부를 명시하지 않았습니다.",
+    "A fonte não indica se toda a série terminou.",
+    "来源未说明整个系列是否已完结。"
+  ],
+  "platformsLabel": [
+    "Platforms",
+    "Plateformes",
+    "対応プラットフォーム",
+    "Plataformas",
+    "Plattformen",
+    "플랫폼",
+    "Plataformas",
+    "平台"
+  ],
+  "creatorsLabel": [
+    "Creators",
+    "Auteurs",
+    "作者・制作者",
+    "Creadores",
+    "Urheber",
+    "작가·제작자",
+    "Criadores",
+    "作者 / 创作者"
+  ],
+  "aliasesLabel": [
+    "Alternative titles",
+    "Autres titres",
+    "別タイトル",
+    "Títulos alternativos",
+    "Alternative Titel",
+    "다른 제목",
+    "Títulos alternativos",
+    "其他名称"
+  ],
+  "castLabel": [
+    "Cast and characters",
+    "Distribution et personnages",
+    "出演者・登場人物",
+    "Reparto y personajes",
+    "Besetzung und Figuren",
+    "출연진 및 등장인물",
+    "Elenco e personagens",
+    "演员与角色"
+  ],
+  "genresLabel": [
+    "Genres and themes",
+    "Genres et thèmes",
+    "ジャンル・テーマ",
+    "Géneros y temas",
+    "Genres und Themen",
+    "장르 및 주제",
+    "Géneros e temas",
+    "类型与主题"
+  ],
+  "loadingDetails": [
+    "Loading details",
+    "Chargement de la fiche",
+    "詳細を読み込み中",
+    "Cargando detalles",
+    "Details werden geladen",
+    "상세 정보 불러오는 중",
+    "A carregar detalhes",
+    "正在加载详情"
+  ],
+  "chooseList": [
+    "Choose a list",
+    "Choisir une liste",
+    "リストを選ぶ",
+    "Elige una lista",
+    "Liste auswählen",
+    "목록 선택",
+    "Escolhe uma lista",
+    "选择清单"
+  ],
+  "selectList": [
+    "Select a list",
+    "Sélectionner une liste",
+    "リストを選択",
+    "Selecciona una lista",
+    "Liste auswählen",
+    "목록을 선택하세요",
+    "Seleciona uma lista",
+    "请选择清单"
+  ],
+  "createList": [
+    "Create a list",
+    "Créer une liste",
+    "リストを作成",
+    "Crear una lista",
+    "Liste erstellen",
+    "목록 만들기",
+    "Criar uma lista",
+    "创建清单"
+  ],
+  "listNameLabel": [
+    "List name",
+    "Nom de la liste",
+    "リスト名",
+    "Nombre de la lista",
+    "Listenname",
+    "목록 이름",
+    "Nome da lista",
+    "清单名称"
+  ],
+  "addToList": [
+    "Add to this list",
+    "Ajouter à cette liste",
+    "このリストに追加",
+    "Añadir a esta lista",
+    "Zu dieser Liste hinzufügen",
+    "이 목록에 추가",
+    "Adicionar a esta lista",
+    "加入此清单"
+  ],
+  "detailsUnavailable": [
+    "Additional details are unavailable at the moment.",
+    "Les informations supplémentaires sont indisponibles pour le moment.",
+    "現在、追加情報を取得できません。",
+    "Los detalles adicionales no están disponibles por el momento.",
+    "Weitere Details sind momentan nicht verfügbar.",
+    "현재 추가 정보를 불러올 수 없습니다.",
+    "Os detalhes adicionais estão indisponíveis de momento.",
+    "暂时无法获取更多详情。"
+  ],
+  "seasonsEpisodes": [
+    "Seasons and episodes",
+    "Saisons et épisodes",
+    "シーズンとエピソード",
+    "Temporadas y episodios",
+    "Staffeln und Folgen",
+    "시즌 및 에피소드",
+    "Temporadas e episódios",
+    "季与集"
+  ],
+  "specialsLabel": [
+    "Specials",
+    "Épisodes spéciaux",
+    "特別編",
+    "Especiales",
+    "Sonderfolgen",
+    "스페셜",
+    "Especiais",
+    "特别篇"
+  ],
+  "seasonLabel": [
+    "Season",
+    "Saison",
+    "シーズン",
+    "Temporada",
+    "Staffel",
+    "시즌",
+    "Temporada",
+    "季"
+  ],
+  "seasonNumber": [
+    "Season {n}",
+    "Saison {n}",
+    "シーズン {n}",
+    "Temporada {n}",
+    "Staffel {n}",
+    "시즌 {n}",
+    "Temporada {n}",
+    "第 {n} 季"
+  ],
+  "episodesUnavailable": [
+    "Episodes are unavailable at the moment.",
+    "Les épisodes sont indisponibles pour le moment.",
+    "現在、エピソードを取得できません。",
+    "Los episodios no están disponibles por el momento.",
+    "Folgen sind momentan nicht verfügbar.",
+    "현재 에피소드를 불러올 수 없습니다.",
+    "Os episódios estão indisponíveis de momento.",
+    "暂时无法获取分集信息。"
+  ],
+  "retryLabel": [
+    "Retry",
+    "Réessayer",
+    "再試行",
+    "Reintentar",
+    "Erneut versuchen",
+    "다시 시도",
+    "Tentar novamente",
+    "重试"
+  ],
+  "loadingSeasons": [
+    "Loading seasons…",
+    "Chargement des saisons…",
+    "シーズンを読み込み中…",
+    "Cargando temporadas…",
+    "Staffeln werden geladen…",
+    "시즌 불러오는 중…",
+    "A carregar temporadas…",
+    "正在加载季信息…"
+  ],
+  "noSeasons": [
+    "No seasons listed yet.",
+    "Aucune saison renseignée pour le moment.",
+    "シーズン情報はまだありません。",
+    "Aún no hay temporadas registradas.",
+    "Noch keine Staffeln eingetragen.",
+    "등록된 시즌이 없습니다.",
+    "Ainda não há temporadas registadas.",
+    "暂无季信息。"
+  ],
+  "dataLabel": [
+    "Data: ",
+    "Données : ",
+    "データ提供：",
+    "Datos: ",
+    "Daten: ",
+    "데이터: ",
+    "Dados: ",
+    "数据来源："
+  ],
+  "loadingEpisodes": [
+    "Loading episodes…",
+    "Chargement des épisodes…",
+    "エピソードを読み込み中…",
+    "Cargando episodios…",
+    "Folgen werden geladen…",
+    "에피소드 불러오는 중…",
+    "A carregar episódios…",
+    "正在加载分集信息…"
+  ],
+  "episodesCount": [
+    "{n} episodes listed",
+    "{n} épisodes répertoriés",
+    "登録済み {n} 話",
+    "{n} episodios registrados",
+    "{n} Folgen eingetragen",
+    "등록된 에피소드 {n}개",
+    "{n} episódios registados",
+    "已收录 {n} 集"
+  ],
+  "episodesExpected": [
+    "{n} expected",
+    "{n} prévus",
+    "予定 {n} 話",
+    "{n} previstos",
+    "{n} erwartet",
+    "예정 {n}개",
+    "{n} previstos",
+    "预计 {n} 集"
+  ],
+  "specialLabel": [
+    "Special",
+    "Spécial",
+    "特別編",
+    "Especial",
+    "Sonderfolge",
+    "스페셜",
+    "Especial",
+    "特别篇"
+  ],
+  "episodeNumber": [
+    "Ep. {n}",
+    "Ép. {n}",
+    "第 {n} 話",
+    "Ep. {n}",
+    "Folge {n}",
+    "{n}화",
+    "Ep. {n}",
+    "第 {n} 集"
+  ],
+  "titleUnannounced": [
+    "Title not announced",
+    "Titre non communiqué",
+    "タイトル未発表",
+    "Título no anunciado",
+    "Titel noch unbekannt",
+    "제목 미공개",
+    "Título não anunciado",
+    "标题未公布"
+  ],
+  "noEpisodes": [
+    "Episodes for this season have not been listed yet.",
+    "Les épisodes de cette saison ne sont pas encore renseignés.",
+    "このシーズンのエピソード情報はまだありません。",
+    "Aún no hay episodios registrados para esta temporada.",
+    "Für diese Staffel sind noch keine Folgen eingetragen.",
+    "이 시즌의 에피소드가 아직 등록되지 않았습니다.",
+    "Os episódios desta temporada ainda não estão registados.",
+    "本季暂无分集信息。"
+  ],
+  "moreEpisodes": [
+    "Show more episodes",
+    "Afficher plus d’épisodes",
+    "エピソードをもっと見る",
+    "Mostrar más episodios",
+    "Weitere Folgen anzeigen",
+    "에피소드 더 보기",
+    "Mostrar mais episódios",
+    "显示更多集"
+  ]
+};
+for(const [key,values] of Object.entries(DETAIL_LOCALES))["en","fr","ja","es","de","ko","pt","zh-CN"].forEach((code,index)=>LANGS[code][key]=values[index]);
 const t = (k, p) => { let s = (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || k; if (p) for (const key in p) s = s.replace(`{${key}}`, p[key]); return s; };
 // Array-valued i18n (plan feature lists), falls back to English.
 const tArr = (k) => (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || [];
@@ -1258,9 +1671,9 @@ function openDrawer(id) {
     </div>
     <div class="drawer-body">
       ${publicationInformation(i)}
-      ${!isGame&&(i.genres?.length||i.catalogTags?.length)?`<div class="section-t">${settings.lang==="fr"?"Genres et thèmes":"Genres and themes"}</div><div class="tags">${[...new Set([...(i.genres||[]),...(i.catalogTags||[])])].filter(x=>typeof x==="string").map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
-      ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${settings.lang==="fr"?"Auteurs":"Creators"}</div><p class="synopsis">${i.authors.filter(x=>typeof x==="string").map(esc).join(" — ")}</p>` : ""}
-      ${distinctAlternativeTitles(i).length ? `<div class="section-t">${settings.lang==="fr"?"Autres titres":"Alternative titles"}</div><ul class="synopsis">${distinctAlternativeTitles(i).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+      ${!isGame&&(i.genres?.length||i.catalogTags?.length)?`<div class="section-t">${t("genresLabel")}</div><div class="tags">${[...new Set([...(i.genres||[]),...(i.catalogTags||[])])].filter(x=>typeof x==="string").map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
+      ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${t("creatorsLabel")}</div><p class="synopsis">${i.authors.filter(x=>typeof x==="string").map(esc).join(" — ")}</p>` : ""}
+      ${distinctAlternativeTitles(i).length ? `<div class="section-t">${t("aliasesLabel")}</div><ul class="synopsis">${distinctAlternativeTitles(i).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="dr-refresh-info">${I.refresh} ${settings.lang==="fr"?"Actualiser la fiche":"Refresh details"}</button><button class="btn" id="dr-home-toggle" aria-pressed="${!!i.homeHidden}">${settings.lang==="fr"?(i.homeHidden?"Réafficher sur l’accueil":"Masquer de l’accueil"):(i.homeHidden?"Show on Home":"Hide from Home")}</button></div><p class="field-hint" id="dr-refresh-status" role="status"></p><div id="dr-extra-info"></div>
       ${episodeGuideSlot(i)}
       ${i.synopsis ? `<div class="section-t">${t("synopsis")}</div><p class="synopsis clamp" id="dr-syn">${esc(i.synopsis)}</p><button class="link-btn" id="dr-syn-toggle">${t("showMore")}</button>` : ""}
@@ -1882,7 +2295,7 @@ function renderSearchProgress(q) {
     state.partial?(fr?"Certains catalogues n’ont pas répondu. Charger plus réessaiera ces sources.":"Some catalogs did not respond. Load more will retry those sources."):
     state.limited?(fr?"Limite de cette recherche atteinte. Précise les mots recherchés pour explorer d’autres résultats.":"Search limit reached. Refine your search terms to explore other results."):"";
   footer.innerHTML='<p id="search-progress" class="sub" role="status">'+esc(status)+'</p>'+
-    (state.pending||state.hasMore||state.error?'<button class="btn" id="search-more"'+(state.pending?' disabled aria-busy="true"':'')+'>'+esc(state.pending?(fr?"Chargement…":"Loading…"):state.error?(fr?"Réessayer":"Retry"):(fr?"Charger plus de résultats":"Load more results"))+'</button>':"");
+    (state.pending||state.hasMore||state.error?'<button class="btn" id="search-more"'+(state.pending?' disabled aria-busy="true"':'')+'>'+esc(state.pending?(fr?"Chargement…":"Loading…"):state.error?(t("retryLabel")):(fr?"Charger plus de résultats":"Load more results"))+'</button>':"");
   const button=document.getElementById("search-more");
   if(button)button.onclick=()=>catalogSearch(q,state.error?state.retryMore:state.cursor);
 }
@@ -1939,17 +2352,17 @@ function publicationState(m) {
 }
 function publicationInformation(m) {
   if(!m.releaseStatus)return "";
-  const fr=settings.lang==="fr",state=publicationState(m);
+  const state=publicationState(m);
   const labels={
-    finished:m.releaseScope==="series"?(fr?"Série terminée":"Series ended"):(fr?"Œuvre terminée":"Work finished"),
-    installment_finished:fr?"Saison ou partie terminée":"Season or installment finished",
-    finished_unscoped:fr?"Fin indiquée, portée non précisée":"Ended, scope unspecified",
-    ongoing:fr?"En cours":"Ongoing",upcoming:fr?"À venir":"Upcoming",
-    hiatus:fr?"En pause":"On hiatus",cancelled:fr?"Annulée":"Cancelled",unknown:fr?"Statut non renseigné":"Status unspecified"
+    finished:m.releaseScope==="series"?(t("seriesEnded")):(t("workFinished")),
+    installment_finished:t("partFinished"),
+    finished_unscoped:t("endUnspecified"),
+    ongoing:t("pubOngoing"),upcoming:t("pubUpcoming"),
+    hiatus:t("pubHiatus"),cancelled:t("pubCancelled"),unknown:t("pubUnknown")
   };
-  const note=state==="installment_finished"?(fr?"Ce statut concerne cette fiche. Il ne confirme pas la fin de toute la série.":"This status applies to this entry. It does not confirm the end of the entire series."):
-    state==="finished_unscoped"?(fr?"La source ne précise pas si toute la série est terminée.":"The source does not specify whether the entire series has ended."):"";
-  return '<section class="publication-facts"><div class="section-t">'+(fr?"Publication / diffusion":"Publication / airing")+'</div><p>'+esc(labels[state])+'</p>'+(note?'<p class="sub">'+esc(note)+'</p>':"")+'</section>';
+  const note=state==="installment_finished"?(t("partNote")):
+    state==="finished_unscoped"?(t("endNote")):"";
+  return '<section class="publication-facts" data-i18n-static><div class="section-t">'+(t("publication"))+'</div><p>'+esc(labels[state])+'</p>'+(note?'<p class="sub">'+esc(note)+'</p>':"")+'</section>';
 }
 function resultYear(m) {
   const value=m.year||m.seasonYear||m.releaseDate||m.season;
@@ -2008,7 +2421,7 @@ function renderSearchResults(q) {
     select("sf-kind",fr?"Type d’œuvre":"Media type",kinds.map(k=>[k,labels[k]||k]),f.kind)+
     select("sf-genre",fr?"Genre":"Genre",genres.map(g=>[g,g]),f.genre)+
     '<label>'+(fr?"Année de sortie":"Release year")+'<input class="field" id="sf-year" type="number" min="1900" max="2199" placeholder="2028" value="'+esc(f.year)+'"></label>'+
-    select("sf-release",fr?"Publication / diffusion":"Publication / airing",[["finished",fr?"Œuvre / série terminée":"Work / series finished"],["installment_finished",fr?"Saison / partie terminée":"Season / installment finished"],["finished_unscoped",fr?"Fin non précisée":"Unspecified ending"],["ongoing",fr?"En cours":"Ongoing"],["upcoming",fr?"À venir":"Upcoming"],["hiatus",fr?"En pause":"On hiatus"],["cancelled",fr?"Annulée":"Cancelled"],["unknown",fr?"Non renseignée":"Unknown"]],f.release)+
+    select("sf-release",t("publication"),[["finished",fr?"Œuvre / série terminée":"Work / series finished"],["installment_finished",fr?"Saison / partie terminée":"Season / installment finished"],["finished_unscoped",fr?"Fin non précisée":"Unspecified ending"],["ongoing",t("pubOngoing")],["upcoming",t("pubUpcoming")],["hiatus",t("pubHiatus")],["cancelled",t("pubCancelled")],["unknown",fr?"Non renseignée":"Unknown"]],f.release)+
     '</div>'+(f.kind==="GAME"?'<label>'+(fr?"Prix maximum (USD)":"Maximum price (USD)")+' <output id="sf-price-label">'+(f.price===200?t("all"):f.price===0?(fr?"Gratuit":"Free"):"$"+f.price)+'</output><input id="sf-price" type="range" min="0" max="200" step="5" value="'+f.price+'" style="width:100%"></label>':"")+
     '<p class="sub">'+(fr?"Filtres appliqués aux résultats reçus. Les dates et états inconnus restent non renseignés.":"Filters apply to the returned results. Unknown dates and publication states remain unspecified.")+'</p><button class="btn" id="sf-reset"'+(f.kind==="all"&&f.genre==="all"&&!f.year&&f.release==="all"&&f.price===200?' style="display:none"':"")+'>'+(fr?"Effacer les filtres":"Clear filters")+'</button>'+
     (shown.length?shown.map(({item,index})=>srRow(item,index)).join(""):'<p class="sr-empty">'+t("noMatch")+'</p>')+missingGameAction()+'</div>';
@@ -2078,46 +2491,46 @@ function safeStoreLink(value) {
 }
 
 function episodeGuideSlot(item) {
-  return item.type==="watching"&&/^[1-9]\d*$/.test(String(item.externalIds?.tvmaze||""))?'<section id="episode-guide" class="episode-guide" aria-label="'+(settings.lang==="fr"?"Saisons et épisodes":"Seasons and episodes")+'"></section>':"";
+  return item.type==="watching"&&/^[1-9]\d*$/.test(String(item.externalIds?.tvmaze||""))?'<section id="episode-guide" data-i18n-static class="episode-guide" aria-label="'+(t("seasonsEpisodes"))+'"></section>':"";
 }
 function mountEpisodeGuide(item) {
   const root=document.getElementById("episode-guide");if(!root)return;
-  const fr=settings.lang==="fr";let request=0;
+  let request=0;
   const active=()=>root.isConnected&&document.getElementById("drawer").classList.contains("open");
   const send=(seasonId)=>new Promise((resolve,reject)=>api.runtime.sendMessage({type:"CATALOG_EPISODE_GUIDE",item:{type:item.type,externalIds:item.externalIds},seasonId},r=>{if(api.runtime.lastError||!r?.ok)reject(Error("unavailable"));else resolve(r);}));
-  const label=s=>(s.number===0?(fr?"Épisodes spéciaux":"Specials"):(fr?"Saison ":"Season ")+s.number)+(s.name?" — "+s.name:"");
+  const label=s=>(s.number===0?(t("specialsLabel")):t("seasonNumber",{n:s.number}))+(s.name?" — "+s.name:"");
   const fail=(target,retry)=>{
-    target.innerHTML='<p class="sub" role="status">'+(fr?"Les épisodes sont indisponibles pour le moment.":"Episodes are unavailable at the moment.")+'</p><button class="btn" type="button">'+(fr?"Réessayer":"Retry")+'</button>';
+    target.innerHTML='<p class="sub" role="status">'+(t("episodesUnavailable"))+'</p><button class="btn" type="button">'+(t("retryLabel"))+'</button>';
     target.querySelector("button").onclick=retry;
   };
   const load=async()=>{
     const token=++request;
-    root.innerHTML='<div class="section-t">'+(fr?"Saisons et épisodes":"Seasons and episodes")+'</div><p class="sub" role="status">'+(fr?"Chargement des saisons…":"Loading seasons…")+'</p>';
+    root.innerHTML='<div class="section-t">'+(t("seasonsEpisodes"))+'</div><p class="sub" role="status">'+(t("loadingSeasons"))+'</p>';
     try {
       const data=await send();if(!active()||token!==request)return;
       const seasons=data.seasons||[];
-      if(!seasons.length){root.innerHTML='<p class="sub">'+(fr?"Aucune saison renseignée pour le moment.":"No seasons listed yet.")+'</p>';return;}
+      if(!seasons.length){root.innerHTML='<p class="sub">'+(t("noSeasons"))+'</p>';return;}
       const selected=seasons.find(s=>s.number===Number(item.season))||seasons[0];
-      root.innerHTML='<div class="section-t">'+(fr?"Saisons et épisodes":"Seasons and episodes")+'</div>'+(seasons.length>1?'<label class="guide-season-label">'+(fr?"Saison":"Season")+'<select class="field" id="guide-season">'+seasons.map(s=>'<option value="'+esc(s.id)+'"'+(s.id===selected.id?' selected':'')+'>'+esc(label(s))+'</option>').join("")+'</select></label>':'<h3>'+esc(label(selected))+'</h3>')+'<div class="guide-episodes" aria-live="polite"></div><p class="sub guide-source">'+(fr?"Données : ":"Data: ")+'<a href="https://www.tvmaze.com/shows/'+encodeURIComponent(item.externalIds.tvmaze)+'" target="_blank" rel="noopener noreferrer">TVmaze</a></p>';
+      root.innerHTML='<div class="section-t">'+(t("seasonsEpisodes"))+'</div>'+(seasons.length>1?'<label class="guide-season-label">'+(t("seasonLabel"))+'<select class="field" id="guide-season">'+seasons.map(s=>'<option value="'+esc(s.id)+'"'+(s.id===selected.id?' selected':'')+'>'+esc(label(s))+'</option>').join("")+'</select></label>':'<h3>'+esc(label(selected))+'</h3>')+'<div class="guide-episodes" aria-live="polite"></div><p class="sub guide-source">'+(t("dataLabel"))+'<a href="https://www.tvmaze.com/shows/'+encodeURIComponent(item.externalIds.tvmaze)+'" target="_blank" rel="noopener noreferrer">TVmaze</a></p>';
       const area=root.querySelector(".guide-episodes"),select=root.querySelector("select");
       const choose=async id=>{
         const version=++request;area.setAttribute("aria-busy","true");
-        area.innerHTML='<p class="sub">'+(fr?"Chargement des épisodes…":"Loading episodes…")+'</p>';
+        area.innerHTML='<p class="sub">'+(t("loadingEpisodes"))+'</p>';
         try{
           const result=await send(id);if(!active()||version!==request)return;
           area.setAttribute("aria-busy","false");const episodes=result.episodes||[];let visible=40;
           const render=()=>{
             const known=Number.isInteger(result.season.episodeCount)?result.season.episodeCount:null;
             const count=episodes.filter(e=>e.number!==null&&!e.special).length;
-            const stats=[count+ (fr?" épisodes répertoriés":" episodes listed")];
-            if(known!==null&&known!==count)stats.push(known+(fr?" prévus":" expected"));
+            const stats=[t("episodesCount",{n:count})];
+            if(known!==null&&known!==count)stats.push(t("episodesExpected",{n:known}));
             const rows=episodes.slice(0,visible).map(e=>{
-              const number=e.number===null?(fr?"Spécial":"Special"):(fr?"Ép. ":"Ep. ")+e.number;
+              const number=e.number===null?(t("specialLabel")):t("episodeNumber",{n:e.number});
               const upcoming=/^\d{4}-\d{2}-\d{2}$/.test(e.airdate)&&e.airdate>new Date().toISOString().slice(0,10);
-              const meta=[e.airdate,e.runtime?e.runtime+" min":"",e.special?(fr?"Spécial":"Special"):"",upcoming?(fr?"À venir":"Upcoming"):""].filter(Boolean);
-              return '<li class="guide-episode"><span class="guide-number">'+esc(number)+'</span><div><b>'+esc(e.name||(fr?"Titre non communiqué":"Title not announced"))+'</b>'+(meta.length?'<small>'+meta.map(esc).join(" — ")+'</small>':"")+'</div></li>';
+              const meta=[e.airdate,e.runtime?e.runtime+" min":"",e.special?(t("specialLabel")):"",upcoming?(t("pubUpcoming")):""].filter(Boolean);
+              return '<li class="guide-episode"><span class="guide-number">'+esc(number)+'</span><div><b>'+esc(e.name||(t("titleUnannounced")))+'</b>'+(meta.length?'<small>'+meta.map(esc).join(" — ")+'</small>':"")+'</div></li>';
             }).join("");
-            area.innerHTML='<p class="sub">'+esc(stats.join(" — "))+'</p>'+(rows?'<ol class="guide-list">'+rows+'</ol>':'<p class="sub">'+(fr?"Les épisodes de cette saison ne sont pas encore renseignés.":"Episodes for this season have not been listed yet.")+'</p>')+(episodes.length>visible?'<button type="button" class="btn guide-more">'+(fr?"Afficher plus d’épisodes":"Show more episodes")+'</button>':"");
+            area.innerHTML='<p class="sub">'+esc(stats.join(" — "))+'</p>'+(rows?'<ol class="guide-list">'+rows+'</ol>':'<p class="sub">'+(t("noEpisodes"))+'</p>')+(episodes.length>visible?'<button type="button" class="btn guide-more">'+(t("moreEpisodes"))+'</button>':"");
             const more=area.querySelector(".guide-more");if(more)more.onclick=()=>{visible+=40;render();};
           };render();
         }catch{if(active()&&version===request){area.setAttribute("aria-busy","false");fail(area,()=>choose(id));}}
@@ -2150,18 +2563,17 @@ function gameRewardsHtml() {
 }
 function distinctAlternativeTitles(item){const keyOf=value=>String(value||"").normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,"");const seen=new Set([keyOf(item.title)]);return (Array.isArray(item.alternativeTitles)?item.alternativeTitles:[]).filter(value=>{if(typeof value!=="string"||!value.trim())return false;const key=keyOf(value);if(!key||seen.has(key))return false;seen.add(key);return true;});}
 function catalogInformation(m) {
-  const fr=settings.lang==="fr";
   const tags=[...new Set([...(m.genres||[]),...(m.tags||[]),...(m.catalogTags||[])])].filter(x=>typeof x==="string");
 
   const newsHtml=gameNewsHtml(m);
-  const gameFacts=m.type==="game"?'<dl class="game-detail-facts">'+(m.platform?'<dt>'+(fr?"Plateformes":"Platforms")+'</dt><dd>'+esc(m.platform)+'</dd>':"")+(m.releaseDate?'<dt>'+(fr?"Sortie":"Release date")+'</dt><dd>'+esc(m.releaseDate)+'</dd>':"")+'</dl>':"";
+  const gameFacts=m.type==="game"?'<dl class="game-detail-facts">'+(m.platform?'<dt>'+(t("platformsLabel"))+'</dt><dd>'+esc(m.platform)+'</dd>':"")+(m.releaseDate?'<dt>'+t("releaseDate")+'</dt><dd>'+esc(m.releaseDate)+'</dd>':"")+'</dl>':"";
   return publicationInformation(m)+gameFacts+(tags.length?'<div class="tags">'+tags.map(x=>'<span class="tag">'+esc(x)+'</span>').join("")+'</div>':"")+
     (m.type==="game"&&m.price?'<p class="detail-price">'+esc(m.price)+'</p>':"")+
     (m.type==="game"?gameStoreButtons(m)+gameSourceCredit(m):"")+
     (m.synopsis?'<div class="section-t">'+t("synopsis")+'</div><p class="synopsis">'+esc(m.synopsis)+'</p>':"")+
-    ((m.authors||[]).length?'<div class="section-t">'+(fr?"Auteurs":"Creators")+'</div><p>'+m.authors.map(esc).join(" — ")+'</p>':"")+
-    (distinctAlternativeTitles(m).length?'<div class="section-t">'+(fr?"Autres titres":"Alternative titles")+'</div><ul class="synopsis">'+distinctAlternativeTitles(m).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>':"")+
-    ((m.cast||[]).length?'<div class="section-t">'+(fr?"Distribution et personnages":"Cast and characters")+'</div><div class="cast-strip scroll-x">'+m.cast.map(c=>'<div class="cast-card"><div class="cast-av">'+(c.image?'<img src="'+esc(c.image)+'" alt="" loading="lazy">':'')+'</div><b>'+esc(c.name)+'</b><small>'+esc(c.character||c.role||"")+'</small></div>').join("")+'</div>':"")+
+    ((m.authors||[]).length?'<div class="section-t">'+(t("creatorsLabel"))+'</div><p>'+m.authors.map(esc).join(" — ")+'</p>':"")+
+    (distinctAlternativeTitles(m).length?'<div class="section-t">'+(t("aliasesLabel"))+'</div><ul class="synopsis">'+distinctAlternativeTitles(m).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>':"")+
+    ((m.cast||[]).length?'<div class="section-t">'+(t("castLabel"))+'</div><div class="cast-strip scroll-x">'+m.cast.map(c=>'<div class="cast-card"><div class="cast-av">'+(c.image?'<img src="'+esc(c.image)+'" alt="" loading="lazy">':'')+'</div><b>'+esc(c.name)+'</b><small>'+esc(c.character||c.role||"")+'</small></div>').join("")+'</div>':"")+
     embeddedTrailer(m.trailerUrl,m.trailer)+newsHtml+(m.type==="game"?gameRewardsHtml():"");
 }
 let previewRequest=0,activeCatalogPreview=null;
@@ -2184,8 +2596,7 @@ function openCatalogPreviewResolved(m) {
   activeCatalogPreview=m;
   const token=++previewRequest;
   const drawer=document.getElementById("drawer");  delete drawer.dataset.itemId;
-  const fr=settings.lang==="fr";
-  drawer.innerHTML='<div class="drawer-hero"><button id="preview-close" class="icon-btn drawer-close" aria-label="'+esc(t("close")||"Close")+'">'+I.close+'</button><div class="drawer-cover"><span class="cover-ph">'+esc((m.title||"?")[0])+'</span>'+covImg(m.cover,m.coverFallback)+'</div><h2 class="drawer-title">'+esc(m.title)+'</h2><p>'+esc([catLabel(m),m.country,m.year||m.season].filter(Boolean).join(" — "))+'</p></div><div class="drawer-body"><div id="preview-info">'+catalogInformation(m)+'</div>'+episodeGuideSlot(m)+'<p class="sub" id="preview-status" role="status">'+(fr?"Chargement de la fiche":"Loading details")+'</p><div class="preview-actions"><label for="preview-list">'+(fr?"Choisir une liste":"Choose a list")+'</label><select id="preview-list" class="field"><option value="">'+(fr?"Sélectionner une liste":"Select a list")+'</option>'+lists.filter(l=>!l.archived).map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join("")+'<option value="__new">'+(fr?"Créer une liste":"Create a list")+'</option></select><input id="preview-list-name" class="field" hidden placeholder="'+(fr?"Nom de la liste":"List name")+'"><button class="btn primary" id="preview-add" disabled>'+(fr?"Ajouter à cette liste":"Add to this list")+'</button></div></div>';
+  drawer.innerHTML='<div class="drawer-hero"><button id="preview-close" class="icon-btn drawer-close" aria-label="'+esc(t("close")||"Close")+'">'+I.close+'</button><div class="drawer-cover"><span class="cover-ph">'+esc((m.title||"?")[0])+'</span>'+covImg(m.cover,m.coverFallback)+'</div><h2 class="drawer-title">'+esc(m.title)+'</h2><p>'+esc([catLabel(m),m.country,m.year||m.season].filter(Boolean).join(" — "))+'</p></div><div class="drawer-body"><div id="preview-info">'+catalogInformation(m)+'</div>'+episodeGuideSlot(m)+'<p class="sub" id="preview-status" role="status">'+(t("loadingDetails"))+'</p><div class="preview-actions"><label for="preview-list">'+(t("chooseList"))+'</label><select id="preview-list" class="field"><option value="">'+(t("selectList"))+'</option>'+lists.filter(l=>!l.archived).map(l=>'<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>').join("")+'<option value="__new">'+(t("createList"))+'</option></select><input id="preview-list-name" class="field" hidden placeholder="'+(t("listNameLabel"))+'"><button class="btn primary" id="preview-add" disabled>'+(t("addToList"))+'</button></div></div>';
   drawer.setAttribute("role","dialog");drawer.setAttribute("aria-modal","true");drawer.setAttribute("aria-label",m.title);
   drawer.classList.add("open");focusDrawer();document.getElementById("scrim").classList.add("open");
   document.getElementById("preview-close").onclick=closeDrawer;
@@ -2199,7 +2610,7 @@ function openCatalogPreviewResolved(m) {
   api.runtime.sendMessage({type:"CATALOG_DETAIL",item:m},r=>{
     if(token!==previewRequest||!drawer.classList.contains("open")||drawer.dataset.itemId)return;
     const status=document.getElementById("preview-status");
-    if(api.runtime.lastError||!r?.ok){if(status)status.textContent=fr?"Les informations supplémentaires sont indisponibles pour le moment.":"Additional details are unavailable at the moment.";return;}
+    if(api.runtime.lastError||!r?.ok){if(status)status.textContent=t("detailsUnavailable");return;}
     if(r.item)Object.assign(m,r.item);
     document.getElementById("preview-info").innerHTML=catalogInformation(m);
     enhanceCarousels("#preview-info");
@@ -2299,7 +2710,7 @@ function renderMetadataStatus() {
   const banner=document.getElementById("library-metadata-status");
   if(banner){
     banner.hidden=!(pending||unresolved);
-    banner.innerHTML='<span role="status">'+message+'</span>'+((unresolved||missing)?'<button class="btn sm" id="retry-library-metadata">'+(fr?"Réessayer":"Retry")+'</button>':"");
+    banner.innerHTML='<span role="status">'+message+'</span>'+((unresolved||missing)?'<button class="btn sm" id="retry-library-metadata">'+(t("retryLabel"))+'</button>':"");
     const retry=document.getElementById("retry-library-metadata");if(retry){retry.disabled=completingMetadata;retry.onclick=completeMissingMetadata;}
   }
 }
@@ -2336,7 +2747,7 @@ async function localizeVisibleCatalog(){
   const selectors=".home-feature-synopsis,.home-feature-meta,.home-eyebrow,p.synopsis,.tags > .tag,.disco > small,.section-t,#episode-guide h3,#episode-guide .sub";
   const nodes=[...document.querySelectorAll(selectors)].filter(node=>{
     const rect=node.getBoundingClientRect();
-    return rect.width&&rect.height&&rect.bottom>0&&rect.top<innerHeight+300&&!node.closest("[hidden]");
+    return rect.width&&rect.height&&rect.bottom>0&&rect.top<innerHeight+300&&!node.closest("[hidden],[data-i18n-static]");
   });
   const jobs=[];
   for(const node of nodes){

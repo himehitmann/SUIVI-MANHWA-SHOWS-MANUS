@@ -542,5 +542,49 @@ try {
  assert.equal(localeProbe.source,"Probe synopsis");
  assert.equal(localeProbe.calls,1,"Repeat display reuses the locale cache");
 
+
+ // Detail labels are localized without changing publication scope or provider identities.
+ const detailLabels=await p.evaluate(()=>{
+   const before=settings.lang,result=[];
+   for(const code of ["en","fr","ja","es","de","ko","pt","zh-CN"]){
+     settings.lang=code;
+     result.push({code,missing:Object.keys(DETAIL_LOCALES).filter(key=>!LANGS[code][key]),
+       part:publicationInformation({releaseStatus:"finished",releaseScope:"installment"}),
+       series:publicationInformation({releaseStatus:"finished",releaseScope:"series"})});
+   }
+   settings.lang=before;return result;
+ });
+ assert(detailLabels.every(row=>row.missing.length===0));
+ assert(detailLabels.every(row=>row.part!==row.series),"Finished seasons must remain distinct from finished series");
+ await w.evaluate(()=>{
+   catalogEpisodeGuide=async(item,seasonId)=>{
+     const seasons=[{id:"ja-1",number:1,name:"Original season",episodeCount:42},{id:"ja-2",number:2,name:"Return",episodeCount:1}];
+     return {supported:true,seasons,season:seasons.find(s=>s.id===seasonId)||seasons[0],episodes:seasonId==="ja-2"?[{number:1,name:"Original episode",runtime:20}]:Array.from({length:42},(_,n)=>({number:n+1,name:"Original episode "+(n+1),runtime:20}))};
+   };
+ });
+ await p.evaluate(()=>{
+   applyLanguage("ja");
+   openCatalogPreviewResolved({manual:true,title:"Original work",type:"watching",externalIds:{tvmaze:"123"},releaseStatus:"finished",releaseScope:"installment",alternativeTitles:["Original alias"]});
+ });
+ await p.locator("#guide-season").waitFor();
+ assert((await p.locator("#preview-info").innerText()).includes("シーズン・部が完結"));
+ assert((await p.locator("#preview-info").innerText()).includes("シリーズ全体の完結を示すものではありません"));
+ assert((await p.locator("#preview-info").innerText()).includes("別タイトル"));
+ assert.equal(await p.locator("label[for=preview-list]").innerText(),"リストを選ぶ");
+ assert.equal(await p.locator("#guide-season option").first().innerText(),"シーズン 1 — Original season");
+ await p.locator(".guide-more").waitFor();
+ assert.equal(await p.locator(".guide-list li").count(),40);
+ assert.equal(await p.locator(".guide-more").innerText(),"エピソードをもっと見る");
+ await p.locator(".guide-more").click();
+ assert.equal(await p.locator(".guide-list li").count(),42);
+ await p.locator("#guide-season").selectOption("ja-2");
+ await p.waitForFunction(()=>document.querySelectorAll(".guide-list li").length===1);
+ assert.equal(await p.locator(".guide-number").innerText(),"第 1 話");
+ assert.equal(await p.locator(".guide-episode b").innerText(),"Original episode");
+ await p.evaluate(()=>applyLanguage("fr"));
+ await p.waitForFunction(()=>document.querySelector("#guide-season option")?.textContent==="Saison 1 — Original season");
+ assert.equal(await p.locator("label[for=preview-list]").innerText(),"Choisir une liste");
+ await p.evaluate(()=>closeDrawer());
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
