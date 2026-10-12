@@ -2964,6 +2964,17 @@ setInterval(()=>{if(document.visibilityState==="visible"&&(view==="home"||view==
 const catalogLocaleCache=new Map(),catalogLocaleFailures=new Map();
 let catalogLocaleTimer=null,catalogLocaleBusy=false;
 function scheduleCatalogLocalization(){clearTimeout(catalogLocaleTimer);catalogLocaleTimer=setTimeout(localizeVisibleCatalog,120);}
+function requestCatalogTranslation(texts,target,timeoutMs=15000){
+  return new Promise(resolve=>{
+    let settled=false;
+    const finish=value=>{if(settled)return;settled=true;clearTimeout(timer);resolve(value);};
+    const timer=setTimeout(()=>finish(null),timeoutMs);
+    try{api.runtime.sendMessage({type:"DASI_MT",texts,target},response=>{
+      const error=api.runtime.lastError;
+      finish(error?null:response);
+    });}catch{finish(null);}
+  });
+}
 async function localizeVisibleCatalog(){
   if(catalogLocaleBusy)return;
   const language=settings.lang||"en";
@@ -2997,7 +3008,7 @@ async function localizeVisibleCatalog(){
       while(rest.length>3000){let cut=rest.lastIndexOf(" ",3000);if(cut<1500)cut=3000;pieces.push(rest.slice(0,cut));rest=rest.slice(cut);}
       pieces.push(rest);return {source,start,end:pieces.length};
     });
-    const response=await new Promise(resolve=>api.runtime.sendMessage({type:"DASI_MT",texts:pieces,target:language},r=>resolve(api.runtime.lastError?null:r)));
+    const response=await requestCatalogTranslation(pieces,language);
     if(!response?.ok||!Array.isArray(response.translations)||response.translations.length!==pieces.length||response.translations.some(text=>typeof text!=="string"||!text.trim()))throw Error("translation_unavailable");
     for(const range of ranges){
       const key=language+"\n"+range.source,value=response.translations.slice(range.start,range.end).join(" ");

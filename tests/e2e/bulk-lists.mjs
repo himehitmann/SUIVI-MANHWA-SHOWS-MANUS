@@ -677,5 +677,41 @@ try {
  });
  assert.deepEqual(staleTranslation,{replacement:"Replacement snippet",detached:true,original:"Old isolated snippet"});
 
+
+ // A silent or broken translation transport cannot hold the display queue forever.
+ const transportRecovery=await p.evaluate(async()=>{
+   settings.lang="en";while(catalogLocaleBusy)await new Promise(resolve=>setTimeout(resolve,20));
+   clearTimeout(catalogLocaleTimer);
+   const original=api.runtime.sendMessage;let late;
+   try{
+     api.runtime.sendMessage=(message,callback)=>{late=callback;};
+     const timedOut=await requestCatalogTranslation(["Timeout fixture"],"ja",20);
+     late({ok:true,translations:["Too late"]});
+     api.runtime.sendMessage=(message,callback)=>callback({ok:true,translations:["Recovered"]});
+     const recovered=await requestCatalogTranslation(["Recovery fixture"],"ja",1000);
+     api.runtime.sendMessage=()=>{throw Error("Disconnected");};
+     const disconnected=await requestCatalogTranslation(["Disconnected"],"ja",1000);
+     return {timedOut,recovered,disconnected};
+   }finally{api.runtime.sendMessage=original;clearTimeout(catalogLocaleTimer);}
+ });
+ assert.deepEqual(transportRecovery,{timedOut:null,recovered:{ok:true,translations:["Recovered"]},disconnected:null});
+ const failureRecovery=await p.evaluate(async()=>{
+   settings.lang="en";while(catalogLocaleBusy)await new Promise(resolve=>setTimeout(resolve,20));
+   clearTimeout(catalogLocaleTimer);
+   document.querySelectorAll(".view").forEach(node=>node.hidden=true);
+   const probe=document.createElement("p");probe.dataset.catalogText="";probe.textContent="Failure recovery fixture";document.body.prepend(probe);probe.scrollIntoView();
+   const original=api.runtime.sendMessage;let calls=0,succeed=false;
+   api.runtime.sendMessage=(message,callback)=>{if(message.type==="DASI_MT"){calls++;callback(succeed?{ok:true,translations:message.texts.map(()=>"Recovered display")}:{ok:false,error:"unavailable"});return;}return original.call(api.runtime,message,callback);};
+   try{
+     settings.lang="ja";await localizeVisibleCatalog();
+     const failure={text:probe.textContent,state:probe.dataset.translationState,busy:catalogLocaleBusy};
+     const first=calls;await localizeVisibleCatalog();const throttled=calls===first;
+     catalogLocaleFailures.set("ja\nFailure recovery fixture",Date.now()-1);succeed=true;
+     await localizeVisibleCatalog();
+     return {failure,throttled,text:probe.textContent,source:probe.dataset.catalogSource,busy:catalogLocaleBusy};
+   }finally{api.runtime.sendMessage=original;probe.remove();settings.lang="en";document.querySelectorAll(".view").forEach(node=>node.hidden=false);clearTimeout(catalogLocaleTimer);}
+ });
+ assert.deepEqual(failureRecovery,{failure:{text:"Failure recovery fixture",state:"original",busy:false},throttled:true,text:"Recovered display",source:"Failure recovery fixture",busy:false});
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
