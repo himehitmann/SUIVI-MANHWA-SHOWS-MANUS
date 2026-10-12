@@ -649,6 +649,229 @@ const DETAIL_LOCALES={
   ]
 };
 for(const [key,values] of Object.entries(DETAIL_LOCALES))["en","fr","ja","es","de","ko","pt","zh-CN"].forEach((code,index)=>LANGS[code][key]=values[index]);
+const SEARCH_LOCALES={
+  "mediaType": [
+    "Media type",
+    "Type d’œuvre",
+    "作品の種類",
+    "Tipo de obra",
+    "Medientyp",
+    "작품 유형",
+    "Tipo de obra",
+    "作品类型"
+  ],
+  "genreLabel": [
+    "Genre",
+    "Genre",
+    "ジャンル",
+    "Género",
+    "Genre",
+    "장르",
+    "Género",
+    "类型"
+  ],
+  "releaseYear": [
+    "Release year",
+    "Année de sortie",
+    "公開年",
+    "Año de lanzamiento",
+    "Erscheinungsjahr",
+    "출시 연도",
+    "Ano de lançamento",
+    "发行年份"
+  ],
+  "finishedFilter": [
+    "Work / series finished",
+    "Œuvre / série terminée",
+    "作品・シリーズ完結",
+    "Obra / serie finalizada",
+    "Werk / Serie beendet",
+    "작품 / 시리즈 완결",
+    "Obra / série terminada",
+    "作品 / 系列已完结"
+  ],
+  "endingFilter": [
+    "Unspecified ending",
+    "Fin non précisée",
+    "終了範囲不明",
+    "Final no especificado",
+    "Ende nicht näher angegeben",
+    "종료 범위 불명",
+    "Fim não especificado",
+    "结束范围未注明"
+  ],
+  "maxPrice": [
+    "Maximum price (USD)",
+    "Prix maximum (USD)",
+    "上限価格（米ドル）",
+    "Precio máximo (USD)",
+    "Höchstpreis (USD)",
+    "최대 가격 (USD)",
+    "Preço máximo (USD)",
+    "最高价格（美元）"
+  ],
+  "filtersHint": [
+    "Filters apply to the returned results. Unknown dates and publication states remain unspecified.",
+    "Filtres appliqués aux résultats reçus. Les dates et états inconnus restent non renseignés.",
+    "フィルターは取得済みの結果に適用されます。不明な日付や公開状況は未指定のままです。",
+    "Los filtros se aplican a los resultados recibidos. Las fechas y los estados desconocidos quedan sin especificar.",
+    "Filter gelten für die erhaltenen Ergebnisse. Unbekannte Daten und Veröffentlichungsstatus bleiben unbestimmt.",
+    "필터는 받은 결과에 적용됩니다. 알 수 없는 날짜와 공개 상태는 미상으로 유지됩니다.",
+    "Os filtros aplicam-se aos resultados recebidos. Datas e estados desconhecidos permanecem não especificados.",
+    "筛选仅应用于已返回的结果。未知日期和发布状态仍保留为未注明。"
+  ],
+  "clearFilters": [
+    "Clear filters",
+    "Effacer les filtres",
+    "フィルターを解除",
+    "Borrar filtros",
+    "Filter zurücksetzen",
+    "필터 초기화",
+    "Limpar filtros",
+    "清除筛选"
+  ],
+  "inLibrary": [
+    "In library",
+    "Dans la bibliothèque",
+    "ライブラリに保存済み",
+    "En la biblioteca",
+    "In der Bibliothek",
+    "라이브러리에 있음",
+    "Na biblioteca",
+    "已在资料库"
+  ],
+  "searchRetained": [
+    "Received results are kept. Retry to continue.",
+    "Les résultats reçus sont conservés. Réessaie pour poursuivre.",
+    "取得済みの結果は保持されています。再試行して続けてください。",
+    "Se conservan los resultados recibidos. Reintenta para continuar.",
+    "Erhaltene Ergebnisse bleiben gespeichert. Erneut versuchen, um fortzufahren.",
+    "받은 결과는 유지됩니다. 계속하려면 다시 시도하세요.",
+    "Os resultados recebidos são mantidos. Tenta novamente para continuar.",
+    "已保留获取的结果。请重试以继续。"
+  ],
+  "searchCatalogs": [
+    "Searching catalogs…",
+    "Recherche dans les catalogues…",
+    "カタログを検索中…",
+    "Buscando en los catálogos…",
+    "Kataloge werden durchsucht…",
+    "카탈로그 검색 중…",
+    "A pesquisar nos catálogos…",
+    "正在搜索目录…"
+  ],
+  "searchPartial": [
+    "Some catalogs did not respond. Load more will retry those sources.",
+    "Certains catalogues n’ont pas répondu. Charger plus réessaiera ces sources.",
+    "一部のカタログから応答がありませんでした。「さらに読み込む」で再試行します。",
+    "Algunos catálogos no respondieron. Cargar más volverá a consultar esas fuentes.",
+    "Einige Kataloge haben nicht geantwortet. Weitere Ergebnisse laden versucht diese Quellen erneut.",
+    "일부 카탈로그가 응답하지 않았습니다. 더 불러오면 해당 출처를 다시 시도합니다.",
+    "Alguns catálogos não responderam. Carregar mais tentará essas fontes novamente.",
+    "部分目录未响应。加载更多时将重试这些来源。"
+  ],
+  "searchLimit": [
+    "Search limit reached. Refine your search terms to explore other results.",
+    "Limite de cette recherche atteinte. Précise les mots recherchés pour explorer d’autres résultats.",
+    "検索上限に達しました。検索語を絞り込んで他の結果を探してください。",
+    "Se alcanzó el límite de búsqueda. Concreta los términos para explorar otros resultados.",
+    "Suchlimit erreicht. Präzisiere die Suchbegriffe, um andere Ergebnisse zu finden.",
+    "검색 한도에 도달했습니다. 검색어를 구체화하여 다른 결과를 찾아보세요.",
+    "Limite de pesquisa atingido. Refina os termos para explorar outros resultados.",
+    "已达到本次搜索上限。请细化关键词以查找其他结果。"
+  ],
+  "loadingLabel": [
+    "Loading…",
+    "Chargement…",
+    "読み込み中…",
+    "Cargando…",
+    "Wird geladen…",
+    "불러오는 중…",
+    "A carregar…",
+    "正在加载…"
+  ],
+  "moreResults": [
+    "Load more results",
+    "Charger plus de résultats",
+    "結果をさらに読み込む",
+    "Cargar más resultados",
+    "Weitere Ergebnisse laden",
+    "결과 더 불러오기",
+    "Carregar mais resultados",
+    "加载更多结果"
+  ],
+  "searchUnavailable": [
+    "Search unavailable.",
+    "Recherche indisponible.",
+    "検索を利用できません。",
+    "Búsqueda no disponible.",
+    "Suche nicht verfügbar.",
+    "검색을 사용할 수 없습니다.",
+    "Pesquisa indisponível.",
+    "搜索暂不可用。"
+  ],
+  "missingGame": [
+    "Can’t find your game?",
+    "Vous ne trouvez pas votre jeu ?",
+    "ゲームが見つかりませんか？",
+    "¿No encuentras tu juego?",
+    "Du findest dein Spiel nicht?",
+    "게임을 찾을 수 없나요?",
+    "Não encontras o teu jogo?",
+    "找不到你的游戏？"
+  ],
+  "manualDetails": [
+    "Enter its details manually",
+    "Ajouter les informations manuellement",
+    "情報を手動で入力",
+    "Introducir los detalles manualmente",
+    "Details manuell eingeben",
+    "정보 직접 입력",
+    "Introduzir os detalhes manualmente",
+    "手动输入详情"
+  ],
+  "mediaFilms": [
+    "Films",
+    "Films",
+    "映画",
+    "Películas",
+    "Filme",
+    "영화",
+    "Filmes",
+    "电影"
+  ],
+  "mediaUSSeries": [
+    "US series",
+    "Séries américaines",
+    "アメリカのドラマ",
+    "Series estadounidenses",
+    "US-Serien",
+    "미국 시리즈",
+    "Séries americanas",
+    "美剧"
+  ],
+  "mediaNovels": [
+    "Novels",
+    "Romans",
+    "小説",
+    "Novelas",
+    "Romane",
+    "소설",
+    "Romances",
+    "小说"
+  ],
+  "mediaBooks": [
+    "Books",
+    "Livres",
+    "書籍",
+    "Libros",
+    "Bücher",
+    "도서",
+    "Livros",
+    "书籍"
+  ]
+};
+for(const [key,values] of Object.entries(SEARCH_LOCALES))["en","fr","ja","es","de","ko","pt","zh-CN"].forEach((code,index)=>LANGS[code][key]=values[index]);
 const t = (k, p) => { let s = (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || k; if (p) for (const key in p) s = s.replace(`{${key}}`, p[key]); return s; };
 // Array-valued i18n (plan feature lists), falls back to English.
 const tArr = (k) => (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || [];
@@ -1381,7 +1604,7 @@ function renderGames() {
   el.querySelectorAll("[data-open]").forEach(n=>n.onclick=()=>openDrawer(n.dataset.open));
 }
 function missingGameAction() {
-  return searchFacets.kind==="GAME"?'<div class="search-manual"><p>'+(settings.lang==="fr"?"Vous ne trouvez pas votre jeu ?":"Can’t find your game?")+'</p><button class="link-btn" id="manual-game">'+(settings.lang==="fr"?"Ajouter les informations manuellement":"Enter its details manually")+'</button></div>':"";
+  return searchFacets.kind==="GAME"?'<div class="search-manual"><p>'+(t("missingGame"))+'</p><button class="link-btn" id="manual-game">'+(t("manualDetails"))+'</button></div>':"";
 }
 function showGameForm(title="") {
   ++previewRequest;
@@ -2210,6 +2433,7 @@ function applyLanguage(code) {
   else if (view === "plans") renderPlans();
   else if (view === "settings") renderSettings();
   else if (view === "home") renderHome();
+  if((view==="library"||view==="games")&&query.trim().length>=2&&document.getElementById("search-results").children.length)renderSearchResults(query.trim());
   if(open){if(savedId)openDrawer(savedId);else if(activeCatalogPreview)openCatalogPreviewResolved(activeCatalogPreview);}
   scheduleCatalogLocalization();
 }
@@ -2289,13 +2513,13 @@ function renderSearchProgress(q) {
   const el=document.getElementById("search-results");if(!el)return;
   let footer=document.getElementById("search-pagination");
   if(!footer){footer=document.createElement("div");footer.id="search-pagination";el.append(footer);}
-  const fr=settings.lang==="fr",state=searchPageState;
-  const status=state.error?(fr?"Les résultats reçus sont conservés. Réessaie pour poursuivre.":"Received results are kept. Retry to continue."):
-    state.pending?(fr?"Recherche dans les catalogues…":"Searching catalogs…"):
-    state.partial?(fr?"Certains catalogues n’ont pas répondu. Charger plus réessaiera ces sources.":"Some catalogs did not respond. Load more will retry those sources."):
-    state.limited?(fr?"Limite de cette recherche atteinte. Précise les mots recherchés pour explorer d’autres résultats.":"Search limit reached. Refine your search terms to explore other results."):"";
+  const state=searchPageState;
+  const status=state.error?(t("searchRetained")):
+    state.pending?(t("searchCatalogs")):
+    state.partial?(t("searchPartial")):
+    state.limited?(t("searchLimit")):"";
   footer.innerHTML='<p id="search-progress" class="sub" role="status">'+esc(status)+'</p>'+
-    (state.pending||state.hasMore||state.error?'<button class="btn" id="search-more"'+(state.pending?' disabled aria-busy="true"':'')+'>'+esc(state.pending?(fr?"Chargement…":"Loading…"):state.error?(t("retryLabel")):(fr?"Charger plus de résultats":"Load more results"))+'</button>':"");
+    (state.pending||state.hasMore||state.error?'<button class="btn" id="search-more"'+(state.pending?' disabled aria-busy="true"':'')+'>'+esc(state.pending?(t("loadingLabel")):state.error?(t("retryLabel")):(t("moreResults")))+'</button>':"");
   const button=document.getElementById("search-more");
   if(button)button.onclick=()=>catalogSearch(q,state.error?state.retryMore:state.cursor);
 }
@@ -2314,7 +2538,7 @@ function catalogSearch(q,more=null) {
     if(version!==searchVersion||(view!=="library"&&view!=="games")||query.trim()!==q)return;
     if(error||!r?.ok) {
       searchPageState={...searchPageState,pending:false,error:true,retryMore:r?.error==="search_expired"?null:more};
-      if(!lastResults.length)el.innerHTML='<div class="sr-wrap">'+(settings.lang==="fr"?"Recherche indisponible.":"Search unavailable.")+'</div>';
+      if(!lastResults.length)el.innerHTML='<div class="sr-wrap">'+(t("searchUnavailable"))+'</div>';
       renderSearchProgress(q);return;
     }
     searchPageState={pending:!!r.pending,hasMore:!!r.hasMore,cursor:r.cursor||null,partial:!!r.partial,limited:!!r.limited,error:false,retryMore:null};
@@ -2410,20 +2634,20 @@ function rankCatalogResults(results,query) {
   }).sort((a,b)=>b.score-a.score||b.popularity-a.popularity||a.index-b.index);
 }
 function renderSearchResults(q) {
-  const el=document.getElementById("search-results"),fr=settings.lang==="fr",f=searchFacets;
+  const el=document.getElementById("search-results"),f=searchFacets;
   const kinds=[...new Set([...lastResults.map(resultKind),...(f.kind!=="all"?[f.kind]:[])])].sort();
   const genres=[...new Set([...lastResults.filter(m=>f.kind==="all"||resultKind(m)===f.kind).flatMap(m=>m.genres||[]),...(f.genre!=="all"?[f.genre]:[])])].sort();
-  const labels={GAME:fr?"Jeux":"Games",MOVIE:fr?"Films":"Films",ANIME:"Anime",MANGA:"Manga",MANHWA:"Manhwa",MANHUA:"Manhua",KDRAMA:"K-drama",CDRAMA:"C-drama",JDRAMA:"J-drama",SERIES:fr?"Séries":"Series",US_SERIES:fr?"Séries américaines":"US series",NOVEL:fr?"Romans":"Novels",BOOK:fr?"Livres":"Books"};
+  const labels={GAME:t("games"),MOVIE:t("mediaFilms"),ANIME:t("catAnime"),MANGA:t("catManga"),MANHWA:t("catManhwa"),MANHUA:t("catManhua"),KDRAMA:t("catKdrama"),CDRAMA:t("catCdrama"),JDRAMA:t("catJdrama"),SERIES:t("catSeries"),US_SERIES:t("mediaUSSeries"),NOVEL:t("mediaNovels"),BOOK:t("mediaBooks")};
   const select=(id,label,values,value)=>'<label>'+label+'<select class="field" id="'+id+'"><option value="all">'+t("all")+'</option>'+values.map(([key,name])=>'<option value="'+esc(key)+'"'+(value===key?' selected':'')+'>'+esc(name)+'</option>').join("")+'</select></label>';
   const ranked=rankCatalogResults(lastResults,q);
   const shown=ranked.filter(({item})=>matchesSearchFacets(item));
   el.innerHTML='<div class="sr-wrap"><div class="sr-head"><b>'+t("searchTitle")+'</b> — '+esc(q)+' — '+shown.length+'/'+lastResults.length+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0">'+
-    select("sf-kind",fr?"Type d’œuvre":"Media type",kinds.map(k=>[k,labels[k]||k]),f.kind)+
-    select("sf-genre",fr?"Genre":"Genre",genres.map(g=>[g,g]),f.genre)+
-    '<label>'+(fr?"Année de sortie":"Release year")+'<input class="field" id="sf-year" type="number" min="1900" max="2199" placeholder="2028" value="'+esc(f.year)+'"></label>'+
-    select("sf-release",t("publication"),[["finished",fr?"Œuvre / série terminée":"Work / series finished"],["installment_finished",fr?"Saison / partie terminée":"Season / installment finished"],["finished_unscoped",fr?"Fin non précisée":"Unspecified ending"],["ongoing",t("pubOngoing")],["upcoming",t("pubUpcoming")],["hiatus",t("pubHiatus")],["cancelled",t("pubCancelled")],["unknown",fr?"Non renseignée":"Unknown"]],f.release)+
-    '</div>'+(f.kind==="GAME"?'<label>'+(fr?"Prix maximum (USD)":"Maximum price (USD)")+' <output id="sf-price-label">'+(f.price===200?t("all"):f.price===0?(fr?"Gratuit":"Free"):"$"+f.price)+'</output><input id="sf-price" type="range" min="0" max="200" step="5" value="'+f.price+'" style="width:100%"></label>':"")+
-    '<p class="sub">'+(fr?"Filtres appliqués aux résultats reçus. Les dates et états inconnus restent non renseignés.":"Filters apply to the returned results. Unknown dates and publication states remain unspecified.")+'</p><button class="btn" id="sf-reset"'+(f.kind==="all"&&f.genre==="all"&&!f.year&&f.release==="all"&&f.price===200?' style="display:none"':"")+'>'+(fr?"Effacer les filtres":"Clear filters")+'</button>'+
+    select("sf-kind",t("mediaType"),kinds.map(k=>[k,labels[k]||k]),f.kind)+
+    select("sf-genre",t("genreLabel"),genres.map(g=>[g,g]),f.genre)+
+    '<label>'+(t("releaseYear"))+'<input class="field" id="sf-year" type="number" min="1900" max="2199" placeholder="2028" value="'+esc(f.year)+'"></label>'+
+    select("sf-release",t("publication"),[["finished",t("finishedFilter")],["installment_finished",t("partFinished")],["finished_unscoped",t("endingFilter")],["ongoing",t("pubOngoing")],["upcoming",t("pubUpcoming")],["hiatus",t("pubHiatus")],["cancelled",t("pubCancelled")],["unknown",t("pubUnknown")]],f.release)+
+    '</div>'+(f.kind==="GAME"?'<label>'+(t("maxPrice"))+' <output id="sf-price-label">'+(f.price===200?t("all"):f.price===0?(t("free")):"$"+f.price)+'</output><input id="sf-price" type="range" min="0" max="200" step="5" value="'+f.price+'" style="width:100%"></label>':"")+
+    '<p class="sub">'+(t("filtersHint"))+'</p><button class="btn" id="sf-reset"'+(f.kind==="all"&&f.genre==="all"&&!f.year&&f.release==="all"&&f.price===200?' style="display:none"':"")+'>'+(t("clearFilters"))+'</button>'+
     (shown.length?shown.map(({item,index})=>srRow(item,index)).join(""):'<p class="sr-empty">'+t("noMatch")+'</p>')+missingGameAction()+'</div>';
   for(const [id,key] of [["sf-kind","kind"],["sf-genre","genre"],["sf-year","year"],["sf-release","release"],["sf-price","price"]]){
     const field=document.getElementById(id);if(!field)continue;
@@ -2431,7 +2655,7 @@ function renderSearchResults(q) {
       if(key==="kind"&&f.genre!=="all"&&!lastResults.some(m=>(f.kind==="all"||resultKind(m)===f.kind)&&(m.genres||[]).includes(f.genre)))f.genre="all";
       renderSearchResults(q);document.getElementById(id)?.focus();};
     if(key==="year")field.oninput=()=>{f.year=field.value;};
-    if(key==="price")field.oninput=()=>{f.price=Number(field.value);document.getElementById("sf-price-label").textContent=field.value==="0"?(fr?"Gratuit":"Free"):field.value==="200"?t("all"):"$"+field.value;};
+    if(key==="price")field.oninput=()=>{f.price=Number(field.value);document.getElementById("sf-price-label").textContent=field.value==="0"?(t("free")):field.value==="200"?t("all"):"$"+field.value;};
   }
   document.getElementById("sf-reset").onclick=()=>{searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};renderSearchResults(q);};
   renderSearchProgress(q);
@@ -2455,7 +2679,7 @@ function refreshCatalogSaveLabels(root,results) {
     const batch=buttons.slice(start,start+200);
     api.runtime.sendMessage({type:"CHECK_EXISTING_BATCH",items:batch.map(button=>results[Number(button.dataset.savedLabel)])},r=>{
       if(api.runtime.lastError||!r?.ok)return;
-      batch.forEach((button,index)=>{if(button.isConnected)button.textContent=r.matches?.[index]?(settings.lang==="fr"?"Dans la bibliothèque":"In library"):t("details");});
+      batch.forEach((button,index)=>{if(button.isConnected)button.textContent=r.matches?.[index]?(t("inLibrary")):t("details");});
     });
   }
 }

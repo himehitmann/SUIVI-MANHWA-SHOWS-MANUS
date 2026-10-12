@@ -586,5 +586,39 @@ try {
  assert.equal(await p.locator("label[for=preview-list]").innerText(),"Choisir une liste");
  await p.evaluate(()=>closeDrawer());
 
+
+ // Changing UI language redraws existing search results without restarting provider work.
+ await p.evaluate(()=>{
+   closeDrawer();settings.lang="en";switchView("library");
+   query="locale query";document.getElementById("q").value=query;
+   searchFacets={kind:"GAME",genre:"Action",year:"2028",release:"upcoming",price:50};
+   searchPageState={pending:false,partial:true,hasMore:true,cursor:"preserved-cursor",limited:false,error:false};
+   lastResults=[{title:"Original game",type:"game",format:"GAME",genres:["Action"],year:2028,releaseStatus:"UPCOMING",price:"$20"}];
+   renderSearchResults(query);
+ });
+ const beforeLocaleSearch=await p.evaluate(()=>JSON.stringify({query,searchFacets,lastResults,searchPageState}));
+ const providerCalls=await p.evaluate(()=>{
+   const original=api.runtime.sendMessage;let calls=0;
+   api.runtime.sendMessage=(message,callback)=>{if(message.type==="CATALOG_SEARCH")calls++;return original.call(api.runtime,message,callback);};
+   try{applyLanguage("ja");return calls;}finally{api.runtime.sendMessage=original;}
+ });
+ assert.equal(providerCalls,0,"Language changes must not restart catalog queries");
+ assert.equal(await p.evaluate(()=>JSON.stringify({query,searchFacets,lastResults,searchPageState})),beforeLocaleSearch);
+ assert.equal(await p.locator("#sf-kind").inputValue(),"GAME");
+ assert.equal(await p.locator("#sf-genre").inputValue(),"Action");
+ assert.equal(await p.locator("#sf-year").inputValue(),"2028");
+ assert.equal(await p.locator("#sf-release").inputValue(),"upcoming");
+ assert.equal(await p.locator("#sf-price").inputValue(),"50");
+ assert.equal(await p.locator("#sf-reset").innerText(),"フィルターを解除");
+ assert.equal(await p.locator("#search-more").innerText(),"結果をさらに読み込む");
+ assert((await p.locator("#search-progress").innerText()).includes("一部のカタログ"));
+ assert.equal(await p.locator("#search-results .sr-row").count(),1);
+ const translatedSearch=await p.evaluate(()=>Object.keys(SEARCH_LOCALES).every(key=>["en","fr","ja","es","de","ko","pt","zh-CN"].every(code=>Boolean(LANGS[code][key]))));
+ assert(translatedSearch);
+ await p.evaluate(()=>applyLanguage("fr"));
+ assert.equal(await p.locator("#sf-reset").innerText(),"Effacer les filtres");
+ assert.equal(await p.locator("#search-more").innerText(),"Charger plus de résultats");
+ assert.equal(await p.evaluate(()=>JSON.stringify({query,searchFacets,lastResults,searchPageState})),beforeLocaleSearch);
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
