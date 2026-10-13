@@ -992,7 +992,7 @@ function initials(s) { return (s || "?").trim().split(/\s+/).slice(0, 2).map((w)
 // If it fails (dead host, hotlink block, offline) a global handler hides the
 // image so the placeholder shows — never a broken-image icon. No inline
 // handlers, so it works under the MV3 extension CSP (script-src 'self').
-function covImg(url, fallback) { return url ? `<img class="cov" src="${esc(url)}"${fallback ? ` data-fallback="${esc(fallback)}"` : ""} referrerpolicy="no-referrer" loading="lazy" decoding="async" alt="">` : ""; }
+function covImg(url, fallback) { const alternatives=[...new Set((Array.isArray(fallback)?fallback:[fallback]).filter(value=>typeof value==="string"&&value&&value!==url))].slice(0,3);return url ? `<img class="cov" src="${esc(url)}"${alternatives.length ? ` data-fallback="${esc(alternatives[0])}"${alternatives.length>1?` data-fallbacks="${esc(JSON.stringify(alternatives.slice(1)))}"`:""}` : ""} referrerpolicy="no-referrer" loading="lazy" decoding="async" alt="">` : ""; }
 // Inline on* handlers are blocked by the MV3 extension CSP (script-src 'self'),
 // so we catch image failures with a single capture-phase listener instead: try a
 // fallback source once (e.g. Steam header when the portrait capsule is missing),
@@ -1003,7 +1003,12 @@ document.addEventListener("error", (e) => {
   // Cast/avatar thumbnails just hide (the initial shows behind them).
   if (!el.classList.contains("cov")) { if (el.closest(".cast-av")) el.classList.add("failed"); return; }
   const fb = el.dataset.fallback;
-  if (fb && el.getAttribute("src") !== fb) { el.removeAttribute("data-fallback"); el.src = fb; return; }
+  if (fb && el.getAttribute("src") !== fb) {
+    let remaining=[];try{remaining=JSON.parse(el.dataset.fallbacks||"[]");}catch{}
+    el.removeAttribute("data-fallback");el.removeAttribute("data-fallbacks");
+    if(Array.isArray(remaining)&&remaining.length){el.dataset.fallback=remaining[0];if(remaining.length>1)el.dataset.fallbacks=JSON.stringify(remaining.slice(1));}
+    el.src=fb;return;
+  }
   el.classList.add("failed");
 }, true);
 function coverInner(i, fs) {
@@ -1098,17 +1103,30 @@ function discoBadges(m, opts) {
   const price = m.price ? `<span class="badge-price">${esc(m.price)}</span>` : "";
   return { soon, price };
 }
-function discoveryArtwork(m){
-  if(m.type!=="game")return covImg(m.cover,m.coverFallback);
-  for(const value of [m.coverFallback,m.cover].filter(Boolean)){
-    try{const url=new URL(value);
-      if(/(^|\.)(steamstatic\.com|steamcdn-a\.akamaihd\.net)$/.test(url.hostname)&&/\/steam\/apps\/\d+\//.test(url.pathname)){
-        const app=url.pathname.match(/\/steam\/apps\/(\d+)\//)[1];
-        return covImg("https://cdn.cloudflare.steamstatic.com/steam/apps/"+app+"/header.jpg",m.coverFallback||m.cover);
-      }
+function steamArtworkSources(m){
+  const supplied=[m.coverFallback,m.cover].filter(value=>typeof value==="string"&&value);
+  const candidates=[];
+  let app="";
+  for(const value of supplied){
+    try{
+      const url=new URL(value);
+      if(url.protocol!=="https:"||url.username||url.password||url.port||!/(^|\.)(steamstatic\.com|steamcdn-a\.akamaihd\.net)$/.test(url.hostname))continue;
+      const id=url.pathname.match(/\/(?:steam|store_item_assets\/steam)\/apps\/([1-9]\d{0,14})\//)?.[1];
+      if(!id||app&&id!==app)continue;
+      app=id;
+      if(/\/capsule_231x87\.jpg$/.test(url.pathname)){
+        url.pathname=url.pathname.replace(/capsule_231x87\.jpg$/,"capsule_231x87_2x.jpg");
+        candidates.push(url.href);
+      }else if(/\/(?:header|capsule_616x353)(?:_2x)?\.jpg$/.test(url.pathname))candidates.push(url.href);
     }catch{}
   }
-  return covImg(m.cover,m.coverFallback);
+  if(app)candidates.push("https://cdn.cloudflare.steamstatic.com/steam/apps/"+app+"/header.jpg");
+  return app?[...new Set([...candidates,...supplied])].slice(0,4):[...new Set([m.cover,m.coverFallback].filter(Boolean))];
+}
+function discoveryArtwork(m){
+  if(m.type!=="game")return covImg(m.cover,m.coverFallback);
+  const sources=steamArtworkSources(m);
+  return sources.length?covImg(sources[0],sources.slice(1)):"";
 }
 function discoCard(m, idx, opts = {}) {
   const sub=(m.genres||[]).slice(0,2).join(" — ")||catLabel(m);

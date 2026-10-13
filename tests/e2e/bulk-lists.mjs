@@ -713,5 +713,39 @@ try {
  });
  assert.deepEqual(failureRecovery,{failure:{text:"Failure recovery fixture",state:"original",busy:false},throttled:true,text:"Recovered display",source:"Failure recovery fixture",busy:false});
 
+
+ // Steam search miniatures use their larger sibling before legacy and original fallbacks.
+ const artworkCandidates=await p.evaluate(()=>({
+   steam:steamArtworkSources({type:"game",cover:"https://cdn.cloudflare.steamstatic.com/steam/apps/999991/library_600x900.jpg",coverFallback:"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/999991/hash/capsule_231x87.jpg?t=7"}),
+   other:steamArtworkSources({type:"game",cover:"https://example.org/cover.jpg",coverFallback:"https://example.org/fallback.jpg"}),
+   spoofed:steamArtworkSources({type:"game",cover:"https://steamstatic.com.evil.example/steam/apps/999991/capsule_231x87.jpg"})
+ }));
+ assert.equal(artworkCandidates.steam[0],"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/999991/hash/capsule_231x87_2x.jpg?t=7");
+ assert.equal(artworkCandidates.steam[1],"https://cdn.cloudflare.steamstatic.com/steam/apps/999991/header.jpg");
+ assert.equal(artworkCandidates.steam.length,4);
+ assert.deepEqual(artworkCandidates.other,["https://example.org/cover.jpg","https://example.org/fallback.jpg"]);
+ assert.equal(artworkCandidates.spoofed.length,1);
+ const imageRequests=[];
+ const artRoute=async route=>{
+   const url=route.request().url();imageRequests.push(url);
+   if(url.includes("/999992/")&&!url.includes("/capsule_231x87.jpg"))return route.fulfill({status:404,body:"missing"});
+   return route.fulfill({contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="462" height="174"><rect width="462" height="174" fill="#345"/></svg>'});
+ };
+ await p.route(/https:\/\/[^/]+\/(?:store_item_assets\/)?steam\/apps\/99999[12]\//,artRoute);
+ await p.evaluate(()=>{
+   closeDrawer();const probe=document.createElement("div");probe.id="steam-art-probe";
+   probe.innerHTML=[999991,999992].map(id=>discoveryArtwork({type:"game",cover:"https://cdn.cloudflare.steamstatic.com/steam/apps/"+id+"/library_600x900.jpg",coverFallback:"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/"+id+"/hash/capsule_231x87.jpg"})).join("");
+   document.body.prepend(probe);probe.querySelectorAll("img").forEach(image=>image.loading="eager");probe.scrollIntoView();
+ });
+ await p.waitForFunction(()=>[...document.querySelectorAll("#steam-art-probe img")].every(image=>image.complete&&image.naturalWidth===462));
+ const loadedArtwork=await p.locator("#steam-art-probe img").evaluateAll(images=>images.map(image=>({src:image.src,failed:image.classList.contains("failed")})));
+ assert(loadedArtwork[0].src.includes("capsule_231x87_2x.jpg"));
+ assert(loadedArtwork[1].src.endsWith("/capsule_231x87.jpg"));
+ assert(loadedArtwork.every(image=>!image.failed));
+ assert.equal(imageRequests.filter(url=>url.includes("/999991/")).length,1,"Available high-resolution art needs no fallback requests");
+ assert.equal(imageRequests.filter(url=>url.includes("/999992/")).length,3,"Missing larger art falls back through a bounded sequence");
+ await p.evaluate(()=>document.getElementById("steam-art-probe").remove());
+ await p.unroute(/https:\/\/[^/]+\/(?:store_item_assets\/)?steam\/apps\/99999[12]\//,artRoute);
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
