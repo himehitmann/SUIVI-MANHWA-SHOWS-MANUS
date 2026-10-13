@@ -2131,3 +2131,35 @@ describe("Steam detail request budgeting",()=>{
   await expect(w.run('steamAppDetails("../other")')).rejects.toThrow("invalid_steam_id");
  });
 });
+
+describe("optional anime trailer enrichment",()=>{
+  it("fills a missing trailer by exact MAL identity and shares cached requests",async()=>{
+    const w=worker();
+    w.run('globalThis.trailerCalls=0;jikanDetail=async item=>{trailerCalls++;return {trailerUrl:"https://www.youtube.com/watch?v=AbCdEf123_-"};}');
+    const a=await Promise.all([w.run('completeAnimeTrailer({type:"watching",externalIds:{mal:"1"}},{synopsis:"Original"})'),w.run('completeAnimeTrailer({type:"watching",externalIds:{mal:"1"}},{synopsis:"Other"})')]);
+    expect(a[0].trailerUrl).toContain("AbCdEf123_-");expect(a[0].synopsis).toBe("Original");expect(a[1].synopsis).toBe("Other");
+    await w.run('completeAnimeTrailer({type:"watching",externalIds:{mal:"1"}},{})');
+    expect(w.run("trailerCalls")).toBe(1);
+  });
+  it("preserves existing videos and skips reading, missing and conflicting identities",async()=>{
+    const w=worker();w.run('jikanDetail=async()=>{throw Error("must not request");}');
+    expect((await w.run('completeAnimeTrailer({type:"watching",trailerUrl:"saved"},{})')).trailerUrl).toBe("saved");
+    expect((await w.run('completeAnimeTrailer({type:"watching",trailerUrl:"saved"},{trailerUrl:"provider"})')).trailerUrl).toBe("provider");
+    for(const expression of ['completeAnimeTrailer({type:"reading",externalIds:{mal:"1"}},{})','completeAnimeTrailer({type:"watching"},{})','completeAnimeTrailer({type:"watching",externalIds:{mal:"1"}},{externalIds:{mal:"2"}})'])expect(await w.run(expression)).toEqual({});
+    expect(w.run("animeTrailerCache.size")).toBe(0);
+  });
+  it("bounds optional waiting and reuses a late result without replacing metadata",async()=>{
+    const w=worker();w.run('jikanDetail=()=>new Promise(resolve=>{globalThis.finishTrailer=resolve;});');
+    expect(await w.run('completeAnimeTrailer({type:"watching",externalIds:{mal:"1"}},{synopsis:"Keep"},5)')).toEqual({synopsis:"Keep"});
+    w.run('finishTrailer({trailerUrl:"late"});');
+    expect(await w.run('completeAnimeTrailer({type:"watching",externalIds:{mal:"1"}},{synopsis:"Keep"})')).toEqual({synopsis:"Keep",trailerUrl:"late"});
+  });
+  it("retains the primary details during secondary failure and cools down retries",async()=>{
+    const w=worker();w.run('globalThis.trailerCalls=0;jikanDetail=async()=>{trailerCalls++;throw Error("offline");};');
+    for(let n=0;n<2;n++)expect(await w.run('completeAnimeTrailer({type:"watching",externalIds:{mal:"1"}},{synopsis:"Keep"})')).toEqual({synopsis:"Keep"});
+    expect(w.run("trailerCalls")).toBe(1);
+    w.run('animeTrailerCache.get("1").expires=0;');
+    await w.run('completeAnimeTrailer({type:"watching",externalIds:{mal:"1"}},{})');
+    expect(w.run("trailerCalls")).toBe(2);
+  });
+});

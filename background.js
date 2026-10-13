@@ -946,11 +946,36 @@ async function knownGameDetails(item,force=false) {
   return details.reduce((merged,detail)=>mergeGameDetails(merged,detail),item);
 }
 
+// Optional trailer enrichment uses the exact shared MAL identity, never a title search.
+const animeTrailerCache=new Map();
+async function completeAnimeTrailer(item,detail,timeoutMs=1500) {
+  if(item.type!=="watching")return detail;
+  if(detail.trailerUrl||item.trailerUrl)return {...detail,trailerUrl:detail.trailerUrl||item.trailerUrl};
+  const original=identityIds(item),resolved=identityIds(detail);
+  if(original.mal&&resolved.mal&&original.mal!==resolved.mal)return detail;
+  const id=resolved.mal||original.mal;
+  if(!/^[1-9]\d*$/.test(id||""))return detail;
+  let entry=animeTrailerCache.get(id);
+  if(!entry||entry.expires<=Date.now()) {
+    if(animeTrailerCache.size>=48)animeTrailerCache.delete(animeTrailerCache.keys().next().value);
+    entry={expires:Date.now()+600000,task:null};
+    entry.task=jikanDetail({type:"watching",externalIds:{mal:id}})
+      .then(result=>result?.trailerUrl||"")
+      .catch(()=>{entry.expires=Date.now()+30000;return "";});
+    animeTrailerCache.set(id,entry);
+  }
+  let timer;
+  try {
+    const url=await Promise.race([entry.task,new Promise(resolve=>{timer=setTimeout(()=>resolve(""),timeoutMs);})]);
+    return url?{...detail,trailerUrl:url}:detail;
+  }finally{clearTimeout(timer);}
+}
+
 async function catalogDetail(item) {
   const ids=identityIds(item);
   if(/^\d+$/.test(ids.anilist||"")) {
     let detail;
-    try {detail=await anilistDetail(Number(ids.anilist));if(!detail)throw Error("details_unavailable");}
+    try {detail=await anilistDetail(Number(ids.anilist));if(!detail)throw Error("details_unavailable");detail=await completeAnimeTrailer(item,detail);}
     catch(error) {if(!ids.mal)throw error;detail=await jikanDetail(item);}
     return detail?{...item,...detail,title:item.title||detail.title,...identityMetadata(item,detail)}:item;
   }
