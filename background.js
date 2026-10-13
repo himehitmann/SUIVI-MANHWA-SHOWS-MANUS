@@ -1775,8 +1775,9 @@ async function enrichWork(id,force=false,lease=null) {
     // drawer can't run past the true episode/chapter count).
     if (match.anilistId && !known) {
       try {
-        const d = await anilistDetail(match.anilistId);
+        let d = await anilistDetail(match.anilistId);
         if (d) {
+          d = await completeAnimeTrailer({...match,trailerUrl:it.trailerUrl||match.trailerUrl},d);
           if (d.trailerUrl && !it.trailerUrl) patch.trailerUrl = d.trailerUrl;
           if (d.cast && d.cast.length && !(it.cast && it.cast.length)) patch.cast = d.cast;
           const realTotal = it.type === "reading" ? d.chapters : d.episodes;

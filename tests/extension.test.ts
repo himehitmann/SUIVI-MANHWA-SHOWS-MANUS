@@ -2173,3 +2173,27 @@ describe("anime detail trailer integration",()=>{
     expect(result.title).toBe("Saved");expect(result.synopsis).toBe("Primary");expect(result.trailerUrl).toContain("AbCdEf123_-");
   });
 });
+
+describe("saved anime trailer recovery",()=>{
+  it("persists a supplemental trailer when a saved work is first identified",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"Example",type:"watching",season:1,episode:4,rating:5}]});
+    w.run('catalogSearchAll=async()=>[{title:"Example",type:"watching",anilistId:10,externalIds:{anilist:"10",mal:"1"},cover:"cover",synopsis:"Primary"}];anilistDetail=async()=>({type:"watching",externalIds:{anilist:"10",mal:"1"},episodes:12});jikanDetail=async()=>({trailerUrl:"https://youtu.be/AbCdEf123_-"});');
+    await w.run('enrichWork("a")');
+    expect(w.data["dasi.items"][0]).toMatchObject({title:"Example",season:1,episode:4,rating:5,synopsis:"Primary",trailerUrl:"https://youtu.be/AbCdEf123_-",total:12});
+    const restored=worker(w.data);
+    expect((await restored.run('read(ITEMS_KEY,[])'))[0].trailerUrl).toBe("https://youtu.be/AbCdEf123_-");
+  });
+  it("preserves a trailer edited while the supplemental lookup is pending",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"Example",type:"watching",externalIds:{anilist:"10",mal:"1"},episode:4}]});
+    let finish:any;
+    w.ctx.pendingTrailer=new Promise(resolve=>{finish=resolve;});
+    w.run('anilistDetail=async()=>({type:"watching",externalIds:{anilist:"10",mal:"1"},cover:"cover",synopsis:"Primary"});jikanDetail=()=>pendingTrailer;');
+    const task=w.run('enrichWork("a")');
+    await new Promise(resolve=>setTimeout(resolve,20));
+    w.data["dasi.items"][0].trailerUrl="https://youtu.be/ZyXwVu987_-";
+    w.data["dasi.items"][0].episode=7;
+    finish({trailerUrl:"https://youtu.be/AbCdEf123_-"});
+    await task;
+    expect(w.data["dasi.items"][0]).toMatchObject({episode:7,trailerUrl:"https://youtu.be/ZyXwVu987_-"});
+  });
+});
