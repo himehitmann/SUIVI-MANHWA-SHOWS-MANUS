@@ -1,6 +1,6 @@
 # Suivi global Yomu
 
-Mise à jour : 12 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 13 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
@@ -17,6 +17,8 @@ La livraison a été trop fragmentée en petits correctifs. Priorité : terminer
 G03 avait été validé, mais les captures utilisateur du 10 octobre montrent des écarts visuels importants. Il repasse partiel : la validation antérieure était insuffisante. Les corrections de hauteur de bannière, de cartes uniformes et de navigation sont en cours de revalidation. Le dénominateur reste 60. G09 est également validé depuis la CI #614 : combinaison des filtres et distinction explicite entre œuvre/série terminée, saison/partie terminée et portée inconnue, avec sauvegarde et rechargement vérifiés dans Chrome.
 
 ## Preuves actuelles
+
+[CI #720](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38282239433), commit d18d5118e9e705a04755dd1a7cdbe9070d131e1e : suite complète et capacité isolée réussies. Attente des traductions d’affichage bornée à quinze secondes ; un transport silencieux ou déconnecté ne bloque plus indéfiniment la file. Tests Chrome : expiration courte simulée, réponse tardive ignorée, appel suivant réussi, exception de transport récupérée, texte original conservé après échec, délai anti-répétition respecté et reprise après expiration de ce délai. Le délai termine l’attente côté interface, sans annuler une requête déjà en cours dans le service worker. Aucun engagement de latence ou de disponibilité du fournisseur externe. G16 reste partiel ; total inchangé 19/60. Pas de publication ni de modification du Chrome utilisateur.
 
 [CI #716](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38278935175), commit 2bc2e576821ec3c672c85511befc042bd3e7dcef : suite complète et capacité isolée réussies au premier essai. Les extraits de synopsis, étiquettes de genres et options du filtre de genre rejoignent la traduction d’affichage des contenus visibles. Les valeurs des options, titres officiels, années et données sources restent inchangés. Un synopsis court n’est plus suivi artificiellement de points de suspension. Tests Chrome avec transport de traduction simulé : rendu traduit, filtre utilisant toujours Adventure, résultat conservé, cache réutilisé, texte source intact, réponse tardive ignorée après remplacement du contenu et changement de langue. Ces tests prouvent le comportement, pas la qualité linguistique du service externe. Repli au texte original conservé en cas d’échec. G16 reste P : interface entière et contenus externes non intégralement validés. Total 19/60, Chrome utilisateur non modifié.
 
