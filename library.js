@@ -2708,15 +2708,18 @@ function embeddedTrailer(...urls) {
 function trailerPlayer(url) {
   if(!url)return "";
   try {
-    const parsed=new URL(url);if(parsed.protocol==="http:"&&/(^|\.)(steamstatic\.com|steampowered\.com|akamaihd\.net)$/.test(parsed.hostname))parsed.protocol="https:";if(parsed.protocol!=="https:"||parsed.username||parsed.password)return "";
+    const parsed=new URL(url);if(parsed.protocol==="http:"&&/(^|\.)(steamstatic\.com|steampowered\.com|akamaihd\.net)$/.test(parsed.hostname))parsed.protocol="https:";if(parsed.protocol!=="https:"||parsed.username||parsed.password||parsed.port)return "";
     let id="",src="",kind="";
-    if(["www.youtube.com","youtube.com","m.youtube.com"].includes(parsed.hostname))id=parsed.searchParams.get("v")||parsed.pathname.split("/").pop();
-    if(parsed.hostname==="youtu.be")id=parsed.pathname.slice(1);
+    if(["www.youtube.com","youtube.com","m.youtube.com","www.youtube-nocookie.com","youtube-nocookie.com"].includes(parsed.hostname)) {
+      if(parsed.pathname==="/watch")id=parsed.searchParams.get("v")||"";
+      else id=parsed.pathname.match(/^\/(?:embed|shorts|live)\/([\w-]{11})\/?$/)?.[1]||"";
+    }
+    if(parsed.hostname==="youtu.be")id=parsed.pathname.match(/^\/([\w-]{11})\/?$/)?.[1]||"";
     if(/^[\w-]{11}$/.test(id)){src="https://www.youtube-nocookie.com/embed/"+id;kind="youtube";}
     else if(/\.(mp4|webm)$/i.test(parsed.pathname)){src=parsed.href;kind="video";}
     if(!src)return "";
     const title=esc(t("watchTrailer"));
-    return '<section class="detail-trailer"><div class="section-t">'+(settings.lang==="fr"?"Bande-annonce":"Trailer")+'</div>'+
+    return '<section class="detail-trailer"><div class="section-t">'+esc(t("trailer"))+'</div>'+
       (kind==="youtube"?'<iframe src="'+esc(src)+'" title="'+title+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>':
       '<video controls playsinline preload="metadata" src="'+esc(src)+'" aria-label="'+title+'"></video>')+'</section>';
   }catch{return "";}

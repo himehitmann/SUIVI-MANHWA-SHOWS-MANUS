@@ -747,5 +747,18 @@ try {
  await p.evaluate(()=>document.getElementById("steam-art-probe").remove());
  await p.unroute(/https:\/\/[^/]+\/(?:store_item_assets\/)?steam\/apps\/99999[12]\//,artRoute);
 
+
+ const trailerCases=await p.evaluate(()=>{
+   const before=settings.lang;
+   const id="AbCdEf123_-";
+   const accepted=["https://www.youtube.com/watch?v="+id,"https://youtu.be/"+id+"?t=12","https://www.youtube-nocookie.com/embed/"+id,"https://youtube.com/shorts/"+id,"https://m.youtube.com/live/"+id];
+   const rejected=["javascript:alert(1)","https://youtube.com.evil.example/watch?v="+id,"https://youtube.com/channel/"+id,"https://www.youtube.com:444/watch?v="+id,"https://user:secret@youtube.com/watch?v="+id,"https://youtu.be/invalid"];
+   settings.lang="ja";
+   const html=accepted.map(url=>trailerPlayer(url));
+   settings.lang=before;
+   return {html,rejected:rejected.map(url=>trailerPlayer(url))};
+ });
+ assert(trailerCases.html.every(html=>html.includes("https://www.youtube-nocookie.com/embed/AbCdEf123_-")&&html.includes("トレーラー")),"Supported YouTube forms render directly with the selected language");
+ assert(trailerCases.rejected.every(html=>html===""),"Unsupported or unsafe trailer URLs must not embed");
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
