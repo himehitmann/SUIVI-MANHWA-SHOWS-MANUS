@@ -2145,7 +2145,8 @@ describe("optional anime trailer enrichment",()=>{
     const w=worker();w.run('jikanDetail=async()=>{throw Error("must not request");}');
     expect((await w.run('completeAnimeTrailer({type:"watching",trailerUrl:"saved"},{})')).trailerUrl).toBe("saved");
     expect((await w.run('completeAnimeTrailer({type:"watching",trailerUrl:"saved"},{trailerUrl:"provider"})')).trailerUrl).toBe("provider");
-    for(const expression of ['completeAnimeTrailer({type:"reading",externalIds:{mal:"1"}},{})','completeAnimeTrailer({type:"watching"},{})','completeAnimeTrailer({type:"watching",externalIds:{mal:"1"}},{externalIds:{mal:"2"}})'])expect(await w.run(expression)).toEqual({});
+    for(const expression of ['completeAnimeTrailer({type:"reading",externalIds:{mal:"1"}},{})','completeAnimeTrailer({type:"watching"},{})'])expect(await w.run(expression)).toEqual({});
+    expect(await w.run('completeAnimeTrailer({type:"watching",externalIds:{mal:"1"}},{externalIds:{mal:"2"}})')).toEqual({externalIds:{mal:"2"}});
     expect(w.run("animeTrailerCache.size")).toBe(0);
   });
   it("bounds optional waiting and reuses a late result without replacing metadata",async()=>{
@@ -2161,5 +2162,14 @@ describe("optional anime trailer enrichment",()=>{
     w.run('animeTrailerCache.get("1").expires=0;');
     await w.run('completeAnimeTrailer({type:"watching",externalIds:{mal:"1"}},{})');
     expect(w.run("trailerCalls")).toBe(2);
+  });
+});
+
+describe("anime detail trailer integration",()=>{
+  it("returns the secondary trailer through catalogDetail without replacing the primary synopsis",async()=>{
+    const w=worker();
+    w.run('anilistDetail=async()=>({title:"Provider",synopsis:"Primary",externalIds:{anilist:"10",mal:"1"}});jikanDetail=async()=>({trailerUrl:"https://youtu.be/AbCdEf123_-",synopsis:"Secondary"});');
+    const result=await w.run('catalogDetail({title:"Saved",type:"watching",externalIds:{anilist:"10",mal:"1"}})');
+    expect(result.title).toBe("Saved");expect(result.synopsis).toBe("Primary");expect(result.trailerUrl).toContain("AbCdEf123_-");
   });
 });
