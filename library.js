@@ -237,6 +237,15 @@ const LIBRARY_LOCALES={
 };
 for(const [code,values] of Object.entries(LIBRARY_LOCALES))LIBRARY_LOCALE_KEYS.forEach((key,index)=>LANGS[code][key]=values[index]);
 const DETAIL_LOCALES={
+"refreshDetails":["Refresh details","Actualiser la fiche","作品情報を更新","Actualizar ficha","Details aktualisieren","작품 정보 새로고침","Atualizar ficha","刷新作品信息"],
+"refreshLoading":["Looking up details…","Recherche des informations…","作品情報を取得中…","Buscando información…","Details werden geladen…","정보를 불러오는 중…","A procurar informações…","正在获取信息…"],
+"refreshFailed":["Update failed. Try again.","Actualisation impossible. Réessaie.","更新できませんでした。もう一度お試しください。","No se pudo actualizar. Inténtalo de nuevo.","Aktualisierung fehlgeschlagen. Erneut versuchen.","업데이트하지 못했습니다. 다시 시도하세요.","Não foi possível atualizar. Tenta novamente.","更新失败，请重试。"],
+"refreshNone":["No new details available.","Aucune nouvelle information disponible.","新しい情報はありません。","No hay información nueva.","Keine neuen Informationen verfügbar.","새로운 정보가 없습니다.","Não há informações novas.","暂无新信息。"],
+"refreshPartial":["Some details updated; other information is still missing.","Certaines informations ont été actualisées ; d’autres restent manquantes.","一部の情報を更新しました。未取得の情報があります。","Se actualizaron algunos datos; aún falta información.","Einige Details wurden aktualisiert; weitere Angaben fehlen noch.","일부 정보를 업데이트했습니다. 아직 없는 정보가 있습니다.","Alguns dados foram atualizados; ainda faltam informações.","已更新部分信息，仍有信息缺失。"],
+"refreshDone":["Details updated.","Fiche actualisée.","作品情報を更新しました。","Ficha actualizada.","Details aktualisiert.","작품 정보를 업데이트했습니다.","Ficha atualizada.","作品信息已更新。"],
+"showOnHome":["Show on Home","Réafficher sur l’accueil","ホームに表示","Mostrar en inicio","Auf Startseite anzeigen","홈에 표시","Mostrar no início","在首页显示"],
+"hideFromHome":["Hide from Home","Masquer de l’accueil","ホームで非表示","Ocultar del inicio","Auf Startseite ausblenden","홈에서 숨기기","Ocultar do início","从首页隐藏"],
+
   "publication": [
     "Publication / airing",
     "Publication / diffusion",
@@ -1915,7 +1924,7 @@ function openDrawer(id) {
       ${!isGame&&(i.genres?.length||i.catalogTags?.length)?`<div class="section-t">${t("genresLabel")}</div><div class="tags">${[...new Set([...(i.genres||[]),...(i.catalogTags||[])])].filter(x=>typeof x==="string").map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
       ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${t("creatorsLabel")}</div><p class="synopsis">${i.authors.filter(x=>typeof x==="string").map(esc).join(" — ")}</p>` : ""}
       ${distinctAlternativeTitles(i).length ? `<div class="section-t">${t("aliasesLabel")}</div><ul class="synopsis">${distinctAlternativeTitles(i).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="dr-refresh-info">${I.refresh} ${settings.lang==="fr"?"Actualiser la fiche":"Refresh details"}</button><button class="btn" id="dr-home-toggle" aria-pressed="${!!i.homeHidden}">${settings.lang==="fr"?(i.homeHidden?"Réafficher sur l’accueil":"Masquer de l’accueil"):(i.homeHidden?"Show on Home":"Hide from Home")}</button></div><p class="field-hint" id="dr-refresh-status" role="status"></p><div id="dr-extra-info"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="dr-refresh-info">${I.refresh} ${t("refreshDetails")}</button><button class="btn" id="dr-home-toggle" aria-pressed="${!!i.homeHidden}">${t(i.homeHidden?"showOnHome":"hideFromHome")}</button></div><p class="field-hint" id="dr-refresh-status" role="status"></p><div id="dr-extra-info"></div>
       ${episodeGuideSlot(i)}
       ${i.synopsis ? `<div class="section-t">${t("synopsis")}</div><p class="synopsis clamp" id="dr-syn">${esc(i.synopsis)}</p><button class="link-btn" id="dr-syn-toggle">${t("showMore")}</button>` : ""}
       ${!isGame && Array.isArray(i.cast) && i.cast.length ? `<div class="section-t">${t("cast")}</div><div class="cast-strip scroll-x">${i.cast.map((c) => `<div class="cast-card"><div class="cast-av"><span class="cast-ph">${esc((c.name || "?")[0].toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : ""}</div><b>${esc(c.name)}</b>${c.character ? `<small>${esc(c.character)}</small>` : ""}${c.role && c.role !== "MAIN" ? `<small>${esc(c.role.toLowerCase())}</small>` : ""}</div>`).join("")}</div>` : ""}
@@ -1996,17 +2005,18 @@ function wireDrawer(i, isWatch, isGame) {
   document.getElementById("dr-home-toggle").onclick=()=>update(i.id,{homeHidden:!i.homeHidden});
   document.getElementById("dr-refresh-info").onclick=async e=>{
     const button=e.currentTarget,status=document.getElementById("dr-refresh-status");
-    button.disabled=true;status.textContent=settings.lang==="fr"?"Recherche des informations…":"Looking up details…";
+    button.disabled=true;status.textContent=t("refreshLoading");
     api.runtime.sendMessage({type:isGame?"GAME_ENRICH":"COMPLETE_ITEM_METADATA",id:i.id,force:true},r=>{
       const failed=api.runtime.lastError||!r?.ok;
       if(document.getElementById("drawer").dataset.itemId!==i.id||!button.isConnected)return;
       button.disabled=false;
-      if(failed||!r.item||(!isGame&&!r.matched)){status.textContent=settings.lang==="fr"?"Aucune mise à jour disponible. Réessaie plus tard.":"No update available. Try again later.";return;}
+      if(failed){status.textContent=t("refreshFailed");return;}
+      if(!r.item||(!r.matched&&!["matched","partial"].includes(r.status))){status.textContent=t("refreshNone");return;}
       const removed=new Set(r.mergedIds||[]);
       items=items.filter(x=>!removed.has(x.id)).map(x=>x.id===r.item.id?r.item:x);
       if(r.lists)lists=r.lists;
       renderAll();openDrawer(r.item.id);
-      document.getElementById("dr-refresh-status").textContent=settings.lang==="fr"?"Fiche actualisée.":"Details updated.";
+      document.getElementById("dr-refresh-status").textContent=t(r.status==="partial"?"refreshPartial":"refreshDone");
     });
   };
   const syn = document.getElementById("dr-syn"), synT = document.getElementById("dr-syn-toggle");

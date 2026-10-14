@@ -760,5 +760,40 @@ try {
  });
  assert(trailerCases.html.every(html=>html.includes("https://www.youtube-nocookie.com/embed/AbCdEf123_-")&&html.includes("トレーラー")),"Supported YouTube forms render directly with the selected language");
  assert(trailerCases.rejected.every(html=>html===""),"Unsupported or unsafe trailer URLs must not embed");
+
+ const refreshProbe=await p.evaluate(()=>{
+   const savedItems=items,savedLang=settings.lang,original=api.runtime.sendMessage;
+   let response;
+   api.runtime.sendMessage=(message,callback)=>{if(["COMPLETE_ITEM_METADATA","GAME_ENRICH"].includes(message.type)){callback(response);return;}return original.call(api.runtime,message,callback);};
+   const fixture={id:"refresh-probe",title:"Original",type:"watching",season:1,episode:4,cast:[{name:"Known"}],cover:"",synopsis:""};
+   try {
+     settings.lang="ja";items=[fixture];openDrawer(fixture.id);
+     const label=document.getElementById("dr-refresh-info").textContent;
+     response={ok:true,status:"partial",matched:false,item:{...fixture,synopsis:"Recovered summary"}};
+     document.getElementById("dr-refresh-info").click();
+     const partial={message:document.getElementById("dr-refresh-status").textContent,synopsis:items[0].synopsis,episode:items[0].episode};
+     settings.lang="fr";openDrawer(fixture.id);response={ok:false,error:"offline"};
+     document.getElementById("dr-refresh-info").click();
+     const failed={message:document.getElementById("dr-refresh-status").textContent,enabled:!document.getElementById("dr-refresh-info").disabled,synopsis:items[0].synopsis};
+     response={ok:true,status:"not_found",item:items[0]};
+     document.getElementById("dr-refresh-info").click();
+     const absent=document.getElementById("dr-refresh-status").textContent;
+     settings.lang="en";response={ok:true,status:"matched",item:{...fixture,type:"game",synopsis:"Game",gameEnrichedAt:1}};
+     items=[response.item];openDrawer(fixture.id);
+     document.getElementById("dr-refresh-info").click();
+     const success=document.getElementById("dr-refresh-status").textContent;
+     return {label,partial,failed,absent,success};
+   }finally{api.runtime.sendMessage=original;closeDrawer();items=savedItems;settings.lang=savedLang;}
+ });
+ assert(refreshProbe.label.includes("作品情報を更新"));
+ assert.equal(refreshProbe.partial.message,"一部の情報を更新しました。未取得の情報があります。");
+ assert.equal(refreshProbe.partial.synopsis,"Recovered summary");
+ assert.equal(refreshProbe.partial.episode,4);
+ assert.equal(refreshProbe.failed.message,"Actualisation impossible. Réessaie.");
+ assert(refreshProbe.failed.enabled);
+ assert.equal(refreshProbe.failed.synopsis,"Recovered summary");
+ assert.equal(refreshProbe.absent,"Aucune nouvelle information disponible.");
+ assert.equal(refreshProbe.success,"Details updated.");
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
