@@ -877,5 +877,20 @@ try {
  assert.equal(guideRecovery.rows,1);
  assert(guideRecovery.text.includes("Recovered episode"),"Late timed-out replies cannot erase recovered episodes");
 
+
+ const priceLabels=await p.evaluate(()=>{
+   const previous=settings.lang;settings.lang="fr";
+   try {
+     const fresh={type:"game",price:"9,99€",priceStatus:"available",priceCheckedAt:Date.now()};
+     return {fresh:gamePriceNote(fresh),absent:gamePriceNote({...fresh,priceStatus:"unavailable"}),old:gamePriceNote({...fresh,priceCheckedAt:Date.now()-600001}),legacy:gamePriceNote({price:"Free"}),html:catalogInformation({...fresh,priceStatus:"unavailable"})};
+   }finally{settings.lang=previous;}
+ });
+ assert.equal(priceLabels.fresh,"Prix indicatif — vérifier en boutique");
+ assert.equal(priceLabels.absent,"Dernier prix connu — à vérifier en boutique");
+ assert.equal(priceLabels.old,priceLabels.absent);
+ assert.equal(priceLabels.legacy,priceLabels.absent);
+ assert(priceLabels.html.includes(priceLabels.absent));
+ assert(priceLabels.html.includes("9,99€"));
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}

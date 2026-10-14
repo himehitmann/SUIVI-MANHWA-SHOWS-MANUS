@@ -2290,3 +2290,17 @@ describe("Steam price refresh",()=>{
     expect(w.data["dasi.items"][0].price).toBe("Edited price");
   });
 });
+
+describe("game price availability",()=>{
+ it("marks an unavailable current price without dropping the stored amount",async()=>{
+   const w=worker({"dasi.items":[{id:"g",title:"Game",type:"game",externalIds:{steam:"620"},price:"9,99€",priceStatus:"available",priceCheckedAt:1}]});
+   w.ctx.fetch=async(url:string)=>({ok:true,json:async()=>String(url).includes("GetNewsForApp")?{appnews:{appid:620,newsitems:[]}}:{"620":{success:true,data:{steam_appid:620,is_free:false}}}});
+   const response=await w.call({type:"GAME_ENRICH",id:"g",force:true});
+   expect(response.item.price).toBe("9,99€");expect(response.item.priceStatus).toBe("unavailable");expect(response.item.priceCheckedAt).toBeGreaterThan(1);
+   const restored=worker(w.data);expect((await restored.run('read(ITEMS_KEY,[])'))[0].priceStatus).toBe("unavailable");
+ });
+ it("keeps amount and availability together if the price is edited concurrently",()=>{
+   const w=worker();const result=w.run('applyMetadataPatch({price:"Edited",priceStatus:"unavailable",priceCheckedAt:1},{price:"Old",priceStatus:"unavailable",priceCheckedAt:1},{price:"New",priceStatus:"available",priceCheckedAt:2})');
+   expect(result).toMatchObject({price:"Edited",priceStatus:"unavailable",priceCheckedAt:1});
+ });
+});

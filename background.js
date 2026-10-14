@@ -1493,6 +1493,8 @@ async function fetchSteamAppDetails(appid) {
   if(d.steam_appid!==undefined&&String(d.steam_appid)!==String(appid))throw Error("catalog_identity_mismatch");
   return {
     price: steamCurrentPrice(d),
+    priceStatus: steamCurrentPrice(d)===undefined?"unavailable":"available",
+    priceCheckedAt: Date.now(),
     genres: Array.isArray(d.genres) ? [...new Set(d.genres.map((g) => typeof g?.description==="string"?g.description.trim():"").filter(Boolean))].slice(0,80) : [],
     synopsis: stripHtml(d.detailed_description || d.about_the_game || d.short_description || "").trim().slice(0,20000),
     platforms: Object.entries(d.platforms||{}).filter(([key,value])=>value===true&&["windows","mac","linux"].includes(key)).map(([key])=>({windows:"Windows",mac:"macOS",linux:"Linux"})[key]),
@@ -1625,9 +1627,12 @@ function metadataIdentityUnchanged(live,before) {
 function applyMetadataPatch(live,before,patch) {
   const safe={...live};
   const publicationKeys=["releaseStatus","releaseScope","releaseSource"];
+  const priceKeys=["price","priceStatus","priceCheckedAt"];
+  const priceChanged=priceKeys.some(key=>JSON.stringify(live[key])!==JSON.stringify(before[key]));
   const publicationChanged=publicationKeys.some(key=>JSON.stringify(live[key])!==JSON.stringify(before[key]));
   for(const [key,value] of Object.entries(patch)) {
     if(publicationKeys.includes(key)&&publicationChanged)continue;
+    if(priceKeys.includes(key)&&priceChanged)continue;
     if(key==="cover"&&live.coverOverride)continue;
     if(["alternativeTitles","authors"].includes(key)){safe[key]=[...new Set([...(live[key]||[]),...(value||[])])];continue;}
     if(["enrichedAt","identityVersion","gameEnrichedAt"].includes(key)||JSON.stringify(live[key])===JSON.stringify(before[key]))safe[key]=value;
@@ -1654,6 +1659,8 @@ async function enrichGame(id,force=false,lease=null) {
   const patch={enrichedAt:Date.now(),gameEnrichedAt:Date.now(),identityVersion:1,externalIds:identityIds(data),format:it.format||"Game"};
   for(const field of ["storeLinks","genres","platforms","alternativeTitles","authors","source"])if(data[field]!==undefined)patch[field]=data[field];
   if(typeof data.price==="string"&&data.price.trim())patch.price=data.price;
+  if(["available","unavailable"].includes(data.priceStatus))patch.priceStatus=data.priceStatus;
+  if(Number.isFinite(data.priceCheckedAt))patch.priceCheckedAt=data.priceCheckedAt;
   for(const field of ["synopsis","platform","releaseDate","year","coverFallback","trailer","trailerUrl"])if(data[field]&&!it[field])patch[field]=data[field];
   if(data.cover&&!it.coverOverride)patch.cover=data.cover;
   if(!it.url&&(match?.url||known))patch.url=match?.url||"https://store.steampowered.com/app/"+known+"/";

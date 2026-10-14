@@ -237,6 +237,8 @@ const LIBRARY_LOCALES={
 };
 for(const [code,values] of Object.entries(LIBRARY_LOCALES))LIBRARY_LOCALE_KEYS.forEach((key,index)=>LANGS[code][key]=values[index]);
 const DETAIL_LOCALES={
+"priceIndicative":["Indicative price — check the store","Prix indicatif — vérifier en boutique","参考価格 — ストアで確認","Precio orientativo — consulta la tienda","Richtpreis — im Store prüfen","참고 가격 — 스토어에서 확인","Preço indicativo — confirmar na loja","参考价格 — 请到商店确认"],
+"priceLastKnown":["Last known price — check the store","Dernier prix connu — à vérifier en boutique","前回の価格 — ストアで確認","Último precio conocido — consulta la tienda","Zuletzt bekannter Preis — im Store prüfen","마지막 확인 가격 — 스토어에서 확인","Último preço conhecido — confirmar na loja","上次已知价格 — 请到商店确认"],
 "refreshDetails":["Refresh details","Actualiser la fiche","作品情報を更新","Actualizar ficha","Details aktualisieren","작품 정보 새로고침","Atualizar ficha","刷新作品信息"],
 "refreshLoading":["Looking up details…","Recherche des informations…","作品情報を取得中…","Buscando información…","Details werden geladen…","정보를 불러오는 중…","A procurar informações…","正在获取信息…"],
 "refreshFailed":["Update failed. Try again.","Actualisation impossible. Réessaie.","更新できませんでした。もう一度お試しください。","No se pudo actualizar. Inténtalo de nuevo.","Aktualisierung fehlgeschlagen. Erneut versuchen.","업데이트하지 못했습니다. 다시 시도하세요.","Não foi possível atualizar. Tenta novamente.","更新失败，请重试。"],
@@ -1943,7 +1945,8 @@ function openDrawer(id) {
       ${isGame ? `
         <div class="section-t">${t("games")}</div>
         ${Array.isArray(i.genres)&&i.genres.length?`<div class="tags">${i.genres.filter(x=>typeof x==="string").map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
-        <div class="game-meta">${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}</span>` : ""}${i.price ? `<span class="meta-pill price">${esc(i.price)}</span>` : ""}</div>
+        <div class="game-meta">${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}</span>` : ""}${i.price ? `<span class="meta-pill price" title="${esc(gamePriceNote(i))}">${esc(i.price)}</span>` : ""}</div>
+        ${i.price ? `<p class="sub" data-i18n-static>${esc(gamePriceNote(i))}</p>` : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${embeddedTrailer(i.trailer,i.trailerUrl)}${gameStoreButtons(i)}${gameSourceCredit(i)}<label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
       : `
         <div class="section-t">${t("progress")}</div>
@@ -2633,6 +2636,11 @@ function resultYear(m) {
   const year=String(value||"").match(/(?:19|20|21)\d{2}/);
   return year?year[0]:"";
 }
+function gamePriceNote(item) {
+  const fresh=item.priceStatus==="available"&&Number.isFinite(item.priceCheckedAt)&&
+    item.priceCheckedAt<=Date.now()&&Date.now()-item.priceCheckedAt<600000;
+  return t(fresh?"priceIndicative":"priceLastKnown");
+}
 function gamePrice(m) {
   if(m.isFree===true||/^(free(?: to play)?|gratuit)$/i.test(String(m.price||"").trim()))return 0;
   if(Number.isFinite(m.priceAmount)&&m.priceCurrency==="USD")return m.priceAmount;
@@ -2835,7 +2843,7 @@ function catalogInformation(m) {
   const newsHtml=gameNewsHtml(m);
   const gameFacts=m.type==="game"?'<dl class="game-detail-facts">'+(m.platform?'<dt>'+(t("platformsLabel"))+'</dt><dd>'+esc(m.platform)+'</dd>':"")+(m.releaseDate?'<dt>'+t("releaseDate")+'</dt><dd>'+esc(m.releaseDate)+'</dd>':"")+'</dl>':"";
   return publicationInformation(m)+gameFacts+(tags.length?'<div class="tags">'+tags.map(x=>'<span class="tag">'+esc(x)+'</span>').join("")+'</div>':"")+
-    (m.type==="game"&&m.price?'<p class="detail-price">'+esc(m.price)+'</p>':"")+
+    (m.type==="game"&&m.price?'<p class="detail-price">'+esc(m.price)+'</p><p class="sub" data-i18n-static>'+esc(gamePriceNote(m))+'</p>':"")+
     (m.type==="game"?gameStoreButtons(m)+gameSourceCredit(m):"")+
     (m.synopsis?'<div class="section-t">'+t("synopsis")+'</div><p class="synopsis">'+esc(m.synopsis)+'</p>':"")+
     ((m.authors||[]).length?'<div class="section-t">'+(t("creatorsLabel"))+'</div><p>'+m.authors.map(esc).join(" — ")+'</p>':"")+
@@ -2891,7 +2899,7 @@ function addFromCatalog(m, btn) {
     trailerUrl:m.trailerUrl, trailer:m.trailer, cast:m.cast, tags:m.tags||[], genres: m.genres || [], total: m.total || undefined, season: m.type === "watching" ? 1 : undefined, year: m.year || m.season, country: m.country, externalIds: m.externalIds, alternativeTitles:m.alternativeTitles, authors:m.authors, anilistId:m.anilistId,
     news:m.type==="game"&&Array.isArray(m.news)?m.news.slice(0,8):undefined,platforms:m.platforms,
     source:m.source,storeLinks:m.type==="game"?[...new Set([m.url,...(Array.isArray(m.storeLinks)?m.storeLinks:[])].map(safeStoreLink).filter(Boolean))].slice(0,24):[],gameEnrichedAt:m.gameEnrichedAt,
-    format: m.format || undefined, price: m.price || undefined, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
+    format: m.format || undefined, price: m.price || undefined, priceStatus:m.priceStatus, priceCheckedAt:m.priceCheckedAt, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
   };
   if (btn) { btn.disabled = true; btn.innerHTML = I.check; }
