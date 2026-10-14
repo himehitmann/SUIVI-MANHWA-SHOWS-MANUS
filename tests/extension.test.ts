@@ -2257,3 +2257,36 @@ describe("legacy synopsis repair",()=>{
     expect(w.data["dasi.items"][0].synopsis).toBe("Edited while loading");
   });
 });
+
+describe("Steam price refresh",()=>{
+  it("uses the provider display currency and distinguishes free from unknown",()=>{
+    const w=worker();
+    expect(w.run('steamCurrentPrice({is_free:true})')).toBe("Free");
+    expect(w.run('steamCurrentPrice({price_overview:{final:999,currency:"EUR",final_formatted:"9,99€"}})')).toBe("9,99€");
+    expect(w.run('steamCurrentPrice({is_free:false})')).toBeUndefined();
+    expect(w.run('steamCurrentPrice({price_overview:{final:-1,currency:"EUR",final_formatted:"Invalid"}})')).toBeUndefined();
+    expect(w.run('steamCurrentPrice({price_overview:{final:0,currency:"EUR",final_formatted:"0,00€"}})')).toBe("0,00€");
+  });
+  it("requests price details and persists a changed price then a free offer",async()=>{
+    const w=worker({"dasi.items":[{id:"g",title:"Game",type:"game",externalIds:{steam:"620"},price:"19,99€",cover:"cover",synopsis:"Summary",rating:4}]});
+    const calls:string[]=[];let free=false;
+    w.ctx.fetch=async(url:string)=>{calls.push(String(url));return {ok:true,json:async()=>String(url).includes("GetNewsForApp")?{appnews:{appid:620,newsitems:[]}}:{"620":{success:true,data:{steam_appid:620,is_free:free,price_overview:{final:999,currency:"EUR",final_formatted:"9,99€"}}}}};};
+    const first=await w.call({type:"GAME_ENRICH",id:"g",force:true});
+    expect(first.ok).toBe(true);expect(first.item.price).toBe("9,99€");expect(first.item.rating).toBe(4);
+    expect(calls.some(url=>new URL(url).searchParams.get("filters")?.includes("price_overview"))).toBe(true);
+    free=true;await w.call({type:"GAME_ENRICH",id:"g",force:true});
+    expect(w.data["dasi.items"][0].price).toBe("Free");
+  });
+  it("retains the last known price when absent and protects an edit made during refresh",async()=>{
+    const w=worker({"dasi.items":[{id:"g",title:"Game",type:"game",externalIds:{steam:"620"},price:"Saved price"}]});
+    w.run('knownGameDetails=async()=>({externalIds:{steam:"620"}})');
+    await w.run('enrichGame("g",true)');expect(w.data["dasi.items"][0].price).toBe("Saved price");
+    let release:any,started:any;const ready=new Promise(resolve=>{started=resolve;});
+    w.ctx.lookupStarted=started;w.ctx.pricePending=new Promise(resolve=>{release=resolve;});
+    w.run('knownGameDetails=()=>{lookupStarted();return pricePending;};');
+    const task=w.run('enrichGame("g",true)');await ready;
+    w.data["dasi.items"][0].price="Edited price";
+    release({externalIds:{steam:"620"},price:"New provider price"});await task;
+    expect(w.data["dasi.items"][0].price).toBe("Edited price");
+  });
+});

@@ -1471,8 +1471,17 @@ async function steamAppDetails(appid,force=false) {
   steamDetailsInflight.set(key,task);
   try{return structuredClone(await task);}finally{steamDetailsInflight.delete(key);}
 }
+function steamCurrentPrice(data) {
+  if(data?.is_free===true)return "Free";
+  const price=data?.price_overview;
+  if(!price||!Number.isInteger(price.final)||price.final<0||
+    typeof price.currency!=="string"||! /^[A-Z]{3}$/.test(price.currency)||
+    typeof price.final_formatted!=="string")return undefined;
+  const label=price.final_formatted.trim();
+  return label&&label.length<=100?label:undefined;
+}
 async function fetchSteamAppDetails(appid) {
-  const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&filters=basic,genres,release_date,movies`;
+  const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&filters=basic,genres,release_date,movies,price_overview`;
   const [res, news] = await Promise.all([
     fetchRemote(url),
     steamNews(appid).catch(() => []),
@@ -1483,6 +1492,7 @@ async function fetchSteamAppDetails(appid) {
   if (!d) return null;
   if(d.steam_appid!==undefined&&String(d.steam_appid)!==String(appid))throw Error("catalog_identity_mismatch");
   return {
+    price: steamCurrentPrice(d),
     genres: Array.isArray(d.genres) ? [...new Set(d.genres.map((g) => typeof g?.description==="string"?g.description.trim():"").filter(Boolean))].slice(0,80) : [],
     synopsis: stripHtml(d.detailed_description || d.about_the_game || d.short_description || "").trim().slice(0,20000),
     platforms: Object.entries(d.platforms||{}).filter(([key,value])=>value===true&&["windows","mac","linux"].includes(key)).map(([key])=>({windows:"Windows",mac:"macOS",linux:"Linux"})[key]),
@@ -1643,7 +1653,8 @@ async function enrichGame(id,force=false,lease=null) {
   }catch{return {status:"retryable_error",error:"source_unavailable"};}
   const patch={enrichedAt:Date.now(),gameEnrichedAt:Date.now(),identityVersion:1,externalIds:identityIds(data),format:it.format||"Game"};
   for(const field of ["storeLinks","genres","platforms","alternativeTitles","authors","source"])if(data[field]!==undefined)patch[field]=data[field];
-  for(const field of ["synopsis","price","platform","releaseDate","year","coverFallback","trailer","trailerUrl"])if(data[field]&&!it[field])patch[field]=data[field];
+  if(typeof data.price==="string"&&data.price.trim())patch.price=data.price;
+  for(const field of ["synopsis","platform","releaseDate","year","coverFallback","trailer","trailerUrl"])if(data[field]&&!it[field])patch[field]=data[field];
   if(data.cover&&!it.coverOverride)patch.cover=data.cover;
   if(!it.url&&(match?.url||known))patch.url=match?.url||"https://store.steampowered.com/app/"+known+"/";
   if(data.platforms?.length)patch.platform=data.platforms.join(" · ");
