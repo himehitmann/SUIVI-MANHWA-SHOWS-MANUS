@@ -1,6 +1,6 @@
 # Suivi global Yomu
 
-Mise à jour : 13 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 14 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
@@ -17,6 +17,8 @@ La livraison a été trop fragmentée en petits correctifs. Priorité : terminer
 G03 avait été validé, mais les captures utilisateur du 10 octobre montrent des écarts visuels importants. Il repasse partiel : la validation antérieure était insuffisante. Les corrections de hauteur de bannière, de cartes uniformes et de navigation sont en cours de revalidation. Le dénominateur reste 60. G09 est également validé depuis la CI #614 : combinaison des filtres et distinction explicite entre œuvre/série terminée, saison/partie terminée et portée inconnue, avec sauvegarde et rechargement vérifiés dans Chrome.
 
 ## Preuves actuelles
+
+[CI #743](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38526552214), commit f62f10d8408e0148320a5a5653caf62d837852ba : suite complète et capacité isolée réussies. Les descriptions AniList, TVmaze (recherche, fiche et découverte), Wikipedia et TMDB ne sont plus tronquées à 500, 700 ou 1 500 caractères dans le service worker ; elles partagent une borne de 20 000 caractères, également appliquée à Jikan. Tests de synopsis longs AniList/Jikan et borne maximale ; parcours TVmaze recherche → fiche → sauvegarde conservant le texte final. Données fournisseurs simulées pour ces scénarios ; aucune récupération de texte absent chez le fournisseur, aucune réparation revendiquée des anciennes fiches déjà enregistrées. Les extraits courts de recherche peuvent rester visuellement abrégés. G03 et G06 restent partiels, score inchangé 19/60. Aucun déploiement ni mise à jour du Chrome utilisateur.
 
 [CI #739](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38426669283), commit 6884658d284b4cf73f483aeb046976fb8b5964b0 : suite complète et capacité isolée réussies. Le second passage d’enrichissement des œuvres initialement sans identifiant AniList utilise maintenant le même complément de bande-annonce que les fiches déjà identifiées. Tests : identification unique puis sauvegarde de la vidéo, conservation du titre, synopsis, saison, épisode et note, restauration dans un nouveau service worker ; une modification de bande-annonce et de progression pendant la requête n’est pas écrasée par sa réponse. Fournisseurs simulés pour ces scénarios, aucune garantie de vidéo disponible pour chaque œuvre. G06 reste partiel, total inchangé 19/60. Aucun déploiement ni changement du Chrome utilisateur.
 
