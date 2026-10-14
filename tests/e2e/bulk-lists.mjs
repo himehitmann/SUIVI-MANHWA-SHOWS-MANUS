@@ -840,5 +840,42 @@ try {
  assert.equal(refreshTimeout.title,"Saved");
  assert.equal(refreshTimeout.episode,3);
 
+
+ const guideRecovery=await p.evaluate(async()=>{
+   const originalSend=api.runtime.sendMessage,originalRequest=requestMetadata,savedLang=settings.lang;
+   const drawer=document.getElementById("drawer");
+   let mode="silent",late,episodeLate;
+   const season={id:"11",number:1,name:"Official season",episodeCount:1};
+   try{
+     settings.lang="fr";drawer.innerHTML='<section id="episode-guide"></section>';drawer.classList.add("open");
+     requestMetadata=(message,callback)=>originalRequest(message,callback,20);
+     api.runtime.sendMessage=(message,callback)=>{
+       if(message.type!=="CATALOG_EPISODE_GUIDE")return originalSend.call(api.runtime,message,callback);
+       if(mode==="silent"){late=callback;return;}
+       if(!message.seasonId){callback({ok:true,seasons:[season]});return;}
+       if(mode==="episodes-silent"){episodeLate=callback;return;}
+       callback({ok:true,seasons:[season],season,episodes:[{id:"1",number:1,name:"Recovered episode",airdate:"2020-01-01",runtime:25,special:false}]});
+     };
+     mountEpisodeGuide({type:"watching",externalIds:{tvmaze:"1"}});
+     await new Promise(resolve=>setTimeout(resolve,60));
+     const root=document.getElementById("episode-guide");
+     const seasonsRetry=!!root.querySelector("button");
+     mode="episodes-silent";root.querySelector("button").click();
+     await new Promise(resolve=>setTimeout(resolve,60));
+     const area=root.querySelector(".guide-episodes");
+     const episodesRetry=!!area.querySelector("button"),busy=area.getAttribute("aria-busy");
+     mode="success";area.querySelector("button").click();
+     await new Promise(resolve=>setTimeout(resolve,0));
+     late({ok:true,seasons:[]});
+     episodeLate({ok:true,season,episodes:[]});
+     return {seasonsRetry,episodesRetry,busy,text:root.textContent,rows:root.querySelectorAll(".guide-episode").length};
+   }finally{requestMetadata=originalRequest;api.runtime.sendMessage=originalSend;settings.lang=savedLang;closeDrawer();}
+ });
+ assert(guideRecovery.seasonsRetry,"A silent seasons request must offer retry");
+ assert(guideRecovery.episodesRetry,"A silent episodes request must offer retry");
+ assert.equal(guideRecovery.busy,"false");
+ assert.equal(guideRecovery.rows,1);
+ assert(guideRecovery.text.includes("Recovered episode"),"Late timed-out replies cannot erase recovered episodes");
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}

@@ -2764,7 +2764,7 @@ function mountEpisodeGuide(item) {
   const root=document.getElementById("episode-guide");if(!root)return;
   let request=0;
   const active=()=>root.isConnected&&document.getElementById("drawer").classList.contains("open");
-  const send=(seasonId)=>new Promise((resolve,reject)=>api.runtime.sendMessage({type:"CATALOG_EPISODE_GUIDE",item:{type:item.type,externalIds:item.externalIds},seasonId},r=>{if(api.runtime.lastError||!r?.ok)reject(Error("unavailable"));else resolve(r);}));
+  const send=(seasonId)=>new Promise((resolve,reject)=>requestMetadata({type:"CATALOG_EPISODE_GUIDE",item:{type:item.type,externalIds:item.externalIds},seasonId},r=>{if(api.runtime.lastError||!r?.ok)reject(Error("unavailable"));else resolve(r);}));
   const label=s=>(s.number===0?(t("specialsLabel")):t("seasonNumber",{n:s.number}))+(s.name?" — "+s.name:"");
   const fail=(target,retry)=>{
     target.innerHTML='<p class="sub" role="status">'+(t("episodesUnavailable"))+'</p><button class="btn" type="button">'+(t("retryLabel"))+'</button>';
