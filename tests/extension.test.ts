@@ -2197,3 +2197,21 @@ describe("saved anime trailer recovery",()=>{
     expect(w.data["dasi.items"][0]).toMatchObject({episode:7,trailerUrl:"https://youtu.be/ZyXwVu987_-"});
   });
 });
+
+describe("complete provider synopsis retention",()=>{
+  it("retains long AniList and Jikan descriptions with a bounded maximum",()=>{
+    const w=worker();w.ctx.longSynopsis="A".repeat(2400)+" END";
+    expect(w.run('mediaToResult({id:1,title:{english:"Title"},description:longSynopsis,format:"TV"}).synopsis')).toBe(w.ctx.longSynopsis);
+    expect(w.run('jikanMedia({mal_id:1,title:"Title",synopsis:longSynopsis},"watching").synopsis')).toBe(w.ctx.longSynopsis);
+    w.ctx.longSynopsis="A".repeat(25000);
+    expect(w.run('mediaToResult({id:1,title:{english:"Title"},description:longSynopsis,format:"TV"}).synopsis').length).toBe(20000);
+    expect(w.run('jikanMedia({mal_id:1,title:"Title",synopsis:longSynopsis},"watching").synopsis').length).toBe(20000);
+  });
+  it("keeps a series synopsis through search, detail and saving",async()=>{
+    const w=worker();const synopsis="An adventure. ".repeat(200)+"The ending.";
+    w.ctx.fetch=async(url:string)=>({ok:true,json:async()=>String(url).includes("/search/shows")?[{show:{id:1,name:"Series",summary:"<p>"+synopsis+"</p>",genres:[]}}]:String(url).endsWith("/akas")?[]:{id:1,name:"Series",summary:"<p>"+synopsis+"</p>",genres:[]}});
+    const results=await w.run('tvmazeSearch("Series")');expect(results[0].synopsis).toBe(synopsis);
+    w.ctx.selected=results[0];const detail=await w.run('catalogDetail(selected)');expect(detail.synopsis).toBe(synopsis);
+    await w.save(detail);expect(w.data["dasi.items"][0].synopsis).toBe(synopsis);
+  });
+});

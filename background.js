@@ -690,7 +690,7 @@ function mediaToResult(m) {
     cover: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large || m.coverImage.medium)) || "",
     // Smaller AniList size the UI can fall back to if the big one 404s/blocks.
     coverFallback: (m.coverImage && (m.coverImage.medium || m.coverImage.large)) || undefined,
-    synopsis: stripHtml(m.description).slice(0, 700),
+    synopsis: stripHtml(m.description).slice(0, 20000),
     genres: Array.isArray(m.genres) ? [...new Set(m.genres.filter(g=>typeof g==="string"&&g.trim()))].slice(0,80) : [],
     tags: Array.isArray(m.tags)?[...new Set(m.tags.filter(tag=>tag&&typeof tag.name==="string"&&!tag.isMediaSpoiler&&!tag.isGeneralSpoiler&&!tag.isAdult).map(tag=>tag.name.trim()).filter(Boolean))].slice(0,80):[],
     total: type === "reading" ? m.chapters || undefined : m.episodes || undefined,
@@ -768,7 +768,7 @@ function jikanMedia(m,type) {
     externalIds:{mal:String(m.mal_id)},alternativeTitles:[...new Set([m.title,m.title_english,m.title_japanese,...(m.title_synonyms||[]),...(m.titles||[]).map(t=>t.title)].filter(Boolean))],
     authors:(m.authors||[]).map(a=>a.name).filter(Boolean),
     cover:m.images?.jpg?.large_image_url||m.images?.jpg?.image_url||"",
-    coverFallback:m.images?.jpg?.image_url||"",synopsis:stripHtml(m.synopsis),
+    coverFallback:m.images?.jpg?.image_url||"",synopsis:stripHtml(m.synopsis).slice(0,20000),
     genres:[...new Set([...(m.genres||[]),...(m.themes||[]),...(m.demographics||[])].map(g=>g.name).filter(Boolean))],
     format:type==="reading"?(formats[m.type]||"MANGA"):(m.type==="Movie"?"MOVIE":"ANIME"),
     total:type==="reading"?m.chapters||undefined:m.episodes||undefined,
@@ -987,7 +987,7 @@ async function catalogDetail(item) {
       fetchRemote(base+"/akas").then(r=>r.ok?r.json():[]).catch(()=>[])
     ]);
     if(String(show.id)!==ids.tvmaze)throw Error("catalog_identity_mismatch");
-    return {...item,...publicationMetadata({releaseStatus:show.status,releaseScope:"series",releaseSource:"tvmaze"}),genres:Array.isArray(show.genres)?show.genres:[],synopsis:stripHtml(show.summary).slice(0,1500)||item.synopsis,cover:show.image?.original||item.cover,coverFallback:show.image?.medium||item.coverFallback,
+    return {...item,...publicationMetadata({releaseStatus:show.status,releaseScope:"series",releaseSource:"tvmaze"}),genres:Array.isArray(show.genres)?show.genres:[],synopsis:stripHtml(show.summary).slice(0,20000)||item.synopsis,cover:show.image?.original||item.cover,coverFallback:show.image?.medium||item.coverFallback,
       alternativeTitles:[...new Set([...identityTitles(item),show.name,...akas.map(a=>a.name)].filter(Boolean))],
       cast:(show._embedded?.cast||[]).slice(0,20).map(c=>({name:c.person?.name,character:c.character?.name,image:c.person?.image?.medium||c.character?.image?.medium||""})).filter(c=>c.name)
     };
@@ -1094,7 +1094,7 @@ async function tvmazeSearch(query) {
     externalIds:{tvmaze:String(sh.id)},
     type: "watching",
     cover: (sh.image && (sh.image.original || sh.image.medium)) || "",
-    synopsis: stripHtml(sh.summary).slice(0, 500),
+    synopsis: stripHtml(sh.summary).slice(0, 20000),
     genres: Array.isArray(sh.genres) ? [...new Set(sh.genres.filter(g=>typeof g==="string"&&g.trim()))].slice(0,80) : [],
     season: (sh.premiered || "").slice(0, 4) || undefined,
     country: tvmazeCountry(sh) || undefined,
@@ -1142,7 +1142,7 @@ async function wikipediaSearch(query, lang, page=1, onPage, offset=0) {
       title: p.title,
       type: c.type,
       cover: (p.thumbnail && p.thumbnail.source) || "",
-      synopsis: (p.extract || "").slice(0, 500),
+      synopsis: (p.extract || "").slice(0, 20000),
       genres: [],
       country: c.country || undefined,
       format: c.format || undefined,
@@ -1167,7 +1167,7 @@ async function tmdbSearch(query, key, page=1, onPage) {
       title: r.title || r.name,
       type: "watching",
       cover: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : "",
-      synopsis: (r.overview || "").slice(0, 500),
+      synopsis: (r.overview || "").slice(0, 20000),
       genres: [],
       season: (r.release_date || r.first_air_date || "").slice(0, 4) || undefined,
       format: r.media_type === "tv" ? "TV" : "Movie",
@@ -1542,7 +1542,7 @@ async function tvmazeTrending() {
     counts.set(category,count+1);return true;
   }).map(s=>({
     title:s.name,type:"watching",cat:bucket(s),externalIds:{tvmaze:String(s.id)},cover:s.image.original||s.image.medium,coverFallback:s.image.medium,
-    synopsis:stripHtml(s.summary).slice(0,700),genres:s.genres||[],year:s.premiered?Number(s.premiered.slice(0,4)):undefined,
+    synopsis:stripHtml(s.summary).slice(0,20000),genres:s.genres||[],year:s.premiered?Number(s.premiered.slice(0,4)):undefined,
     format:tvmazeFormat(s),country:tvmazeCountry(s)||undefined,releaseStatus:s.status||undefined,releaseScope:"series",releaseSource:"tvmaze",url:s.url||"",recentEpisodes:s.recentEpisodes
   }));
 }
