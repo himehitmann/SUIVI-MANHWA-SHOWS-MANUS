@@ -1903,6 +1903,18 @@ function listMsg(type, payload, done) {
 function backToLists() { currentListId = null; document.getElementById("list-detail").hidden = true; document.getElementById("lib-main").hidden = false; renderLists(); }
 
 /* ================= DRAWER ================= */
+function requestMetadata(message,callback,timeoutMs=15000) {
+  let settled=false;
+  const finish=response=>{if(settled)return;settled=true;clearTimeout(timer);callback(response);};
+  const timer=setTimeout(()=>finish({ok:false,error:"metadata_timeout"}),timeoutMs);
+  try {
+    api.runtime.sendMessage(message,response=>{
+      const error=api.runtime.lastError;
+      finish(error?{ok:false,error:"metadata_transport"}:response);
+    });
+  }catch{finish({ok:false,error:"metadata_transport"});}
+}
+
 function openDrawer(id) {
   ++previewRequest;
   document.getElementById("drawer").dataset.itemId=id;
@@ -2006,7 +2018,7 @@ function wireDrawer(i, isWatch, isGame) {
   document.getElementById("dr-refresh-info").onclick=async e=>{
     const button=e.currentTarget,status=document.getElementById("dr-refresh-status");
     button.disabled=true;status.textContent=t("refreshLoading");
-    api.runtime.sendMessage({type:isGame?"GAME_ENRICH":"COMPLETE_ITEM_METADATA",id:i.id,force:true},r=>{
+    requestMetadata({type:isGame?"GAME_ENRICH":"COMPLETE_ITEM_METADATA",id:i.id,force:true},r=>{
       const failed=api.runtime.lastError||!r?.ok;
       if(document.getElementById("drawer").dataset.itemId!==i.id||!button.isConnected)return;
       button.disabled=false;
@@ -2048,7 +2060,7 @@ function wireDrawer(i, isWatch, isGame) {
     update(i.id, patch);
   }));
   if(!i.cast?.length && (i.anilistId||i.externalIds?.anilist||i.externalIds?.tvmaze)) {
-    api.runtime.sendMessage({type:"CATALOG_DETAIL",item:i},response=>{
+    requestMetadata({type:"CATALOG_DETAIL",item:i},response=>{
       if(api.runtime.lastError||!response?.ok||document.getElementById("drawer").dataset.itemId!==i.id)return;
       const extra=document.getElementById("dr-extra-info");
       if(extra)extra.innerHTML=catalogInformation({...response.item,releaseStatus:undefined,synopsis:undefined,authors:[],alternativeTitles:[]});
@@ -2862,7 +2874,7 @@ function openCatalogPreviewResolved(m) {
   document.getElementById("preview-close").focus();
   mountEpisodeGuide(m);
   if(m.manual){document.getElementById("preview-status").textContent="";return;}
-  api.runtime.sendMessage({type:"CATALOG_DETAIL",item:m},r=>{
+  requestMetadata({type:"CATALOG_DETAIL",item:m},r=>{
     if(token!==previewRequest||!drawer.classList.contains("open")||drawer.dataset.itemId)return;
     const status=document.getElementById("preview-status");
     if(api.runtime.lastError||!r?.ok){if(status)status.textContent=t("detailsUnavailable");return;}

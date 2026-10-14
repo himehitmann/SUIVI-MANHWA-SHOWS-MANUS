@@ -795,5 +795,50 @@ try {
  assert.equal(refreshProbe.absent,"Aucune nouvelle information disponible.");
  assert.equal(refreshProbe.success,"Details updated.");
 
+
+ const metadataTransport=await p.evaluate(async()=>{
+   const original=api.runtime.sendMessage;
+   let late;
+   try {
+     api.runtime.sendMessage=(_message,callback)=>{late=callback;};
+     let completions=0;
+     const timeout=await new Promise(resolve=>requestMetadata({type:"CATALOG_DETAIL"},response=>{completions++;resolve(response);},20));
+     late({ok:true,item:{title:"Too late"}});
+     api.runtime.sendMessage=(_message,callback)=>callback({ok:true,item:{title:"Recovered"}});
+     const recovered=await new Promise(resolve=>requestMetadata({type:"CATALOG_DETAIL"},resolve,20));
+     api.runtime.sendMessage=()=>{throw Error("Disconnected");};
+     const thrown=await new Promise(resolve=>requestMetadata({type:"CATALOG_DETAIL"},resolve,20));
+     return {timeout,recovered,thrown,completions};
+   }finally{api.runtime.sendMessage=original;}
+ });
+ assert.equal(metadataTransport.timeout.error,"metadata_timeout");
+ assert.equal(metadataTransport.completions,1,"A late reply must not complete the same request twice");
+ assert.equal(metadataTransport.recovered.item.title,"Recovered");
+ assert.equal(metadataTransport.thrown.error,"metadata_transport");
+ const refreshTimeout=await p.evaluate(async()=>{
+   const savedItems=items,savedLang=settings.lang,originalSend=api.runtime.sendMessage,originalRequest=requestMetadata;
+   let late;
+   try {
+     settings.lang="fr";
+     items=[{id:"timeout-probe",title:"Saved",type:"watching",episode:3,cast:[{name:"Known"}],synopsis:"Keep"}];
+     api.runtime.sendMessage=(message,callback)=>{
+       if(message.type==="COMPLETE_ITEM_METADATA"){late=callback;return;}
+       return originalSend.call(api.runtime,message,callback);
+     };
+     requestMetadata=(message,callback)=>originalRequest(message,callback,20);
+     openDrawer("timeout-probe");
+     document.getElementById("dr-refresh-info").click();
+     await new Promise(resolve=>setTimeout(resolve,60));
+     const enabled=!document.getElementById("dr-refresh-info").disabled;
+     const message=document.getElementById("dr-refresh-status").textContent;
+     late({ok:true,matched:true,status:"matched",item:{id:"timeout-probe",title:"Late replacement",type:"watching",episode:0}});
+     return {enabled,message,title:items[0].title,episode:items[0].episode};
+   }finally{requestMetadata=originalRequest;api.runtime.sendMessage=originalSend;closeDrawer();items=savedItems;settings.lang=savedLang;}
+ });
+ assert(refreshTimeout.enabled,"Timeout releases the refresh button");
+ assert.equal(refreshTimeout.message,"Actualisation impossible. Réessaie.");
+ assert.equal(refreshTimeout.title,"Saved");
+ assert.equal(refreshTimeout.episode,3);
+
  console.log('PASS: bulk copy preserves source; move; keyboard reorder; remove preserves library; mobile width');
 }finally{await context.close();}
