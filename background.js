@@ -1721,6 +1721,14 @@ async function consolidateReadingIdentity(items,id) {
   return {items:next,item:merged,mergedIds,lists,notifications};
 }
 
+// Repair only recognizable legacy cuts; never replace a different saved summary.
+function canExtendSynopsis(saved,incoming) {
+  if(typeof incoming!=="string"||!incoming)return false;
+  if(!saved)return true;
+  return typeof saved==="string"&&[500,700,1500].includes(saved.length)&&
+    incoming.length>saved.length&&incoming.startsWith(saved);
+}
+
 async function enrichWork(id,force=false,lease=null) {
   const epoch=accountEpoch;
   const items = await read(ITEMS_KEY, []);
@@ -1760,7 +1768,7 @@ async function enrichWork(id,force=false,lease=null) {
   if (match) {
     if (!it.coverOverride && match.cover) patch.cover = match.cover; // real series cover (fixes episode-thumbnail covers)
     if (!it.coverFallback && match.coverFallback) patch.coverFallback = match.coverFallback;
-    if (!it.synopsis && match.synopsis) patch.synopsis = match.synopsis;
+    if (canExtendSynopsis(it.synopsis,match.synopsis)) patch.synopsis = match.synopsis;
     if(Array.isArray(match.genres)&&match.genres.length)patch.genres=[...new Set(match.genres)];
     if(Array.isArray(match.tags)&&match.tags.length)patch.catalogTags=[...new Set(match.tags)];
     if ((!it.tags || !it.tags.length) && match.genres?.length) patch.tags = match.genres;

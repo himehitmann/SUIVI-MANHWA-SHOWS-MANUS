@@ -2215,3 +2215,45 @@ describe("complete provider synopsis retention",()=>{
     await w.save(detail);expect(w.data["dasi.items"][0].synopsis).toBe(synopsis);
   });
 });
+
+describe("legacy synopsis repair",()=>{
+  it("extends only exact prefixes at previous truncation boundaries",()=>{
+    const w=worker();
+    for(const size of [500,700,1500]) {
+      w.ctx.saved="A".repeat(size);w.ctx.full=w.ctx.saved+" The rest.";
+      expect(w.run('canExtendSynopsis(saved,full)')).toBe(true);
+      expect(w.run('canExtendSynopsis(saved,"B"+full)')).toBe(false);
+      expect(w.run('canExtendSynopsis(saved,saved)')).toBe(false);
+    }
+    expect(w.run('canExtendSynopsis("Personal summary","Personal summary extended")')).toBe(false);
+    expect(w.run('canExtendSynopsis("", "New synopsis")')).toBe(true);
+    expect(w.run('canExtendSynopsis("Keep", "")')).toBe(false);
+  });
+  it("repairs a previously enriched saved work through the refresh message",async()=>{
+    const short="A".repeat(700),full=short+" End of synopsis.";
+    const w=worker({"dasi.items":[{id:"a",title:"Saved",type:"reading",chapter:8,rating:4,externalIds:{anilist:"10"},cover:"custom",coverOverride:true,synopsis:short,enrichedAt:1,identityVersion:1}]});
+    w.ctx.fullSynopsis=full;w.run('anilistDetail=async()=>({type:"reading",externalIds:{anilist:"10"},cover:"provider",synopsis:fullSynopsis})');
+    const response=await w.call({type:"COMPLETE_ITEM_METADATA",id:"a",force:true});
+    expect(response.ok).toBe(true);
+    expect(response.item).toMatchObject({synopsis:full,chapter:8,rating:4,cover:"custom"});
+    expect(w.data["dasi.items"][0].synopsis).toBe(full);
+    const restored=worker(w.data);expect((await restored.run('read(ITEMS_KEY,[])'))[0].synopsis).toBe(full);
+  });
+  it("retains a custom synopsis and an edit made during lookup",async()=>{
+    const w=worker({"dasi.items":[{id:"a",title:"Saved",type:"reading",externalIds:{anilist:"10"},synopsis:"Custom summary"}]});
+    w.run('anilistDetail=async()=>({type:"reading",externalIds:{anilist:"10"},synopsis:"A".repeat(1000)})');
+    await w.run('enrichWork("a",true)');
+    expect(w.data["dasi.items"][0].synopsis).toBe("Custom summary");
+    w.data["dasi.items"][0].synopsis="A".repeat(700);
+    let release:any,started:any;
+    const ready=new Promise(resolve=>{started=resolve;});
+    w.ctx.lookupStarted=started;
+    w.ctx.pendingDetail=new Promise(resolve=>{release=resolve;});
+    w.run('anilistDetail=()=>{lookupStarted();return pendingDetail;};');
+    const task=w.run('enrichWork("a",true)');await ready;
+    w.data["dasi.items"][0].synopsis="Edited while loading";
+    release({type:"reading",externalIds:{anilist:"10"},synopsis:"A".repeat(1000)});
+    await task;
+    expect(w.data["dasi.items"][0].synopsis).toBe("Edited while loading");
+  });
+});
