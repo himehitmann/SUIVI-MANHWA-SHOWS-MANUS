@@ -1,6 +1,6 @@
 # Suivi global Yomu
 
-Mise à jour : 14 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 15 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
@@ -17,6 +17,8 @@ La livraison a été trop fragmentée en petits correctifs. Priorité : terminer
 G03 avait été validé, mais les captures utilisateur du 10 octobre montrent des écarts visuels importants. Il repasse partiel : la validation antérieure était insuffisante. Les corrections de hauteur de bannière, de cartes uniformes et de navigation sont en cours de revalidation. Le dénominateur reste 60. G09 est également validé depuis la CI #614 : combinaison des filtres et distinction explicite entre œuvre/série terminée, saison/partie terminée et portée inconnue, avec sauvegarde et rechargement vérifiés dans Chrome.
 
 ## Preuves actuelles
+
+[CI #767](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38584169795), commit f0f9723fe7cdfe8b1ae18e08ff672f44eb0a8656 : suite complète et capacité isolée réussies. Les réponses Steam enregistrent la disponibilité du prix et l’instant de consultation. Les fiches catalogue et bibliothèque affichent une indication traduite dans huit langues : prix indicatif pour une réponse disponible datant de moins de dix minutes au rendu, dernier prix connu sinon (absence, ancien enregistrement, donnée expirée). Le montant et ses deux métadonnées sont protégés ensemble contre une modification concurrente. Tests : réponse sans prix conservant le montant mais marquant son indisponibilité, persistance après restauration, protection de l’ensemble des champs, libellés français pour prix récent/absent/ancien et présence du montant dans la fiche. Aucune actualisation continue du libellé pendant une fiche laissée ouverte, aucune garantie du prix au paiement ni de la région ; tests fournisseurs simulés. Score inchangé 19/60. Aucun déploiement ni mise à jour du Chrome utilisateur.
 
 [CI #763](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38583079648), commit 2be2488cc0a2a083948556fa0a0fb9ee12d51f96 : suite complète et capacité isolée réussies. La requête Steam appdetails demande price_overview ; son prix formaté est retenu avec sa devise fournisseur, sous validation du montant entier non négatif et du code devise. is_free explicite produit Free, absence de prix ne devient pas gratuit. L’enrichissement remplace désormais un prix enregistré lorsqu’une valeur est disponible ; la garde de modifications concurrentes reste active. Tests simulés : extraction, prix nul/absent/invalide, requête contenant le filtre, prix payant modifié puis gratuit via GAME_ENRICH, note conservée et édition concurrente préservée. Aucun prix en boutique n’a été certifié en direct ; l’accès de vérification web à appdetails était indisponible. Sans prix fournisseur, l’ancien est conservé et peut être périmé ; pas de conversion ni garantie régionale, ni validation des autres boutiques. Score inchangé 19/60. Aucun déploiement ni mise à jour du Chrome utilisateur.
 
