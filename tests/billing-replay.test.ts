@@ -76,3 +76,35 @@ describe("billing event order",()=>{
     expect(billingReceipt("paddle",{event_id:"evt_valid",occurred_at:"invalid",data:{id:"sub_valid"}})).toBeNull();
   });
 });
+
+describe("multiple paid subscription entitlements",()=>{
+  const receipt=(provider:"stripe"|"paddle",resourceId:string,eventId:string,occurredAt:number)=>({provider,resourceId,eventId,occurredAt});
+  it("keeps Pro until every active subscription ends, across providers",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",receipt("stripe","sub_a","evt_a",1000));
+    await store.applyBillingEvent(user.id,"pro",receipt("paddle","sub_b","evt_b",2000));
+    await store.applyBillingEvent(user.id,"free",receipt("stripe","sub_a","evt_a_end",3000));
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+    await store.applyBillingEvent(user.id,"free",receipt("paddle","sub_b","evt_b_end",4000));
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+    await store.applyBillingEvent(user.id,"pro",receipt("stripe","sub_a","evt_a_old",2000));
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+  });
+  it("retains the other entitlement across restart and simultaneous changes",async()=>{
+    const dir=mkdtempSync(join(tmpdir(),"yomu-multiple-plans-"));
+    try{
+      const file=join(dir,"accounts.json"),store=createStore(file);await store.createUser(user);
+      await store.applyBillingEvent(user.id,"pro",receipt("stripe","sub_a","evt_a",1000));
+      await store.applyBillingEvent(user.id,"pro",receipt("stripe","sub_b","evt_b",1000));
+      const restarted=createStore(file);
+      await Promise.all([
+        restarted.applyBillingEvent(user.id,"free",receipt("stripe","sub_a","evt_a_end",2000)),
+        restarted.applyBillingEvent(user.id,"pro",receipt("stripe","sub_b","evt_b_renew",2000)),
+      ]);
+      expect((await restarted.getUserById(user.id))?.plan).toBe("pro");
+      await restarted.createUser({...user,id:"separate",email:"separate@example.test"});
+      await restarted.applyBillingEvent("separate","free",receipt("stripe","sub_separate","evt_separate",3000));
+      expect((await restarted.getUserById("separate"))?.plan).toBe("free");
+    }finally{rmSync(dir,{recursive:true,force:true});}
+  });
+});

@@ -86,7 +86,9 @@ export function createPostgresStore(client: SqlClient): Store {
         if(head&&receipt.occurredAt===Number(head.occurred_at)&&plan!==head.plan){await connection.query("ROLLBACK");return {ok:false,reason:"billing_order_ambiguous"};}
         if(head&&receipt.occurredAt!<=Number(head.occurred_at)){await connection.query("COMMIT");return {ok:true,unchanged:true};}
         if(ordered)await connection.query("INSERT INTO billing_heads (provider,resource_id,user_id,occurred_at,plan) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (provider,resource_id) DO UPDATE SET occurred_at=EXCLUDED.occurred_at,plan=EXCLUDED.plan",[receipt.provider,receipt.resourceId,userId,receipt.occurredAt,plan]);
-        const oldPlan=locked.rows[0].plan,nextPlan=oldPlan==="lifetime"?oldPlan:plan;
+        const active=ordered?(await connection.query("SELECT plan FROM billing_heads WHERE user_id=$1",[userId])).rows:[];
+        const entitled=ordered?(active.some(h=>h.plan==="lifetime")?"lifetime":active.some(h=>h.plan==="pro")?"pro":"free"):plan;
+        const oldPlan=locked.rows[0].plan,nextPlan=oldPlan==="lifetime"?oldPlan:entitled;
         if(oldPlan!==nextPlan)await connection.query("UPDATE users SET plan = $2 WHERE id = $1",[userId,nextPlan]);
         await connection.query("COMMIT");
         return oldPlan===nextPlan?{ok:true,unchanged:true}:{ok:true,plan:nextPlan};

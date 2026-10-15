@@ -99,8 +99,10 @@ export function createStore(filePath?: string): Store {
       if(head&&receipt.occurredAt===head.occurredAt&&plan!==head.plan)return {ok:false,reason:"billing_order_ambiguous"};
       const stale=head&&receipt.occurredAt!<=head.occurredAt!;
       if(stale){persist({...snap,billing:[...snap.billing,{...receipt,userId}]});return {ok:true,unchanged:true};}
-      const nextPlan=user.plan==="lifetime"?user.plan:plan;
       const billingHeads=ordered?[...snap.billingHeads.filter(h=>h.provider!==receipt.provider||h.resourceId!==receipt.resourceId),{...receipt,userId,plan}]:snap.billingHeads;
+      const active=billingHeads.filter(h=>h.userId===userId);
+      const entitled=ordered?(active.some(h=>h.plan==="lifetime")?"lifetime":active.some(h=>h.plan==="pro")?"pro":"free"):plan;
+      const nextPlan=user.plan==="lifetime"?user.plan:entitled;
       persist({...snap,users:snap.users.map(u=>u.id===userId?{...u,plan:nextPlan}:u),billing:[...snap.billing,{...receipt,userId}],billingHeads});
       return user.plan===nextPlan?{ok:true,unchanged:true}:{ok:true,plan:nextPlan};
     },
