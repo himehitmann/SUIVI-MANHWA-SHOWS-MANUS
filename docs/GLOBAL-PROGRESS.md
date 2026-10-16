@@ -1,12 +1,16 @@
 # Suivi global Yomu
 
-Mise à jour : 15 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 16 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Remboursement intégral Stripe Lifetime — 16 octobre 2026
+
+[CI #775](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/38904735402), commit 3d0c0699b1cfd61b61b04a88e103c267ccea6397 : suite complète et capacité isolée réussies. Le webhook signé vérifie la charge actuelle, le total des remboursements réussis, la session Checkout correspondant au PaymentIntent et le produit Lifetime configuré. Retrait du seul achat remboursé ; autres achats Lifetime, abonnements et anciens droits non rattachés conservés. Marqueur durable empêchant les confirmations tardives de réactiver cet achat. Tests : remboursement partiel/en attente/échoué, sommes de remboursements, preuves incohérentes, signature invalide, panne fournisseur réessayable, livraison avant achat, dates égales, doublons, mauvais compte, redémarrage fichier et PostgreSQL, remboursements simultanés avec conservation de Pro. Les tests HTTP simulent Stripe ; aucun remboursement réel ni cycle déployé effectué. Configuration des événements et limites dans [STRIPE-REFUNDS.md](STRIPE-REFUNDS.md). Paddle, contestations, réconciliation des abonnements à dates égales et cycle fournisseur sur le déploiement restent ouverts. G20 partiel, score inchangé 19/60 (32 %). Aucun déploiement ni publication.
 
 ## Pourquoi le compteur évolue peu
 
@@ -116,7 +120,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G17 | Traduction automatique par site, arrêt/restauration et permissions | P | CI #618 : paquet Chrome sur page HTTPS, permission réelle, OCR image réel, navigation entre chapitres, désactivation et restauration texte/images vérifiés. CI #628 : activation depuis le véritable popup Chrome et langues choisies vérifiées sans simuler les API de permissions. Première demande native sur site non autorisé encore à vérifier. |
 | G18 | Rôles propriétaires/admin et cadeaux contrôlés côté serveur | V | Tests HTTP, rôle revérifié, expiration, rejeu, transaction PostgreSQL et journal durable. Activation du propriétaire réel distincte. |
 | G19 | Console admin utilisable : recherche exacte, confirmation, motif et mobile | V | Parcours web annulation/confirmation et écran étroit ; API simulée pour ce parcours, tests serveur séparés. |
-| G20 | Paiement, renouvellement, annulation, remboursement et droits de bout en bout | P | CI #642 : produits/états reconnus exigés, détails Stripe manquants récupérés côté serveur, panne réessayable et réponses bornées. CI #646 : reçus durables et rejeu atomique vérifiés sur PostgreSQL. CI #652 : ordre d’événements distincts d’un même abonnement vérifié. CI #771 : agrégation multi-abonnements vérifiée avec persistance PostgreSQL et événements simultanés. Réconciliation des dates égales, remboursements et cycle déployé restent ouverts. |
+| G20 | Paiement, renouvellement, annulation, remboursement et droits de bout en bout | P | CI #642 : produits/états reconnus exigés, détails Stripe manquants récupérés côté serveur, panne réessayable et réponses bornées. CI #646 : reçus durables et rejeu atomique vérifiés sur PostgreSQL. CI #652 : ordre d’événements distincts d’un même abonnement vérifié. CI #771 : agrégation multi-abonnements vérifiée avec persistance PostgreSQL et événements simultanés. CI #775 : remboursements intégraux Stripe Lifetime vérifiés en HTTP simulé et PostgreSQL réel isolé. Réconciliation des dates égales d’abonnements, remboursements Paddle/contestations et cycle déployé restent ouverts. |
 | G21 | Prix et avantages cohérents, coûts bornés et marge mesurée | P | Recherche tarifaire réalisée ; droits gratuits/Pro à réconcilier, frais réels et consommation à instrumenter avant engagement commercial. |
 | G22 | Guide de prise en main accessible depuis accueil et réglages | V | Guide illustré FR/EN et parcours web navigation/mobile. Il est étiqueté comme exemple ; aucune fausse vidéo de démonstration. |
 | G23 | Déploiement robuste, conformité, sauvegarde restaurable et charge prolongée | P | Sonde CI PostgreSQL réussie ; ce n’est pas une capacité de production. Informations exploitant, droits sources/images, sauvegarde/restore, endurance et coûts réels restent ouverts. |
