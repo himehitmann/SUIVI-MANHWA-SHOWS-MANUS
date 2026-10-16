@@ -269,7 +269,63 @@ try {
   await worker.evaluate(state=>chrome.storage.local.set(state),identitySavedState);
   await page.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:'GET_STATE'},state=>{hydrate(state);resolve();})));
 
+  // Delay actual storage-refresh callbacks to prove older snapshots cannot remove a restored card.
+  const refreshBaseline=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
+  await page.evaluate(()=>{
+    globalThis.refreshRaceOriginal=api.runtime.sendMessage;
+    globalThis.refreshRaceCallbacks=[];
+    api.runtime.sendMessage=function(message,callback){
+      if(message.type==="GET_STATE"){globalThis.refreshRaceCallbacks.push(callback);return;}
+      return globalThis.refreshRaceOriginal.call(api.runtime,message,callback);
+    };
+  });
+  try{
+    const original=refreshBaseline["dasi.items"].find(item=>item.id==="alchemy-of-souls");
+    assert(original,"Library fixture missing before refresh race");
+    await worker.evaluate(()=>chrome.storage.local.set({"dasi.items":[{id:"older-refresh",title:"Outdated snapshot",type:"watching",enrichedAt:1}]}));
+    await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=1);
+    const restored={...original,enrichedAt:Date.now(),episode:7};
+    await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[item]}),restored);
+    await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=2);
+    await page.evaluate(({restored,lists})=>{
+      const callbacks=globalThis.refreshRaceCallbacks.splice(0);
+      callbacks.at(-1)({items:[restored],lists});
+      callbacks[0]({items:[{id:"older-refresh",title:"Outdated snapshot",type:"watching",enrichedAt:1}],lists:[]});
+      switchView("library");
+    },{restored,lists:refreshBaseline["dasi.lists"]});
+    assert.equal(await page.locator('#grid [data-open="alchemy-of-souls"]').count(),1,"An older refresh removed the latest library card");
+    assert.equal(await page.evaluate(()=>items.find(item=>item.id==="alchemy-of-souls").episode),7);
+    assert.equal(await page.evaluate(()=>items.some(item=>item.id==="older-refresh")),false);
+
+    // A progress-only storage update must invalidate an in-flight metadata refresh too.
+    await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[{...item,enrichedAt:item.enrichedAt+1}]}),restored);
+    await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=1);
+    const progressVersion=await page.evaluate(()=>storageRefreshVersion);
+    const progressed={...restored,enrichedAt:restored.enrichedAt+1,episode:9};
+    await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[item]}),progressed);
+    await page.waitForFunction(version=>storageRefreshVersion>version,progressVersion);
+    await page.evaluate(item=>{
+      items=[item];renderGrid();
+      for(const callback of globalThis.refreshRaceCallbacks.splice(0))callback({items:[{...item,episode:7}],lists:[]});
+    },progressed);
+    assert.equal(await page.evaluate(()=>items[0].episode),9,"An old metadata refresh overwrote a progress-only change");
+
+    // Explicit hydration after import/account refresh also supersedes pending background responses.
+    await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[{...item,enrichedAt:item.enrichedAt+1}]}),progressed);
+    await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=1);
+    await page.evaluate(({item,lists})=>{
+      hydrate({items:[item],lists,settings});
+      for(const callback of globalThis.refreshRaceCallbacks.splice(0))callback({items:[],lists:[]});
+    },{item:progressed,lists:refreshBaseline["dasi.lists"]});
+    assert.equal(await page.locator('#grid [data-open="alchemy-of-souls"]').count(),1,"A pending refresh overrode explicit hydration");
+  }finally{
+    await page.evaluate(()=>{api.runtime.sendMessage=globalThis.refreshRaceOriginal;delete globalThis.refreshRaceOriginal;delete globalThis.refreshRaceCallbacks;});
+    await worker.evaluate(state=>chrome.storage.local.set(state),refreshBaseline);
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);resolve();})));
+  }
+
   await page.locator("#q").fill("old");
+
   await page.waitForTimeout(350);
   await page.locator("#q").fill("Aniimo");
   await page.locator("[data-preview]").first().waitFor();

@@ -2937,7 +2937,9 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDra
 document.getElementById("crop-scrim").onclick = closeCropper;
 
 /* ---- boot ---- */
+let storageRefresh = 0, storageRefreshVersion = 0;
 function hydrate(state) {
+  ++storageRefreshVersion; clearTimeout(storageRefresh);
   items = state?.items || []; sites = state?.sites || []; notifications = state?.notifications || [];
   lists = state?.lists || []; settings = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" }, ...(state?.settings || {}) };
   document.documentElement.lang = settings.lang;
@@ -2947,16 +2949,17 @@ function hydrate(state) {
 api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
 // Background metadata lookups finish after an import. Refresh the open library
 // as storage changes so covers and episode totals appear without a page reload.
-let storageRefresh = 0;
 api.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes["dasi.items"]) return;
+  const version=++storageRefreshVersion;
+  clearTimeout(storageRefresh);
   const change = changes["dasi.items"];
   const signature=item=>JSON.stringify([item.enrichedAt,item.releaseCheckedAt,item.gameEnrichedAt,item.metadataPending,item.metadataStatus]);
   const before=new Map((change.oldValue||[]).map(item=>[item.id,signature(item)]));
   if(!(change.newValue||[]).some(item=>before.get(item.id)!==signature(item))&&(change.oldValue||[]).length===(change.newValue||[]).length)return;
-  clearTimeout(storageRefresh);
   storageRefresh = setTimeout(() => api.runtime.sendMessage({ type: "GET_STATE" }, state => {
-    if (api.runtime.lastError || !Array.isArray(state?.items)) return;
+    const error=api.runtime.lastError;
+    if (error || version!==storageRefreshVersion || !Array.isArray(state?.items)) return;
     items = state.items;
     if (Array.isArray(state.lists)) lists = state.lists;
     // Preserve selected list rows, open editors, profile and navigation state.
