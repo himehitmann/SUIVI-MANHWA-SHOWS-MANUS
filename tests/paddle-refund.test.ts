@@ -30,9 +30,9 @@ describe("Paddle full Lifetime refunds",()=>{
       const rejected=vi.fn();await expect(resolvePaddleRefund(event(),map,"key",environment,rejected)).rejects.toThrow();expect(rejected).not.toHaveBeenCalled();
     }
   });
-  it("ignores partial, unapproved, credit and recurring adjustments without fetching",async()=>{
+  it("ignores unapproved, credit and recurring adjustments without fetching",async()=>{
     const request=vi.fn();
-    for(const patch of [{type:"partial"},{status:"pending_approval"},{status:"rejected"},{action:"credit"},{action:"chargeback"},{subscription_id:"sub_recurring"}]){
+    for(const patch of [{status:"pending_approval"},{status:"rejected"},{action:"credit"},{action:"chargeback"},{subscription_id:"sub_recurring"}]){
       expect(await resolvePaddleRefund({...event(),data:{...event().data,...patch}},map,"key","live",request)).toBeNull();
     }
     expect(await resolvePaddleRefund({...event(),event_type:"transaction.updated"},map,"key","live",request)).toBeNull();
@@ -100,4 +100,49 @@ it("verifies HTTP signature before lookup and retries a failed Paddle lookup",as
     expect((await store.getUserById("buyer"))?.plan).toBe("free");
     expect((await send()).status).toBe(200);expect((await store.getUserById("buyer"))?.plan).toBe("free");
   }finally{await new Promise<void>(resolve=>server.close(()=>resolve()));}
+});
+
+describe("cumulative Paddle partial refunds",()=>{
+  const partial=(id=adj,total="2500")=>({...event().data,id,type:"partial",totals:{total}});
+  const page=(data:any[],has_more=false)=>({data,meta:{pagination:{has_more}}});
+  const run=async(entries:any[],has_more=false)=>{
+    const request=vi.fn().mockResolvedValueOnce(response()).mockResolvedValueOnce(new Response(JSON.stringify(page(entries,has_more))));
+    return resolvePaddleRefund({...event(),data:partial()},map,"key","live",request);
+  };
+  it("revokes only once approved partials cover the entire purchase",async()=>{
+    expect(await run([partial()])).toBeNull();
+    const result=await run([partial(),partial("adj_"+"d".repeat(26))]);
+    expect(result?.intent.plan).toBe("free");
+    expect(result?.receipt.resourceId).toBe(txn);
+    expect(result?.receipt.revokeLifetime).toBe(true);
+  });
+  it("does not count pending/rejected refunds, credits or disputes as returned money",async()=>{
+    for(const patch of [{status:"pending_approval"},{status:"rejected"},{action:"credit"},{action:"chargeback"}]){
+      expect(await run([partial(),{...partial("adj_"+"d".repeat(26)),...patch}])).toBeNull();
+    }
+  });
+  it("requires complete, unique and consistent provider evidence",async()=>{
+    const other=partial("adj_"+"d".repeat(26));
+    for(const entries of [
+      [partial(),partial()],
+      [other],
+      [partial(),{...other,transaction_id:"txn_"+"z".repeat(26)}],
+      [partial(),{...other,customer_id:"ctm_"+"z".repeat(26)}],
+      [partial(),{...other,currency_code:"USD"}],
+      [partial(),{...other,totals:{total:"3000"}}],
+      [{...partial(),status:"pending_approval"},other],
+    ])await expect(run(entries)).rejects.toThrow("billing_lookup_unavailable");
+    await expect(run([partial(),other],true)).rejects.toThrow("billing_lookup_unavailable");
+  });
+  it("preserves access after the first partial, then revokes and ignores an old purchase",async()=>{
+    const store=createStore();await store.createUser({id:"buyer",email:"buyer@example.test",passwordHash:"x",plan:"free",createdAt:1});
+    await store.applyBillingEvent("buyer","lifetime",{provider:"paddle",resourceId:txn,eventId:"purchase",occurredAt:1});
+    const first=await run([partial()]);expect(first).toBeNull();
+    expect((await store.getUserById("buyer"))?.plan).toBe("lifetime");
+    const final=await run([partial(),partial("adj_"+"d".repeat(26))]);
+    await applyPlanIntent(store,final!.intent,final!.receipt);
+    await applyPlanIntent(store,final!.intent,final!.receipt);
+    await store.applyBillingEvent("buyer","lifetime",{provider:"paddle",resourceId:txn,eventId:"late",occurredAt:Date.now()+1000});
+    expect((await store.getUserById("buyer"))?.plan).toBe("free");
+  });
 });
