@@ -5,6 +5,7 @@
  * are HMAC-signed tokens, and storage is behind a swappable interface.
  */
 import { z } from "zod";
+import { resolvePaddleRefund } from "./lib/paddle-refund";
 import { resolveStripeRefund } from "./lib/stripe-refund";
 import { completeStripeCheckout } from "./lib/stripe-checkout";
 import { AccessError, createMemoryAccessStore, effectivePlan, effectiveRole, type AccessStore } from "./lib/access";
@@ -194,8 +195,11 @@ export function createApiRouter(
       } catch {
         return res.status(400).json({ error: "invalid_json" });
       }
-      const intent=planFromPaddleEvent(event, PADDLE_PRICES);
-      const receipt=billingReceipt("paddle",event);
+      let refund:Awaited<ReturnType<typeof resolvePaddleRefund>>=null;
+      try{refund=await resolvePaddleRefund(event,PADDLE_PRICES,process.env.PADDLE_API_KEY||"",process.env.PADDLE_ENVIRONMENT||"live");}
+      catch{return res.status(503).json({error:"billing_lookup_unavailable"});}
+      const intent=refund?.intent||planFromPaddleEvent(event, PADDLE_PRICES);
+      const receipt=refund?.receipt||billingReceipt("paddle",event);
       if(intent&&!receipt)return res.status(400).json({error:"invalid_billing_event"});
       const result = await applyPlanIntent(store,intent,receipt||undefined);
       if(result.reason==="user_not_found")return res.status(503).json({error:"billing_account_unavailable"});

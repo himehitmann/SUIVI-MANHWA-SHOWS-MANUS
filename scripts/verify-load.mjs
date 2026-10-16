@@ -173,6 +173,21 @@ try {
     assert.equal((await restarted.getUserById('account-9')).plan,'lifetime');
    }finally{await refundReader.end();}
    report.results.push({name:'postgres-lifetime-refunds',concurrentRefundsPreserveSubscription:true,latePurchaseCannotRestore:true,refundBeforePurchase:true,ownershipChecked:true,legacyGrantPreserved:true,persistedAcrossConnections:true});
+   const paddleTxn='txn_paddle_refund_probe',paddleReceipt=(eventId,occurredAt,revokeLifetime=false)=>({provider:'paddle',resourceId:paddleTxn,eventId,occurredAt,revokeLifetime});
+   await billingStore.applyBillingEvent('account-8','pro',{provider:'stripe',resourceId:'sub_paddle_keep',eventId:'evt_paddle_keep',occurredAt:1000});
+   await billingStore.applyBillingEvent('account-8','lifetime',paddleReceipt('evt_paddle_buy',1000));
+   await Promise.all([
+    billingStore.applyBillingEvent('account-8','free',paddleReceipt('evt_paddle_refund',2000,true)),
+    billingStore.applyBillingEvent('account-8','free',paddleReceipt('evt_paddle_refund',2000,true)),
+   ]);
+   const paddleReader=new pg.Pool({...poolConfig,options:'-c search_path='+schema});
+   try{
+    const restarted=createPostgresStore(paddleReader);
+    await restarted.applyBillingEvent('account-8','lifetime',paddleReceipt('evt_paddle_late',3000));
+    assert.equal((await restarted.getUserById('account-8')).plan,'pro');
+    assert.equal(Number((await paddleReader.query("SELECT count(*) AS n FROM billing_events WHERE provider='paddle' AND event_id='evt_paddle_refund'")).rows[0].n),1);
+   }finally{await paddleReader.end();}
+   report.results.push({name:'postgres-paddle-refund',duplicateAppliedOnce:true,stripeSubscriptionPreserved:true,latePurchaseBlocked:true,independentPoolPersistence:true});
    const rights=createPostgresAccessStore(pool),owners=new Set(['account-0']),request={requestId:'gift-duplicate',expectedVersion:0,kind:'gift',days:30,reason:'Isolated persistence probe'};
    const duplicate=await Promise.all([rights.change('account-0','account-1',request,owners),rights.change('account-0','account-1',request,owners)]);
    assert.deepEqual(duplicate[0],duplicate[1]);assert.equal((await rights.audit()).length,1);
