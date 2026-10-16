@@ -151,3 +151,58 @@ describe("lifetime purchase refunds",()=>{
     expect((await store.getUserById(user.id))?.plan).toBe("pro");
   });
 });
+
+describe("equal-time subscription reconciliation",()=>{
+  const r=(eventId:string,occurredAt=1000)=>({provider:"stripe" as const,resourceId:"sub_tie",eventId,occurredAt});
+  it("uses current provider state and remembers the resolved event",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",r("evt_initial"));
+    let reads=0;const resolve=async()=>{reads++;return "free" as const;};
+    await store.applyBillingEvent(user.id,"free",r("evt_tied"),resolve);
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+    await store.applyBillingEvent(user.id,"pro",r("evt_tied"),resolve);
+    expect(reads).toBe(1);
+    await store.applyBillingEvent(user.id,"pro",r("evt_older",500),resolve);
+    expect(reads).toBe(1);
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+  });
+  it("does not consume an event when lookup fails and can retry",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",r("evt_initial"));
+    expect((await store.applyBillingEvent(user.id,"free",r("evt_retry"),async()=>{throw new Error("down");})).reason).toBe("billing_lookup_unavailable");
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+    await store.applyBillingEvent(user.id,"free",r("evt_retry"),async()=>"free");
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+  });
+  it("rejects a lookup made stale by a newer delivery while awaiting the provider",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",r("evt_initial"));
+    let finish!:(plan:"free")=>void;
+    const pending=store.applyBillingEvent(user.id,"free",r("evt_tied"),()=>new Promise(resolve=>{finish=resolve;}));
+    await store.applyBillingEvent(user.id,"pro",r("evt_newer",2000));
+    finish("free");expect((await pending).reason).toBe("billing_order_ambiguous");
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+    await store.applyBillingEvent(user.id,"free",r("evt_tied"),async()=>"free");
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+  });
+  it("preserves another active subscription when the tied one has ended",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",r("evt_initial"));
+    await store.applyBillingEvent(user.id,"pro",{...r("evt_other"),resourceId:"sub_other"});
+    await store.applyBillingEvent(user.id,"free",r("evt_tied"),async()=>"free");
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+  });
+});
+
+it("does not let later delivery of an intermediate state override a reconciled current state",async()=>{
+  const dir=mkdtempSync(join(tmpdir(),"yomu-reconcile-"));
+  try{
+    const file=join(dir,"accounts.json"),store=createStore(file);await store.createUser(user);
+    const r=(eventId:string,occurredAt:number)=>({provider:"stripe" as const,resourceId:"sub_tie",eventId,occurredAt});
+    await store.applyBillingEvent(user.id,"pro",r("initial",1000));
+    await store.applyBillingEvent(user.id,"free",r("tie",1000),async()=>"free");
+    const restarted=createStore(file);let reads=0;
+    await restarted.applyBillingEvent(user.id,"pro",r("intermediate",2000),async()=>{reads++;return "free";});
+    expect(reads).toBe(1);expect((await restarted.getUserById(user.id))?.plan).toBe("free");
+  }finally{rmSync(dir,{recursive:true,force:true});}
+});

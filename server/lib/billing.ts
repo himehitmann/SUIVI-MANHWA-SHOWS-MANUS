@@ -10,7 +10,7 @@
  * the resulting plan.
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { Store, BillingReceipt } from "./store";
+import type { Store, BillingReceipt, UserRecord } from "./store";
 
 export type Plan = "free" | "pro" | "lifetime";
 
@@ -177,7 +177,7 @@ export interface ApplyResult {
  * downgraded by a later subscription/cancel event. Resolves the user by id
  * first, then email.
  */
-export async function applyPlanIntent(store: Store, intent: PlanIntent | null, receipt?: BillingReceipt): Promise<ApplyResult> {
+export async function applyPlanIntent(store: Store, intent: PlanIntent | null, receipt?: BillingReceipt, resolveAmbiguity?: (user:UserRecord)=>Promise<Plan>): Promise<ApplyResult> {
   if (!intent) return { ok: false, reason: "no_intent" };
   const user = intent.userId
     ? await store.getUserById(intent.userId)
@@ -185,7 +185,7 @@ export async function applyPlanIntent(store: Store, intent: PlanIntent | null, r
       ? await store.getUserByEmail(intent.email)
       : null;
   if (!user) return { ok: false, reason: "user_not_found" };
-  if (receipt) return store.applyBillingEvent(user.id, intent.plan, receipt);
+  if (receipt) return store.applyBillingEvent(user.id, intent.plan, receipt, resolveAmbiguity);
   if (user.plan === "lifetime" && intent.plan !== "lifetime") return { ok: true, unchanged: true };
   if (user.plan === intent.plan) return { ok: true, unchanged: true };
   await store.updateUser({ ...user, plan: intent.plan });

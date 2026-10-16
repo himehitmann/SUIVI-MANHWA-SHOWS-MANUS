@@ -1,3 +1,4 @@
+import {readCurrentSubscription} from "./lib/billing-reconcile";
 /**
  * Optional sync + auth API for Dasi. Mounted under /api. It is NOT required for
  * the extension or web app to work — it only powers cross-device sync and
@@ -168,9 +169,10 @@ export function createApiRouter(
       const intent=refund?.intent||planFromStripeEvent(event, STRIPE_PRICES);
       const receipt=refund?.receipt||billingReceipt("stripe",event);
       if(intent&&!receipt)return res.status(400).json({error:"invalid_billing_event"});
-      const result = await applyPlanIntent(store,intent,receipt||undefined);
+      const result = await applyPlanIntent(store,intent,receipt||undefined,
+        !refund&&receipt?user=>readCurrentSubscription(receipt,user,STRIPE_PRICES,process.env.STRIPE_SECRET_KEY||""):undefined);
       if(result.reason==="user_not_found")return res.status(503).json({error:"billing_account_unavailable"});
-      if(result.reason==="billing_order_ambiguous"||result.reason==="billing_resource_conflict")return res.status(503).json({error:result.reason});
+      if(result.reason==="billing_order_ambiguous"||result.reason==="billing_resource_conflict"||result.reason==="billing_lookup_unavailable")return res.status(503).json({error:result.reason});
       return res.json({
         received: true,
         applied: result.ok,
@@ -201,9 +203,10 @@ export function createApiRouter(
       const intent=refund?.intent||planFromPaddleEvent(event, PADDLE_PRICES);
       const receipt=refund?.receipt||billingReceipt("paddle",event);
       if(intent&&!receipt)return res.status(400).json({error:"invalid_billing_event"});
-      const result = await applyPlanIntent(store,intent,receipt||undefined);
+      const result = await applyPlanIntent(store,intent,receipt||undefined,
+        !refund&&receipt?user=>readCurrentSubscription(receipt,user,PADDLE_PRICES,process.env.PADDLE_API_KEY||"",process.env.PADDLE_ENVIRONMENT||"live"):undefined);
       if(result.reason==="user_not_found")return res.status(503).json({error:"billing_account_unavailable"});
-      if(result.reason==="billing_order_ambiguous"||result.reason==="billing_resource_conflict")return res.status(503).json({error:result.reason});
+      if(result.reason==="billing_order_ambiguous"||result.reason==="billing_resource_conflict"||result.reason==="billing_lookup_unavailable")return res.status(503).json({error:result.reason});
       return res.json({
         received: true,
         applied: result.ok,

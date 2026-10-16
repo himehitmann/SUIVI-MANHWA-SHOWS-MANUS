@@ -11,20 +11,7 @@ export async function resolvePaddleRefund(event:any,map:PriceMap,key:string,envi
   if(adjustment.subscription_id!=null)return null; // A refund is not subscription cancellation.
   if(!providerId(adjustment.id,"adj")||!providerId(adjustment.transaction_id,"txn")||
      !providerId(adjustment.customer_id,"ctm")||!key||!["live","sandbox"].includes(environment))return fail();
-  const host=environment==="sandbox"?"https://sandbox-api.paddle.com":"https://api.paddle.com";
-  const response=await request(host+"/transactions/"+adjustment.transaction_id,{
-    headers:{Authorization:"Bearer "+key,"Paddle-Version":"1"},signal:AbortSignal.timeout(5000),redirect:"error",
-  });
-  if(!response.ok||!response.body)return fail();
-  const reader=response.body.getReader(),chunks:Uint8Array[]=[];let size=0;
-  try{
-    for(;;){const result=await reader.read();if(result.done)break;
-      size+=result.value.byteLength;if(size>65536)return fail();chunks.push(result.value);
-    }
-  }finally{await reader.cancel().catch(()=>{});}
-  let transaction:any;
-  try{transaction=JSON.parse(Buffer.concat(chunks).toString("utf8"))?.data;}
-  catch{return fail();}
+  const transaction=await readPaddleJson("transactions/"+adjustment.transaction_id,key,environment,request);
   if(transaction?.id!==adjustment.transaction_id||transaction.customer_id!==adjustment.customer_id)return fail();
   if(transaction.subscription_id!=null)return null;
   const purchase=planFromPaddleEvent({event_type:"transaction.completed",data:transaction},map);
@@ -36,4 +23,24 @@ export async function resolvePaddleRefund(event:any,map:PriceMap,key:string,envi
   const receipt=billingReceipt("paddle",{...event,data:{id:transaction.id}});
   if(!receipt)throw new Error("invalid_billing_event");
   return {intent:{...purchase,plan:"free" as const},receipt:{...receipt,revokeLifetime:true}};
+}
+
+/** Bounded server-side API read. Paths must be built from validated identifiers. */
+export async function readPaddleJson(path:string,key:string,environment="live",request:typeof fetch=fetch):Promise<any>{
+  if(!key||!["live","sandbox"].includes(environment))return fail();
+  const host=environment==="sandbox"?"https://sandbox-api.paddle.com":"https://api.paddle.com";
+  const response=await request(host+"/"+path,{
+    headers:{Authorization:"Bearer "+key,"Paddle-Version":"1"},signal:AbortSignal.timeout(5000),redirect:"error",
+  });
+  if(!response.ok||!response.body)return fail();
+  const reader=response.body.getReader(),chunks:Uint8Array[]=[];let size=0;
+  try{
+    for(;;){const result=await reader.read();if(result.done)break;
+      size+=result.value.byteLength;if(size>65536)return fail();chunks.push(result.value);
+    }
+  }finally{await reader.cancel().catch(()=>{});}
+  let value:any;
+  try{value=JSON.parse(Buffer.concat(chunks).toString("utf8"))?.data;}
+  catch{return fail();}
+  return value;
 }

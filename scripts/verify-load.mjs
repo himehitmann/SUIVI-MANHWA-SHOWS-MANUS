@@ -188,6 +188,22 @@ try {
     assert.equal(Number((await paddleReader.query("SELECT count(*) AS n FROM billing_events WHERE provider='paddle' AND event_id='evt_paddle_refund'")).rows[0].n),1);
    }finally{await paddleReader.end();}
    report.results.push({name:'postgres-paddle-refund',duplicateAppliedOnce:true,stripeSubscriptionPreserved:true,latePurchaseBlocked:true,independentPoolPersistence:true});
+   const tieReceipt=(eventId,occurredAt=1000)=>({provider:'stripe',resourceId:'sub_reconcile_probe',eventId,occurredAt});
+   await billingStore.applyBillingEvent('account-5','pro',tieReceipt('evt_tie_initial'));
+   assert.equal((await billingStore.applyBillingEvent('account-5','free',tieReceipt('evt_tie_retry'),async()=>{throw new Error('provider unavailable');})).reason,'billing_lookup_unavailable');
+   assert.equal((await billingStore.getUserById('account-5')).plan,'pro');
+   await Promise.all([
+    billingStore.applyBillingEvent('account-5','free',tieReceipt('evt_tie_retry'),async()=>'free'),
+    billingStore.applyBillingEvent('account-5','free',tieReceipt('evt_tie_duplicate'),async()=>'free'),
+   ]);
+   const tieReader=new pg.Pool({...poolConfig,options:'-c search_path='+schema});
+   try{
+    const restarted=createPostgresStore(tieReader);let reads=0;
+    await restarted.applyBillingEvent('account-5','pro',tieReceipt('evt_intermediate_late',2000),async()=>{reads++;return 'free';});
+    assert.equal(reads,1);assert.equal((await restarted.getUserById('account-5')).plan,'free');
+    assert.equal(Number((await tieReader.query("SELECT count(*) AS n FROM billing_events WHERE event_id='evt_tie_retry'")).rows[0].n),1);
+   }finally{await tieReader.end();}
+   report.results.push({name:'postgres-subscription-reconciliation',providerFailureRolledBack:true,equalTimeConflictResolved:true,concurrentDeliveries:true,intermediateStateCannotRestore:true,persistedAcrossConnections:true});
    const rights=createPostgresAccessStore(pool),owners=new Set(['account-0']),request={requestId:'gift-duplicate',expectedVersion:0,kind:'gift',days:30,reason:'Isolated persistence probe'};
    const duplicate=await Promise.all([rights.change('account-0','account-1',request,owners),rights.change('account-0','account-1',request,owners)]);
    assert.deepEqual(duplicate[0],duplicate[1]);assert.equal((await rights.audit()).length,1);

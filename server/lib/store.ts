@@ -37,7 +37,7 @@ export interface SessionRecord {
 export interface BillingReceipt { provider: "stripe" | "paddle"; eventId: string; resourceId?: string; occurredAt?: number; revokeLifetime?: boolean; }
 export interface BillingResult { ok: boolean; plan?: UserRecord["plan"]; unchanged?: boolean; reason?: string; }
 export interface Store {
-  applyBillingEvent(userId: string, plan: UserRecord["plan"], receipt: BillingReceipt): Promise<BillingResult>;
+  applyBillingEvent(userId: string, plan: UserRecord["plan"], receipt: BillingReceipt, resolveAmbiguity?: (user: UserRecord) => Promise<UserRecord["plan"]>): Promise<BillingResult>;
   createSession(session: SessionRecord): Promise<void>;
   getSession(id: string): Promise<SessionRecord | null>;
   revokeSession(id: string): Promise<void>;
@@ -57,7 +57,7 @@ interface Snapshot {
   sessions: SessionRecord[];
   sync: Record<string, SyncRecord>;
   billing: (BillingReceipt & { userId: string })[];
-  billingHeads: (BillingReceipt & {userId:string;plan:UserRecord["plan"];preserveLifetime?:boolean})[];
+  billingHeads: (BillingReceipt & {userId:string;plan:UserRecord["plan"];preserveLifetime?:boolean;reconciled?:boolean})[];
 }
 
 export function createStore(filePath?: string): Store {
@@ -89,7 +89,7 @@ export function createStore(filePath?: string): Store {
   const norm = (e: string) => e.trim().toLowerCase();
 
   return {
-    async applyBillingEvent(userId, plan, receipt) {
+    async applyBillingEvent(userId, plan, receipt, resolveAmbiguity) {
       const user=snap.users.find(u=>u.id===userId);
       if(!user)return {ok:false,reason:"user_not_found"};
       if(snap.billing.some(r=>r.provider===receipt.provider&&r.eventId===receipt.eventId))return {ok:true,unchanged:true};
@@ -98,11 +98,19 @@ export function createStore(filePath?: string): Store {
       if(head&&head.userId!==userId)return {ok:false,reason:"billing_resource_conflict"};
       if(receipt.revokeLifetime&&(!ordered||plan!=="free"||(head&&head.plan!=="lifetime"&&!head.revokeLifetime)))return {ok:false,reason:"billing_resource_conflict"};
       if(head?.revokeLifetime){persist({...snap,billing:[...snap.billing,{...receipt,userId}]});return {ok:true,unchanged:true};}
-      if(!receipt.revokeLifetime&&head&&receipt.occurredAt===head.occurredAt&&plan!==head.plan)return {ok:false,reason:"billing_order_ambiguous"};
-      const stale=!receipt.revokeLifetime&&head&&receipt.occurredAt!<=head.occurredAt!;
+      let reconciled=false;
+      if(!receipt.revokeLifetime&&head&&((receipt.occurredAt===head.occurredAt&&plan!==head.plan)||(head.reconciled&&receipt.occurredAt!>=head.occurredAt!))){
+        if(!resolveAmbiguity)return {ok:false,reason:"billing_order_ambiguous"};
+        try{plan=await resolveAmbiguity({...user});}catch{return {ok:false,reason:"billing_lookup_unavailable"};}
+        // A provider read yields control in the file store. Never overwrite an intervening account update.
+        if(snap.users.find(u=>u.id===userId)!==user||snap.billingHeads.find(h=>h.provider===receipt.provider&&h.resourceId===receipt.resourceId)!==head)return {ok:false,reason:"billing_order_ambiguous"};
+        if(plan!=="pro"&&plan!=="free")return {ok:false,reason:"billing_lookup_unavailable"};
+        reconciled=true;
+      }
+      const stale=!reconciled&&!receipt.revokeLifetime&&head&&receipt.occurredAt!<=head.occurredAt!;
       if(stale){persist({...snap,billing:[...snap.billing,{...receipt,userId}]});return {ok:true,unchanged:true};}
       const preserveLifetime=head?.preserveLifetime||(user.plan==="lifetime"&&!snap.billingHeads.some(h=>h.userId===userId&&h.plan==="lifetime"));
-      const billingHeads=ordered?[...snap.billingHeads.filter(h=>h.provider!==receipt.provider||h.resourceId!==receipt.resourceId),{...receipt,userId,plan,preserveLifetime}]:snap.billingHeads;
+      const billingHeads=ordered?[...snap.billingHeads.filter(h=>h.provider!==receipt.provider||h.resourceId!==receipt.resourceId),{...receipt,userId,plan,preserveLifetime,reconciled:reconciled||head?.reconciled}]:snap.billingHeads;
       const active=billingHeads.filter(h=>h.userId===userId);
       const entitled=ordered?(active.some(h=>h.plan==="lifetime"||h.preserveLifetime)?"lifetime":active.some(h=>h.plan==="pro")?"pro":"free"):plan;
       // An untracked lifetime grant remains protected; only this recorded purchase can be revoked.
