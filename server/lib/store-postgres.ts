@@ -53,6 +53,8 @@ export async function ensureSchema(client: SqlClient): Promise<void> {
     occurred_at BIGINT NOT NULL,plan TEXT NOT NULL,
     PRIMARY KEY (provider,resource_id)
   )`);
+  await client.query("ALTER TABLE billing_heads ADD COLUMN IF NOT EXISTS revoked BOOLEAN NOT NULL DEFAULT FALSE");
+  await client.query("ALTER TABLE billing_heads ADD COLUMN IF NOT EXISTS preserve_lifetime BOOLEAN NOT NULL DEFAULT FALSE");
   await client.query("CREATE INDEX IF NOT EXISTS billing_heads_user_id_idx ON billing_heads (user_id)");
 }
 
@@ -83,12 +85,16 @@ export function createPostgresStore(client: SqlClient): Store {
         if(!recorded.rows.length){await connection.query("COMMIT");return {ok:true,unchanged:true};}
         const head=ordered?(await connection.query("SELECT * FROM billing_heads WHERE provider=$1 AND resource_id=$2",[receipt.provider,receipt.resourceId])).rows[0]:undefined;
         if(head&&head.user_id!==userId){await connection.query("ROLLBACK");return {ok:false,reason:"billing_resource_conflict"};}
-        if(head&&receipt.occurredAt===Number(head.occurred_at)&&plan!==head.plan){await connection.query("ROLLBACK");return {ok:false,reason:"billing_order_ambiguous"};}
-        if(head&&receipt.occurredAt!<=Number(head.occurred_at)){await connection.query("COMMIT");return {ok:true,unchanged:true};}
-        if(ordered)await connection.query("INSERT INTO billing_heads (provider,resource_id,user_id,occurred_at,plan) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (provider,resource_id) DO UPDATE SET occurred_at=EXCLUDED.occurred_at,plan=EXCLUDED.plan",[receipt.provider,receipt.resourceId,userId,receipt.occurredAt,plan]);
-        const active=ordered?(await connection.query("SELECT plan FROM billing_heads WHERE user_id=$1",[userId])).rows:[];
-        const entitled=ordered?(active.some(h=>h.plan==="lifetime")?"lifetime":active.some(h=>h.plan==="pro")?"pro":"free"):plan;
-        const oldPlan=locked.rows[0].plan,nextPlan=oldPlan==="lifetime"?oldPlan:entitled;
+        if(receipt.revokeLifetime&&(!ordered||plan!=="free"||(head&&head.plan!=="lifetime"&&!head.revoked))){await connection.query("ROLLBACK");return {ok:false,reason:"billing_resource_conflict"};}
+        if(head?.revoked){await connection.query("COMMIT");return {ok:true,unchanged:true};}
+        if(!receipt.revokeLifetime&&head&&receipt.occurredAt===Number(head.occurred_at)&&plan!==head.plan){await connection.query("ROLLBACK");return {ok:false,reason:"billing_order_ambiguous"};}
+        if(!receipt.revokeLifetime&&head&&receipt.occurredAt!<=Number(head.occurred_at)){await connection.query("COMMIT");return {ok:true,unchanged:true};}
+        const previous=ordered?(await connection.query("SELECT plan,preserve_lifetime FROM billing_heads WHERE user_id=$1",[userId])).rows:[];
+        const preserveLifetime=head?.preserve_lifetime||(locked.rows[0].plan==="lifetime"&&!previous.some(h=>h.plan==="lifetime"));
+        if(ordered)await connection.query("INSERT INTO billing_heads (provider,resource_id,user_id,occurred_at,plan,revoked,preserve_lifetime) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (provider,resource_id) DO UPDATE SET occurred_at=EXCLUDED.occurred_at,plan=EXCLUDED.plan,revoked=EXCLUDED.revoked,preserve_lifetime=EXCLUDED.preserve_lifetime",[receipt.provider,receipt.resourceId,userId,receipt.occurredAt,plan,receipt.revokeLifetime===true,!!preserveLifetime]);
+        const active=ordered?(await connection.query("SELECT plan,preserve_lifetime FROM billing_heads WHERE user_id=$1",[userId])).rows:[];
+        const entitled=ordered?(active.some(h=>h.plan==="lifetime"||h.preserve_lifetime)?"lifetime":active.some(h=>h.plan==="pro")?"pro":"free"):plan;
+        const oldPlan=locked.rows[0].plan,nextPlan=oldPlan==="lifetime"&&!(receipt.revokeLifetime&&head?.plan==="lifetime")?oldPlan:entitled;
         if(oldPlan!==nextPlan)await connection.query("UPDATE users SET plan = $2 WHERE id = $1",[userId,nextPlan]);
         await connection.query("COMMIT");
         return oldPlan===nextPlan?{ok:true,unchanged:true}:{ok:true,plan:nextPlan};

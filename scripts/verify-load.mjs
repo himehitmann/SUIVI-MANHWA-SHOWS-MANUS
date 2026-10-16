@@ -147,6 +147,32 @@ try {
     assert.equal((await restarted.getUserById('account-6')).plan,'free');
    }finally{await multiReader.end();}
    report.results.push({name:'postgres-multiple-subscriptions',oneCancellationPreservesOtherPlan:true,concurrentProviders:true,allEndedReturnsFree:true,independentPoolPersistence:true});
+   const rr=(resourceId,eventId,occurredAt=1000,revokeLifetime=false)=>({provider:'stripe',resourceId,eventId,occurredAt,revokeLifetime});
+   await billingStore.applyBillingEvent('account-7','pro',rr('sub_refund_other','evt_refund_pro'));
+   await billingStore.applyBillingEvent('account-7','lifetime',rr('cs_refund_a','evt_refund_buy_a'));
+   await billingStore.applyBillingEvent('account-7','lifetime',rr('cs_refund_b','evt_refund_buy_b'));
+   await Promise.all([
+    billingStore.applyBillingEvent('account-7','free',rr('cs_refund_a','evt_refund_a',2000,true)),
+    billingStore.applyBillingEvent('account-7','free',rr('cs_refund_b','evt_refund_b',2000,true)),
+   ]);
+   assert.equal((await billingStore.getUserById('account-7')).plan,'pro');
+   const refundReader=new pg.Pool({...poolConfig,options:'-c search_path='+schema});
+   try{
+    const restarted=createPostgresStore(refundReader);
+    await restarted.applyBillingEvent('account-7','lifetime',rr('cs_refund_a','evt_refund_late',3000));
+    assert.equal((await restarted.getUserById('account-7')).plan,'pro');
+    await restarted.applyBillingEvent('account-7','free',rr('sub_refund_other','evt_refund_pro_end',4000));
+    assert.equal((await restarted.getUserById('account-7')).plan,'free');
+    await restarted.applyBillingEvent('account-8','free',rr('cs_refund_first','evt_refund_first',2000,true));
+    await restarted.applyBillingEvent('account-8','lifetime',rr('cs_refund_first','evt_purchase_late',3000));
+    assert.equal((await restarted.getUserById('account-8')).plan,'free');
+    assert.equal((await restarted.applyBillingEvent('account-9','free',rr('cs_refund_first','evt_wrong_refund_owner',4000,true))).reason,'billing_resource_conflict');
+    await restarted.updateUser({...await restarted.getUserById('account-9'),plan:'lifetime'});
+    await restarted.applyBillingEvent('account-9','lifetime',rr('cs_legacy','evt_legacy_purchase'));
+    await restarted.applyBillingEvent('account-9','free',rr('cs_legacy','evt_legacy_refund',2000,true));
+    assert.equal((await restarted.getUserById('account-9')).plan,'lifetime');
+   }finally{await refundReader.end();}
+   report.results.push({name:'postgres-lifetime-refunds',concurrentRefundsPreserveSubscription:true,latePurchaseCannotRestore:true,refundBeforePurchase:true,ownershipChecked:true,legacyGrantPreserved:true,persistedAcrossConnections:true});
    const rights=createPostgresAccessStore(pool),owners=new Set(['account-0']),request={requestId:'gift-duplicate',expectedVersion:0,kind:'gift',days:30,reason:'Isolated persistence probe'};
    const duplicate=await Promise.all([rights.change('account-0','account-1',request,owners),rights.change('account-0','account-1',request,owners)]);
    assert.deepEqual(duplicate[0],duplicate[1]);assert.equal((await rights.audit()).length,1);

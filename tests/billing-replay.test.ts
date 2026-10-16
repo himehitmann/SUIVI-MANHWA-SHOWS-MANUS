@@ -108,3 +108,46 @@ describe("multiple paid subscription entitlements",()=>{
     }finally{rmSync(dir,{recursive:true,force:true});}
   });
 });
+
+describe("lifetime purchase refunds",()=>{
+  const r=(resourceId:string,eventId:string,occurredAt=1000,revokeLifetime=false)=>({provider:"stripe" as const,resourceId,eventId,occurredAt,revokeLifetime});
+  it("revokes only the refunded purchase and survives restart and late notifications",async()=>{
+    const dir=mkdtempSync(join(tmpdir(),"yomu-refund-"));
+    try{
+      const file=join(dir,"accounts.json"),store=createStore(file);await store.createUser(user);
+      await store.applyBillingEvent(user.id,"pro",r("sub_other","evt_pro"));
+      await store.applyBillingEvent(user.id,"lifetime",r("cs_a","evt_buy_a"));
+      await store.applyBillingEvent(user.id,"lifetime",r("cs_b","evt_buy_b"));
+      await store.applyBillingEvent(user.id,"free",r("cs_a","evt_refund_a",1000,true));
+      expect((await store.getUserById(user.id))?.plan).toBe("lifetime");
+      await store.applyBillingEvent(user.id,"free",r("cs_b","evt_refund_b",2000,true));
+      expect((await store.getUserById(user.id))?.plan).toBe("pro");
+      const restarted=createStore(file);
+      await restarted.applyBillingEvent(user.id,"lifetime",r("cs_b","evt_async_late",3000));
+      await restarted.applyBillingEvent(user.id,"free",r("cs_b","evt_refund_b",2000,true));
+      expect((await restarted.getUserById(user.id))?.plan).toBe("pro");
+      await restarted.applyBillingEvent(user.id,"free",r("sub_other","evt_end",4000));
+      expect((await restarted.getUserById(user.id))?.plan).toBe("free");
+    }finally{rmSync(dir,{recursive:true,force:true});}
+  });
+  it("keeps refund-before-purchase terminal and does not transfer ownership",async()=>{
+    const store=createStore();await store.createUser(user);await store.createUser({...user,id:"other",email:"other@example.test"});
+    await store.applyBillingEvent(user.id,"free",r("cs_a","evt_refund",2000,true));
+    await store.applyBillingEvent(user.id,"lifetime",r("cs_a","evt_late",3000));
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+    expect((await store.applyBillingEvent("other","free",r("cs_a","evt_wrong",4000,true))).reason).toBe("billing_resource_conflict");
+  });
+  it("preserves a lifetime grant that predates tracked purchases",async()=>{
+    const store=createStore();await store.createUser({...user,plan:"lifetime"});
+    for(const id of ["cs_a","cs_b"])await store.applyBillingEvent(user.id,"lifetime",r(id,"buy_"+id));
+    for(const id of ["cs_a","cs_b"])await store.applyBillingEvent(user.id,"free",r(id,"refund_"+id,2000,true));
+    expect((await store.getUserById(user.id))?.plan).toBe("lifetime");
+  });
+  it("rejects revoking a recurring resource or granting via a refund",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",r("sub_other","evt_pro"));
+    expect((await store.applyBillingEvent(user.id,"free",r("sub_other","evt_wrong",2000,true))).reason).toBe("billing_resource_conflict");
+    expect((await store.applyBillingEvent(user.id,"lifetime",r("cs_a","evt_wrong_plan",2000,true))).reason).toBe("billing_resource_conflict");
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+  });
+});

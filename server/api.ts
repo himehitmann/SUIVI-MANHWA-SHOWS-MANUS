@@ -5,6 +5,7 @@
  * are HMAC-signed tokens, and storage is behind a swappable interface.
  */
 import { z } from "zod";
+import { resolveStripeRefund } from "./lib/stripe-refund";
 import { completeStripeCheckout } from "./lib/stripe-checkout";
 import { AccessError, createMemoryAccessStore, effectivePlan, effectiveRole, type AccessStore } from "./lib/access";
 import {createCatalog} from "./lib/catalog";
@@ -156,12 +157,15 @@ export function createApiRouter(
       } catch {
         return res.status(400).json({ error: "invalid_json" });
       }
+      let refund:Awaited<ReturnType<typeof resolveStripeRefund>>=null;
+      try { refund=await resolveStripeRefund(event,STRIPE_PRICES,process.env.STRIPE_SECRET_KEY||""); }
+      catch { return res.status(503).json({error:"billing_lookup_unavailable"}); }
       if (STRIPE_PRICES.lifetime) {
         try { event = await completeStripeCheckout(event, process.env.STRIPE_SECRET_KEY || ""); }
         catch { return res.status(503).json({ error: "billing_lookup_unavailable" }); }
       }
-      const intent=planFromStripeEvent(event, STRIPE_PRICES);
-      const receipt=billingReceipt("stripe",event);
+      const intent=refund?.intent||planFromStripeEvent(event, STRIPE_PRICES);
+      const receipt=refund?.receipt||billingReceipt("stripe",event);
       if(intent&&!receipt)return res.status(400).json({error:"invalid_billing_event"});
       const result = await applyPlanIntent(store,intent,receipt||undefined);
       if(result.reason==="user_not_found")return res.status(503).json({error:"billing_account_unavailable"});
