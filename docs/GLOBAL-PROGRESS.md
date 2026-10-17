@@ -8,6 +8,16 @@ Mise à jour : 17 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Lot parallèle : listes, filtres traduits et fiches de secours — 17 octobre 2026
+
+[CI #805](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39050094135), commit fe1477a2e40138f8a90dbc8ec865feaf6bbec8f4 : vérification complète et capacité PostgreSQL isolée réussies.
+
+- Extension : compteurs et contenu de listes fondés sur des œuvres présentes et uniques ; listes archivées exclues de l’ajout rapide. Une suppression de site échouée ne masque plus le favori et laisse réessayer. Scénarios Chrome : doublons/références absentes, choix actifs, échec sans perte puis suppression persistée.
+- Recherche web : formats lisibles, pays localisés et genres communs traduits FR/EN ; clés internes conservées pour les filtres. Séparateurs médians supprimés sur les cartes concernées. Quatre tests ; genres inconnus conservés tels quels.
+- Catalogue de secours AniList : identifiants positifs vérifiés, URL canonique fixe, titres originaux/alternatifs, synopsis, genres, année, image large et total connu préservés. Totaux inconnus non inventés ; erreur GraphQL signalée au lieu d’un faux résultat vide. Trois tests, dont passage résultat vers création d’œuvre.
+
+Ces changements ne garantissent ni traduction des synopsis, ni disponibilité universelle des bandes-annonces, ni catalogue exhaustif. G05, G08 et G13 restent partiels ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Lot parallèle : bibliothèque, langue et pertinence — 17 octobre 2026
 
 [CI #801](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39027100721), commit 36cdb40eaf3b87f072b936d34a050d1d7bf9ab4b : vérification complète et capacité PostgreSQL isolée réussies ; CI push #800 également réussie.
