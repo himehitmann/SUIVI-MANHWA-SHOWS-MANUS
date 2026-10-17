@@ -13,14 +13,25 @@ try {
  await p.locator('[data-id="a"] .list-select').check();await p.locator('[data-id="b"] .list-select').check();await p.locator('#bulk-destination').selectOption('destination');await p.locator('#bulk-copy').click();
  await p.waitForFunction(()=>lists.find(l=>l.id==='destination').itemIds.length===2);
  assert.deepEqual(await w.evaluate(async()=>(await chrome.storage.local.get('dasi.lists'))['dasi.lists'].find(l=>l.id==='source').itemIds),['a','b','c']);
- await p.locator('[data-id="c"] .list-select').check();await p.locator('#bulk-destination').selectOption('destination');await p.evaluate(()=>{globalThis.bulkOriginalSend=chrome.runtime.sendMessage;chrome.runtime.sendMessage=(m,cb)=>{if(m.type==='LIST_SET_ITEMS'&&m.id==='source')return cb({ok:false,error:'storage_failed'});return globalThis.bulkOriginalSend(m,cb);};});
- await p.locator('#bulk-move').click();await p.waitForFunction(()=>document.querySelector('#toast').textContent.includes('Retrait de la liste source échoué'));
+ await p.locator('[data-id="c"] .list-select').check();await p.locator('#bulk-destination').selectOption('destination');await p.evaluate(()=>{globalThis.bulkOriginalSend=chrome.runtime.sendMessage;chrome.runtime.sendMessage=(m,cb)=>{if(m.type==='LIST_TRANSFER')return cb({ok:false,error:'storage_failed'});return globalThis.bulkOriginalSend(m,cb);};});
+ await p.locator('#bulk-move').click();await p.waitForFunction(()=>document.querySelector('#toast').textContent.includes('La liste n’a pas été enregistrée'));
  assert.deepEqual(await p.evaluate(()=>lists.find(l=>l.id==='source').itemIds),['a','b','c']);
- assert.deepEqual(await p.evaluate(()=>lists.find(l=>l.id==='destination').itemIds),['a','b','c']);
+ assert.deepEqual(await p.evaluate(()=>lists.find(l=>l.id==='destination').itemIds),['a','b']);
  await p.evaluate(()=>{chrome.runtime.sendMessage=globalThis.bulkOriginalSend;});
+ await w.evaluate(()=>{globalThis.transferWriteOriginal=writeData;writeData=async()=>{throw Error("simulated_storage_failure");};});
+ try {
+   const failed=await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_TRANSFER",sourceId:"source",destinationId:"destination",itemIds:["c"],action:"move"},resolve)));
+   assert.equal(failed.ok,false);
+   const unchanged=await w.evaluate(async()=>(await chrome.storage.local.get("dasi.lists"))["dasi.lists"]);
+   assert.deepEqual(unchanged.find(l=>l.id==="source").itemIds,["a","b","c"]);
+   assert.deepEqual(unchanged.find(l=>l.id==="destination").itemIds,["a","b"]);
+ } finally {await w.evaluate(()=>{writeData=globalThis.transferWriteOriginal;delete globalThis.transferWriteOriginal;});}
  await p.locator('#bulk-move').click();
  await p.waitForFunction(()=>lists.find(l=>l.id==='source').itemIds.length===2);
  assert.deepEqual(await p.evaluate(()=>lists.find(l=>l.id==='destination').itemIds),['a','b','c']);
+ const invalidTransfer=await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:'LIST_TRANSFER',sourceId:'source',destinationId:'destination',itemIds:['c'],action:'move'},resolve)));
+ assert.equal(invalidTransfer.ok,false,"Cannot transfer a work absent from the source");
+ assert.deepEqual(await w.evaluate(async()=>(await chrome.storage.local.get('dasi.lists'))['dasi.lists'].find(l=>l.id==='source').itemIds),['a','b']);
  await p.locator('[data-id="b"] .list-select').check();await p.locator('#bulk-up').focus();await p.keyboard.press('Enter');await p.waitForFunction(()=>lists.find(l=>l.id==='source').itemIds[0]==='b');
  await p.locator('#bulk-remove').click();await p.waitForFunction(()=>lists.find(l=>l.id==='source').itemIds.length===1);
  assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get('dasi.items'))['dasi.items'].length),3);

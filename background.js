@@ -2303,6 +2303,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       mutateAndReply(async()=>{const notifications=message.type==='NOTIF_CLEAR'?[]:(await read(NOTIF_KEY,[])).map(n=>({...n,read:true}));await writeData({[NOTIF_KEY]:notifications});return {notifications};},sendResponse);return true;
     case "SET_SETTINGS":
       mutateAndReply(async()=>{const settings={...DEFAULT_SETTINGS,...await read(SETTINGS_KEY,{}),...message.patch};await writeData({[SETTINGS_KEY]:settings});return {settings};},sendResponse);return true;
+    case "LIST_TRANSFER":
     case "LIST_DUPLICATE":
     case "LIST_CREATE":
     case "LIST_UPDATE":
@@ -2310,6 +2311,15 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "LIST_SET_ITEMS":
       mutateAndReply(async()=>{
         let lists=await read(LISTS_KEY,[]),list;
+        if(message.type==='LIST_TRANSFER'){
+          const source=lists.find(l=>l.id===message.sourceId),destination=lists.find(l=>l.id===message.destinationId);
+          if(!source||!destination||source.id===destination.id||destination.archived||!['copy','move'].includes(message.action)||!Array.isArray(message.itemIds))throw Error('invalid_list_transfer');
+          const valid=new Set((await read(ITEMS_KEY,[])).map(i=>i.id)),members=new Set(source.itemIds||[]);
+          const ids=[...new Set(message.itemIds)];
+          if(!ids.length||ids.some(id=>typeof id!=='string'||!valid.has(id)||!members.has(id)))throw Error('invalid_list_members');
+          const selected=new Set(ids),now=Date.now();
+          lists=lists.map(l=>l.id===destination.id?{...l,itemIds:[...new Set([...(l.itemIds||[]),...ids])],updatedAt:now}:l.id===source.id&&message.action==='move'?{...l,itemIds:(l.itemIds||[]).filter(id=>!selected.has(id)),updatedAt:now}:l);
+        }
         if(message.type==='LIST_CREATE') {list={id:'l_'+Math.random().toString(36).slice(2,10),name:String(message.name||'New list').slice(0,60),cover:message.cover||'#EDE6FF',itemIds:[],createdAt:Date.now(),updatedAt:Date.now()};lists=[...lists,list];}
         if(message.type==='LIST_DUPLICATE'){const old=lists.find(l=>l.id===message.id);if(!old)throw Error('list_not_found');list={...old,id:'l_'+crypto.randomUUID(),name:String(old.name+' (copy)').slice(0,100),itemIds:[...(old.itemIds||[])],archived:false,createdAt:Date.now(),updatedAt:Date.now()};delete list.memberships;lists=[...lists,list];}
         if(message.type==='LIST_DELETE')lists=lists.filter(l=>l.id!==message.id);

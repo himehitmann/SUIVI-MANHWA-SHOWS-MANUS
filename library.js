@@ -1884,14 +1884,11 @@ function wireListBulk(list) {
     const destination=lists.find(l=>l.id===toolbar.querySelector("#bulk-destination").value);
     let ok=false;
     if(action==="copy"||action==="move"){
-      if(!destination){busy=false;refresh();return;}
-      ok=await listMsg("LIST_SET_ITEMS",{id:destination.id,itemIds:[...new Set([...(destination.itemIds||[]),...ids])]},()=>{});
-      if(!ok){busy=false;refresh();return;}
-    }
-    if(action==="remove"||action==="move"){
+      if(!source||!destination){busy=false;refresh();return;}
+      ok=await listMsg("LIST_TRANSFER",{sourceId:source.id,destinationId:destination.id,itemIds:ids,action},()=>{});
+    } else if(action==="remove"){
       if(!source){busy=false;refresh();return;}
       ok=await listMsg("LIST_SET_ITEMS",{id:source.id,itemIds:(source.itemIds||[]).filter(id=>!selected.has(id))},()=>{});
-      if(!ok){if(action==="move")toast(fr?"Copie enregistrée. Retrait de la liste source échoué : les œuvres sont conservées.":"Copy saved. Removal from the source list failed; your works are retained.");busy=false;refresh();return;}
     }
     if(ok){renderListDetail();toast(fr?"Liste mise à jour":"List updated");}else{busy=false;refresh();}
   };
