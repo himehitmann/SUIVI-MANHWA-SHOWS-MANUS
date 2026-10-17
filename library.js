@@ -1697,10 +1697,14 @@ function renderPlans() {
 function listCover(l) { return safeBackground(l.cover); }
 function isImg(v) { return v && /^https?:|^data:/.test(v); }
 let showArchivedLists=false;
+function listMembers(list) {
+  const byId=new Map(items.map(item=>[item.id,item]));
+  return [...new Set(list.itemIds||[])].map(id=>byId.get(id)).filter(Boolean);
+}
 function renderLists() {
   const strip = document.getElementById("list-strip");
   if (!strip) return;
-  strip.innerHTML = lists.filter(l=>Boolean(l.archived)===showArchivedLists).map((l) => { const n = (l.itemIds || []).length; return `<div class="strip-list" data-list="${esc(l.id)}">
+  strip.innerHTML = lists.filter(l=>Boolean(l.archived)===showArchivedLists).map((l) => { const n = listMembers(l).length; return `<div class="strip-list" data-list="${esc(l.id)}">
       <div class="lc" style="position:relative;${listCover(l)}"><button class="icon-btn" data-delete-list="${esc(l.id)}" aria-label="${esc(t("delete")+" "+l.name)}" style="position:absolute;right:6px;top:6px;z-index:2;background:var(--card)">${I.trash}</button>${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
       <b>${esc(l.name)}</b><small>${n} ${n === 1 ? t("work") : t("works")}</small>
     </div>`; }).join("") + `<button class="strip-new" id="new-list">${I.plus}</button><button class="btn" id="toggle-archived">${showArchivedLists?(settings.lang==='fr'?'Actives':'Active'):(settings.lang==='fr'?'Archivées':'Archived')}</button>`;
@@ -1730,7 +1734,7 @@ function closeQuickAdd() { if (qaMenuEl) { qaMenuEl.remove(); qaMenuEl = null; }
 function openQuickAdd(itemId, anchor) {
   closeQuickAdd();
   const build = () => {
-    const rows = lists.map((l) => { const on = (l.itemIds || []).includes(itemId); return `<button data-ql="${esc(l.id)}" class="${on ? "qa-on" : ""}">${on ? I.check : I.plus} ${esc(l.name)} <span style="margin-left:auto;color:var(--muted);font-size:11px">${(l.itemIds || []).length}</span></button>`; }).join("");
+    const rows = lists.filter(l=>!l.archived).map((l) => { const on = (l.itemIds || []).includes(itemId); return `<button data-ql="${esc(l.id)}" class="${on ? "qa-on" : ""}">${on ? I.check : I.plus} ${esc(l.name)} <span style="margin-left:auto;color:var(--muted);font-size:11px">${listMembers(l).length}</span></button>`; }).join("");
     return `${rows}<div style="height:1px;background:var(--line);margin:5px 4px"></div><button data-ql-new>${I.plus} ${t("newList")}</button>`;
   };
   const m = document.createElement("div");
@@ -1774,7 +1778,16 @@ function renderSites() {
   strip.querySelectorAll("[data-rmsite]").forEach((x) => (x.onclick = (e) => {
     e.preventDefault(); e.stopPropagation();
     const id = x.dataset.rmsite;
-    api.runtime.sendMessage({ type: "REMOVE_SITE", id }, (r) => { sites = r?.sites || sites.filter((s) => (s.id || s.url) !== id); renderSites(); });
+    x.disabled=true;
+    api.runtime.sendMessage({ type: "REMOVE_SITE", id }, (r) => {
+      const error=api.runtime.lastError;
+      if(error || !Array.isArray(r?.sites)) {
+        x.disabled=false;
+        toast(settings.lang==="fr"?"Suppression impossible. Réessaie.":"Could not remove this site. Try again.");
+        return;
+      }
+      sites = r.sites; renderSites();
+    });
   }));
 }
 function openList(id) { currentListId = id; document.getElementById("lib-main").hidden = true; document.getElementById("list-detail").hidden = false; renderListDetail(); window.scrollTo({ top: 0, behavior: "smooth" }); }
@@ -1782,7 +1795,7 @@ function renderListDetail() {
   const l = lists.find((x) => x.id === currentListId);
   const wrap = document.getElementById("list-detail");
   if (!l) return backToLists();
-  const members = (l.itemIds || []).map((id) => items.find((i) => i.id === id)).filter(Boolean);
+  const members = listMembers(l);
   const notIn = items.filter((i) => !(l.itemIds || []).includes(i.id));
   const grid = l.view === "grid";
   wrap.innerHTML = `<button class="back-btn" id="back-lists">${I.back} ${t("allLists")}</button>

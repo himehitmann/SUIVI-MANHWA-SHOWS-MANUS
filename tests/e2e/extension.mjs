@@ -152,12 +152,40 @@ try {
     return counts;
   });
   assert.deepEqual(statsSnapshot,[2,1,1,1,1],"Game favorites/completions inflated the library counters");
+  const listCounts=await page.evaluate(()=>{
+    const savedItems=items,savedLists=lists;
+    items=[{id:"one",title:"One work",type:"reading"}];
+    lists=[{id:"active",name:"Active list",itemIds:["one","one","deleted"]},{id:"archive",name:"Archived list",itemIds:["one"],archived:true}];
+    renderLists();
+    const count=document.querySelector('[data-list="active"] .cnt').textContent;
+    openQuickAdd("one",document.querySelector('[data-list="active"]'));
+    const choices=[...document.querySelectorAll("[data-ql]")].map(n=>n.dataset.ql);
+    const members=listMembers(lists[0]).map(i=>i.id);
+    closeQuickAdd();items=savedItems;lists=savedLists;renderLists();
+    return {count,choices,members};
+  });
+  assert.deepEqual(listCounts,{count:"1",choices:["active"],members:["one"]},"List counts included missing/duplicate works or archived quick-add choices");
   const sitesBefore=await worker.evaluate(()=>chrome.storage.local.get("dasi.sites"));
   try {
     await worker.evaluate(()=>chrome.storage.local.set({"dasi.sites":[{id:"keyboard-site",name:"Keyboard site",url:"https://reader.example/"},{id:"unsafe-site",name:"Invalid imported site",url:"javascript:alert(1)"}]}));
     await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("library");resolve();})));
     assert.equal(await page.locator('#site-strip a[href="https://reader.example/"]').count(),1);
     assert.equal(await page.locator('#site-strip a[href^="javascript:"]').count(),0);
+    await page.evaluate(()=>{
+      globalThis.siteRemoveTransport=api.runtime.sendMessage;
+      api.runtime.sendMessage=function(message,callback){
+        if(message.type==="REMOVE_SITE"){callback({ok:false,error:"test persistence failure"});return;}
+        return globalThis.siteRemoveTransport.call(api.runtime,message,callback);
+      };
+    });
+    try {
+      await page.locator('[data-rmsite="keyboard-site"]').click();
+      assert.equal(await page.locator('[data-rmsite="keyboard-site"]').count(),1,"Failed deletion hid the site");
+      assert.equal(await page.locator('[data-rmsite="keyboard-site"]').isEnabled(),true,"Failed deletion prevented retry");
+      assert.equal((await worker.evaluate(()=>chrome.storage.local.get("dasi.sites")))["dasi.sites"].length,2);
+    } finally {
+      await page.evaluate(()=>{api.runtime.sendMessage=globalThis.siteRemoveTransport;delete globalThis.siteRemoveTransport;});
+    }
     const remove=page.getByRole("button",{name:/Keyboard site/});
     await remove.focus();await page.keyboard.press("Enter");
     await page.waitForFunction(()=>!document.querySelector('[data-rmsite="keyboard-site"]'));
