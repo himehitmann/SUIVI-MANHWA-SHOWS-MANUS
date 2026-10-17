@@ -69,6 +69,7 @@ export default function Home() {
     reading: store.items.filter((i) => i.type === "reading").length,
     watching: store.items.filter((i) => i.type === "watching").length,
     favorites: store.items.filter((i) => i.favorite).length,
+    game: store.items.filter((i) => i.type === "game").length,
   };
 
   return (
@@ -147,6 +148,7 @@ export default function Home() {
             <Film size={15} />
             {t("categories.watching")} <b>{counts.watching}</b>
           </Pill>
+          <Pill active={filter === "game"} onClick={() => setFilter("game")}><Grid2X2 size={15} />{t("categories.game")} <b>{counts.game}</b></Pill>
           <Pill active={filter === "favorites"} onClick={() => setFilter("favorites")}>
             <Heart size={15} />
             {t("categories.favorites")} <b>{counts.favorites}</b>
@@ -206,7 +208,7 @@ export default function Home() {
               <span className="eyebrow">{t("queue.eyebrow")}</span>
               <h3>{t("queue.title")}</h3>
             </div>
-            <button onClick={() => setFilter("all")}>
+            <button onClick={() => { setFilter("all"); setQuery(""); document.getElementById("library-works")?.scrollIntoView({behavior:"smooth"}); }}>
               {t("action.seeAll")} <ChevronRight size={16} />
             </button>
           </div>
@@ -232,7 +234,7 @@ export default function Home() {
         </section>
 
         <div className="lower-grid">
-          <section className="progress-panel">
+          <section className="progress-panel" id="library-works">
             <div className="rail-title">
               <div>
                 <span className="eyebrow">{t("library.eyebrow")}</span>
@@ -250,7 +252,7 @@ export default function Home() {
               ))}
             </div>
             <div className="dasi-list">
-              {filtered.length === 0 && <p className="muted-note">{t("library.empty")}</p>}
+              {filtered.length === 0 && <div className="muted-note" role="status"><p>{store.items.length ? (lang==="fr"?"Aucune œuvre ne correspond à ces filtres.":"No works match these filters.") : t("library.empty")}</p><button className="soft-action" onClick={()=>store.items.length ? (setFilter("all"),setQuery("")) : setAddOpen(true)}>{store.items.length ? (lang==="fr"?"Afficher toute ma bibliothèque":"Show my whole library") : t("add.button")}</button></div>}
               {filtered.map((item) => (
                 <article className="dasi-row" key={item.id}>
                   <Link href={`/work/${encodeURIComponent(item.id)}`} aria-label={item.title}><Cover item={item} className="row-cover" /></Link>

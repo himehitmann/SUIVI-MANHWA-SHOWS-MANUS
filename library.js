@@ -1813,14 +1813,27 @@ function renderListDetail() {
     <div class="section-t">${t("inThisList")}</div>
     ${grid
       ? `<div id="list-items" class="li-grid">${members.length ? members.map((i) => `<div class="li-card" draggable="true" data-id="${esc(i.id)}">
-          <div class="li-card-cov" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}<button class="li-card-rm" data-remove="${esc(i.id)}" title="${t("delete")}">${I.close}</button></div>
-          <b>${esc(i.title)}</b><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>`).join("") : `<p class="empty" style="padding:24px 0">—</p>`}</div>`
+          <div class="li-card-cov" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}<button class="li-card-rm" data-remove="${esc(i.id)}" aria-label="${esc((settings.lang==="fr"?"Retirer de la liste : ":"Remove from list: ")+i.title)}">${I.close}</button></div>
+          <button class="link-btn list-work-title" data-open="${esc(i.id)}">${esc(i.title)}</button><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>`).join("") : `<p class="empty" style="padding:24px 0">${settings.lang==="fr"?"Cette liste est vide. Ajoute des œuvres ci-dessous.":"This list is empty. Add works below."}</p>`}</div>`
       : `<div id="list-items">${members.length ? members.map((i) => `<div class="li-row" draggable="true" data-id="${esc(i.id)}">
         <span class="grip">${I.grip}</span>
         <div class="li-cover" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}</div>
-        <div style="flex:1;min-width:0"><b>${esc(i.title)}</b><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>
-        <button class="btn danger" data-remove="${esc(i.id)}">${t("delete")}</button></div>`).join("") : `<p class="empty" style="padding:24px 0">—</p>`}</div>`}
-    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><div class="chips-wrap">${notIn.map((i) => `<button class="chip-toggle" data-add="${esc(i.id)}"><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(i.title)}</button>`).join("")}</div>` : ""}`;
+        <div style="flex:1;min-width:0"><button class="link-btn list-work-title" data-open="${esc(i.id)}">${esc(i.title)}</button><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>
+        <button class="btn" data-remove="${esc(i.id)}" aria-label="${esc((settings.lang==="fr"?"Retirer de la liste : ":"Remove from list: ")+i.title)}">${settings.lang==="fr"?"Retirer":"Remove"}</button></div>`).join("") : `<p class="empty" style="padding:24px 0">${settings.lang==="fr"?"Cette liste est vide. Ajoute des œuvres ci-dessous.":"This list is empty. Add works below."}</p>`}</div>`}
+    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><p class="sub">${settings.lang==="fr"?"Choisis parmi les œuvres déjà enregistrées dans ta bibliothèque.":"Choose from works already saved in your library."}</p><label for="list-add-search">${settings.lang==="fr"?"Rechercher dans ma bibliothèque":"Search my library"}</label><input class="field" type="search" id="list-add-search" /><p class="sub" id="list-add-count" role="status"></p><div class="chips-wrap" id="list-add-options"></div>` : ""}`;
+  const search=document.getElementById("list-add-search");
+  if(search) {
+    const renderOptions=()=>{
+      const q=search.value.trim().toLocaleLowerCase();
+      const matches=notIn.filter(i=>[i.title,...(i.alternativeTitles||[])].some(value=>String(value||"").toLocaleLowerCase().includes(q)));
+      const shown=matches.slice(0,50);
+      document.getElementById("list-add-count").textContent=shown.length+" / "+matches.length+" "+t("works");
+      const options=document.getElementById("list-add-options");
+      options.innerHTML=shown.length?shown.map(i=>'<button class="chip-toggle" data-add="'+esc(i.id)+'"><span class="cat-inline">'+esc(catLabel(i))+'</span> '+esc(i.title)+'</button>').join(""):'<p class="sub">'+t("noMatch")+'</p>';
+      options.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>setListItems(l.id,[...(l.itemIds||[]),b.dataset.add]));
+    };
+    search.oninput=renderOptions;renderOptions();
+  }
   wireListDetail(l);
 }
 function wireListDetail(l) {

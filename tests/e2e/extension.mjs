@@ -195,6 +195,36 @@ try {
     await worker.evaluate(state=>chrome.storage.local.set({"dasi.sites":state["dasi.sites"]||[]}),sitesBefore);
     await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("home");resolve();})));
   }
+  const listJourneyBefore=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
+  try {
+    await worker.evaluate(async()=>{
+      const originals=(await chrome.storage.local.get("dasi.items"))["dasi.items"];
+      await chrome.storage.local.set({"dasi.items":[...originals,...Array.from({length:65},(_,n)=>({id:"list-extra-"+n,title:"Library extra "+n,type:"reading",alternativeTitles:n===64?["Secret alias"]:[],enrichedAt:1}))],"dasi.lists":[{id:"journey-list",name:"Reading queue",itemIds:["alchemy-of-souls"]}]});
+    });
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("library");openList("journey-list");resolve();})));
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),50,"Large libraries should not render every add button at once");
+    await page.locator('#list-add-search').fill("Secret alias");
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),1);
+    await page.locator('[data-add="list-extra-64"]').click();
+    await page.locator('#list-items [data-open="list-extra-64"]').waitFor();
+    await page.locator('#list-items [data-open="alchemy-of-souls"]').focus();
+    await page.keyboard.press("Enter");
+    await page.locator('#dr-close').waitFor();
+    assert.equal(await page.locator('#drawer .drawer-title').innerText(),"Alchemy of Souls");
+    await page.locator('#dr-close').click();
+    await page.locator('#list-view-btn').click();
+    await page.locator('#list-items.li-grid').waitFor();
+    await page.locator('#list-items [data-open="alchemy-of-souls"]').click();
+    await page.locator('#dr-close').waitFor();await page.locator('#dr-close').click();
+    await page.locator('#list-items [data-remove="list-extra-64"]').click();
+    await page.waitForFunction(()=>!document.querySelector('#list-items [data-id="list-extra-64"]'));
+    const retained=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
+    assert(retained["dasi.items"].some(i=>i.id==="list-extra-64"),"Removing list membership deleted the work");
+    assert(!retained["dasi.lists"][0].itemIds.includes("list-extra-64"));
+  } finally {
+    await worker.evaluate(state=>chrome.storage.local.set(state),listJourneyBefore);
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{currentListId=null;hydrate(state);backToLists();switchView("home");resolve();})));
+  }
   // Home cards must open their own details, preserve artwork ratios and hide idle arrows.
   await worker.evaluate(cover=>{
     getDiscover=async()=>({manga:[{title:"Home fixture",type:"reading",format:"MANGA",cover,genres:["Adventure"],synopsis:"Home preview"}],anime:[],manhwa:[],manhua:[],series:[],gamesHot:[],gamesSoon:[]});
