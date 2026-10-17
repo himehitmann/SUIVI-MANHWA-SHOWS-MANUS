@@ -1837,6 +1837,7 @@ function renderListDetail() {
   wireListDetail(l);
 }
 function wireListDetail(l) {
+  document.querySelectorAll("#list-items [data-open]").forEach(button=>button.onclick=()=>openDrawer(button.dataset.open));
   document.getElementById("back-lists").onclick = backToLists;
   document.getElementById("list-duplicate").onclick=()=>listMsg("LIST_DUPLICATE",{id:l.id},()=>{renderLists();openList(lists[lists.length-1].id);});
   document.getElementById("list-archive").onclick=()=>listMsg("LIST_UPDATE",{id:l.id,patch:{archived:!l.archived}},()=>{renderLists();backToLists();});
