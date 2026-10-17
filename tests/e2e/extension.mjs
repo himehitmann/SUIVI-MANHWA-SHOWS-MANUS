@@ -293,7 +293,7 @@ try {
       callbacks[0]({items:[{id:"older-refresh",title:"Outdated snapshot",type:"watching",enrichedAt:1}],lists:[]});
       switchView("library");
     },{restored,lists:refreshBaseline["dasi.lists"]});
-    assert.equal(await page.locator('#grid [data-open="alchemy-of-souls"]').count(),1,"An older refresh removed the latest library card");
+    assert.equal(await page.locator('#grid article.card[data-open="alchemy-of-souls"]').count(),1,"An older refresh removed the latest library card");
     assert.equal(await page.evaluate(()=>items.find(item=>item.id==="alchemy-of-souls").episode),7);
     assert.equal(await page.evaluate(()=>items.some(item=>item.id==="older-refresh")),false);
 
@@ -317,7 +317,7 @@ try {
       hydrate({items:[item],lists,settings});
       for(const callback of globalThis.refreshRaceCallbacks.splice(0))callback({items:[],lists:[]});
     },{item:progressed,lists:refreshBaseline["dasi.lists"]});
-    assert.equal(await page.locator('#grid [data-open="alchemy-of-souls"]').count(),1,"A pending refresh overrode explicit hydration");
+    assert.equal(await page.locator('#grid article.card[data-open="alchemy-of-souls"]').count(),1,"A pending refresh overrode explicit hydration");
   }finally{
     await page.evaluate(()=>{api.runtime.sendMessage=globalThis.refreshRaceOriginal;delete globalThis.refreshRaceOriginal;delete globalThis.refreshRaceCallbacks;});
     await worker.evaluate(state=>chrome.storage.local.set(state),refreshBaseline);
