@@ -203,6 +203,23 @@ try {
     });
     await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("library");openList("journey-list");resolve();})));
     assert.equal(await page.locator('#list-add-options [data-add]').count(),50,"Large libraries should not render every add button at once");
+    await page.evaluate(()=>{
+      globalThis.listJourneyTransport=api.runtime.sendMessage;
+      api.runtime.sendMessage=function(message,callback){
+        if(message.type==="LIST_SET_ITEMS")return setTimeout(()=>globalThis.listJourneyTransport.call(api.runtime,message,callback),80);
+        return globalThis.listJourneyTransport.call(api.runtime,message,callback);
+      };
+      document.querySelector('[data-add="list-extra-0"]').click();
+      document.querySelector('[data-add="list-extra-1"]').click();
+    });
+    try {
+      await page.waitForFunction(()=>document.querySelector('#list-items [data-id="list-extra-0"]')&&document.querySelector('#list-items [data-id="list-extra-1"]'));
+    } finally {
+      await page.evaluate(()=>{api.runtime.sendMessage=globalThis.listJourneyTransport;delete globalThis.listJourneyTransport;});
+    }
+    const rapidSaved=await worker.evaluate(()=>chrome.storage.local.get("dasi.lists"));
+    assert(rapidSaved["dasi.lists"][0].itemIds.includes("list-extra-0")&&rapidSaved["dasi.lists"][0].itemIds.includes("list-extra-1"),"Rapid additions lost an earlier work");
+
     await page.locator('#list-add-search').fill("Secret alias");
     assert.equal(await page.locator('#list-add-options [data-add]').count(),1);
     await page.locator('[data-add="list-extra-64"]').click();
@@ -221,6 +238,13 @@ try {
     const retained=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
     assert(retained["dasi.items"].some(i=>i.id==="list-extra-64"),"Removing list membership deleted the work");
     assert(!retained["dasi.lists"][0].itemIds.includes("list-extra-64"));
+    await page.reload();
+    await page.waitForFunction(()=>lists.some(list=>list.id==="journey-list"));
+    await page.evaluate(()=>{switchView("library");openList("journey-list");});
+    assert.equal(await page.locator('#list-items [data-id="list-extra-0"]').count(),1);
+    assert.equal(await page.locator('#list-items [data-id="list-extra-1"]').count(),1);
+    assert.equal(await page.locator('#list-items [data-id="list-extra-64"]').count(),0);
+
   } finally {
     await worker.evaluate(state=>chrome.storage.local.set(state),listJourneyBefore);
     await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{currentListId=null;hydrate(state);backToLists();switchView("home");resolve();})));

@@ -1830,7 +1830,7 @@ function renderListDetail() {
       document.getElementById("list-add-count").textContent=shown.length+" / "+matches.length+" "+t("works");
       const options=document.getElementById("list-add-options");
       options.innerHTML=shown.length?shown.map(i=>'<button class="chip-toggle" data-add="'+esc(i.id)+'"><span class="cat-inline">'+esc(catLabel(i))+'</span> '+esc(i.title)+'</button>').join(""):'<p class="sub">'+t("noMatch")+'</p>';
-      options.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>setListItems(l.id,[...(l.itemIds||[]),b.dataset.add]));
+      options.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>changeListMembership(l.id,b.dataset.add,true));
     };
     search.oninput=renderOptions;renderOptions();
   }
@@ -1846,8 +1846,8 @@ function wireListDetail(l) {
   document.getElementById("list-view-btn").onclick = () => { listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view === "grid" ? "rows" : "grid" } }); };
   document.getElementById("list-cover-btn").onclick = () => changeCover((v) => listMsg("LIST_UPDATE", { id: l.id, patch: { cover: v } }), "square");
   document.getElementById("list-del").onclick = () => { if (confirm(`${t("delete")} "${l.name}"?`)) listMsg("LIST_DELETE", { id: l.id }, backToLists); };
-  document.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => setListItems(l.id, [...(l.itemIds || []), b.dataset.add])));
-  document.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => setListItems(l.id, (l.itemIds || []).filter((x) => x !== b.dataset.remove))));
+  document.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => changeListMembership(l.id,b.dataset.add,true)));
+  document.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => changeListMembership(l.id,b.dataset.remove,false)));
   wireListBulk(l);
   enableDrag(l);
 }
@@ -1923,6 +1923,19 @@ function enableDrag(l) {
       c.insertBefore(dragEl, after ? row.nextSibling : row);
     });
   });
+}
+let listMembershipQueue=Promise.resolve();
+function changeListMembership(id,itemId,adding) {
+  const operation=listMembershipQueue.then(async()=>{
+    // Compute each edit after the preceding save, never from the rendered snapshot.
+    const current=lists.find(list=>list.id===id);
+    if(!current || (adding&&!items.some(item=>item.id===itemId)))return false;
+    const order=adding?[...new Set([...(current.itemIds||[]),itemId])]:(current.itemIds||[]).filter(value=>value!==itemId);
+    const saved=await listMsg("LIST_SET_ITEMS",{id,itemIds:order},()=>{renderLists();if(currentListId===id)renderListDetail();});
+    return saved;
+  });
+  listMembershipQueue=operation.catch(()=>false);
+  return operation;
 }
 async function setListItems(id,itemIds,silent) {const saved=await listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{if(!silent)renderListDetail();});if(!saved&&currentListId===id)renderListDetail();return saved;}
 function listMsg(type, payload, done) {
