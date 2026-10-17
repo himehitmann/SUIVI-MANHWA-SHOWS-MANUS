@@ -8,6 +8,16 @@ Mise à jour : 17 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Lot parallèle : bibliothèque, langue et pertinence — 17 octobre 2026
+
+[CI #801](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39027100721), commit 36cdb40eaf3b87f072b936d34a050d1d7bf9ab4b : vérification complète et capacité PostgreSQL isolée réussies ; CI push #800 également réussie.
+
+- Bibliothèque extension : les compteurs favoris/terminés excluent les jeux comme la grille qu’ils décrivent. Les sites favoris disposent d’un véritable bouton de suppression accessible au clavier, séparé du lien ; un lien importé non HTTP(S) n’est plus rendu cliquable. Parcours Chrome : compteurs avec œuvres et jeux mélangés, suppression avec Entrée et persistance dans le stockage, conservation d’un autre favori.
+- Langue web : dates relatives traduites FR/EN, dates anciennes selon la langue de l’application, arrondis temporels corrigés et horodatages invalides gérés. Séparateurs médians retirés des marqueurs de progression partagés et de l’accueil concernés. Douze cas de régression. Cela ne valide pas la traduction des synopsis.
+- Recherche web fédérée : titres originaux/alternatifs exacts prioritaires, puis préfixes et mots complets avant mentions indirectes ; accents/ponctuation normalisés, écritures non latines et ordre stable conservés. Quatre tests, dont parcours de recherche fédérée et cache. Aucun élargissement de catalogue ni exhaustivité revendiquée.
+
+G08 et G13 restent partiels ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Actualisation des métadonnées pendant une modification de progression — 17 octobre 2026
 
 [CI #797](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39023557578), commit 85bc793d5477f9d982b4fb7afa3493276136ea0a : vérification complète et capacité PostgreSQL isolée réussies. Une modification de progression invalidait correctement une ancienne réponse, mais pouvait abandonner l’actualisation des métadonnées encore attendue. Un indicateur conserve désormais cette actualisation jusqu’à l’application d’une réponse valide ou d’une hydratation explicite. Le scénario Chrome vérifie simultanément le rejet de l’ancien épisode, le maintien du nouvel épisode et l’application du synopsis frais via une nouvelle lecture. Les réponses périmées ne peuvent pas effacer cet indicateur. Aucun changement de score : bibliothèque encore partielle, 19/60 (32 %). Aucun déploiement ni publication.
