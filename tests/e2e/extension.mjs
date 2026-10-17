@@ -300,15 +300,26 @@ try {
     // A progress-only storage update must invalidate an in-flight metadata refresh too.
     await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[{...item,enrichedAt:item.enrichedAt+1}]}),restored);
     await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=1);
-    const progressVersion=await page.evaluate(()=>storageRefreshVersion);
+    const progressVersion=await page.evaluate(()=>{
+      globalThis.refreshRaceOlder=globalThis.refreshRaceCallbacks.splice(0);
+      return storageRefreshVersion;
+    });
     const progressed={...restored,enrichedAt:restored.enrichedAt+1,episode:9};
     await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[item]}),progressed);
     await page.waitForFunction(version=>storageRefreshVersion>version,progressVersion);
     await page.evaluate(item=>{
       items=[item];renderGrid();
-      for(const callback of globalThis.refreshRaceCallbacks.splice(0))callback({items:[{...item,episode:7}],lists:[]});
+      for(const callback of globalThis.refreshRaceOlder.splice(0))callback({items:[{...item,episode:7}],lists:[]});
     },progressed);
     assert.equal(await page.evaluate(()=>items[0].episode),9,"An old metadata refresh overwrote a progress-only change");
+    await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=1);
+    await page.evaluate(({item,lists})=>{
+      for(const callback of globalThis.refreshRaceCallbacks.splice(0))callback({items:[{...item,synopsis:"Fresh metadata after progress edit"}],lists});
+    },{item:progressed,lists:refreshBaseline["dasi.lists"]});
+    assert.equal(await page.evaluate(()=>items[0].synopsis),"Fresh metadata after progress edit","A progress edit discarded a pending metadata refresh");
+    assert.equal(await page.evaluate(()=>items[0].episode),9);
+    assert.equal(await page.evaluate(()=>storageRefreshDirty),false);
+
 
     // Explicit hydration after import/account refresh also supersedes pending background responses.
     await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[{...item,enrichedAt:item.enrichedAt+1}]}),progressed);
@@ -319,7 +330,7 @@ try {
     },{item:progressed,lists:refreshBaseline["dasi.lists"]});
     assert.equal(await page.locator('#grid article.card[data-open="alchemy-of-souls"]').count(),1,"A pending refresh overrode explicit hydration");
   }finally{
-    await page.evaluate(()=>{api.runtime.sendMessage=globalThis.refreshRaceOriginal;delete globalThis.refreshRaceOriginal;delete globalThis.refreshRaceCallbacks;});
+    await page.evaluate(()=>{api.runtime.sendMessage=globalThis.refreshRaceOriginal;delete globalThis.refreshRaceOriginal;delete globalThis.refreshRaceCallbacks;delete globalThis.refreshRaceOlder;});
     await worker.evaluate(state=>chrome.storage.local.set(state),refreshBaseline);
     await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);resolve();})));
   }

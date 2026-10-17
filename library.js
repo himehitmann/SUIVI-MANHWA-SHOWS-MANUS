@@ -2937,9 +2937,9 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDra
 document.getElementById("crop-scrim").onclick = closeCropper;
 
 /* ---- boot ---- */
-let storageRefresh = 0, storageRefreshVersion = 0;
+let storageRefresh = 0, storageRefreshVersion = 0, storageRefreshDirty = false;
 function hydrate(state) {
-  ++storageRefreshVersion; clearTimeout(storageRefresh);
+  ++storageRefreshVersion; clearTimeout(storageRefresh); storageRefreshDirty = false;
   items = state?.items || []; sites = state?.sites || []; notifications = state?.notifications || [];
   lists = state?.lists || []; settings = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" }, ...(state?.settings || {}) };
   document.documentElement.lang = settings.lang;
@@ -2956,10 +2956,13 @@ api.storage.onChanged.addListener((changes, area) => {
   const change = changes["dasi.items"];
   const signature=item=>JSON.stringify([item.enrichedAt,item.releaseCheckedAt,item.gameEnrichedAt,item.metadataPending,item.metadataStatus]);
   const before=new Map((change.oldValue||[]).map(item=>[item.id,signature(item)]));
-  if(!(change.newValue||[]).some(item=>before.get(item.id)!==signature(item))&&(change.oldValue||[]).length===(change.newValue||[]).length)return;
+  if(!storageRefreshDirty && !(change.newValue||[]).some(item=>before.get(item.id)!==signature(item))&&(change.oldValue||[]).length===(change.newValue||[]).length)return;
+  // Progress edits invalidate old snapshots but must not discard pending metadata.
+  storageRefreshDirty = true;
   storageRefresh = setTimeout(() => api.runtime.sendMessage({ type: "GET_STATE" }, state => {
     const error=api.runtime.lastError;
     if (error || version!==storageRefreshVersion || !Array.isArray(state?.items)) return;
+    storageRefreshDirty = false;
     items = state.items;
     if (Array.isArray(state.lists)) lists = state.lists;
     // Preserve selected list rows, open editors, profile and navigation state.
