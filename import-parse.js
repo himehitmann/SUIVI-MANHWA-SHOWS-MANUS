@@ -26,9 +26,38 @@
     const s = String(raw || "").toLowerCase();
     if (/manhwa|manhua|manga|webtoon|comic|book|novel|light.?novel|bd/.test(s)) return "reading";
     if (/game|jeu/.test(s)) return "game";
-    if (/movie|film/.test(s)) return "watching";
-    if (/show|serie|série|tv|episode|épisode|anime|drama|season/.test(s)) return "watching";
+    if (/movie|film|show|serie|série|tv|episode|épisode|anime|drama|season/.test(s)) return "watching";
     return "";
+  };
+  // Preserve the real media kind from exports. "watching" is only the tracking
+  // mode; format is what makes Yomu say Anime, Series, Film, K-Drama, etc.
+  const inferFormat = (raw, type) => {
+    const s = String(raw || "").toLowerCase();
+    if (type === "game" || /game|jeu/.test(s)) return "GAME";
+    if (/webtoon/.test(s)) return "WEBTOON";
+    if (/manhwa/.test(s)) return "MANHWA";
+    if (/manhua/.test(s)) return "MANHUA";
+    if (/manga/.test(s)) return "MANGA";
+    if (/light.?novel/.test(s)) return "LIGHT_NOVEL";
+    if (/novel/.test(s)) return "NOVEL";
+    if (/book|livre/.test(s)) return "BOOK";
+    if (/k.?drama|korean drama|corée/.test(s)) return "KDRAMA";
+    if (/c.?drama|chinese drama/.test(s)) return "CDRAMA";
+    if (/j.?drama|japanese drama/.test(s)) return "JDRAMA";
+    if (/anime|animation|ona|ova/.test(s)) return "ANIME";
+    if (/movie|film/.test(s)) return "MOVIE";
+    if (/show|serie|série|tv|drama/.test(s)) return "SERIES";
+    return "";
+  };
+
+  const importStatus = raw => {
+    const value = String(raw || "").trim().toLowerCase().replace(/[ _-]+/g, " ");
+    if (["completed","complete","finished","terminé","terminée"].includes(value)) return "completed";
+    if (["on hold","paused","pause","en pause"].includes(value)) return "on_hold";
+    if (["dropped","abandoned","abandonné","abandonnée"].includes(value)) return "dropped";
+    if (["planned","plan to watch","plan to read","watchlist","want to watch","want to read"].includes(value)) return "planned";
+    if (["watching","reading","current","in progress","en cours"].includes(value)) return "current";
+    return undefined;
   };
 
   // Build a Yomu import payload from a loosely-shaped media record.
@@ -42,10 +71,11 @@
       "title", "name", "series_title", "seriesTitle", "show.title", "movie.title",
       "original_title", "Title", "Name", "titre", "Série", "Serie",
     ]);
-    if (!title || title.length < 2) return null;
+    if (!title) return null;
 
     let type = hintType || asType(rec.type || src.type || src.media_type || src.Title_Type || src["Title Type"] || (rec.movie ? "movie" : rec.show ? "show" : ""));
     if (!type) type = "watching";
+    const format = inferFormat(src.format || src.Format || src.kind || src.media_type || src.type || rec.type || src.Title_Type || src["Title Type"] || (rec.movie ? "movie" : rec.show || rec.series ? "series" : ""), type);
 
     const yearRaw = firstString(src, ["year", "Year", "release_year", "first_air_date", "startDate"]);
     const year = yearRaw ? parseInt(yearRaw, 10) || undefined : undefined;
@@ -66,20 +96,26 @@
         const sn = Number(s.number) || 0;
         const eps = Array.isArray(s.episodes) ? s.episodes : [];
         const maxEp = eps.reduce((m, e) => Math.max(m, Number(e.number) || 0), 0);
-        if (sn >= (season || 0)) { season = sn; episode = Math.max(episode || 0, maxEp); }
+        if (sn > (season ?? -1)) { season = sn; episode = maxEp; }
+        else if(sn === season) episode = Math.max(episode || 0,maxEp);
       }
     }
     const num = (v) => { const n = parseInt(v, 10); return isFinite(n) && n > 0 ? n : undefined; };
-    episode = episode || num(src.episode) || num(src.episodes_watched) || num(src.num_watched_episodes) || num(src.my_watched_episodes) || num(src.watched_episodes);
-    chapter = num(src.chapter) || num(src.chapters_read) || num(src.num_read_chapters) || num(src.my_read_chapters);
+    episode = episode || num(src.episode) || num(src.episode_number) || num(src.episodeNumber) || num(src.episodes_watched) || num(src.num_watched_episodes) || num(src.my_watched_episodes) || num(src.watched_episodes) || num(src.watchedEpisodes) || num(src.num_episodes_watched);
+    chapter = num(src.chapter) || num(src.chapter_number) || num(src.chapters_read) || num(src.num_read_chapters) || num(src.my_read_chapters);
     season = season || num(src.season);
     if (type === "reading" && !chapter && episode) { chapter = episode; episode = undefined; }
 
     const cover = firstString(src, ["cover", "image", "poster", "thumb", "Image"]) || undefined;
-    const status = /plan|watchlist|want|planned/i.test(String(rec.list_type || rec.status || src.status || "")) ? "planned" : undefined;
+    const total = num(src.total) || (type === "reading" ? num(src.chapters) || num(src.total_chapters) || num(src.num_chapters) : num(src.episodes) || num(src.total_episodes) || num(src.totalEpisodes) || num(src.num_episodes));
+    const status = importStatus(src.my_status || rec.status || src.status || rec.list_type);
 
     return {
-      title, type, year, url, cover,
+      title, type, format: format || undefined, year, url, cover, total,
+      externalIds: src.externalIds && typeof src.externalIds === "object" ? src.externalIds : src.ids && typeof src.ids === "object" ? src.ids : undefined,
+      alternativeTitles: [...new Set([...(Array.isArray(src.alternativeTitles)?src.alternativeTitles:[]),...(Array.isArray(src.synonyms)?src.synonyms:[]),src.title_english,src.title_romaji,src.title_native].filter(x=>typeof x==="string"&&x.trim()))],
+      authors: (Array.isArray(src.authors)?src.authors:[src.author]).map(x=>typeof x==="string"?x:x?.name).filter(x=>typeof x==="string"&&x.trim()),
+      synopsis: firstString(src,["synopsis","description","summary"]) || undefined,
       episode: type === "watching" ? episode : undefined,
       chapter: type === "reading" ? chapter : undefined,
       season: type === "watching" ? season : undefined,
@@ -112,6 +148,7 @@
 
   // ---- CSV ----------------------------------------------------------------
   function parseCsv(text) {
+    const delimiter = text.split(/[\r\n]/,1)[0].includes("\t") ? "\t" : text.split(/[\r\n]/,1)[0].split(";").length > text.split(/[\r\n]/,1)[0].split(",").length ? ";" : ",";
     const rows = [];
     let row = [], field = "", q = false;
     for (let i = 0; i < text.length; i++) {
@@ -120,7 +157,7 @@
         if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
         else field += c;
       } else if (c === '"') q = true;
-      else if (c === ",") { row.push(field); field = ""; }
+      else if (c === delimiter) { row.push(field); field = ""; }
       else if (c === "\n" || c === "\r") {
         if (c === "\r" && text[i + 1] === "\n") i++;
         row.push(field); field = "";
@@ -147,14 +184,19 @@
   function collectFromXml(text, out) {
     try {
       const doc = new DOMParser().parseFromString(text, "application/xml");
-      const isManga = !!doc.querySelector("manga");
+      
       doc.querySelectorAll("anime, manga").forEach((node) => {
+        const isManga = node.tagName.toLowerCase() === "manga";
         const g = (t) => (node.querySelector(t)?.textContent || "").trim();
         const title = g("series_title") || g("manga_title") || g("title");
         if (!title) return;
         out.push({
           title,
           type: isManga ? "reading" : "watching",
+          format: isManga ? "MANGA" : "ANIME",
+          total: parseInt(g(isManga ? "series_chapters" : "series_episodes"), 10) || undefined,
+          status: importStatus(g("my_status")),
+          externalIds: { mal: g(isManga ? "series_mangadb_id" : "series_animedb_id") || undefined },
           episode: isManga ? undefined : parseInt(g("my_watched_episodes"), 10) || undefined,
           chapter: isManga ? parseInt(g("my_read_chapters"), 10) || undefined : undefined,
           rating: (() => { const s = Math.round((parseInt(g("my_score"), 10) || 0) / 2); return s > 0 ? s : undefined; })(),
@@ -206,31 +248,40 @@
     const acc = { items: [], sites: undefined, lists: undefined, settings: undefined, formats: new Set(), warnings: [] };
     for (const f of files) {
       try {
+        if(f.size > 25*1024*1024) throw new Error("File exceeds 25 MB");
         if (/\.zip$/i.test(f.name)) {
           if (typeof fflate === "undefined" || !fflate.unzipSync) { acc.warnings.push("ZIP support unavailable"); continue; }
           const buf = new Uint8Array(await f.arrayBuffer());
-          const entries = fflate.unzipSync(buf);
+          let size=0, count=0;
+          const entries = fflate.unzipSync(buf,{filter(entry) {
+            if(++count>1000) throw new Error("Archive has more than 1000 entries");
+            if(!/\.(json|csv|xml|txt|tsv)$/i.test(entry.name)) return false;
+            size+=entry.originalSize;
+            if(entry.originalSize>25*1024*1024 || size>50*1024*1024) throw new Error("Archive expands beyond the 50 MB import limit");
+            return true;
+          }});
           Object.keys(entries).forEach((entryName) => {
             if (/\/$/.test(entryName)) return;
             if (!/\.(json|csv|xml|txt|tsv)$/i.test(entryName)) return;
-            try { parseOne(entryName, dec.decode(entries[entryName]), acc); } catch { /* skip entry */ }
+            try { parseOne(entryName, dec.decode(entries[entryName]), acc); } catch { acc.warnings.push(`Could not parse ${entryName}`); }
           });
         } else {
           parseOne(f.name, await f.text(), acc);
         }
-      } catch (e) { acc.warnings.push(`Could not read ${f.name}`); }
+      } catch (e) { acc.warnings.push(`Could not read ${f.name}: ${e.message || "invalid file"}`); }
     }
     // Dedup by normalized title + type, keeping the furthest progress / a rating.
-    const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const norm = (s) => String(s || "").normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
     const byKey = new Map();
     for (const it of acc.items) {
       if (!it || !it.title) continue;
-      const key = norm(it.title) + "|" + (it.type || "watching");
+      const key = (it.id ? "id:" + it.id : norm(it.title) + "|" + (it.year || "")) + "|" + (it.type || "watching");
       const prev = byKey.get(key);
       if (!prev) { byKey.set(key, it); continue; }
       byKey.set(key, {
         ...prev, ...it,
-        episode: Math.max(prev.episode || 0, it.episode || 0) || undefined,
+        season: Math.max(prev.season || 1,it.season || 1),
+        episode: (prev.season || 1) > (it.season || 1) ? prev.episode : (it.season || 1) > (prev.season || 1) ? it.episode : Math.max(prev.episode || 0,it.episode || 0) || undefined,
         chapter: Math.max(prev.chapter || 0, it.chapter || 0) || undefined,
         rating: it.rating || prev.rating,
         cover: prev.cover || it.cover,
