@@ -1,12 +1,16 @@
 # Suivi global Yomu
 
-Mise à jour : 16 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 17 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Bibliothèque : réponses de rafraîchissement périmées — 17 octobre 2026
+
+[CI #793](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39020625433), commit 4c981d247ee0ce63174044e3829d02c804259c7c : vérification complète et capacité PostgreSQL isolée réussies. Le correctif 4a2761f8c6192006d55666deef694f3246a307bd ajoute une version aux lectures de fond GET_STATE : une réponse ancienne ne peut plus remplacer une bibliothèque actualisée. Une modification de progression seule ou une hydratation explicite invalide également les réponses en attente. Trois scénarios Chrome sur l’extension empaquetée livrent les réponses hors ordre et vérifient la conservation des fiches et de la progression. Le parcours existant d’ouverture d’Alchemy of Souls reste inchangé et réussit. Le premier essai du nouveau test comptait les deux contrôles d’ouverture d’une seule fiche ; le sélecteur corrigé compte les articles, sans relâcher l’exigence d’une seule fiche. Cette course est reproduite et couverte ; son lien avec l’expiration initiale de #787 reste une hypothèse, pas une cause démontrée. La bibliothèque complète reste partiellement validée ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
 
 ## Remboursement intégral Stripe Lifetime — 16 octobre 2026
 
