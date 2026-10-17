@@ -18,14 +18,14 @@ try {
  assert.deepEqual(await p.evaluate(()=>lists.find(l=>l.id==='source').itemIds),['a','b','c']);
  assert.deepEqual(await p.evaluate(()=>lists.find(l=>l.id==='destination').itemIds),['a','b']);
  await p.evaluate(()=>{chrome.runtime.sendMessage=globalThis.bulkOriginalSend;});
- await w.evaluate(()=>{globalThis.transferWriteOriginal=writeData;writeData=async()=>{throw Error("simulated_storage_failure");};});
+ await w.evaluate(()=>{globalThis.transferWriteOriginal=chrome.storage.local.set;chrome.storage.local.set=async function(value){if(value["dasi.lists"])throw Error("simulated_storage_failure");return globalThis.transferWriteOriginal.call(chrome.storage.local,value);};});
  try {
    const failed=await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_TRANSFER",sourceId:"source",destinationId:"destination",itemIds:["c"],action:"move"},resolve)));
    assert.equal(failed.ok,false);
    const unchanged=await w.evaluate(async()=>(await chrome.storage.local.get("dasi.lists"))["dasi.lists"]);
    assert.deepEqual(unchanged.find(l=>l.id==="source").itemIds,["a","b","c"]);
    assert.deepEqual(unchanged.find(l=>l.id==="destination").itemIds,["a","b"]);
- } finally {await w.evaluate(()=>{writeData=globalThis.transferWriteOriginal;delete globalThis.transferWriteOriginal;});}
+ } finally {await w.evaluate(()=>{chrome.storage.local.set=globalThis.transferWriteOriginal;delete globalThis.transferWriteOriginal;});}
  await p.locator('#bulk-move').click();
  await p.waitForFunction(()=>lists.find(l=>l.id==='source').itemIds.length===2);
  assert.deepEqual(await p.evaluate(()=>lists.find(l=>l.id==='destination').itemIds),['a','b','c']);
