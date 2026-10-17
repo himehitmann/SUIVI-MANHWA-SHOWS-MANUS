@@ -8,6 +8,10 @@ Mise à jour : 17 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : ajouts rapides et rechargement — 17 octobre 2026
+
+[CI #815](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39069142594), commit 843d8db329a91495f0ac95db02f4e3d492568b70 : vérification complète et capacité PostgreSQL isolée réussies. Les ajouts/retraits individuels depuis le détail d’une liste sont enregistrés dans l’ordre ; chaque action calcule ses membres depuis le dernier état confirmé, plutôt que depuis la fermeture du rendu précédent. Cela empêche deux clics rapides de remplacer l’un des ajouts. Scénario Chrome avec transport volontairement retardé : deux ajouts consécutifs, contrôle du stockage puis rechargement réel, deux œuvres conservées ; retrait précédent également conservé après rechargement. Périmètre : actions individuelles de cette vue, pas une garantie de concurrence multi-appareils pour toutes les mutations. G13 reste partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : navigation et ajout dans les listes — 17 octobre 2026
 
 [CI #811](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39068497547), commit 508b07b54d1e5f3c3e4045d0276b0c25be739cc2 : vérification complète et capacité PostgreSQL isolée réussies.
