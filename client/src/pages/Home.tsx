@@ -107,14 +107,14 @@ export default function Home() {
               <h2>{current.title}</h2>
               <p>
                 {markerLabel(current, t)}
-                <span> · </span>
+                <span>, </span>
                 {t(`type.${current.type}`)}
               </p>
               <div className="hero-progress">
                 <Progress value={current.progress} />
                 <strong>{t("unit.percent", { n: current.progress })}</strong>
               </div>
-              <small>{t("hero.savedAgo", { time: relativeTime(current.updatedAt, t) })}</small>
+              <small>{t("hero.savedAgo", { time: relativeTime(current.updatedAt, t, lang) })}</small>
               <div className="hero-buttons">
                 <a className="primary-cta" href={current.url} target="_blank" rel="noreferrer" onClick={() => toast(t("toast.opening"))}>
                   <Play size={16} fill="currentColor" />
@@ -223,7 +223,7 @@ export default function Home() {
                   <p>{markerLabel(item, t)}</p>
                   <Progress value={item.progress} accent={itemAccent(item)} />
                   <small>
-                    {t("unit.percent", { n: item.progress })} · {relativeTime(item.updatedAt, t)}
+                    {t("unit.percent", { n: item.progress })}, {relativeTime(item.updatedAt, t, lang)}
                   </small>
                 </div>
               </article>
@@ -268,7 +268,7 @@ export default function Home() {
                   </div>
                   <div className="row-source">
                     <span>{item.sources.length > 1 ? `${item.sources.length} sources` : item.domain}</span>
-                    <small>{relativeTime(item.updatedAt, t)}</small>
+                    <small>{relativeTime(item.updatedAt, t, lang)}</small>
                   </div>
                   <div className="row-tools">
                     <button className="fav-toggle" onClick={() => findAgain(item.title)} aria-label={t("row.findAgain")} title={t("row.findAgain")}>

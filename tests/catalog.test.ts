@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from 'vitest';
-import {createCatalog} from '../server/lib/catalog';
+import {createCatalog,rankCatalogWorks,type CatalogWork} from '../server/lib/catalog';
 import {createItem} from '../client/src/lib/item';
 import {mergeLibraryImport} from '../client/src/lib/library-merge';
 import {seedState} from '../client/src/lib/seed';
@@ -32,3 +32,39 @@ describe('catalogue overload protection',()=>{
  });
 });
 
+
+describe('catalog search relevance',()=>{
+ const work=(id:string,title:string,extra:Partial<CatalogWork>={}):CatalogWork=>({id,title,type:'watching',format:'SERIES',source:'fixture',url:'https://example.com/'+id,externalIds:{},...extra});
+ it('ranks exact alternative and original titles ahead of prefixes, synopsis mentions and unrelated provider results',()=>{
+  const rows=[work('unrelated','Another story'),work('synopsis','A documentary',{synopsis:'A look at Solo Leveling.'}),work('prefix','Solo Leveling Ragnarok'),work('alias','Ore dake Level Up na Ken',{aliases:['Solo Leveling']}),work('native','A translated title',{originalTitle:'Solo Leveling'})];
+  expect(rankCatalogWorks('solo leveling',rows).map(x=>x.id)).toEqual(['alias','native','prefix','synopsis','unrelated']);
+  expect(rows[0].id).toBe('unrelated');
+ });
+ it('normalizes accents and punctuation while preserving non-Latin titles and numbered sequels',()=>{
+  const rows=[work('sequel','Pokemon 2'),work('exact','Pokémon!'),work('wiki','Pokémon (film)')];
+  expect(rankCatalogWorks('pokemon',rows).map(x=>x.id)).toEqual(['exact','wiki','sequel']);
+  expect(rankCatalogWorks('進撃の巨人',[work('other','Other'),work('native','Attack on Titan',{originalTitle:'進撃の巨人'})])[0].id).toBe('native');
+  expect(rankCatalogWorks('portal 2',[work('one','Portal'),work('two','Portal 2')])[0].id).toBe('two');
+ });
+ it('places complete word matches before incidental substrings and keeps equally relevant provider order',()=>{
+  const rows=[work('partial','The Portalist'),work('word','A Portal Story'),work('first','Portal of Dreams'),work('second','Portal of Time')];
+  expect(rankCatalogWorks('portal',rows).map(x=>x.id)).toEqual(['first','second','word','partial']);
+  expect(rankCatalogWorks('   ',rows)).toEqual(rows);
+ });
+ it('applies alias relevance to federated provider responses and cached searches',async()=>{
+  const fetcher=vi.fn(async(input:any)=>{
+   const url=String(input);
+   if(url.includes('anilist'))return Response.json({data:{Page:{media:[{id:1,title:{english:'Unrelated title'},synonyms:[],format:'TV'},{id:2,title:{english:'Ore dake Level Up na Ken',native:'나 혼자만 레벨업'},synonyms:['Solo Leveling'],format:'TV'}]}}});
+   if(url.includes('jikan'))return Response.json({data:[]});
+   if(url.includes('tvmaze'))return Response.json([{show:{id:3,name:'Solo Leveling Ragnarok',genres:[],externals:{}}}]);
+   if(url.includes('openlibrary'))return Response.json({docs:[]});
+   if(url.includes('steampowered'))return Response.json({results_html:''});
+   return Response.json({query:{pages:{}}});
+  });
+  const search=createCatalog(fetcher as typeof fetch);
+  const result=await search('Solo Leveling');
+  expect(result.results.map(x=>x.id)).toEqual(['anilist-2','tvmaze-3','anilist-1']);
+  expect((await search('solo leveling')).results).toEqual(result.results);
+  expect(fetcher).toHaveBeenCalledTimes(7);
+ });
+});

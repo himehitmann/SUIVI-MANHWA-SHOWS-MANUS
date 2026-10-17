@@ -4,6 +4,29 @@ export interface CatalogWork {
  cover?:string;coverFallback?:string;synopsis?:string;country?:string;year?:number;genres?:string[];total?:number;
  externalIds:Record<string,string|number>;platform?:string;price?:string;originalTitle?:string;aliases?:string[];
 }
+
+const searchText=(value:unknown)=>typeof value==='string'?value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim():'';
+export function rankCatalogWorks(query:string,results:CatalogWork[]):CatalogWork[]{
+ const needle=searchText(query);if(!needle)return results;
+ const words=needle.split(' ');
+ const titleScore=(value:unknown)=>{
+  const text=searchText(value);if(!text)return 0;
+  if(text===needle)return 100;
+  if(text.startsWith(needle+' '))return 90;
+  const tokens=new Set(text.split(' '));
+  if(words.every(word=>tokens.has(word)))return 80;
+  return text.includes(needle)?60:0;
+ };
+ return results.map((item,index)=>{
+  const titles=[item.title,item.originalTitle,...(Array.isArray(item.aliases)?item.aliases:[])];
+  const title=Math.max(0,...titles.flatMap(value=>[titleScore(value),typeof value==='string'?titleScore(value.replace(/\s*\([^)]*\)$/, '')):0]));
+  const genre=(item.genres||[]).some(value=>searchText(value)===needle)?40:0;
+  const synopsis=searchText(item.synopsis),tokens=new Set(synopsis.split(' '));
+  const description=synopsis.includes(needle)?20:words.every(word=>tokens.has(word))?10:0;
+  return {item,index,score:Math.max(title,genre,description)};
+ }).sort((a,b)=>b.score-a.score||a.index-b.index).map(row=>row.item);
+}
+
 export type CatalogResponse={results:CatalogWork[];sources:{name:string;ok:boolean}[]};
 const plain=(s:any)=>String(s||'').replace(/<[^>]*>/g,' ').replace(/&amp;/g,'&').replace(/&#0?39;|&apos;/g,"'").replace(/&quot;/g,'"').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
 async function json(url:string,init:RequestInit={},fetcher=fetch){const r=await fetcher(url,{...init,signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('catalog_'+r.status);return r.json();}
@@ -60,7 +83,7 @@ export function createCatalog(fetcher=fetch,options:{now?:()=>number;maxPending?
    const adapters=[['AniList',anilist],['Jikan',jikan],['TVmaze',tvmaze],['Open Library',books],['Steam',steam],['Wikipedia',wiki]] as const;
    const settled=await Promise.allSettled(adapters.map(([,search])=>search(q)));
    const results:CatalogWork[]=[],seen=new Set<string>();settled.forEach(r=>{if(r.status==='fulfilled')for(const item of r.value){if(!item.title)continue;const id=item.type+'|'+item.format+'|'+item.title.toLowerCase()+'|'+(item.year||'');if(!seen.has(id)){seen.add(id);results.push(item);}}});
-   const value={results:results.sort((a,b)=>Number(b.title.toLowerCase().replace(/\s*\([^)]*\)$/, '')===key)-Number(a.title.toLowerCase().replace(/\s*\([^)]*\)$/, '')===key)),sources:adapters.map(([name],i)=>({name,ok:settled[i].status==='fulfilled'}))};
+   const value={results:rankCatalogWorks(q,results),sources:adapters.map(([name],i)=>({name,ok:settled[i].status==='fulfilled'}))};
    if(cache.size>=128)cache.delete(cache.keys().next().value!);cache.set(key,{at:now(),value});
    return value;
   })();pending.set(key,work);try{return await work;}finally{pending.delete(key);}

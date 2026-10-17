@@ -108,7 +108,11 @@
       .site-chip { display:inline-flex; align-items:center; gap:8px; text-decoration:none; color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:12px; padding:9px 14px; font-size:12.5px; font-weight:600; box-shadow:var(--shadow); transition:transform .15s, border-color .15s; }
       .site-chip:hover { transform:translateY(-2px); border-color:#D9CFF0; }
       .site-chip .fav-dot { width:22px; height:22px; border-radius:7px; background:var(--lav); color:var(--lav-ink); display:grid; place-items:center; font-weight:800; font-size:11px; }
-      .site-chip .rm-site { opacity:.45; cursor:pointer; } .site-chip .rm-site:hover { opacity:1; }
+      .site-chip .site-link { display:inline-flex; align-items:center; gap:8px; min-width:0; color:inherit; text-decoration:none; }
+      .site-chip .site-link>span:last-child { overflow-wrap:anywhere; min-width:0; }
+      .site-chip .rm-site { display:grid; place-items:center; flex:none; width:28px; height:28px; border:0; background:transparent; color:var(--muted); cursor:pointer; }
+      .site-chip .rm-site:hover { color:var(--ink); }
+      .site-chip .rm-site:focus-visible,.site-chip .site-link:focus-visible { outline:2px solid var(--lav-ink); outline-offset:3px; }
       /* category badge */
       .cat-badge { position:absolute; top:6px; right:6px; font-size:8.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:2px 6px; border-radius:6px; background:rgba(36,31,51,.72); color:#fff; backdrop-filter:blur(3px); }
       .card .cat-inline { font-size:9px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--lav-ink); background:var(--lav); border-radius:5px; padding:1px 6px; margin-left:6px; vertical-align:middle; }

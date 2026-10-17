@@ -14,6 +14,12 @@ export const LANGUAGES: { code: Language; label: string; flag: string }[] = [
 ];
 
 const en = {
+  "time.justNow": "just now",
+  "time.minutesAgo": "{n} min ago",
+  "time.hoursAgo": "{n}h ago",
+  "time.yesterday": "yesterday",
+  "time.daysAgo": "{n} days ago",
+  "time.unknown": "unknown date",
   "nav.library": "Library",
   "nav.discover": "Discover",
   "nav.collections": "Collections",
@@ -374,6 +380,12 @@ const en = {
 export type StringKey = keyof typeof en;
 
 const fr: Record<StringKey, string> = {
+  "time.justNow": "à l’instant",
+  "time.minutesAgo": "il y a {n} min",
+  "time.hoursAgo": "il y a {n} h",
+  "time.yesterday": "hier",
+  "time.daysAgo": "il y a {n} jours",
+  "time.unknown": "date inconnue",
   "nav.library": "Bibliothèque",
   "nav.discover": "Découvrir",
   "nav.collections": "Collections",

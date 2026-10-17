@@ -142,6 +142,31 @@ try {
   page.on("pageerror", e => errors.push(e.message));
   await page.goto(base + "library.html");
   await page.locator("#avatar").waitFor();
+  // Library counters have the same non-game scope as the library grid.
+  const statsSnapshot=await page.evaluate(()=>{
+    const saved=items;
+    items=[{id:"read",title:"Read",type:"reading",favorite:true,state:"completed"},{id:"watch",title:"Watch",type:"watching"},{id:"game",title:"Game",type:"game",favorite:true,state:"completed"}];
+    renderStats();
+    const counts=[...document.querySelectorAll("#stats .chip b")].map(n=>Number(n.textContent));
+    items=saved;renderStats();
+    return counts;
+  });
+  assert.deepEqual(statsSnapshot,[2,1,1,1,1],"Game favorites/completions inflated the library counters");
+  const sitesBefore=await worker.evaluate(()=>chrome.storage.local.get("dasi.sites"));
+  try {
+    await worker.evaluate(()=>chrome.storage.local.set({"dasi.sites":[{id:"keyboard-site",name:"Keyboard site",url:"https://reader.example/"},{id:"unsafe-site",name:"Invalid imported site",url:"javascript:alert(1)"}]}));
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("library");resolve();})));
+    assert.equal(await page.locator('#site-strip a[href="https://reader.example/"]').count(),1);
+    assert.equal(await page.locator('#site-strip a[href^="javascript:"]').count(),0);
+    const remove=page.getByRole("button",{name:/Keyboard site/});
+    await remove.focus();await page.keyboard.press("Enter");
+    await page.waitForFunction(()=>!document.querySelector('[data-rmsite="keyboard-site"]'));
+    assert.equal((await worker.evaluate(()=>chrome.storage.local.get("dasi.sites")))["dasi.sites"].some(s=>s.id==="keyboard-site"),false);
+    assert.equal(await page.locator('[data-rmsite="unsafe-site"]').count(),1);
+  } finally {
+    await worker.evaluate(state=>chrome.storage.local.set({"dasi.sites":state["dasi.sites"]||[]}),sitesBefore);
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("home");resolve();})));
+  }
   // Home cards must open their own details, preserve artwork ratios and hide idle arrows.
   await worker.evaluate(cover=>{
     getDiscover=async()=>({manga:[{title:"Home fixture",type:"reading",format:"MANGA",cover,genres:["Adventure"],synopsis:"Home preview"}],anime:[],manhwa:[],manhua:[],series:[],gamesHot:[],gamesSoon:[]});

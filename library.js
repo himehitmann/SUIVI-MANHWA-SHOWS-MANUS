@@ -1521,12 +1521,13 @@ function renderLibHeader() {
   };
 }
 function renderStats() {
+  const libraryItems = items.filter(i => i.type !== "game");
   const s = [
-    [items.filter((i) => i.type !== "game").length, t("tracked")],
-    [items.filter((i) => i.type === "reading").length, t("reading")],
-    [items.filter((i) => i.type === "watching").length, t("watching")],
-    [items.filter((i) => i.favorite).length, t("favorites")],
-    [items.filter((i) => itemState(i) === "completed").length, t("finished")],
+    [libraryItems.length, t("tracked")],
+    [libraryItems.filter((i) => i.type === "reading").length, t("reading")],
+    [libraryItems.filter((i) => i.type === "watching").length, t("watching")],
+    [libraryItems.filter((i) => i.favorite).length, t("favorites")],
+    [libraryItems.filter((i) => itemState(i) === "completed").length, t("finished")],
   ];
   document.getElementById("stats").innerHTML = s.map(([n, l]) => `<div class="chip"><b>${n}</b><span>${l}</span></div>`).join("");
 }
@@ -1763,7 +1764,12 @@ function renderSites() {
   const h = document.getElementById("sites-h");
   if (h) h.textContent = t("sitesTitle");
   const help=document.getElementById("sites-help");if(help)help.textContent=t("sitesHelp");
-  strip.innerHTML = sites.map((s) => `<a class="site-chip" href="${esc(s.url)}" target="_blank" rel="noreferrer"><span class="fav-dot">${esc((s.name || "?")[0].toUpperCase())}</span>${esc(s.name)}<span class="rm-site" data-rmsite="${esc(s.id || s.url)}">${I.close.replace('class="ic"', 'class="ic" style="width:12px;height:12px"')}</span></a>`).join("");
+  strip.innerHTML = sites.map((s) => {
+    const url = safeNavigationUrl(s.url), name = s.name || s.url || "?";
+    const label = '<span class="fav-dot">'+esc(name[0].toUpperCase())+'</span><span>'+esc(name)+'</span>';
+    return '<span class="site-chip">'+(url ? '<a class="site-link" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>' : '<span class="site-link">'+label+'</span>')+
+      '<button type="button" class="rm-site" data-rmsite="'+esc(s.id || s.url)+'" aria-label="'+esc(t("delete")+": "+name)+'">'+I.close.replace('class="ic"', 'class="ic" style="width:12px;height:12px"')+'</button></span>';
+  }).join("");
   if(!sites.length)strip.innerHTML='<p class="sub">'+esc(t("sitesEmpty"))+'</p>';
   strip.querySelectorAll("[data-rmsite]").forEach((x) => (x.onclick = (e) => {
     e.preventDefault(); e.stopPropagation();
