@@ -8,6 +8,12 @@ Mise à jour : 18 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : création d’une liste avec une œuvre — 18 octobre 2026
+
+[CI #833](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39113237971), commit ef4b51f79a6e603f8fa90d6b9852abc941c615df : vérification complète et capacité PostgreSQL isolée réussies. La création depuis l’ajout rapide fournit les membres initiaux au service worker, qui valide leur existence avant une seule écriture. Une création échouée ne déclenche plus d’ajout à la dernière liste existante. Création et duplication ouvrent la liste identifiée dans la réponse plutôt que de supposer qu’elle est en dernière position.
+
+Parcours Chrome : échec simulé sans modification des listes, bouton réessayable, création réussie avec l’œuvre, rejet d’un membre inexistant ; les parcours existants de duplication/archivage/restauration restent réussis. G13 partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : grille, états vides et clavier — 18 octobre 2026
 
 [CI #829](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39112864699), commit 68343ff8aeb5ad3dd27935452cf76a78ecab7a9b : vérification complète et capacité PostgreSQL isolée réussies. Le compteur des résultats occupe toute la largeur de la grille au lieu d’une colonne d’affiche. Un filtre sans correspondance indique que les œuvres sont conservées ; une collection vide guide vers la recherche. Une collection composée uniquement de jeux propose l’accès à leur onglet. Les listes s’ouvrent via un vrai bouton de titre au clavier ; le bouton de création sans texte reçoit un nom accessible.
