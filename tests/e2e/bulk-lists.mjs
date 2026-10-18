@@ -129,6 +129,21 @@ try {
  assert.equal(await p.locator("#grid .card").count(),7);
  assert.equal(await p.locator("#library-format").inputValue(),"all");
  assert.equal(await p.locator("#library-unlisted").isChecked(),false);
+ await p.evaluate(()=>{items[2].alternativeTitles=["Étoile du soir"];items[2].authors=["Auteur test"];renderGrid();globalThis.localSearchOriginal=api.runtime.sendMessage;globalThis.localSearchCalls=0;api.runtime.sendMessage=function(...args){globalThis.localSearchCalls++;return globalThis.localSearchOriginal.apply(api.runtime,args);};});
+ try {
+   await p.locator("#library-search").fill("etoile du soir");
+   assert.equal(await p.locator("#grid .card").count(),1);
+   assert.equal(await p.locator("#grid .card").getAttribute("data-open"),"fixture2");
+   await p.locator("#library-search").fill("auteur test");
+   assert.equal(await p.locator("#grid .card").count(),1);
+   assert.equal(await p.locator("#library-search").evaluate(node=>node===document.activeElement),true);
+   assert.equal(await p.locator("#q").inputValue(),"");
+   assert.equal(await p.evaluate(()=>globalThis.localSearchCalls),0,"Local library search must not request a catalog");
+   await p.locator("#reset-library-filters").click();
+   assert.equal(await p.locator("#library-search").inputValue(),"");
+   assert.equal(await p.locator("#grid .card").count(),7);
+ } finally {await p.evaluate(()=>{api.runtime.sendMessage=globalThis.localSearchOriginal;delete globalThis.localSearchOriginal;delete globalThis.localSearchCalls;});}
+
  const layout=await p.locator("#grid .library-result-count").evaluate(node=>({count:node.getBoundingClientRect().width,grid:node.parentElement.getBoundingClientRect().width}));
  assert(Math.abs(layout.count-layout.grid)<4,"Result count must not consume a poster column");
  await p.evaluate(()=>{globalThis.libraryEmptyBefore=items;items=[{id:"only-game",title:"Game",type:"game"}];renderGrid();});

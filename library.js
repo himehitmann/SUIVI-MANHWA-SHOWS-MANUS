@@ -1551,7 +1551,7 @@ function cardHtml(i) {
 
   </article>`;
 }
-let libraryFormat="all",libraryUnlisted=false;
+let libraryFormat="all",libraryUnlisted=false,libraryQuery="";
 function libraryCompare(a,b) {
   const title=()=>String(a.title||"").localeCompare(String(b.title||""),settings.lang||"en",{numeric:true,sensitivity:"base"});
   switch(settings.librarySort) {
@@ -1564,7 +1564,8 @@ function libraryCompare(a,b) {
 }
 function renderGrid() {
   const grid = document.getElementById("grid");
-  const q = query.toLowerCase();
+  const normalize=value=>String(value||"").normalize("NFKD").replace(/\p{M}/gu,"").toLocaleLowerCase().trim();
+  const q = normalize(libraryQuery);
   const listed=new Set(lists.filter(l=>!l.archived).flatMap(l=>l.itemIds||[]));
   const list = items.filter((i) => {
     if (i.type === "game") return false;
@@ -1574,12 +1575,13 @@ function renderGrid() {
     if ((filter === "reading" || filter === "watching") && i.type !== filter) return false;
     if (STATUSES.includes(filter) && itemState(i) !== filter) return false;
     if (!q) return true;
-    return `${i.title} ${(i.alternativeTitles || []).join(" ")} ${(i.authors || []).join(" ")} ${marker(i)} ${(i.tags || []).join(" ")}`.toLowerCase().includes(q);
+    return normalize(`${i.title} ${(i.alternativeTitles || []).join(" ")} ${(i.authors || []).join(" ")} ${marker(i)} ${(i.tags || []).join(" ")}`).includes(q);
   });
   const total=items.filter(i=>i.type!=="game").length;
   const count='<p class="sub library-result-count" style="grid-column:1/-1" role="status">'+list.length+' / '+total+' '+t("tracked")+(list.length<total?' <button class="link-btn" id="reset-library-filters">'+t("showAll")+'</button>':'')+'</p>';
   const formats=[...new Set(items.filter(i=>i.type!=="game").map(i=>String(i.format||"").toUpperCase()).filter(Boolean))].sort();
   const controls='<div style="grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'+
+    '<label style="flex:1;min-width:min(240px,100%)">'+(settings.lang==="fr"?"Rechercher dans ma bibliothèque":"Search my library")+' <input type="search" class="field" id="library-search" value="'+esc(libraryQuery)+'" placeholder="'+(settings.lang==="fr"?"Titre, auteur ou étiquette":"Title, author or tag")+'"></label>'+
     '<label>'+ t("sortBy")+' <select class="field" id="library-sort">'+
     [["recent",t("sortRecent")],["title",t("sortTitle")],["rating",t("sortRating")],["remaining",t("sortRemaining")],["added",t("sortAdded")]].map(([v,label])=>'<option value="'+v+'"'+((settings.librarySort||"recent")===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>'+
     '<label>'+ t("formatLabel")+' <select class="field" id="library-format"><option value="all">'+t("all")+'</option>'+formats.map(v=>'<option value="'+esc(v)+'"'+(libraryFormat===v?' selected':'')+'>'+esc(v)+'</option>').join("")+'</select></label>'+
@@ -1589,10 +1591,15 @@ function renderGrid() {
   grid.innerHTML = controls + count + (list.length ? [...list].sort(libraryCompare).map(cardHtml).join("") : '<div class="empty" style="grid-column:1/-1"><p>'+emptyMessage+'</p>'+(!total?'<button class="btn" id="library-start-search">'+t("searchTitle")+'</button>':'')+(!total&&items.some(i=>i.type==="game")?' <button class="btn" id="library-open-games">'+t("games")+'</button>':'')+'</div>');
   const startSearch=document.getElementById("library-start-search");if(startSearch)startSearch.onclick=()=>document.getElementById("q").focus();
   const openGames=document.getElementById("library-open-games");if(openGames)openGames.onclick=()=>switchView("games");
+  document.getElementById("library-search").oninput=e=>{
+    const input=e.target,start=input.selectionStart,end=input.selectionEnd;
+    libraryQuery=input.value;renderGrid();
+    const replacement=document.getElementById("library-search");replacement.focus();replacement.setSelectionRange(start,end);
+  };
   document.getElementById("library-sort").onchange=e=>{settings.librarySort=e.target.value;api.runtime.sendMessage({type:"SET_SETTINGS",patch:{librarySort:settings.librarySort}});renderGrid();document.getElementById("library-sort").focus();};
   document.getElementById("library-format").onchange=e=>{libraryFormat=e.target.value;renderGrid();document.getElementById("library-format").focus();};
   document.getElementById("library-unlisted").onchange=e=>{libraryUnlisted=e.target.checked;renderGrid();document.getElementById("library-unlisted").focus();};
-  const reset=document.getElementById("reset-library-filters");if(reset)reset.onclick=()=>{query="";filter="all";libraryFormat="all";libraryUnlisted=false;document.getElementById("q").value="";clearSearchResults();renderFilters();renderGrid();};
+  const reset=document.getElementById("reset-library-filters");if(reset)reset.onclick=()=>{query="";libraryQuery="";filter="all";libraryFormat="all";libraryUnlisted=false;document.getElementById("q").value="";clearSearchResults();renderFilters();renderGrid();};
 }
 
 /* ================= GAMES ================= */
