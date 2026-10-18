@@ -1545,7 +1545,7 @@ function cardHtml(i) {
       <h3><button class="link-btn" data-open="${esc(i.id)}">${esc(i.title || "Untitled")}</button></h3><p>${esc(marker(i))}${itemState(i) !== "current" ? ` — <b style="color:var(--lav-ink)">${t(itemState(i))}</b>` : ""}</p>
       ${(i.progress || 0) > 0 ? `<div class="bar"><i style="width:${Math.min(100, i.progress)}%;background:${accentFor(i)}"></i></div>` : ""}
       <small>${relative(i.activityAt||i.updatedAt)}</small>
-      <div class="rate">${[1,2,3,4,5].map((n) => `<span data-rate="${esc(i.id)}" data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= rating ? "on" : ""}"`)}</span>`).join("")}</div>
+      <div class="rate">${[1,2,3,4,5].map((n) => `<button type="button" data-rate="${esc(i.id)}" data-v="${n}" aria-pressed="${rating===n}" aria-label="${esc((settings.lang==="fr"?"Note ":"Rating ")+n+"/5 : "+i.title)}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= rating ? "on" : ""}"`)}</button>`).join("")}</div>
       ${tags ? `<div class="tags">${tags}</div>` : ""}
     </div>
 
@@ -2982,10 +2982,23 @@ function addFromCatalog(m, btn) {
   });
 }
 document.getElementById("filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.f; renderFilters(); renderGrid(); });
-document.getElementById("grid").addEventListener("click", (e) => {
+document.getElementById("grid").addEventListener("click", async (e) => {
   const qa = e.target.closest(".quick-add"); if (qa) { e.stopPropagation(); openQuickAdd(qa.dataset.quickadd, qa); return; }
-  const fav = e.target.closest(".fav"); if (fav) { const it = items.find((x) => x.id === fav.dataset.fav); if (it) update(it.id, { favorite: !it.favorite }); return; }
-  const rate = e.target.closest("[data-rate]"); if (rate) { const it = items.find((x) => x.id === rate.dataset.rate); const v = Number(rate.dataset.v); update(rate.dataset.rate, { rating: it && it.rating === v ? 0 : v }); return; }
+  const action=e.target.closest("[data-fav],[data-rate]");
+  if(action) {
+    if(action.disabled)return;
+    const id=action.dataset.fav||action.dataset.rate,it=items.find(x=>x.id===id);if(!it)return;
+    const rating=action.dataset.v,hadFocus=document.activeElement===action;
+    action.disabled=true;
+    await update(id,rating?{rating:it.rating===Number(rating)?0:Number(rating)}:{favorite:!it.favorite});
+    if(action.isConnected)action.disabled=false;
+    if(hadFocus&&document.activeElement===document.body) {
+      const controls=[...document.querySelectorAll("#grid [data-fav],#grid [data-rate]")];
+      const next=controls.find(button=>rating?button.dataset.rate===id&&button.dataset.v===rating:button.dataset.fav===id);
+      (next||document.querySelector("#filters .active")||document.getElementById("library-search"))?.focus();
+    }
+    return;
+  }
   const card = e.target.closest("[data-open]"); if (card) openDrawer(card.dataset.open);
 });
 const newListFlow = () => listMsg("LIST_CREATE", { name: t("newList") }, response => { renderLists(); if (response.list?.id) openList(response.list.id); });

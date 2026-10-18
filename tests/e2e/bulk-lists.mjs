@@ -129,6 +129,25 @@ try {
  assert.equal(await p.locator("#grid .card").count(),7);
  assert.equal(await p.locator("#library-format").inputValue(),"all");
  assert.equal(await p.locator("#library-unlisted").isChecked(),false);
+ await p.locator('#grid [data-rate="fixture0"][data-v="4"]').focus();await p.keyboard.press("Enter");
+ await p.waitForFunction(()=>items.find(i=>i.id==="fixture0").rating===4);
+ assert.equal(await p.locator('#grid [data-rate="fixture0"][data-v="4"]').getAttribute("aria-pressed"),"true");
+ assert.equal(await p.locator('#grid [data-rate="fixture0"][data-v="4"]').evaluate(node=>node===document.activeElement),true);
+ await p.keyboard.press("Enter");await p.waitForFunction(()=>items.find(i=>i.id==="fixture0").rating===0);
+ await p.locator('#grid [data-fav="fixture0"]').focus();await p.keyboard.press("Enter");
+ await p.waitForFunction(()=>items.find(i=>i.id==="fixture0").favorite===true);
+ assert.equal(await p.locator("#stats .chip b").nth(3).innerText(),"1");
+ await p.locator('#filters [data-f="favorites"]').click();
+ assert.equal(await p.locator("#grid .card").count(),1);
+ await p.locator('#grid [data-fav="fixture0"]').focus();await p.keyboard.press("Enter");
+ await p.waitForFunction(()=>!items.find(i=>i.id==="fixture0").favorite);
+ assert.equal(await p.locator("#grid .card").count(),0);
+ assert.equal(await p.locator("#stats .chip b").nth(3).innerText(),"0");
+ assert.equal(await p.locator('#filters [data-f="favorites"]').evaluate(node=>node===document.activeElement),true);
+ await p.locator("#reset-library-filters").click();
+ const controlsSaved=await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].find(i=>i.id==="fixture0"));
+ assert.equal(controlsSaved.rating,0);assert.equal(controlsSaved.favorite,false);
+
  await p.evaluate(()=>{items[2].alternativeTitles=["Étoile du soir"];items[2].authors=["Auteur test"];renderGrid();globalThis.localSearchOriginal=api.runtime.sendMessage;globalThis.localSearchCalls=0;api.runtime.sendMessage=function(...args){globalThis.localSearchCalls++;return globalThis.localSearchOriginal.apply(api.runtime,args);};});
  try {
    await p.locator("#library-search").fill("etoile du soir");
