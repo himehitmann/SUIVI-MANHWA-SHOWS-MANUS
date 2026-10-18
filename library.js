@@ -1864,9 +1864,9 @@ function wireListBulk(list) {
     toolbar.querySelector("#bulk-count").textContent=fr?selected.size+" sélectionnée(s)":selected.size+" selected";
     for(const id of ["copy","move"])toolbar.querySelector("#bulk-"+id).disabled=busy||!selected.size||!toolbar.querySelector("#bulk-destination").value;
     toolbar.querySelector("#bulk-remove").disabled=busy||!selected.size;
-    const index=(list.itemIds||[]).indexOf([...selected][0]);
+    const visibleOrder=listMembers(list).map(item=>item.id),index=visibleOrder.indexOf([...selected][0]);
     toolbar.querySelector("#bulk-up").disabled=busy||selected.size!==1||index<=0;
-    toolbar.querySelector("#bulk-down").disabled=busy||selected.size!==1||index<0||index>=(list.itemIds||[]).length-1;
+    toolbar.querySelector("#bulk-down").disabled=busy||selected.size!==1||index<0||index>=visibleOrder.length-1;
     toolbar.querySelector("#bulk-destination").disabled=busy||!destinations.length;
     rows.forEach(row=>{const input=row.querySelector(".list-select");input.checked=selected.has(row.dataset.id);input.disabled=busy;row.classList.toggle("selected",input.checked);});
   };
@@ -1895,7 +1895,9 @@ function wireListBulk(list) {
   for(const action of ["copy","move","remove"])toolbar.querySelector("#bulk-"+action).onclick=()=>act(action);
   const reorder=async direction=>{
     if(busy||selected.size!==1)return;
-    const id=[...selected][0],order=[...(lists.find(l=>l.id===list.id)?.itemIds||[])],index=order.indexOf(id),next=index+direction;
+    const id=[...selected][0],current=lists.find(l=>l.id===list.id);
+    if(!current)return;
+    const order=listMembers(current).map(item=>item.id),index=order.indexOf(id),next=index+direction;
     if(index<0||next<0||next>=order.length)return;
     busy=true;refresh();[order[index],order[next]]=[order[next],order[index]];
     const ok=await listMsg("LIST_SET_ITEMS",{id:list.id,itemIds:order},()=>{});

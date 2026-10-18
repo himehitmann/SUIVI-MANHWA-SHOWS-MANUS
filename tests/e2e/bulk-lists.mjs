@@ -37,6 +37,36 @@ try {
  assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get('dasi.items'))['dasi.items'].length),3);
  await p.setViewportSize({width:375,height:900});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile overflow');
  await p.screenshot({path:'test-results/bulk-lists-mobile.png'});
+ // Duplicate, rename, archive, restore and delete a list without changing its source or works.
+ await p.locator("#list-duplicate").click();
+ await p.waitForFunction(()=>currentListId!=="source"&&lists.some(l=>l.id===currentListId));
+ const duplicateId=await p.evaluate(()=>currentListId);
+ await p.locator("#list-name").fill("My restored queue");await p.locator("#list-name").press("Tab");
+ await p.waitForFunction(id=>lists.find(l=>l.id===id)?.name==="My restored queue",duplicateId);
+ await p.locator("#list-archive").click();
+ await p.waitForFunction(id=>lists.find(l=>l.id===id)?.archived===true&&!currentListId,duplicateId);
+ assert.equal(await p.locator('[data-list="'+duplicateId+'"]').count(),0);
+ await p.locator("#toggle-archived").click();await p.locator('[data-list="'+duplicateId+'"]').click();
+ await p.locator("#list-archive").click();
+ await p.waitForFunction(id=>lists.find(l=>l.id===id)?.archived===false&&!currentListId,duplicateId);
+ await p.locator("#toggle-archived").click();
+ await p.locator('[data-delete-list="'+duplicateId+'"]').click();await p.locator("#list-delete-yes").click();
+ await p.waitForFunction(id=>!lists.some(l=>l.id===id),duplicateId);
+ const lifecycle=await w.evaluate(async()=>chrome.storage.local.get(["dasi.lists","dasi.items"]));
+ assert.deepEqual(lifecycle["dasi.lists"].find(l=>l.id==="source").itemIds,["a"]);
+ assert.equal(lifecycle["dasi.items"].length,3);
+
+ // Imported missing/duplicate IDs must not create invisible reorder steps.
+ await w.evaluate(async()=>{const state=await chrome.storage.local.get("dasi.lists");await chrome.storage.local.set({"dasi.lists":[...state["dasi.lists"],{id:"reorder-import",name:"Imported",itemIds:["missing","a","b","a"]}]});});
+ await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"GET_STATE"},r=>{hydrate(r);openList("reorder-import");resolve();})));
+ await p.locator('[data-id="a"] .list-select').check();
+ assert.equal(await p.locator("#bulk-up").isDisabled(),true,"First visible work must not move into a missing record");
+ await p.locator("#bulk-down").click();
+ await p.waitForFunction(()=>lists.find(l=>l.id==="reorder-import").itemIds.join(",")==="b,a");
+ assert.deepEqual(await p.locator("#list-items [data-id]").evaluateAll(rows=>rows.map(r=>r.dataset.id)),["b","a"]);
+ assert.equal(await p.locator("#bulk-down").isDisabled(),true);
+ await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_DELETE",id:"reorder-import"},r=>{lists=r.lists;backToLists();resolve();})));
+
 
  await p.setViewportSize({width:1440,height:1000});
  await w.evaluate(async()=>{
