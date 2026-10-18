@@ -206,7 +206,7 @@ try {
     await page.evaluate(()=>{
       globalThis.listJourneyTransport=api.runtime.sendMessage;
       api.runtime.sendMessage=function(message,callback){
-        if(message.type==="LIST_SET_ITEMS")return setTimeout(()=>globalThis.listJourneyTransport.call(api.runtime,message,callback),80);
+        if(message.type==="LIST_MEMBERSHIP")return setTimeout(()=>globalThis.listJourneyTransport.call(api.runtime,message,callback),80);
         return globalThis.listJourneyTransport.call(api.runtime,message,callback);
       };
       document.querySelector('[data-add="list-extra-0"]').click();

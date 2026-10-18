@@ -2303,6 +2303,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       mutateAndReply(async()=>{const notifications=message.type==='NOTIF_CLEAR'?[]:(await read(NOTIF_KEY,[])).map(n=>({...n,read:true}));await writeData({[NOTIF_KEY]:notifications});return {notifications};},sendResponse);return true;
     case "SET_SETTINGS":
       mutateAndReply(async()=>{const settings={...DEFAULT_SETTINGS,...await read(SETTINGS_KEY,{}),...message.patch};await writeData({[SETTINGS_KEY]:settings});return {settings};},sendResponse);return true;
+    case "LIST_MEMBERSHIP":
     case "LIST_TRANSFER":
     case "LIST_DUPLICATE":
     case "LIST_CREATE":
@@ -2311,6 +2312,13 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "LIST_SET_ITEMS":
       mutateAndReply(async()=>{
         let lists=await read(LISTS_KEY,[]),list;
+        if(message.type==='LIST_MEMBERSHIP'){
+          const current=lists.find(l=>l.id===message.id);
+          if(!current||typeof message.itemId!=='string'||typeof message.adding!=='boolean')throw Error('invalid_list_membership');
+          if(message.adding&&!(await read(ITEMS_KEY,[])).some(item=>item.id===message.itemId))throw Error('item_not_found');
+          const itemIds=message.adding?[...new Set([...(current.itemIds||[]),message.itemId])]:(current.itemIds||[]).filter(id=>id!==message.itemId);
+          lists=lists.map(l=>l.id===current.id?{...l,itemIds,updatedAt:Date.now()}:l);
+        }
         if(message.type==='LIST_TRANSFER'){
           const source=lists.find(l=>l.id===message.sourceId),destination=lists.find(l=>l.id===message.destinationId);
           if(!source||!destination||source.id===destination.id||destination.archived||!['copy','move'].includes(message.action)||!Array.isArray(message.itemIds))throw Error('invalid_list_transfer');

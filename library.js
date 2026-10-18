@@ -1756,7 +1756,7 @@ function openQuickAdd(itemId, anchor) {
       const l = lists.find((x) => x.id === b.dataset.ql); if (!l) return;
       const has = (l.itemIds || []).includes(itemId);
       b.disabled=true;
-      await setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== itemId) : [...(l.itemIds || []), itemId]);
+      await changeListMembership(l.id,itemId,!has,true);
       rewire();
     }));
     const nb = m.querySelector("[data-ql-new]");
@@ -1933,13 +1933,16 @@ function enableDrag(l) {
   });
 }
 let listMembershipQueue=Promise.resolve();
-function changeListMembership(id,itemId,adding) {
+function changeListMembership(id,itemId,adding,silent=false) {
   const operation=listMembershipQueue.then(async()=>{
     // Compute each edit after the preceding save, never from the rendered snapshot.
     const current=lists.find(list=>list.id===id);
     if(!current || (adding&&!items.some(item=>item.id===itemId)))return false;
-    const order=adding?[...new Set([...(current.itemIds||[]),itemId])]:(current.itemIds||[]).filter(value=>value!==itemId);
-    const saved=await listMsg("LIST_SET_ITEMS",{id,itemIds:order},()=>{renderLists();if(currentListId===id)renderListDetail();});
+    const saved=await listMsg("LIST_MEMBERSHIP",{id,itemId,adding},()=>{
+      renderLists();if(currentListId===id)renderListDetail();
+      const drawer=document.getElementById("drawer");
+      if(silent&&drawer.classList.contains("open")&&drawer.dataset.itemId===itemId)refreshOpenItem(itemId);
+    });
     return saved;
   });
   listMembershipQueue=operation.catch(()=>false);
@@ -2124,7 +2127,7 @@ function wireDrawer(i, isWatch, isGame) {
     });
   }
   renderDrawerTags(i);
-  document.querySelectorAll("#dr-lists [data-list]").forEach((b) => (b.onclick = () => { const l = lists.find((x) => x.id === b.dataset.list); if (!l) return; const has = (l.itemIds || []).includes(i.id); setListItemsSilent(l.id, has ? l.itemIds.filter((x) => x !== i.id) : [...(l.itemIds || []), i.id]); }));
+  document.querySelectorAll("#dr-lists [data-list]").forEach((b) => (b.onclick = () => { const l = lists.find((x) => x.id === b.dataset.list); if (!l) return; const has = (l.itemIds || []).includes(i.id); b.disabled=true;changeListMembership(l.id,i.id,!has,true).finally(()=>{if(b.isConnected)b.disabled=false;}); }));
   const titleEl = document.getElementById("dr-title");
   if (titleEl) titleEl.onchange = () => { const v = titleEl.value.trim(); if (v && v !== i.title) { update(i.id, { title: v }); } };
   const typeEl = document.getElementById("dr-type");
@@ -2139,7 +2142,6 @@ function renderDrawerTags(i) {
   wrap.querySelectorAll("[data-rm]").forEach((s) => (s.onclick = () => update(i.id, { tags: (i.tags || []).filter((x) => x !== s.dataset.rm) })));
   document.getElementById("dr-addtag").onclick = () => { const tg = (prompt(t("tags")) || "").trim(); if (tg) update(i.id, { tags: [...new Set([...(i.tags || []), tg])] }); };
 }
-function setListItemsSilent(id,itemIds) {return listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{const itemId=document.getElementById("drawer").dataset.itemId;if(itemId)refreshOpenItem(itemId);});}
 let drawerReturnFocus=null;
 function focusDrawer() {
   const panel=document.getElementById("drawer");

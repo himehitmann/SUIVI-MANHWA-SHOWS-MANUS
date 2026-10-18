@@ -32,6 +32,24 @@ try {
  const badCreation=await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_CREATE",name:"Invalid",itemIds:["not-saved"]},resolve)));
  assert.equal(badCreation.ok,false);
  await p.evaluate(id=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_DELETE",id},r=>{lists=r.lists;closeQuickAdd();renderListDetail();resolve();})),createdQueue.id);
+ // The saved-work drawer uses the same membership operation for add and remove.
+ await p.evaluate(()=>openDrawer("a"));
+ await p.locator('#dr-lists [data-list="destination"]').click();
+ await p.waitForFunction(()=>lists.find(l=>l.id==="destination").itemIds.includes("a"));
+ await p.locator('#dr-lists [data-list="destination"]').click();
+ await p.waitForFunction(()=>!lists.find(l=>l.id==="destination").itemIds.includes("a"));
+ await p.locator("#dr-close").click();
+ // Concurrent member edits from different views must merge in the service worker.
+ const memberChanges=await p.evaluate(async()=>{
+   const send=message=>new Promise(resolve=>chrome.runtime.sendMessage(message,resolve));
+   return Promise.all([send({type:"LIST_MEMBERSHIP",id:"destination",itemId:"a",adding:true}),send({type:"LIST_MEMBERSHIP",id:"destination",itemId:"b",adding:true})]);
+ });
+ assert(memberChanges.every(r=>r.ok));
+ const mergedMembers=await w.evaluate(async()=>(await chrome.storage.local.get("dasi.lists"))["dasi.lists"].find(l=>l.id==="destination").itemIds);
+ assert.deepEqual([...mergedMembers].sort(),["a","b"]);
+ const rejectedMember=await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_MEMBERSHIP",id:"destination",itemId:"missing",adding:true},resolve)));
+ assert.equal(rejectedMember.ok,false);
+ await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_SET_ITEMS",id:"destination",itemIds:[]},r=>{lists=r.lists;renderListDetail();resolve();})));
  await p.locator('[data-id="a"] .list-select').check();await p.locator('[data-id="b"] .list-select').check();await p.locator('#bulk-destination').selectOption('destination');await p.locator('#bulk-copy').click();
  await p.waitForFunction(()=>lists.find(l=>l.id==='destination').itemIds.length===2);
  assert.deepEqual(await w.evaluate(async()=>(await chrome.storage.local.get('dasi.lists'))['dasi.lists'].find(l=>l.id==='source').itemIds),['a','b','c']);
