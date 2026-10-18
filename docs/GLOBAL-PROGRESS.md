@@ -8,6 +8,12 @@ Mise à jour : 18 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : grille, états vides et clavier — 18 octobre 2026
+
+[CI #829](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39112864699), commit 68343ff8aeb5ad3dd27935452cf76a78ecab7a9b : vérification complète et capacité PostgreSQL isolée réussies. Le compteur des résultats occupe toute la largeur de la grille au lieu d’une colonne d’affiche. Un filtre sans correspondance indique que les œuvres sont conservées ; une collection vide guide vers la recherche. Une collection composée uniquement de jeux propose l’accès à leur onglet. Les listes s’ouvrent via un vrai bouton de titre au clavier ; le bouton de création sans texte reçoit un nom accessible.
+
+Parcours Chrome : ouverture par Entrée, message filtré, remise à zéro des filtres, largeur du compteur, focus du champ de recherche et accès aux jeux. G13 reste partiel ; revue visuelle complète et validation globale distinctes de ces parcours. Score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : cycle de vie et ordre visible des listes — 18 octobre 2026
 
 [CI #825](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39112383496), commit 0ce5f65299d1aca0822c08f16a9feac87b31775b : vérification complète et capacité PostgreSQL isolée réussies. Les commandes de réorganisation utilisent les membres présents et uniques, comme le rendu : les identifiants absents ou doublonnés d’une liste importée ne créent plus d’étapes invisibles ni de boutons activés à tort.
