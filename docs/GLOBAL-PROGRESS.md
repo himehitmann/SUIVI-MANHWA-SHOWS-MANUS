@@ -8,6 +8,12 @@ Mise à jour : 18 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : appartenances enregistrées côté service worker — 18 octobre 2026
+
+[CI #837](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39149184959), commit a23c2832523e06906f90e4df56973875356f12a8 : vérification complète et capacité PostgreSQL isolée réussies. Les ajouts/retraits individuels depuis une liste, une fiche ou le menu rapide envoient désormais une intention LIST_MEMBERSHIP (liste, œuvre, ajouter/retirer), plutôt qu’une copie entière des membres. La file de mutation du service worker applique cette intention à l’état sauvegardé courant et vérifie l’existence des références. Le bouton de fiche est désactivé pendant son enregistrement et réactivé en cas d’échec.
+
+Parcours Chrome : deux ajouts simultanés conservés, membre inexistant refusé, ajout/retrait depuis la fiche ; scénarios d’ajouts rapides et rechargement de l’extension conservés. Ce lot protège les actions locales utilisant cette opération ; il ne valide pas toutes les courses de synchronisation multi-appareils. G13 partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : création d’une liste avec une œuvre — 18 octobre 2026
 
 [CI #833](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39113237971), commit ef4b51f79a6e603f8fa90d6b9852abc941c615df : vérification complète et capacité PostgreSQL isolée réussies. La création depuis l’ajout rapide fournit les membres initiaux au service worker, qui valide leur existence avant une seule écriture. Une création échouée ne déclenche plus d’ajout à la dernière liste existante. Création et duplication ouvrent la liste identifiée dans la réponse plutôt que de supposer qu’elle est en dernière position.
