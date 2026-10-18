@@ -1,12 +1,18 @@
 # Suivi global Yomu
 
-Mise à jour : 17 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 18 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Bibliothèque : cycle de vie et ordre visible des listes — 18 octobre 2026
+
+[CI #825](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39112383496), commit 0ce5f65299d1aca0822c08f16a9feac87b31775b : vérification complète et capacité PostgreSQL isolée réussies. Les commandes de réorganisation utilisent les membres présents et uniques, comme le rendu : les identifiants absents ou doublonnés d’une liste importée ne créent plus d’étapes invisibles ni de boutons activés à tort.
+
+Parcours Chrome : duplication, renommage, archivage (masqué parmi les listes actives), restauration, suppression de la copie, conservation de la liste originale et des œuvres ; puis import de références manquantes/doublonnées, déplacement entre deux lignes visibles et contrôle des limites Monter/Descendre. G13 reste partiel : cette preuve couvre le cycle des listes et ne remplace pas la revue visuelle totale du tableau de bord. Score inchangé 19/60 (32 %). Aucun déploiement ni publication.
 
 ## Bibliothèque : déplacement groupé en une seule écriture — 17 octobre 2026
 
