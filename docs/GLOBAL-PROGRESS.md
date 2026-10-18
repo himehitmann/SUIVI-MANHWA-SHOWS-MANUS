@@ -8,6 +8,12 @@ Mise à jour : 18 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : recherche locale distincte du catalogue — 18 octobre 2026
+
+[CI #841](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39151705729), commit 2867dc5855cc3469eb9917f0b13a7ed6bea4e9e7 : vérification complète et capacité PostgreSQL isolée réussies. Un champ dédié filtre les œuvres sauvegardées par titre, alias, auteur, progression et étiquette, avec normalisation des accents. Il utilise un état distinct de la recherche catalogue et se combine aux filtres existants. La saisie conserve focus et sélection ; la remise à zéro efface également ce filtre local.
+
+Scénarios Chrome : titre alternatif accentué retrouvé sans accents, recherche par auteur, focus conservé, aucun message de recherche envoyé au service pendant la saisie, champ global inchangé et retour aux sept œuvres après remise à zéro. G13 reste partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : appartenances enregistrées côté service worker — 18 octobre 2026
 
 [CI #837](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39149184959), commit a23c2832523e06906f90e4df56973875356f12a8 : vérification complète et capacité PostgreSQL isolée réussies. Les ajouts/retraits individuels depuis une liste, une fiche ou le menu rapide envoient désormais une intention LIST_MEMBERSHIP (liste, œuvre, ajouter/retirer), plutôt qu’une copie entière des membres. La file de mutation du service worker applique cette intention à l’état sauvegardé courant et vérifie l’existence des références. Le bouton de fiche est désactivé pendant son enregistrement et réactivé en cas d’échec.
