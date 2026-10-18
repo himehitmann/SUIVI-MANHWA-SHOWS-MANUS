@@ -12,6 +12,26 @@ try {
  await p.evaluate(()=>switchView('library'));
  await p.locator('[data-list="source"] .list-open').focus();await p.keyboard.press('Enter');
  await p.locator('#list-name').waitFor();
+ // Creating a list with a work is one write; failed creation cannot add it to an existing list.
+ const beforeQuickCreate=await w.evaluate(()=>chrome.storage.local.get("dasi.lists"));
+ await p.evaluate(()=>{
+   openQuickAdd("a",document.getElementById("list-duplicate"));
+   globalThis.quickCreateOriginal=chrome.runtime.sendMessage;
+   chrome.runtime.sendMessage=(m,cb)=>m.type==="LIST_CREATE"?cb({ok:false,error:"storage_failed"}):globalThis.quickCreateOriginal(m,cb);
+ });
+ p.once("dialog",dialog=>dialog.accept("Failed list"));
+ await p.locator("[data-ql-new]").click();
+ assert.deepEqual(await w.evaluate(()=>chrome.storage.local.get("dasi.lists")),beforeQuickCreate);
+ assert.equal(await p.locator("[data-ql-new]").isEnabled(),true);
+ await p.evaluate(()=>{chrome.runtime.sendMessage=globalThis.quickCreateOriginal;delete globalThis.quickCreateOriginal;});
+ p.once("dialog",dialog=>dialog.accept("New queue"));
+ await p.locator("[data-ql-new]").click();
+ await p.waitForFunction(()=>lists.some(l=>l.name==="New queue"&&l.itemIds.includes("a")));
+ const createdQueue=await w.evaluate(async()=>(await chrome.storage.local.get("dasi.lists"))["dasi.lists"].find(l=>l.name==="New queue"));
+ assert.deepEqual(createdQueue.itemIds,["a"]);
+ const badCreation=await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_CREATE",name:"Invalid",itemIds:["not-saved"]},resolve)));
+ assert.equal(badCreation.ok,false);
+ await p.evaluate(id=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_DELETE",id},r=>{lists=r.lists;closeQuickAdd();renderListDetail();resolve();})),createdQueue.id);
  await p.locator('[data-id="a"] .list-select').check();await p.locator('[data-id="b"] .list-select').check();await p.locator('#bulk-destination').selectOption('destination');await p.locator('#bulk-copy').click();
  await p.waitForFunction(()=>lists.find(l=>l.id==='destination').itemIds.length===2);
  assert.deepEqual(await w.evaluate(async()=>(await chrome.storage.local.get('dasi.lists'))['dasi.lists'].find(l=>l.id==='source').itemIds),['a','b','c']);

@@ -2320,7 +2320,11 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const selected=new Set(ids),now=Date.now();
           lists=lists.map(l=>l.id===destination.id?{...l,itemIds:[...new Set([...(l.itemIds||[]),...ids])],updatedAt:now}:l.id===source.id&&message.action==='move'?{...l,itemIds:(l.itemIds||[]).filter(id=>!selected.has(id)),updatedAt:now}:l);
         }
-        if(message.type==='LIST_CREATE') {list={id:'l_'+Math.random().toString(36).slice(2,10),name:String(message.name||'New list').slice(0,60),cover:message.cover||'#EDE6FF',itemIds:[],createdAt:Date.now(),updatedAt:Date.now()};lists=[...lists,list];}
+        if(message.type==='LIST_CREATE'&&message.itemIds!==undefined){
+          const valid=new Set((await read(ITEMS_KEY,[])).map(item=>item.id));
+          if(!Array.isArray(message.itemIds)||message.itemIds.some(id=>typeof id!=='string'||!valid.has(id)))throw Error('invalid_list_members');
+        }
+        if(message.type==='LIST_CREATE') {list={id:'l_'+Math.random().toString(36).slice(2,10),name:String(message.name||'New list').slice(0,60),cover:message.cover||'#EDE6FF',itemIds:[...new Set(message.itemIds||[])],createdAt:Date.now(),updatedAt:Date.now()};lists=[...lists,list];}
         if(message.type==='LIST_DUPLICATE'){const old=lists.find(l=>l.id===message.id);if(!old)throw Error('list_not_found');list={...old,id:'l_'+crypto.randomUUID(),name:String(old.name+' (copy)').slice(0,100),itemIds:[...(old.itemIds||[])],archived:false,createdAt:Date.now(),updatedAt:Date.now()};delete list.memberships;lists=[...lists,list];}
         if(message.type==='LIST_DELETE')lists=lists.filter(l=>l.id!==message.id);
         if(message.type==='LIST_UPDATE'){const patch=Object.fromEntries(Object.entries(message.patch||{}).filter(([k])=>!['id','createdAt','itemIds','__proto__','constructor','prototype'].includes(k)));lists=lists.map(l=>l.id===message.id?{...l,...patch,updatedAt:Date.now()}:l);}

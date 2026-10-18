@@ -1760,7 +1760,12 @@ function openQuickAdd(itemId, anchor) {
       rewire();
     }));
     const nb = m.querySelector("[data-ql-new]");
-    if (nb) nb.onclick = (e) => { e.stopPropagation(); const name = (prompt(t("newList")) || "").trim(); if (!name) return; api.runtime.sendMessage({ type: "LIST_CREATE", name }, (rr) => { if (rr?.lists) lists = rr.lists; const last = lists[lists.length - 1]; if (last) setListItemsSilent(last.id, [...(last.itemIds || []), itemId]); rewire(); renderLists(); }); };
+    if (nb) nb.onclick = async (e) => {
+      e.stopPropagation();const name=(prompt(t("newList"))||"").trim();if(!name)return;
+      nb.disabled=true;
+      await listMsg("LIST_CREATE",{name,itemIds:[itemId]},()=>{renderLists();});
+      if(m.isConnected)rewire();
+    };
   };
   wire();
 }
@@ -1843,7 +1848,7 @@ function renderListDetail() {
 function wireListDetail(l) {
   document.querySelectorAll("#list-items [data-open]").forEach(button=>button.onclick=()=>openDrawer(button.dataset.open));
   document.getElementById("back-lists").onclick = backToLists;
-  document.getElementById("list-duplicate").onclick=()=>listMsg("LIST_DUPLICATE",{id:l.id},()=>{renderLists();openList(lists[lists.length-1].id);});
+  document.getElementById("list-duplicate").onclick=()=>listMsg("LIST_DUPLICATE",{id:l.id},response=>{renderLists();if(response.list?.id)openList(response.list.id);});
   document.getElementById("list-archive").onclick=()=>listMsg("LIST_UPDATE",{id:l.id,patch:{archived:!l.archived}},()=>{renderLists();backToLists();});
   const name = document.getElementById("list-name");
   name.onchange = () => listMsg("LIST_UPDATE", { id: l.id, patch: { name: name.value.trim() || "Untitled" } });
@@ -1947,7 +1952,7 @@ function listMsg(type, payload, done) {
       toast(settings.lang==="fr"?"La liste n’a pas été enregistrée. Réessaie.":"The list could not be saved. Try again."); resolve(false); return;
     }
     lists=r.lists;
-    if(done)done();else {renderLists();if(currentListId)renderListDetail();}
+    if(done)done(r);else {renderLists();if(currentListId)renderListDetail();}
     resolve(true);
   }));
 }
@@ -2974,7 +2979,7 @@ document.getElementById("grid").addEventListener("click", (e) => {
   const rate = e.target.closest("[data-rate]"); if (rate) { const it = items.find((x) => x.id === rate.dataset.rate); const v = Number(rate.dataset.v); update(rate.dataset.rate, { rating: it && it.rating === v ? 0 : v }); return; }
   const card = e.target.closest("[data-open]"); if (card) openDrawer(card.dataset.open);
 });
-const newListFlow = () => listMsg("LIST_CREATE", { name: t("newList") }, () => { renderLists(); const last = lists[lists.length - 1]; if (last) openList(last.id); });
+const newListFlow = () => listMsg("LIST_CREATE", { name: t("newList") }, response => { renderLists(); if (response.list?.id) openList(response.list.id); });
 document.getElementById("list-strip").addEventListener("click", (e) => {
   if (e.target.closest("#new-list")) { newListFlow(); return; }
   const card = e.target.closest("[data-list]"); if (card) openList(card.dataset.list);
