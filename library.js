@@ -1577,14 +1577,18 @@ function renderGrid() {
     return `${i.title} ${(i.alternativeTitles || []).join(" ")} ${(i.authors || []).join(" ")} ${marker(i)} ${(i.tags || []).join(" ")}`.toLowerCase().includes(q);
   });
   const total=items.filter(i=>i.type!=="game").length;
-  const count='<p class="sub" role="status">'+list.length+' / '+total+' '+t("tracked")+(list.length<total?' <button class="link-btn" id="reset-library-filters">'+t("showAll")+'</button>':'')+'</p>';
+  const count='<p class="sub library-result-count" style="grid-column:1/-1" role="status">'+list.length+' / '+total+' '+t("tracked")+(list.length<total?' <button class="link-btn" id="reset-library-filters">'+t("showAll")+'</button>':'')+'</p>';
   const formats=[...new Set(items.filter(i=>i.type!=="game").map(i=>String(i.format||"").toUpperCase()).filter(Boolean))].sort();
   const controls='<div style="grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'+
     '<label>'+ t("sortBy")+' <select class="field" id="library-sort">'+
     [["recent",t("sortRecent")],["title",t("sortTitle")],["rating",t("sortRating")],["remaining",t("sortRemaining")],["added",t("sortAdded")]].map(([v,label])=>'<option value="'+v+'"'+((settings.librarySort||"recent")===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>'+
     '<label>'+ t("formatLabel")+' <select class="field" id="library-format"><option value="all">'+t("all")+'</option>'+formats.map(v=>'<option value="'+esc(v)+'"'+(libraryFormat===v?' selected':'')+'>'+esc(v)+'</option>').join("")+'</select></label>'+
     '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="library-unlisted"'+(libraryUnlisted?' checked':'')+'>'+ t("withoutList")+'</label></div>';
-  grid.innerHTML = controls + count + (list.length ? [...list].sort(libraryCompare).map(cardHtml).join("") : `<p class="empty">${t("welcomeBody")}</p>`);
+  const fr=settings.lang==="fr";
+  const emptyMessage=total?(fr?"Aucune œuvre ne correspond à ces filtres. Tes œuvres sont toujours dans la bibliothèque.":"No works match these filters. Your works are still in your library."):(fr?"Ajoute ta première lecture ou série en utilisant la recherche en haut de la page.":"Add your first book or show using the search at the top of the page.");
+  grid.innerHTML = controls + count + (list.length ? [...list].sort(libraryCompare).map(cardHtml).join("") : '<div class="empty" style="grid-column:1/-1"><p>'+emptyMessage+'</p>'+(!total?'<button class="btn" id="library-start-search">'+t("searchTitle")+'</button>':'')+(!total&&items.some(i=>i.type==="game")?' <button class="btn" id="library-open-games">'+t("games")+'</button>':'')+'</div>');
+  const startSearch=document.getElementById("library-start-search");if(startSearch)startSearch.onclick=()=>document.getElementById("q").focus();
+  const openGames=document.getElementById("library-open-games");if(openGames)openGames.onclick=()=>switchView("games");
   document.getElementById("library-sort").onchange=e=>{settings.librarySort=e.target.value;api.runtime.sendMessage({type:"SET_SETTINGS",patch:{librarySort:settings.librarySort}});renderGrid();document.getElementById("library-sort").focus();};
   document.getElementById("library-format").onchange=e=>{libraryFormat=e.target.value;renderGrid();document.getElementById("library-format").focus();};
   document.getElementById("library-unlisted").onchange=e=>{libraryUnlisted=e.target.checked;renderGrid();document.getElementById("library-unlisted").focus();};
@@ -1706,8 +1710,8 @@ function renderLists() {
   if (!strip) return;
   strip.innerHTML = lists.filter(l=>Boolean(l.archived)===showArchivedLists).map((l) => { const n = listMembers(l).length; return `<div class="strip-list" data-list="${esc(l.id)}">
       <div class="lc" style="position:relative;${listCover(l)}"><button class="icon-btn" data-delete-list="${esc(l.id)}" aria-label="${esc(t("delete")+" "+l.name)}" style="position:absolute;right:6px;top:6px;z-index:2;background:var(--card)">${I.trash}</button>${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
-      <b>${esc(l.name)}</b><small>${n} ${n === 1 ? t("work") : t("works")}</small>
-    </div>`; }).join("") + `<button class="strip-new" id="new-list">${I.plus}</button><button class="btn" id="toggle-archived">${showArchivedLists?(settings.lang==='fr'?'Actives':'Active'):(settings.lang==='fr'?'Archivées':'Archived')}</button>`;
+      <button type="button" class="link-btn list-open" aria-label="${esc(t("open")+": "+l.name)}">${esc(l.name)}</button><small>${n} ${n === 1 ? t("work") : t("works")}</small>
+    </div>`; }).join("") + `<button class="strip-new" id="new-list" aria-label="${esc(t("newList"))}">${I.plus}</button><button class="btn" id="toggle-archived">${showArchivedLists?(settings.lang==='fr'?'Actives':'Active'):(settings.lang==='fr'?'Archivées':'Archived')}</button>`;
   strip.querySelectorAll("[data-delete-list]").forEach(button=>button.onclick=e=>{
     e.stopPropagation();document.getElementById("list-delete-confirm")?.remove();
     const list=lists.find(l=>l.id===button.dataset.deleteList);if(!list)return;

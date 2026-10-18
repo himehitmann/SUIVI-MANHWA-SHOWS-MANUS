@@ -9,7 +9,9 @@ try {
  await w.evaluate(async()=>{await chrome.storage.local.set({'dasi.schema':3,'dasi.settings':{lang:'fr'},'dasi.items':[{id:'a',title:'Alpha',type:'reading',chapter:2},{id:'b',title:'Beta',type:'reading',chapter:8},{id:'c',title:'Gamma',type:'reading',chapter:4}],'dasi.lists':[{id:'source',name:'Source',itemIds:['a','b','c']},{id:'destination',name:'Destination',itemIds:[]}]});});
  await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:'GET_STATE'},r=>{hydrate(r);resolve();})));
  await p.waitForFunction(()=>items.length===3&&lists.some(l=>l.id==='source'));
- await p.evaluate(()=>{switchView('library');openList('source');});
+ await p.evaluate(()=>switchView('library'));
+ await p.locator('[data-list="source"] .list-open').focus();await p.keyboard.press('Enter');
+ await p.locator('#list-name').waitFor();
  await p.locator('[data-id="a"] .list-select').check();await p.locator('[data-id="b"] .list-select').check();await p.locator('#bulk-destination').selectOption('destination');await p.locator('#bulk-copy').click();
  await p.waitForFunction(()=>lists.find(l=>l.id==='destination').itemIds.length===2);
  assert.deepEqual(await w.evaluate(async()=>(await chrome.storage.local.get('dasi.lists'))['dasi.lists'].find(l=>l.id==='source').itemIds),['a','b','c']);
@@ -84,10 +86,20 @@ try {
  assert.equal(await p.locator("#grid .card").count(),1);
  await p.locator("#library-unlisted").check();
  assert.equal(await p.locator("#grid .card").count(),0);
+ assert((await p.locator("#grid .empty").innerText()).includes("Aucune œuvre ne correspond"),"Filtered library must not look like an empty account");
  await p.locator("#reset-library-filters").click();
  assert.equal(await p.locator("#grid .card").count(),7);
  assert.equal(await p.locator("#library-format").inputValue(),"all");
  assert.equal(await p.locator("#library-unlisted").isChecked(),false);
+ const layout=await p.locator("#grid .library-result-count").evaluate(node=>({count:node.getBoundingClientRect().width,grid:node.parentElement.getBoundingClientRect().width}));
+ assert(Math.abs(layout.count-layout.grid)<4,"Result count must not consume a poster column");
+ await p.evaluate(()=>{globalThis.libraryEmptyBefore=items;items=[{id:"only-game",title:"Game",type:"game"}];renderGrid();});
+ await p.locator("#library-start-search").click();
+ assert.equal(await p.locator("#q").evaluate(node=>node===document.activeElement),true);
+ await p.locator("#library-open-games").click();
+ assert.equal(await p.locator("#view-games").isVisible(),true);
+ await p.evaluate(()=>{items=globalThis.libraryEmptyBefore;delete globalThis.libraryEmptyBefore;switchView("library");});
+
 
  await p.evaluate(()=>openCatalogPreview({title:"Unsaved fixture",type:"reading",externalIds:{anilist:"999"},cover:"",genres:["Fantasy"]}));
  assert(await p.locator("#preview-add").isDisabled(),"A destination must be selected");
