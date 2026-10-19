@@ -5,6 +5,7 @@ const UNLOCK_ALL = typeof DASI_UNLOCK_ALL !== "undefined" ? DASI_UNLOCK_ALL : tr
 let items = [], sites = [], notifications = [], lists = [];
 let settings = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" } };
 let filter = "all", query = "", currentListId = null, view = "home";
+let listAddQuery = "";
 let spotIdx = 0, spotItems = [], spotTimer = null;
 let discover = null, discoverTried = false, discoverLoading = false; // fresh recommendations pulled from the background
 let discoCat = "all"; // active Discover category tab (webtoon-style)
@@ -1807,11 +1808,14 @@ function renderSites() {
     });
   }));
 }
-function openList(id) { currentListId = id; document.getElementById("lib-main").hidden = true; document.getElementById("list-detail").hidden = false; renderListDetail(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+function openList(id) { if(currentListId!==id)listAddQuery=""; currentListId = id; document.getElementById("lib-main").hidden = true; document.getElementById("list-detail").hidden = false; renderListDetail(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function renderListDetail() {
   const l = lists.find((x) => x.id === currentListId);
   const wrap = document.getElementById("list-detail");
   if (!l) return backToLists();
+  const previousSearch=document.getElementById("list-add-search");
+  const restoreSearch=previousSearch===document.activeElement;
+  const selection=restoreSearch?[previousSearch.selectionStart,previousSearch.selectionEnd]:null;
   const members = listMembers(l);
   const notIn = items.filter((i) => !(l.itemIds || []).includes(i.id));
   const grid = l.view === "grid";
@@ -1837,19 +1841,27 @@ function renderListDetail() {
         <div class="li-cover" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}</div>
         <div style="flex:1;min-width:0"><button class="link-btn list-work-title" data-open="${esc(i.id)}">${esc(i.title)}</button><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>
         <button class="btn" data-remove="${esc(i.id)}" aria-label="${esc((settings.lang==="fr"?"Retirer de la liste : ":"Remove from list: ")+i.title)}">${settings.lang==="fr"?"Retirer":"Remove"}</button></div>`).join("") : `<p class="empty" style="padding:24px 0">${settings.lang==="fr"?"Cette liste est vide. Ajoute des œuvres ci-dessous.":"This list is empty. Add works below."}</p>`}</div>`}
-    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><p class="sub">${settings.lang==="fr"?"Choisis parmi les œuvres déjà enregistrées dans ta bibliothèque.":"Choose from works already saved in your library."}</p><label for="list-add-search">${settings.lang==="fr"?"Rechercher dans ma bibliothèque":"Search my library"}</label><input class="field" type="search" id="list-add-search" /><p class="sub" id="list-add-count" role="status"></p><div class="chips-wrap" id="list-add-options"></div>` : ""}`;
+    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><p class="sub">${settings.lang==="fr"?"Choisis parmi les œuvres déjà enregistrées dans ta bibliothèque.":"Choose from works already saved in your library."}</p><label for="list-add-search">${settings.lang==="fr"?"Rechercher dans ma bibliothèque":"Search my library"}</label><input class="field" type="search" id="list-add-search" value="${esc(listAddQuery)}" /><p class="sub" id="list-add-count" role="status"></p><div class="chips-wrap" id="list-add-options"></div>` : ""}`;
   const search=document.getElementById("list-add-search");
   if(search) {
     const renderOptions=()=>{
-      const q=search.value.trim().toLocaleLowerCase();
-      const matches=notIn.filter(i=>[i.title,...(i.alternativeTitles||[])].some(value=>String(value||"").toLocaleLowerCase().includes(q)));
+      const normalize=value=>String(value||"").normalize("NFKD").replace(/\p{M}/gu,"").toLocaleLowerCase().trim();
+      const q=normalize(search.value);
+      const matches=notIn.filter(i=>[i.title,...(i.alternativeTitles||[]),...(i.authors||[]),...(i.tags||[])].some(value=>normalize(value).includes(q)));
       const shown=matches.slice(0,50);
       document.getElementById("list-add-count").textContent=shown.length+" / "+matches.length+" "+t("works");
       const options=document.getElementById("list-add-options");
       options.innerHTML=shown.length?shown.map(i=>'<button class="chip-toggle" data-add="'+esc(i.id)+'"><span class="cat-inline">'+esc(catLabel(i))+'</span> '+esc(i.title)+'</button>').join(""):'<p class="sub">'+t("noMatch")+'</p>';
-      options.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>changeListMembership(l.id,b.dataset.add,true));
+      options.querySelectorAll("[data-add]").forEach(b=>b.onclick=async()=>{
+        if(b.disabled)return;
+        const hadFocus=document.activeElement===b;b.disabled=true;
+        await changeListMembership(l.id,b.dataset.add,true);
+        if(b.isConnected)b.disabled=false;
+        if(hadFocus&&currentListId===l.id&&document.activeElement===document.body)document.getElementById("list-add-search")?.focus();
+      });
     };
-    search.oninput=renderOptions;renderOptions();
+    search.oninput=()=>{listAddQuery=search.value;renderOptions();};renderOptions();
+    if(restoreSearch){search.focus();search.setSelectionRange(...selection);}
   }
   wireListDetail(l);
 }
@@ -1863,7 +1875,6 @@ function wireListDetail(l) {
   document.getElementById("list-view-btn").onclick = () => { listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view === "grid" ? "rows" : "grid" } }); };
   document.getElementById("list-cover-btn").onclick = () => changeCover((v) => listMsg("LIST_UPDATE", { id: l.id, patch: { cover: v } }), "square");
   document.getElementById("list-del").onclick = () => { if (confirm(`${t("delete")} "${l.name}"?`)) listMsg("LIST_DELETE", { id: l.id }, backToLists); };
-  document.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => changeListMembership(l.id,b.dataset.add,true)));
   document.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => changeListMembership(l.id,b.dataset.remove,false)));
   wireListBulk(l);
   enableDrag(l);
@@ -1967,7 +1978,7 @@ function listMsg(type, payload, done) {
     resolve(true);
   }));
 }
-function backToLists() { currentListId = null; document.getElementById("list-detail").hidden = true; document.getElementById("lib-main").hidden = false; renderLists(); }
+function backToLists() { listAddQuery = ""; currentListId = null; document.getElementById("list-detail").hidden = true; document.getElementById("lib-main").hidden = false; renderLists(); }
 
 /* ================= DRAWER ================= */
 function requestMetadata(message,callback,timeoutMs=15000) {

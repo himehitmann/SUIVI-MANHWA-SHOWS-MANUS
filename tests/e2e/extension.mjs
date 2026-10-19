@@ -199,7 +199,7 @@ try {
   try {
     await worker.evaluate(async()=>{
       const originals=(await chrome.storage.local.get("dasi.items"))["dasi.items"];
-      await chrome.storage.local.set({"dasi.items":[...originals,...Array.from({length:65},(_,n)=>({id:"list-extra-"+n,title:"Library extra "+n,type:"reading",alternativeTitles:n===64?["Secret alias"]:[],enrichedAt:1}))],"dasi.lists":[{id:"journey-list",name:"Reading queue",itemIds:["alchemy-of-souls"]}]});
+      await chrome.storage.local.set({"dasi.items":[...originals,...Array.from({length:65},(_,n)=>({id:"list-extra-"+n,title:"Library extra "+n,type:"reading",alternativeTitles:n===64?["Étoile secrète"]:[],enrichedAt:1}))],"dasi.lists":[{id:"journey-list",name:"Reading queue",itemIds:["alchemy-of-souls"]}]});
     });
     await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("library");openList("journey-list");resolve();})));
     assert.equal(await page.locator('#list-add-options [data-add]').count(),50,"Large libraries should not render every add button at once");
@@ -220,10 +220,14 @@ try {
     const rapidSaved=await worker.evaluate(()=>chrome.storage.local.get("dasi.lists"));
     assert(rapidSaved["dasi.lists"][0].itemIds.includes("list-extra-0")&&rapidSaved["dasi.lists"][0].itemIds.includes("list-extra-1"),"Rapid additions lost an earlier work");
 
-    await page.locator('#list-add-search').fill("Secret alias");
+    await page.locator('#list-add-search').fill("etoile secrete");
     assert.equal(await page.locator('#list-add-options [data-add]').count(),1);
     await page.locator('[data-add="list-extra-64"]').click();
     await page.locator('#list-items [data-open="list-extra-64"]').waitFor();
+    assert.equal(await page.locator('#list-add-search').inputValue(),"etoile secrete","Adding a work must preserve the current list search");
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),0,"The added work must leave the available matches");
+    await page.waitForFunction(()=>document.activeElement===document.getElementById("list-add-search"));
+
     await page.locator('#list-items [data-open="alchemy-of-souls"]').focus();
     await page.keyboard.press("Enter");
     await page.locator('#dr-close').waitFor();
@@ -235,6 +239,8 @@ try {
     await page.locator('#dr-close').waitFor();await page.locator('#dr-close').click();
     await page.locator('#list-items [data-remove="list-extra-64"]').click();
     await page.waitForFunction(()=>!document.querySelector('#list-items [data-id="list-extra-64"]'));
+    assert.equal(await page.locator('#list-add-search').inputValue(),"etoile secrete");
+    assert.equal(await page.locator('#list-add-options [data-add="list-extra-64"]').count(),1,"A removed work returns to matching add options");
     const retained=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
     assert(retained["dasi.items"].some(i=>i.id==="list-extra-64"),"Removing list membership deleted the work");
     assert(!retained["dasi.lists"][0].itemIds.includes("list-extra-64"));
@@ -244,6 +250,7 @@ try {
     assert.equal(await page.locator('#list-items [data-id="list-extra-0"]').count(),1);
     assert.equal(await page.locator('#list-items [data-id="list-extra-1"]').count(),1);
     assert.equal(await page.locator('#list-items [data-id="list-extra-64"]').count(),0);
+    assert.equal(await page.locator("#list-add-search").inputValue(),"","Reopening a list starts with an unfiltered add search");
 
   } finally {
     await worker.evaluate(state=>chrome.storage.local.set(state),listJourneyBefore);
