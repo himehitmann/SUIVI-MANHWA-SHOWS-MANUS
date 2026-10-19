@@ -8,6 +8,12 @@ Mise à jour : 19 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : recherche conservée pendant les ajouts à une liste — 19 octobre 2026
+
+Commit 839cbfbc321cbe448236e547b9c6ab42bcbb7293 : la recherche d’œuvres à ajouter reste affichée après les changements de membres et de présentation de la liste. Elle est réinitialisée à la fermeture ou à l’ouverture d’une autre liste. La correspondance ignore les accents et inclut les alias, auteurs et étiquettes. Le bouton d’ajout est désactivé pendant l’opération ; le focus revient au champ de recherche si le bouton disparaît après son activation.
+
+Le parcours Chrome couvre un alias accentué recherché sans accents, la conservation de la recherche après ajout/retrait, les résultats recalculés et le retour du focus ; il vérifie aussi le champ vide après rechargement. [CI #853](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39279492775) en file d’attente lors du suivi : validation non acquise. G13 reste partiel, score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : remise à zéro indépendante du catalogue — 19 octobre 2026
 
 Commit a9173b8d81131ff40db79ada59d8de17efde4458 : la remise à zéro agit uniquement sur la recherche et les filtres de bibliothèque ; elle conserve la recherche catalogue et replace le focus dans le champ local. La commande reste disponible lorsqu’un filtre actif laisse toutes les œuvres visibles. Un scénario Chrome couvre ces comportements, dont l’activation au clavier.
