@@ -1578,7 +1578,8 @@ function renderGrid() {
     return normalize(`${i.title} ${(i.alternativeTitles || []).join(" ")} ${(i.authors || []).join(" ")} ${marker(i)} ${(i.tags || []).join(" ")}`).includes(q);
   });
   const total=items.filter(i=>i.type!=="game").length;
-  const count='<p class="sub library-result-count" style="grid-column:1/-1" role="status">'+list.length+' / '+total+' '+t("tracked")+(list.length<total?' <button class="link-btn" id="reset-library-filters">'+t("showAll")+'</button>':'')+'</p>';
+  const hasFilters=Boolean(libraryQuery)||filter!=="all"||libraryFormat!=="all"||libraryUnlisted;
+  const count='<p class="sub library-result-count" style="grid-column:1/-1" role="status">'+list.length+' / '+total+' '+t("tracked")+(hasFilters?' <button class="link-btn" id="reset-library-filters">'+t("showAll")+'</button>':'')+'</p>';
   const formats=[...new Set(items.filter(i=>i.type!=="game").map(i=>String(i.format||"").toUpperCase()).filter(Boolean))].sort();
   const controls='<div style="grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'+
     '<label style="flex:1;min-width:min(240px,100%)">'+(settings.lang==="fr"?"Rechercher dans ma bibliothèque":"Search my library")+' <input type="search" class="field" id="library-search" value="'+esc(libraryQuery)+'" placeholder="'+(settings.lang==="fr"?"Titre, auteur ou étiquette":"Title, author or tag")+'"></label>'+
@@ -1599,7 +1600,7 @@ function renderGrid() {
   document.getElementById("library-sort").onchange=e=>{settings.librarySort=e.target.value;api.runtime.sendMessage({type:"SET_SETTINGS",patch:{librarySort:settings.librarySort}});renderGrid();document.getElementById("library-sort").focus();};
   document.getElementById("library-format").onchange=e=>{libraryFormat=e.target.value;renderGrid();document.getElementById("library-format").focus();};
   document.getElementById("library-unlisted").onchange=e=>{libraryUnlisted=e.target.checked;renderGrid();document.getElementById("library-unlisted").focus();};
-  const reset=document.getElementById("reset-library-filters");if(reset)reset.onclick=()=>{query="";libraryQuery="";filter="all";libraryFormat="all";libraryUnlisted=false;document.getElementById("q").value="";clearSearchResults();renderFilters();renderGrid();};
+  const reset=document.getElementById("reset-library-filters");if(reset)reset.onclick=()=>{libraryQuery="";filter="all";libraryFormat="all";libraryUnlisted=false;renderFilters();renderGrid();document.getElementById("library-search").focus();};
 }
 
 /* ================= GAMES ================= */

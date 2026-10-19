@@ -163,6 +163,17 @@ try {
    assert.equal(await p.locator("#grid .card").count(),7);
  } finally {await p.evaluate(()=>{api.runtime.sendMessage=globalThis.localSearchOriginal;delete globalThis.localSearchOriginal;delete globalThis.localSearchCalls;});}
 
+ await p.evaluate(()=>{query="catalog kept";document.getElementById("q").value=query;libraryQuery=" ";renderGrid();});
+ assert.equal(await p.locator("#grid .card").count(),7);
+ assert.equal(await p.locator("#reset-library-filters").count(),1,"An active filter remains clearable even when all works match");
+ await p.locator("#reset-library-filters").focus();await p.keyboard.press("Enter");
+ assert.equal(await p.locator("#library-search").inputValue(),"");
+ assert.equal(await p.locator("#library-search").evaluate(node=>node===document.activeElement),true);
+ assert.equal(await p.locator("#q").inputValue(),"catalog kept","Clearing library filters must preserve catalog input");
+ assert.equal(await p.evaluate(()=>query),"catalog kept","Clearing library filters must preserve catalog state");
+ assert.equal(await p.locator("#reset-library-filters").count(),0);
+ await p.evaluate(()=>{query="";document.getElementById("q").value="";});
+
  const layout=await p.locator("#grid .library-result-count").evaluate(node=>({count:node.getBoundingClientRect().width,grid:node.parentElement.getBoundingClientRect().width}));
  assert(Math.abs(layout.count-layout.grid)<4,"Result count must not consume a poster column");
  await p.evaluate(()=>{globalThis.libraryEmptyBefore=items;items=[{id:"only-game",title:"Game",type:"game"}];renderGrid();});
