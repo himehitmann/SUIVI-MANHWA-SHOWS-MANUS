@@ -1,12 +1,18 @@
 # Suivi global Yomu
 
-Mise à jour : 18 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 19 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Bibliothèque : notes et favoris au clavier — 19 octobre 2026
+
+[CI #845](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39152197261), commit abfc20345d9c8b8b979110579fa3ee2f18694bf5 : vérification complète et capacité PostgreSQL isolée réussies. Les étoiles sont de vrais boutons nommés avec la note et le titre de l’œuvre ; leur état sélectionné est exposé par aria-pressed. Notes et favoris sont désactivés pendant leur enregistrement, puis le focus revient sur la commande correspondante après le rendu. Si retirer un favori masque sa carte, le focus revient au filtre actif.
+
+Parcours Chrome : noter au clavier, annoncer la sélection, effacer la note par un second appui, ajouter un favori, vérifier son compteur, filtrer puis retirer ce favori et retrouver le focus sur le filtre ; persistance de la note et du favori vérifiée dans le service worker. G13 reste partiel : ces tests ne remplacent pas la revue visuelle complète de la bibliothèque. Score inchangé 19/60 (32 %). Aucun déploiement ni publication.
 
 ## Bibliothèque : recherche locale distincte du catalogue — 18 octobre 2026
 
