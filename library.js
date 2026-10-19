@@ -1717,10 +1717,18 @@ function listMembers(list) {
 function renderLists() {
   const strip = document.getElementById("list-strip");
   if (!strip) return;
-  strip.innerHTML = lists.filter(l=>Boolean(l.archived)===showArchivedLists).map((l) => { const n = listMembers(l).length; return `<div class="strip-list" data-list="${esc(l.id)}">
+  const fr=settings.lang==="fr";
+  const activeCount=lists.filter(l=>!l.archived).length, archivedCount=lists.length-activeCount;
+  const visibleLists=lists.filter(l=>Boolean(l.archived)===showArchivedLists);
+  const heading=document.getElementById("library-lists-title");
+  if(heading)heading.textContent=(showArchivedLists?(fr?"Listes archivées":"Archived lists"):t("lists"))+" ("+visibleLists.length+")";
+  const emptyText=showArchivedLists
+    ?(fr?"Aucune liste archivée. Archiver une liste la range ici sans supprimer ses œuvres.":"No archived lists. Archiving a list moves it here without deleting its works.")
+    :(fr?"Crée une liste pour regrouper tes œuvres par envie, thème ou collection.":"Create a list to group your works by mood, theme or collection.");
+  strip.innerHTML = (!visibleLists.length?'<p class="sub list-empty-help" style="flex:1;min-width:160px">'+esc(emptyText)+'</p>':"")+visibleLists.map((l) => { const n = listMembers(l).length; return `<div class="strip-list" data-list="${esc(l.id)}">
       <div class="lc" style="position:relative;${listCover(l)}"><button class="icon-btn" data-delete-list="${esc(l.id)}" aria-label="${esc(t("delete")+" "+l.name)}" style="position:absolute;right:6px;top:6px;z-index:2;background:var(--card)">${I.trash}</button>${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
       <button type="button" class="link-btn list-open" aria-label="${esc(t("open")+": "+l.name)}">${esc(l.name)}</button><small>${n} ${n === 1 ? t("work") : t("works")}</small>
-    </div>`; }).join("") + `<button class="strip-new" id="new-list" aria-label="${esc(t("newList"))}">${I.plus}</button><button class="btn" id="toggle-archived">${showArchivedLists?(settings.lang==='fr'?'Actives':'Active'):(settings.lang==='fr'?'Archivées':'Archived')}</button>`;
+    </div>`; }).join("") + `<button class="strip-new" id="new-list" aria-label="${esc(t("newList"))}">${I.plus}</button><button class="btn" id="toggle-archived" aria-label="${fr?'Afficher les listes archivées':'Show archived lists'}" aria-pressed="${showArchivedLists}">${showArchivedLists?(fr?'Voir les listes actives':'Show active lists')+' ('+activeCount+')':(fr?'Voir les archives':'Show archives')+' ('+archivedCount+')'}</button>`;
   strip.querySelectorAll("[data-delete-list]").forEach(button=>button.onclick=e=>{
     e.stopPropagation();document.getElementById("list-delete-confirm")?.remove();
     const list=lists.find(l=>l.id===button.dataset.deleteList);if(!list)return;
@@ -1739,7 +1747,7 @@ function renderLists() {
     };
     document.getElementById("list-delete-cancel").focus();
   });
-  document.getElementById("toggle-archived").onclick=()=>{showArchivedLists=!showArchivedLists;renderLists();};
+  document.getElementById("toggle-archived").onclick=()=>{showArchivedLists=!showArchivedLists;renderLists();document.getElementById("toggle-archived").focus();};
 }
 /* Quick add-to-list menu anchored to a card's + button. */
 let qaMenuEl = null;
