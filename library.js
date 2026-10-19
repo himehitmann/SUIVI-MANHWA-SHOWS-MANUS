@@ -1533,8 +1533,8 @@ function renderStats() {
   document.getElementById("stats").innerHTML = s.map(([n, l]) => `<div class="chip"><b>${n}</b><span>${l}</span></div>`).join("");
 }
 function renderFilters() {
-  const f = [["all", t("all")], ["reading", t("reading")], ["watching", t("watching")], ["favorites", t("favorites")], ["planned", t("planned")], ["completed", t("completed")], ["on_hold", t("on_hold")], ["dropped", t("dropped")]];
-  document.getElementById("filters").innerHTML = f.map(([k, l]) => `<button data-f="${k}" class="${filter === k ? "active" : ""}">${l}</button>`).join("");
+  const f = [["all", t("all")], ["reading", t("reading")], ["watching", t("watching")], ["favorites", t("favorites")], ["current", t("current")], ["planned", t("planned")], ["completed", t("completed")], ["on_hold", t("on_hold")], ["dropped", t("dropped")]];
+  document.getElementById("filters").innerHTML = f.map(([k, l]) => `<button type="button" data-f="${k}" aria-pressed="${filter === k}" class="${filter === k ? "active" : ""}">${l}</button>`).join("");
 }
 function cardHtml(i) {
   const rating = i.rating || 0;
@@ -3001,7 +3001,7 @@ function addFromCatalog(m, btn) {
     });
   });
 }
-document.getElementById("filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.f; renderFilters(); renderGrid(); });
+document.getElementById("filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.f; renderFilters(); renderGrid(); document.querySelector("#filters .active")?.focus(); });
 document.getElementById("grid").addEventListener("click", async (e) => {
   const qa = e.target.closest(".quick-add"); if (qa) { e.stopPropagation(); openQuickAdd(qa.dataset.quickadd, qa); return; }
   const action=e.target.closest("[data-fav],[data-rate]");

@@ -125,6 +125,17 @@ try {
  await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"GET_STATE"},r=>{hydrate(r);query="";filter="all";clearSearchResults();switchView("library");resolve();})));
  assert.equal(await p.locator("#grid .card").count(),7,"All seven tracked works must remain visible");
  assert.equal(await p.locator("#grid .quick-add").count(),0);
+ await p.evaluate(()=>{globalThis.beforeStatusFilter=items;items=items.map((item,index)=>({...item,state:index===0?"planned":index===1?"completed":"current"}));renderAll();});
+ await p.locator('#filters [data-f="current"]').focus();await p.keyboard.press("Enter");
+ assert.equal(await p.locator("#grid .card").count(),5,"In-progress filter excludes planned and completed works");
+ assert.equal(await p.locator('#filters [data-f="current"]').getAttribute("aria-pressed"),"true");
+ assert.equal(await p.locator('#filters [data-f="current"]').evaluate(node=>node===document.activeElement),true);
+ assert.equal(await p.locator('#filters [data-f="all"]').getAttribute("aria-pressed"),"false");
+ await p.locator("#reset-library-filters").click();
+ assert.equal(await p.locator("#grid .card").count(),7);
+ assert.equal(await p.locator('#filters [data-f="all"]').getAttribute("aria-pressed"),"true");
+ await p.evaluate(()=>{items=globalThis.beforeStatusFilter;delete globalThis.beforeStatusFilter;renderAll();});
+
  await p.locator("#library-sort").selectOption("title");
  assert.equal(await p.locator("#grid .card").first().getAttribute("data-open"),"fixture0");
  await p.evaluate(()=>{items[0].format="MANGA";items[1].format="ANIME";lists=[...lists,{id:"filter-test",itemIds:["fixture0"]}];renderGrid();});

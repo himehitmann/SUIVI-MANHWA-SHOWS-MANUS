@@ -8,6 +8,12 @@ Mise à jour : 19 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : filtres de progression et navigation des listes — 19 octobre 2026
+
+Ajout du filtre « En cours », utilisant le même état de progression que les fiches. Les filtres exposent leur sélection avec aria-pressed et conservent le focus au clavier après activation. Le parcours Chrome ajouté vérifie la séparation entre œuvres en cours, prévues et terminées, puis le retour à toutes les œuvres.
+
+Le lot précédent (4da0c7329f22af7f8f7bffe1db41c3bd58e88c71) clarifie les listes actives/archivées, leurs nombres et leurs états vides. La syntaxe de library.js a été contrôlée par compilation sans exécution ; des contrôles isolés sur DOM simulé couvrent les listes actives/archivées, états vides, focus de la bascule et échappement du titre. Ces contrôles ne remplacent pas Chrome. Les vérifications GitHub restent en attente au moment de cette mise à jour ; aucun de ces lots n’est déclaré entièrement validé. G13 partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : recherche conservée pendant les ajouts à une liste — 19 octobre 2026
 
 Commit 839cbfbc321cbe448236e547b9c6ab42bcbb7293 : la recherche d’œuvres à ajouter reste affichée après les changements de membres et de présentation de la liste. Elle est réinitialisée à la fermeture ou à l’ouverture d’une autre liste. La correspondance ignore les accents et inclut les alias, auteurs et étiquettes. Le bouton d’ajout est désactivé pendant l’opération ; le focus revient au champ de recherche si le bouton disparaît après son activation.
