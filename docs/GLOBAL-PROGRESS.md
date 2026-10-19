@@ -8,6 +8,12 @@ Mise à jour : 19 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : remise à zéro indépendante du catalogue — 19 octobre 2026
+
+Commit a9173b8d81131ff40db79ada59d8de17efde4458 : la remise à zéro agit uniquement sur la recherche et les filtres de bibliothèque ; elle conserve la recherche catalogue et replace le focus dans le champ local. La commande reste disponible lorsqu’un filtre actif laisse toutes les œuvres visibles. Un scénario Chrome couvre ces comportements, dont l’activation au clavier.
+
+Validation en attente : [CI #849](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39278549903) encore en file d’attente lors du suivi. Ce lot ne doit pas être considéré comme validé avant son résultat. G13 reste partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : notes et favoris au clavier — 19 octobre 2026
 
 [CI #845](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39152197261), commit abfc20345d9c8b8b979110579fa3ee2f18694bf5 : vérification complète et capacité PostgreSQL isolée réussies. Les étoiles sont de vrais boutons nommés avec la note et le titre de l’œuvre ; leur état sélectionné est exposé par aria-pressed. Notes et favoris sont désactivés pendant leur enregistrement, puis le focus revient sur la commande correspondante après le rendu. Si retirer un favori masque sa carte, le focus revient au filtre actif.
