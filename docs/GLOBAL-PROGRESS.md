@@ -8,6 +8,12 @@ Mise à jour : 20 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : renommage échoué et nouvel essai — 20 octobre 2026
+
+[CI #867](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39410459309), commit ee59c58f2e006c0620f96d07dec6286f6f7ca895 : vérification complète et capacité PostgreSQL isolée réussies. Le renommage indique l’enregistrement en cours et désactive le champ pendant la requête. En cas d’échec, le brouillon reste visible, un message associé au champ précise qu’il n’est pas enregistré et un bouton permet de réessayer. Une valeur vide conserve le nom sauvegardé, sans le remplacer par « Untitled ».
+
+Le parcours Chrome injecte un refus d’enregistrement, vérifie le brouillon et le nom persistant inchangé, rétablit le transport, réessaie avec succès et vérifie le comportement d’un nom vide. G13 reste partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : création depuis les archives — 20 octobre 2026
 
 [CI #863](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39407948756), commit 39e6da6b8a2cff5e7bebf22928dbae4509b07081 : vérification complète et capacité PostgreSQL isolée réussies. L’ouverture d’une liste aligne le filtre actif/archive sur cette liste. Une nouvelle liste active créée depuis les archives ne disparaît donc plus du récapitulatif au retour. La création place le focus sur le nom et le sélectionne pour permettre son remplacement immédiat ; ce champ possède un nom accessible.
