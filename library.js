@@ -1831,7 +1831,8 @@ function renderListDetail() {
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px">
       <div class="list-cover" style="width:64px;height:64px;border-radius:14px;font-size:24px;${listCover(l)}">${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}</div>
       <div style="flex:1;min-width:180px">
-        <input id="list-name" aria-label="${settings.lang==="fr"?"Nom de la liste":"List name"}" value="${esc(l.name)}" style="font-size:24px;font-weight:800;letter-spacing:-.03em;border:0;border-bottom:2px solid transparent;background:none;width:100%;outline:none;padding:2px 0" />
+        <input id="list-name" aria-describedby="list-name-status" aria-label="${settings.lang==="fr"?"Nom de la liste":"List name"}" value="${esc(l.name)}" style="font-size:24px;font-weight:800;letter-spacing:-.03em;border:0;border-bottom:2px solid transparent;background:none;width:100%;outline:none;padding:2px 0" />
+        <div><span id="list-name-status" class="sub" role="status"></span><button class="link-btn" id="list-name-retry" hidden>${settings.lang==="fr"?"Réessayer":"Retry"}</button></div>
         <small style="color:var(--muted)">${members.length} ${members.length === 1 ? t("work") : t("works")} — ${t("dragReorder")}</small>
       </div>
       <button class="btn" id="list-view-btn" title="${t("viewToggle")}">${grid ? I.rows : I.grid} ${grid ? t("viewRows") : t("viewGrid")}</button>
@@ -1879,7 +1880,22 @@ function wireListDetail(l) {
   document.getElementById("list-duplicate").onclick=()=>listMsg("LIST_DUPLICATE",{id:l.id},response=>{renderLists();if(response.list?.id)openList(response.list.id);});
   document.getElementById("list-archive").onclick=()=>listMsg("LIST_UPDATE",{id:l.id,patch:{archived:!l.archived}},()=>{renderLists();backToLists();});
   const name = document.getElementById("list-name");
-  name.onchange = () => listMsg("LIST_UPDATE", { id: l.id, patch: { name: name.value.trim() || "Untitled" } });
+  const saveName=async()=>{
+    if(name.disabled)return;
+    const next=name.value.trim();
+    const status=document.getElementById("list-name-status"),retry=document.getElementById("list-name-retry");
+    if(!next||next===l.name){name.value=l.name;name.removeAttribute("aria-invalid");status.textContent="";retry.hidden=true;return;}
+    name.disabled=true;retry.hidden=true;
+    status.textContent=settings.lang==="fr"?"Enregistrement…":"Saving…";
+    const saved=await listMsg("LIST_UPDATE",{id:l.id,patch:{name:next}});
+    if(!saved&&name.isConnected){
+      name.disabled=false;name.setAttribute("aria-invalid","true");
+      status.textContent=settings.lang==="fr"?"Nom non enregistré. Tu peux réessayer.":"Name not saved. You can retry.";
+      retry.hidden=false;
+    }
+  };
+  name.onchange=saveName;
+  document.getElementById("list-name-retry").onclick=saveName;
   document.getElementById("list-view-btn").onclick = () => { listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view === "grid" ? "rows" : "grid" } }); };
   document.getElementById("list-cover-btn").onclick = () => changeCover((v) => listMsg("LIST_UPDATE", { id: l.id, patch: { cover: v } }), "square");
   document.getElementById("list-del").onclick = () => { if (confirm(`${t("delete")} "${l.name}"?`)) listMsg("LIST_DELETE", { id: l.id }, backToLists); };
