@@ -8,6 +8,12 @@ Mise à jour : 20 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : filtre « Sans liste » au retour des détails — 20 octobre 2026
+
+[CI #881](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39458410972), commit 7307b3284567bc6624a123da420da66334e833af : vérification complète et capacité PostgreSQL isolée réussies. Le retour depuis une liste recalcule la grille de bibliothèque à partir des appartenances courantes, en conservant recherche et filtres. Il n’affiche plus une grille périmée après un ajout ou un retrait de membre.
+
+Le parcours Chrome recherche une œuvre avec « Sans liste », l’ajoute à une liste, revient et vérifie son absence ; il la retire ensuite, revient et vérifie sa réapparition. La recherche et le filtre restent sélectionnés dans les deux cas. G13 reste partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : suppression cohérente depuis la fiche — 20 octobre 2026
 
 [CI #877](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39455458335), commit 25651a0394d3f7778ce80961c1a874bed3b884d4 : vérification complète et capacité PostgreSQL isolée réussies. Le récapitulatif et la fiche d’une liste utilisent la même confirmation modale de suppression, avec rappel que les œuvres sont conservées. Le retour du focus vérifie que le déclencheur est encore visible : après suppression depuis une fiche masquée, le focus rejoint le bouton de création de liste.
