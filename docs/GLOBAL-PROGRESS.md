@@ -8,6 +8,12 @@ Mise à jour : 20 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : création depuis les archives — 20 octobre 2026
+
+[CI #863](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39407948756), commit 39e6da6b8a2cff5e7bebf22928dbae4509b07081 : vérification complète et capacité PostgreSQL isolée réussies. L’ouverture d’une liste aligne le filtre actif/archive sur cette liste. Une nouvelle liste active créée depuis les archives ne disparaît donc plus du récapitulatif au retour. La création place le focus sur le nom et le sélectionne pour permettre son remplacement immédiat ; ce champ possède un nom accessible.
+
+Le parcours Chrome crée depuis les archives, contrôle focus et sélection, renomme, revient aux listes actives, vérifie la présence de la nouvelle liste puis la supprime. Les parcours antérieurs d’archivage/restauration passent aussi. G13 reste partiel, car la revue visuelle complète et la réception globale restent à effectuer. Score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Validation consolidée de la bibliothèque — 20 octobre 2026
 
 [CI #859](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39280992887), commit b850ad98f4ea4655baa4a2446d1e3c395cf21cf7 : les jobs verify et capacity sont réussis. Les contrôles sécurité et dépendances, lint, TypeScript, tests unitaires, construction, tests web, extension empaquetée, listes, recadrage et vidéo passent. La sonde des catalogues de l’accueil passe également. Le test de capacité utilise PostgreSQL isolé et ne mesure pas une capacité de production.
