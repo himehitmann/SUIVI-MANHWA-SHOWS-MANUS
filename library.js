@@ -1732,13 +1732,13 @@ function renderLists() {
   strip.querySelectorAll("[data-delete-list]").forEach(button=>button.onclick=e=>{
     e.stopPropagation();document.getElementById("list-delete-confirm")?.remove();
     const list=lists.find(l=>l.id===button.dataset.deleteList);if(!list)return;
-    const popup=document.createElement("div");popup.id="list-delete-confirm";popup.className="panel";popup.setAttribute("role","alertdialog");
-    popup.setAttribute("aria-label",settings.lang==="fr"?"Supprimer la liste":"Delete list");
-    popup.style.cssText="position:fixed;z-index:1000;padding:18px;width:min(320px,calc(100vw - 32px));left:50%;top:35%;transform:translateX(-50%);box-shadow:0 12px 48px #25213940";
-    popup.innerHTML='<b>'+esc(list.name)+'</b><p>'+(settings.lang==="fr"?"Supprimer cette liste ? Les œuvres restent dans ta bibliothèque.":"Delete this list? Its works stay in your library.")+'</p><div style="display:flex;gap:8px"><button class="btn" id="list-delete-cancel">'+t("cancel")+'</button><button class="btn danger" id="list-delete-yes">'+t("delete")+'</button></div>';
-    const close=()=>{popup.remove();if(button.isConnected)button.focus();};
+    const popup=document.createElement("dialog");popup.id="list-delete-confirm";popup.className="panel";popup.setAttribute("role","alertdialog");
+    popup.setAttribute("aria-label",settings.lang==="fr"?"Supprimer la liste":"Delete list");popup.setAttribute("aria-describedby","list-delete-description");
+    popup.style.cssText="margin:0;border:0;position:fixed;z-index:1000;padding:18px;width:min(320px,calc(100vw - 32px));left:50%;top:35%;transform:translateX(-50%);box-shadow:0 12px 48px #25213940";
+    popup.innerHTML='<b>'+esc(list.name)+'</b><p id="list-delete-description">'+(settings.lang==="fr"?"Supprimer cette liste ? Les œuvres restent dans ta bibliothèque.":"Delete this list? Its works stay in your library.")+'</p><div style="display:flex;gap:8px"><button class="btn" id="list-delete-cancel">'+t("cancel")+'</button><button class="btn danger" id="list-delete-yes">'+t("delete")+'</button></div>';
+    const close=()=>{if(!popup.isConnected)return;popup.close();popup.remove();if(button.isConnected)button.focus();else document.getElementById("new-list")?.focus();};
     popup.onclick=e=>e.stopPropagation();popup.onkeydown=e=>{if(e.key==="Escape"){e.preventDefault();close();}};
-    document.body.append(popup);
+    document.body.append(popup);popup.showModal();
     document.getElementById("list-delete-cancel").onclick=close;
     document.getElementById("list-delete-yes").onclick=async e=>{
       e.currentTarget.disabled=true;
