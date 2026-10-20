@@ -1816,7 +1816,7 @@ function renderSites() {
     });
   }));
 }
-function openList(id) { if(currentListId!==id)listAddQuery=""; currentListId = id; document.getElementById("lib-main").hidden = true; document.getElementById("list-detail").hidden = false; renderListDetail(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+function openList(id) { const selected=lists.find(list=>list.id===id);if(selected)showArchivedLists=Boolean(selected.archived); if(currentListId!==id)listAddQuery=""; currentListId = id; document.getElementById("lib-main").hidden = true; document.getElementById("list-detail").hidden = false; renderListDetail(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function renderListDetail() {
   const l = lists.find((x) => x.id === currentListId);
   const wrap = document.getElementById("list-detail");
@@ -1831,7 +1831,7 @@ function renderListDetail() {
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px">
       <div class="list-cover" style="width:64px;height:64px;border-radius:14px;font-size:24px;${listCover(l)}">${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}</div>
       <div style="flex:1;min-width:180px">
-        <input id="list-name" value="${esc(l.name)}" style="font-size:24px;font-weight:800;letter-spacing:-.03em;border:0;border-bottom:2px solid transparent;background:none;width:100%;outline:none;padding:2px 0" />
+        <input id="list-name" aria-label="${settings.lang==="fr"?"Nom de la liste":"List name"}" value="${esc(l.name)}" style="font-size:24px;font-weight:800;letter-spacing:-.03em;border:0;border-bottom:2px solid transparent;background:none;width:100%;outline:none;padding:2px 0" />
         <small style="color:var(--muted)">${members.length} ${members.length === 1 ? t("work") : t("works")} — ${t("dragReorder")}</small>
       </div>
       <button class="btn" id="list-view-btn" title="${t("viewToggle")}">${grid ? I.rows : I.grid} ${grid ? t("viewRows") : t("viewGrid")}</button>
@@ -3021,7 +3021,7 @@ document.getElementById("grid").addEventListener("click", async (e) => {
   }
   const card = e.target.closest("[data-open]"); if (card) openDrawer(card.dataset.open);
 });
-const newListFlow = () => listMsg("LIST_CREATE", { name: t("newList") }, response => { renderLists(); if (response.list?.id) openList(response.list.id); });
+const newListFlow = () => listMsg("LIST_CREATE", { name: t("newList") }, response => { renderLists(); if (response.list?.id) { openList(response.list.id);const name=document.getElementById("list-name");name.focus();name.select(); } });
 document.getElementById("list-strip").addEventListener("click", (e) => {
   if (e.target.closest("#new-list")) { newListFlow(); return; }
   const card = e.target.closest("[data-list]"); if (card) openList(card.dataset.list);

@@ -104,6 +104,22 @@ try {
  assert.deepEqual(lifecycle["dasi.lists"].find(l=>l.id==="source").itemIds,["a"]);
  assert.equal(lifecycle["dasi.items"].length,3);
 
+ // A list created from archives must be visible on return to the list overview.
+ await p.locator("#toggle-archived").click();
+ assert.equal(await p.locator("#toggle-archived").getAttribute("aria-pressed"),"true");
+ await p.locator("#new-list").click();
+ await p.waitForFunction(()=>currentListId&&document.activeElement===document.getElementById("list-name"));
+ const createdFromArchive=await p.evaluate(()=>currentListId);
+ assert.equal(await p.locator("#list-name").evaluate(node=>node.selectionStart===0&&node.selectionEnd===node.value.length),true);
+ assert(await p.locator("#list-name").getAttribute("aria-label"));
+ await p.locator("#list-name").fill("Created from archives");await p.locator("#list-name").press("Tab");
+ await p.waitForFunction(id=>lists.find(list=>list.id===id)?.name==="Created from archives",createdFromArchive);
+ await p.locator("#back-lists").click();
+ assert.equal(await p.locator("#toggle-archived").getAttribute("aria-pressed"),"false");
+ assert.equal(await p.locator('[data-list="'+createdFromArchive+'"]').count(),1,"New active list must not disappear behind the archive filter");
+ await p.locator('[data-delete-list="'+createdFromArchive+'"]').click();await p.locator("#list-delete-yes").click();
+ await p.waitForFunction(id=>!lists.some(list=>list.id===id),createdFromArchive);
+
  // Imported missing/duplicate IDs must not create invisible reorder steps.
  await w.evaluate(async()=>{const state=await chrome.storage.local.get("dasi.lists");await chrome.storage.local.set({"dasi.lists":[...state["dasi.lists"],{id:"reorder-import",name:"Imported",itemIds:["missing","a","b","a"]}]});});
  await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"GET_STATE"},r=>{hydrate(r);openList("reorder-import");resolve();})));
