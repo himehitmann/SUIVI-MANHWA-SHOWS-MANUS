@@ -1737,7 +1737,14 @@ function renderLists() {
     popup.style.cssText="margin:0;border:0;position:fixed;z-index:1000;padding:18px;width:min(320px,calc(100vw - 32px));left:50%;top:35%;transform:translateX(-50%);box-shadow:0 12px 48px #25213940";
     popup.innerHTML='<b>'+esc(list.name)+'</b><p id="list-delete-description">'+(settings.lang==="fr"?"Supprimer cette liste ? Les œuvres restent dans ta bibliothèque.":"Delete this list? Its works stay in your library.")+'</p><div style="display:flex;gap:8px"><button class="btn" id="list-delete-cancel">'+t("cancel")+'</button><button class="btn danger" id="list-delete-yes">'+t("delete")+'</button></div>';
     const close=()=>{if(!popup.isConnected)return;popup.close();popup.remove();if(button.isConnected)button.focus();else document.getElementById("new-list")?.focus();};
-    popup.onclick=e=>e.stopPropagation();popup.onkeydown=e=>{if(e.key==="Escape"){e.preventDefault();close();}};
+    popup.onclick=e=>e.stopPropagation();popup.onkeydown=e=>{
+      if(e.key==="Escape"){e.preventDefault();close();return;}
+      if(e.key==="Tab"){
+        const buttons=[...popup.querySelectorAll("button:not(:disabled)")],first=buttons[0],last=buttons[buttons.length-1];
+        if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}
+        else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}
+      }
+    };
     document.body.append(popup);popup.showModal();
     document.getElementById("list-delete-cancel").onclick=close;
     document.getElementById("list-delete-yes").onclick=async e=>{
