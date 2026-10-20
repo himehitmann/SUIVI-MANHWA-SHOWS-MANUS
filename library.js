@@ -2010,7 +2010,7 @@ function listMsg(type, payload, done) {
     resolve(true);
   }));
 }
-function backToLists() { listAddQuery = ""; currentListId = null; document.getElementById("list-detail").hidden = true; document.getElementById("lib-main").hidden = false; renderLists(); }
+function backToLists() { listAddQuery = ""; currentListId = null; document.getElementById("list-detail").hidden = true; document.getElementById("lib-main").hidden = false; renderLists(); renderGrid(); }
 
 /* ================= DRAWER ================= */
 function requestMetadata(message,callback,timeoutMs=15000) {

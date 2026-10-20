@@ -192,6 +192,26 @@ try {
  assert.equal(await p.locator('#filters [data-f="all"]').getAttribute("aria-pressed"),"true");
  await p.evaluate(()=>{items=globalThis.beforeStatusFilter;delete globalThis.beforeStatusFilter;renderAll();});
 
+ // Returning from a list must recompute the "without list" collection, without losing search.
+ await p.locator("#library-search").fill("Fixture 0");
+ await p.locator("#library-unlisted").check();
+ assert.equal(await p.locator("#grid .card").count(),1);
+ await p.locator('[data-list="destination"] .list-open').click();
+ await p.locator('[data-add="fixture0"]').click();
+ await p.locator('#list-items [data-id="fixture0"]').waitFor();
+ await p.locator("#back-lists").click();
+ assert.equal(await p.locator("#library-search").inputValue(),"Fixture 0");
+ assert.equal(await p.locator("#library-unlisted").isChecked(),true);
+ assert.equal(await p.locator("#grid .card").count(),0,"An assigned work must leave the without-list filter on return");
+ await p.locator('[data-list="destination"] .list-open').click();
+ await p.locator('[data-remove="fixture0"]').click();
+ await p.waitForFunction(()=>!document.querySelector('#list-items [data-id="fixture0"]'));
+ await p.locator("#back-lists").click();
+ assert.equal(await p.locator("#library-search").inputValue(),"Fixture 0");
+ assert.equal(await p.locator("#library-unlisted").isChecked(),true);
+ assert.equal(await p.locator("#grid .card").count(),1,"A work removed from its only list must reappear on return");
+ await p.locator("#reset-library-filters").click();
+
  await p.locator("#library-sort").selectOption("title");
  assert.equal(await p.locator("#grid .card").first().getAttribute("data-open"),"fixture0");
  await p.evaluate(()=>{items[0].format="MANGA";items[1].format="ANIME";lists=[...lists,{id:"filter-test",itemIds:["fixture0"]}];renderGrid();});
