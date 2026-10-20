@@ -8,6 +8,12 @@ Mise à jour : 20 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : suppression cohérente depuis la fiche — 20 octobre 2026
+
+[CI #877](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39455458335), commit 25651a0394d3f7778ce80961c1a874bed3b884d4 : vérification complète et capacité PostgreSQL isolée réussies. Le récapitulatif et la fiche d’une liste utilisent la même confirmation modale de suppression, avec rappel que les œuvres sont conservées. Le retour du focus vérifie que le déclencheur est encore visible : après suppression depuis une fiche masquée, le focus rejoint le bouton de création de liste.
+
+Le parcours Chrome annule depuis la fiche et contrôle le retour au bouton Supprimer, confirme ensuite, vérifie la fermeture de la fiche, le retour à la bibliothèque, le focus et la conservation des trois œuvres sauvegardées. Les scénarios d’échec et de nouvel essai de la confirmation commune passent aussi. G13 reste partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : confirmation de suppression et focus — 20 octobre 2026
 
 [CI #873](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39450599521), commit 7d9ca6b63226d6bc57313f006ec373b6fb1216ca : vérification complète et capacité PostgreSQL isolée réussies. La confirmation de suppression depuis le récapitulatif utilise une boîte de dialogue modale, une description accessible et une boucle de navigation entre les boutons activés. Échap annule et rend le focus au déclencheur ; après suppression, le focus revient au bouton de création de liste.
