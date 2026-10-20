@@ -192,6 +192,13 @@ try {
  assert.equal(await p.locator('#filters [data-f="all"]').getAttribute("aria-pressed"),"true");
  await p.evaluate(()=>{items=globalThis.beforeStatusFilter;delete globalThis.beforeStatusFilter;renderAll();});
 
+ // Keyboard-only entry/return must never leave focus on a hidden list card.
+ await p.locator('[data-list="destination"] .list-open').focus();await p.keyboard.press("Enter");
+ assert.equal(await p.locator("#back-lists").evaluate(node=>node===document.activeElement),true);
+ await p.keyboard.press("Enter");
+ assert.equal(await p.locator('[data-list="destination"] .list-open').evaluate(node=>node===document.activeElement),true);
+ assert.equal(await p.locator("#list-detail").isHidden(),true);
+
  // Returning from a list must recompute the "without list" collection, without losing search.
  await p.locator("#library-search").fill("Fixture 0");
  await p.locator("#library-unlisted").check();
