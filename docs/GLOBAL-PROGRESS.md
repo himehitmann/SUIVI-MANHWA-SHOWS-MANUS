@@ -8,6 +8,12 @@ Mise à jour : 20 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : confirmation de suppression et focus — 20 octobre 2026
+
+[CI #873](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39450599521), commit 7d9ca6b63226d6bc57313f006ec373b6fb1216ca : vérification complète et capacité PostgreSQL isolée réussies. La confirmation de suppression depuis le récapitulatif utilise une boîte de dialogue modale, une description accessible et une boucle de navigation entre les boutons activés. Échap annule et rend le focus au déclencheur ; après suppression, le focus revient au bouton de création de liste.
+
+Le parcours Chrome vérifie Tab/Maj+Tab, l’annulation, un refus de suppression avec conservation de la liste, le nouvel essai et le focus final. Le premier passage a révélé que la navigation native seule ne faisait pas revenir Maj+Tab au dernier bouton ; la gestion explicite de cette limite corrige ce cas. G13 reste partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : renommage échoué et nouvel essai — 20 octobre 2026
 
 [CI #867](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39410459309), commit ee59c58f2e006c0620f96d07dec6286f6f7ca895 : vérification complète et capacité PostgreSQL isolée réussies. Le renommage indique l’enregistrement en cours et désactive le champ pendant la requête. En cas d’échec, le brouillon reste visible, un message associé au champ précise qu’il n’est pas enregistré et un bouton permet de réessayer. Une valeur vide conserve le nom sauvegardé, sans le remplacer par « Untitled ».
