@@ -1729,14 +1729,17 @@ function renderLists() {
       <div class="lc" style="position:relative;${listCover(l)}"><button class="icon-btn" data-delete-list="${esc(l.id)}" aria-label="${esc(t("delete")+" "+l.name)}" style="position:absolute;right:6px;top:6px;z-index:2;background:var(--card)">${I.trash}</button>${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
       <button type="button" class="link-btn list-open" aria-label="${esc(t("open")+": "+l.name)}">${esc(l.name)}</button><small>${n} ${n === 1 ? t("work") : t("works")}</small>
     </div>`; }).join("") + `<button class="strip-new" id="new-list" aria-label="${esc(t("newList"))}">${I.plus}</button><button class="btn" id="toggle-archived" aria-label="${fr?'Afficher les listes archivées':'Show archived lists'}" aria-pressed="${showArchivedLists}">${showArchivedLists?(fr?'Voir les listes actives':'Show active lists')+' ('+activeCount+')':(fr?'Voir les archives':'Show archives')+' ('+archivedCount+')'}</button>`;
-  strip.querySelectorAll("[data-delete-list]").forEach(button=>button.onclick=e=>{
-    e.stopPropagation();document.getElementById("list-delete-confirm")?.remove();
-    const list=lists.find(l=>l.id===button.dataset.deleteList);if(!list)return;
+  strip.querySelectorAll("[data-delete-list]").forEach(button=>button.onclick=e=>{e.stopPropagation();confirmListDelete(button.dataset.deleteList,button);});
+  document.getElementById("toggle-archived").onclick=()=>{showArchivedLists=!showArchivedLists;renderLists();document.getElementById("toggle-archived").focus();};
+}
+function confirmListDelete(id,button) {
+document.getElementById("list-delete-confirm")?.remove();
+    const list=lists.find(l=>l.id===id);if(!list)return;
     const popup=document.createElement("dialog");popup.id="list-delete-confirm";popup.className="panel";popup.setAttribute("role","alertdialog");
     popup.setAttribute("aria-label",settings.lang==="fr"?"Supprimer la liste":"Delete list");popup.setAttribute("aria-describedby","list-delete-description");
     popup.style.cssText="margin:0;border:0;position:fixed;z-index:1000;padding:18px;width:min(320px,calc(100vw - 32px));left:50%;top:35%;transform:translateX(-50%);box-shadow:0 12px 48px #25213940";
     popup.innerHTML='<b>'+esc(list.name)+'</b><p id="list-delete-description">'+(settings.lang==="fr"?"Supprimer cette liste ? Les œuvres restent dans ta bibliothèque.":"Delete this list? Its works stay in your library.")+'</p><div style="display:flex;gap:8px"><button class="btn" id="list-delete-cancel">'+t("cancel")+'</button><button class="btn danger" id="list-delete-yes">'+t("delete")+'</button></div>';
-    const close=()=>{if(!popup.isConnected)return;popup.close();popup.remove();if(button.isConnected)button.focus();else document.getElementById("new-list")?.focus();};
+    const close=()=>{if(!popup.isConnected)return;popup.close();popup.remove();if(button.isConnected&&button.getClientRects().length)button.focus();else document.getElementById("new-list")?.focus();};
     popup.onclick=e=>e.stopPropagation();popup.onkeydown=e=>{
       if(e.key==="Escape"){e.preventDefault();close();return;}
       if(e.key==="Tab"){
@@ -1753,8 +1756,6 @@ function renderLists() {
       if(ok)close();else if(popup.isConnected)e.target.disabled=false;
     };
     document.getElementById("list-delete-cancel").focus();
-  });
-  document.getElementById("toggle-archived").onclick=()=>{showArchivedLists=!showArchivedLists;renderLists();document.getElementById("toggle-archived").focus();};
 }
 /* Quick add-to-list menu anchored to a card's + button. */
 let qaMenuEl = null;
@@ -1905,7 +1906,7 @@ function wireListDetail(l) {
   document.getElementById("list-name-retry").onclick=saveName;
   document.getElementById("list-view-btn").onclick = () => { listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view === "grid" ? "rows" : "grid" } }); };
   document.getElementById("list-cover-btn").onclick = () => changeCover((v) => listMsg("LIST_UPDATE", { id: l.id, patch: { cover: v } }), "square");
-  document.getElementById("list-del").onclick = () => { if (confirm(`${t("delete")} "${l.name}"?`)) listMsg("LIST_DELETE", { id: l.id }, backToLists); };
+  document.getElementById("list-del").onclick = e => confirmListDelete(l.id,e.currentTarget);
   document.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => changeListMembership(l.id,b.dataset.remove,false)));
   wireListBulk(l);
   enableDrag(l);

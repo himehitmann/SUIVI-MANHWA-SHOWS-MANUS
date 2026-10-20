@@ -146,8 +146,19 @@ try {
  await p.locator("#back-lists").click();
  assert.equal(await p.locator("#toggle-archived").getAttribute("aria-pressed"),"false");
  assert.equal(await p.locator('[data-list="'+createdFromArchive+'"]').count(),1,"New active list must not disappear behind the archive filter");
- await p.locator('[data-delete-list="'+createdFromArchive+'"]').click();await p.locator("#list-delete-yes").click();
+ await p.locator('[data-list="'+createdFromArchive+'"] .list-open').click();
+ await p.locator("#list-del").click();
+ assert.equal(await p.locator("#list-delete-confirm").evaluate(node=>node.matches(":modal")),true);
+ await p.locator("#list-delete-cancel").click();
+ assert.equal(await p.locator("#list-del").evaluate(node=>node===document.activeElement),true);
+ assert.equal(await p.evaluate(()=>currentListId),createdFromArchive);
+ await p.locator("#list-del").click();await p.locator("#list-delete-yes").click();
  await p.waitForFunction(id=>!lists.some(list=>list.id===id),createdFromArchive);
+ assert.equal(await p.evaluate(()=>currentListId),null);
+ assert.equal(await p.locator("#lib-main").isVisible(),true);
+ assert.equal(await p.locator("#new-list").evaluate(node=>node===document.activeElement),true);
+ assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].length),3,"Deleting a list from its detail keeps all saved works");
+
 
  // Imported missing/duplicate IDs must not create invisible reorder steps.
  await w.evaluate(async()=>{const state=await chrome.storage.local.get("dasi.lists");await chrome.storage.local.set({"dasi.lists":[...state["dasi.lists"],{id:"reorder-import",name:"Imported",itemIds:["missing","a","b","a"]}]});});
