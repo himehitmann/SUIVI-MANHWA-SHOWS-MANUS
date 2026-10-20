@@ -8,6 +8,12 @@ Mise à jour : 20 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : aller-retour au clavier dans les listes — 20 octobre 2026
+
+[CI #885](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39464823450), commit d36649f42843cbab5fc6b6e284dabe39a3722bed : vérification complète et capacité PostgreSQL isolée réussies. Ouvrir une liste place le focus sur son bouton de retour. Revenir à la bibliothèque restitue le focus au titre de cette liste si elle reste affichée, ou au bouton de création si elle n’est plus visible. Les actualisations sans liste précédemment ouverte ne déplacent pas le focus.
+
+Le parcours Chrome ouvre et quitte une liste avec Entrée, contrôle le focus dans les deux vues et vérifie que la fiche est masquée au retour. Les scénarios de création, archivage et suppression restent réussis. G13 reste partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : filtre « Sans liste » au retour des détails — 20 octobre 2026
 
 [CI #881](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39458410972), commit 7307b3284567bc6624a123da420da66334e833af : vérification complète et capacité PostgreSQL isolée réussies. Le retour depuis une liste recalcule la grille de bibliothèque à partir des appartenances courantes, en conservant recherche et filtres. Il n’affiche plus une grille périmée après un ajout ou un retrait de membre.
