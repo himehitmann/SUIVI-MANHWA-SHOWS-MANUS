@@ -233,8 +233,18 @@ try {
     await page.locator('#dr-close').waitFor();
     assert.equal(await page.locator('#drawer .drawer-title').innerText(),"Alchemy of Souls");
     await page.locator('#dr-close').click();
-    await page.locator('#list-view-btn').click();
+    await page.evaluate(()=>{globalThis.viewTransport=api.runtime.sendMessage;api.runtime.sendMessage=function(message,callback){if(message.type==="LIST_UPDATE"&&message.patch?.view){globalThis.pendingView=()=>callback({ok:false});return;}return globalThis.viewTransport.call(api.runtime,message,callback);};});
+    await page.locator("#list-view-btn").click();
+    assert.equal(await page.locator("#list-view-btn").isDisabled(),true);
+    assert.equal(await page.locator("#list-view-btn").getAttribute("aria-busy"),"true");
+    await page.evaluate(()=>{globalThis.pendingView();delete globalThis.pendingView;api.runtime.sendMessage=globalThis.viewTransport;delete globalThis.viewTransport;});
+    assert.equal(await page.locator("#list-view-btn").isEnabled(),true);
+    assert.equal(await page.locator("#list-items.li-grid").count(),0,"Failed view change must retain rows");
+    await page.locator("#list-view-btn").focus();await page.keyboard.press("Enter");
     await page.locator('#list-items.li-grid').waitFor();
+    await page.waitForFunction(()=>document.activeElement===document.getElementById("list-view-btn"));
+    assert.equal((await worker.evaluate(()=>chrome.storage.local.get("dasi.lists")))["dasi.lists"].find(list=>list.id==="journey-list").view,"grid");
+
     await page.locator('#list-items [data-open="alchemy-of-souls"]').click();
     await page.locator('#dr-close').waitFor();await page.locator('#dr-close').click();
     await page.locator('#list-items [data-remove="list-extra-64"]').click();

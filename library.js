@@ -1904,7 +1904,13 @@ function wireListDetail(l) {
   };
   name.onchange=saveName;
   document.getElementById("list-name-retry").onclick=saveName;
-  document.getElementById("list-view-btn").onclick = () => { listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view === "grid" ? "rows" : "grid" } }); };
+  document.getElementById("list-view-btn").onclick = async e => {
+    const button=e.currentTarget;if(button.disabled)return;
+    const focused=document.activeElement===button;button.disabled=true;button.setAttribute("aria-busy","true");
+    await listMsg("LIST_UPDATE", { id: l.id, patch: { view: l.view === "grid" ? "rows" : "grid" } });
+    if(button.isConnected){button.disabled=false;button.removeAttribute("aria-busy");}
+    if(focused&&currentListId===l.id&&document.activeElement===document.body)document.getElementById("list-view-btn")?.focus();
+  };
   document.getElementById("list-cover-btn").onclick = () => changeCover((v) => listMsg("LIST_UPDATE", { id: l.id, patch: { cover: v } }), "square");
   document.getElementById("list-del").onclick = e => confirmListDelete(l.id,e.currentTarget);
   document.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => changeListMembership(l.id,b.dataset.remove,false)));
