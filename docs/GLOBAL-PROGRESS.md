@@ -1,12 +1,20 @@
 # Suivi global Yomu
 
-Mise à jour : 20 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 21 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Bibliothèque : changement de présentation et correctif de sécurité — 21 octobre 2026
+
+[CI complète](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39570260034), commit 0fdcc5fbb2363a8653206134c32a19c13aa5597f : vérification complète et capacité PostgreSQL isolée réussies. Le bouton de présentation lignes/grille est désactivé pendant l’enregistrement et indique son état occupé. Un échec conserve la présentation précédente et permet de réessayer ; le focus revient au bouton après un changement réussi au clavier.
+
+Le parcours Chrome retarde la réponse, simule un refus, vérifie la conservation de la vue en lignes, puis réessaie avec Entrée et contrôle la grille, le focus et la valeur sauvegardée. L’audit initial a bloqué les tests sur trois nouveaux avis concernant Vite 7.3.6 ; Vite passe à 7.3.7 avec un verrouillage régénéré par pnpm. Le workflow temporaire de génération est supprimé. L’audit des dépendances et tous les tests passent après cette mise à jour.
+
+G13 reste partiel : la revue visuelle complète et la réception globale restent à effectuer. Score inchangé 19/60 (32 %). Aucun déploiement ni publication.
 
 ## Bibliothèque : aller-retour au clavier dans les listes — 20 octobre 2026
 
