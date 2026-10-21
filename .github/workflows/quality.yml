@@ -25,6 +25,7 @@ jobs:
           cache: pnpm
       - run: node scripts/security-check.mjs
       - run: pnpm install --frozen-lockfile
+      - run: node --check scripts/start-render.mjs
       - run: pnpm lint
       - run: pnpm check
       - run: pnpm test
