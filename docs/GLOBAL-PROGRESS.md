@@ -8,6 +8,18 @@ Mise à jour : 21 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Préparation de la sauvegarde personnelle en ligne — 21 octobre 2026
+
+[CI complète](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39658799771), commit 53e9394c3936533df27afdc0b188c2ec100f590f : vérification, capacité PostgreSQL isolée et nouveau job recovery réussis. Le scénario crée un compte via HTTP, enregistre séries/film/webtoon, progression, listes, sites et profil, redémarre API et connexions puis se reconnecte sans ancien jeton. Un pg_dump est restauré dans une autre base ; la source est supprimée et les données sont relues par l’API restaurée. Autre compte, requête non authentifiée et synchronisation cliente vide sont contrôlés. Ce test synthétique ne constitue pas une réception de désinstallation Chrome ni de l’hébergeur réel.
+
+render.yaml, scripts/start-render.mjs et docs/PERSONAL-CLOUD-SETUP.md préparent un service Render et PostgreSQL payants à Francfort, déploiements automatiques désactivés, accès public base fermé et TLS interne selon les exigences Render. Syntaxe du script et tests du projet validés ; ressources Render non créées et Blueprint non validé par l’API Render. Coût estimé 13,30 USD/mois avant taxes/dépassements, soumis à accord utilisateur et tarif affiché lors de création.
+
+L’utilisateur confirme ne disposer d’aucun hébergement. Le point d’accès de l’extension reste vide. Activation du compte fournisseur, essai sur Chrome neuf, indicateurs de sauvegarde en attente, transfert explicite de la bibliothèque invitée et copie externe périodique restent à terminer. Ne pas conseiller d’utiliser Yomu comme seule copie personnelle avant réception. G23 reste P ; score inchangé 19/60 (32 %).
+
+## Bibliothèque : réordonnancement préservant les autres modifications — 21 octobre 2026
+
+[CI](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39572649471), commit 7d47a138f2a18a3308973a8da0d0cfb81a89681c : contrôles réussis. LIST_REORDER_ITEMS réordonne les membres encore présents et conserve les ajouts absents de l’ancienne vue. Une suppression concurrente ne peut être annulée par le réordonnancement. Les boutons haut/bas et la sauvegarde du glisser-déposer utilisent cette opération. Tests d’ajout concurrent, retrait concurrent, enregistrement du nouvel ordre et données invalides. G13 reste partiel.
+
 ## Bibliothèque : retrait groupé sans écraser les ajouts concurrents — 21 octobre 2026
 
 [CI complète](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39571638240), commit 76e2b243db7756d74760208153e65179d680032e : vérification complète et capacité PostgreSQL isolée réussies. Le retrait groupé transmet uniquement les identifiants sélectionnés au service worker. Celui-ci relit la liste dans la file de mutations avant de retirer ces membres, au lieu de remplacer sa totalité par un instantané de la vue. Les ajouts effectués entre-temps dans une autre vue sont conservés.
