@@ -83,3 +83,40 @@ jobs:
           name: yomu-load-report
           path: test-results/load-report.json
 
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: yomu_recovery
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-ci-fixture
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install matching PostgreSQL recovery tools
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client-16
+      - name: Verify fresh login and database backup recovery
+        run: PATH="/usr/lib/postgresql/16/bin:$PATH" node --import tsx scripts/verify-recovery.mjs
+        env:
+          RECOVERY_DATABASE_URL: postgresql://postgres:synthetic-ci-fixture@127.0.0.1:5432/yomu_recovery
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yomu-recovery-report
+          path: test-results/recovery-report.json
