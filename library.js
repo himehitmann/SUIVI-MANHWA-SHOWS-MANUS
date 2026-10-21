@@ -1966,7 +1966,7 @@ function wireListBulk(list) {
     const order=listMembers(current).map(item=>item.id),index=order.indexOf(id),next=index+direction;
     if(index<0||next<0||next>=order.length)return;
     busy=true;refresh();[order[index],order[next]]=[order[next],order[index]];
-    const ok=await listMsg("LIST_SET_ITEMS",{id:list.id,itemIds:order},()=>{});
+    const ok=await listMsg("LIST_REORDER_ITEMS",{id:list.id,itemIds:order},()=>{});
     if(ok){renderListDetail();const row=[...document.querySelectorAll("#list-items [data-id]")].find(r=>r.dataset.id===id);const checkbox=row?.querySelector(".list-select");if(checkbox){checkbox.click();checkbox.focus();}}else{busy=false;refresh();}
   };
   toolbar.querySelector("#bulk-up").onclick=()=>reorder(-1);toolbar.querySelector("#bulk-down").onclick=()=>reorder(1);
@@ -1979,7 +1979,7 @@ function enableDrag(l) {
   let dragEl = null;
   c.querySelectorAll(sel).forEach((row) => {
     row.addEventListener("dragstart", () => { dragEl = row; row.classList.add("dragging"); });
-    row.addEventListener("dragend", () => { row.classList.remove("dragging"); setListItems(l.id, [...c.querySelectorAll(sel)].map((r) => r.dataset.id), true); });
+    row.addEventListener("dragend", () => { row.classList.remove("dragging"); setListItems(l.id, [...c.querySelectorAll(sel)].map((r) => r.dataset.id)); });
     row.addEventListener("dragover", (e) => {
       e.preventDefault();
       if (!dragEl || dragEl === row) return;
@@ -2005,7 +2005,7 @@ function changeListMembership(id,itemId,adding,silent=false) {
   listMembershipQueue=operation.catch(()=>false);
   return operation;
 }
-async function setListItems(id,itemIds,silent) {const saved=await listMsg("LIST_SET_ITEMS",{id,itemIds},()=>{if(!silent)renderListDetail();});if(!saved&&currentListId===id)renderListDetail();return saved;}
+async function setListItems(id,itemIds) {const saved=await listMsg("LIST_REORDER_ITEMS",{id,itemIds},()=>{});if(currentListId===id)renderListDetail();return saved;}
 function listMsg(type, payload, done) {
   return new Promise(resolve => api.runtime.sendMessage({type,...payload},r=>{
     if(api.runtime.lastError || r?.ok===false || !Array.isArray(r?.lists)){

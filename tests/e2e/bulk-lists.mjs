@@ -49,6 +49,29 @@ try {
  assert.deepEqual([...mergedMembers].sort(),["a","b"]);
  const rejectedMember=await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_MEMBERSHIP",id:"destination",itemId:"missing",adding:true},resolve)));
  assert.equal(rejectedMember.ok,false);
+ // Reordering an older view cannot erase additions or restore removed members.
+ const orderList=await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_CREATE",name:"Concurrent order",itemIds:["a","b"]},r=>{lists=r.lists;openList(r.list.id);resolve(r.list.id);})));
+ await p.evaluate(id=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_MEMBERSHIP",id,itemId:"c",adding:true},resolve)),orderList);
+ await p.locator('#list-items [data-id="a"] .list-select').check();
+ await p.locator("#bulk-down").click();
+ await p.waitForFunction(id=>lists.find(l=>l.id===id).itemIds.join(",")==="b,a,c",orderList);
+ assert.deepEqual(await p.locator("#list-items [data-id]").evaluateAll(nodes=>nodes.map(n=>n.dataset.id)),["b","a","c"]);
+ await p.locator('#list-items [data-id="a"] .list-select').uncheck();
+ await p.locator('#list-items [data-id="c"] .list-select').check();
+ await p.evaluate(id=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_MEMBERSHIP",id,itemId:"a",adding:false},resolve)),orderList);
+ await p.locator("#bulk-up").click();
+ await p.waitForFunction(id=>lists.find(l=>l.id===id).itemIds.join(",")==="b,c",orderList);
+ assert.deepEqual(await w.evaluate(async id=>(await chrome.storage.local.get("dasi.lists"))["dasi.lists"].find(l=>l.id===id).itemIds,orderList),["b","c"],"Reorder must not resurrect a concurrently removed member");
+ // The drag-and-drop saving path uses the same membership-preserving operation.
+ await p.evaluate(async id=>{await setListItems(id,["c","b","a"]);},orderList);
+ assert.deepEqual(await p.locator("#list-items [data-id]").evaluateAll(nodes=>nodes.map(n=>n.dataset.id)),["c","b"]);
+ const badOrders=await p.evaluate(async id=>{
+   const send=m=>new Promise(resolve=>chrome.runtime.sendMessage(m,resolve));
+   return Promise.all([send({type:"LIST_REORDER_ITEMS",id,itemIds:[null]}),send({type:"LIST_REORDER_ITEMS",id:"missing",itemIds:["b"]})]);
+ },orderList);
+ assert(badOrders.every(r=>r.ok===false));
+ assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].length),3);
+ await p.evaluate(id=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_DELETE",id},r=>{lists=r.lists;openList("source");resolve();})),orderList);
  // Bulk removal uses current stored membership, preserving additions from another view.
  const removalList=await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_CREATE",name:"Concurrent removal",itemIds:["a","b"]},r=>{lists=r.lists;openList(r.list.id);resolve(r.list.id);})));
  await p.locator('#list-items [data-id="a"] .list-select').check();

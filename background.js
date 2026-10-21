@@ -2303,6 +2303,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       mutateAndReply(async()=>{const notifications=message.type==='NOTIF_CLEAR'?[]:(await read(NOTIF_KEY,[])).map(n=>({...n,read:true}));await writeData({[NOTIF_KEY]:notifications});return {notifications};},sendResponse);return true;
     case "SET_SETTINGS":
       mutateAndReply(async()=>{const settings={...DEFAULT_SETTINGS,...await read(SETTINGS_KEY,{}),...message.patch};await writeData({[SETTINGS_KEY]:settings});return {settings};},sendResponse);return true;
+    case "LIST_REORDER_ITEMS":
     case "LIST_REMOVE_MEMBERS":
     case "LIST_MEMBERSHIP":
     case "LIST_TRANSFER":
@@ -2313,6 +2314,15 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "LIST_SET_ITEMS":
       mutateAndReply(async()=>{
         let lists=await read(LISTS_KEY,[]),list;
+        if(message.type==='LIST_REORDER_ITEMS'){
+          const current=lists.find(l=>l.id===message.id);
+          if(!current||!Array.isArray(message.itemIds)||message.itemIds.some(id=>typeof id!=='string'||!id))throw Error('invalid_list_order');
+          const valid=new Set((await read(ITEMS_KEY,[])).map(item=>item.id));
+          const members=[...new Set(current.itemIds||[])].filter(id=>valid.has(id)),present=new Set(members);
+          const ordered=[...new Set(message.itemIds)].filter(id=>present.has(id)),included=new Set(ordered);
+          const itemIds=[...ordered,...members.filter(id=>!included.has(id))];
+          lists=lists.map(l=>l.id===current.id?{...l,itemIds,updatedAt:Date.now()}:l);
+        }
         if(message.type==='LIST_REMOVE_MEMBERS'){
           const current=lists.find(l=>l.id===message.id);
           if(!current||!Array.isArray(message.itemIds)||!message.itemIds.length||message.itemIds.some(id=>typeof id!=='string'||!id))throw Error('invalid_list_members');
