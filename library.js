@@ -1954,7 +1954,7 @@ function wireListBulk(list) {
       ok=await listMsg("LIST_TRANSFER",{sourceId:source.id,destinationId:destination.id,itemIds:ids,action},()=>{});
     } else if(action==="remove"){
       if(!source){busy=false;refresh();return;}
-      ok=await listMsg("LIST_SET_ITEMS",{id:source.id,itemIds:(source.itemIds||[]).filter(id=>!selected.has(id))},()=>{});
+      ok=await listMsg("LIST_REMOVE_MEMBERS",{id:source.id,itemIds:ids},()=>{});
     }
     if(ok){renderListDetail();toast(fr?"Liste mise à jour":"List updated");}else{busy=false;refresh();}
   };

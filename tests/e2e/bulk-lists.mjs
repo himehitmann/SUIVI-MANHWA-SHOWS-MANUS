@@ -49,6 +49,27 @@ try {
  assert.deepEqual([...mergedMembers].sort(),["a","b"]);
  const rejectedMember=await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_MEMBERSHIP",id:"destination",itemId:"missing",adding:true},resolve)));
  assert.equal(rejectedMember.ok,false);
+ // Bulk removal uses current stored membership, preserving additions from another view.
+ const removalList=await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_CREATE",name:"Concurrent removal",itemIds:["a","b"]},r=>{lists=r.lists;openList(r.list.id);resolve(r.list.id);})));
+ await p.locator('#list-items [data-id="a"] .list-select').check();
+ await p.evaluate(id=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_MEMBERSHIP",id,itemId:"c",adding:true},resolve)),removalList);
+ assert.deepEqual(await p.evaluate(id=>lists.find(l=>l.id===id).itemIds,removalList),["a","b"],"The open view deliberately has an older snapshot");
+ await p.evaluate(()=>{globalThis.removeTransport=api.runtime.sendMessage;api.runtime.sendMessage=(message,callback)=>message.type==="LIST_REMOVE_MEMBERS"?callback({ok:false,error:"storage_failed"}):globalThis.removeTransport.call(api.runtime,message,callback);});
+ await p.locator("#bulk-remove").click();
+ assert.equal(await p.locator('#list-items [data-id="a"] .list-select').isChecked(),true,"Failed removal retains selection for retry");
+ assert.equal(await p.locator("#bulk-remove").isEnabled(),true);
+ assert.deepEqual(await w.evaluate(async id=>(await chrome.storage.local.get("dasi.lists"))["dasi.lists"].find(l=>l.id===id).itemIds,removalList),["a","b","c"]);
+ await p.evaluate(()=>{api.runtime.sendMessage=globalThis.removeTransport;delete globalThis.removeTransport;});
+ await p.locator("#bulk-remove").click();
+ await p.waitForFunction(id=>lists.find(l=>l.id===id).itemIds.join(",")==="b,c",removalList);
+ assert.deepEqual(await w.evaluate(async id=>(await chrome.storage.local.get("dasi.lists"))["dasi.lists"].find(l=>l.id===id).itemIds,removalList),["b","c"],"Concurrent addition must survive bulk removal");
+ const invalidRemoval=await p.evaluate(async id=>{
+   const send=m=>new Promise(resolve=>chrome.runtime.sendMessage(m,resolve));
+   return Promise.all([send({type:"LIST_REMOVE_MEMBERS",id,itemIds:[]}),send({type:"LIST_REMOVE_MEMBERS",id,itemIds:[null]}),send({type:"LIST_REMOVE_MEMBERS",id:"missing",itemIds:["b"]})]);
+ },removalList);
+ assert(invalidRemoval.every(r=>r.ok===false),"Malformed removals must be rejected");
+ assert.equal(await w.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].length),3,"Membership removal never deletes saved works");
+ await p.evaluate(id=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_DELETE",id},r=>{lists=r.lists;openList("source");resolve();})),removalList);
  await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"LIST_SET_ITEMS",id:"destination",itemIds:[]},r=>{lists=r.lists;renderListDetail();resolve();})));
  await p.locator('[data-id="a"] .list-select').check();await p.locator('[data-id="b"] .list-select').check();await p.locator('#bulk-destination').selectOption('destination');await p.locator('#bulk-copy').click();
  await p.waitForFunction(()=>lists.find(l=>l.id==='destination').itemIds.length===2);
