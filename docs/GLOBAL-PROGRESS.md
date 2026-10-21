@@ -8,6 +8,12 @@ Mise à jour : 21 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Bibliothèque : retrait groupé sans écraser les ajouts concurrents — 21 octobre 2026
+
+[CI complète](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39571638240), commit 76e2b243db7756d74760208153e65179d680032e : vérification complète et capacité PostgreSQL isolée réussies. Le retrait groupé transmet uniquement les identifiants sélectionnés au service worker. Celui-ci relit la liste dans la file de mutations avant de retirer ces membres, au lieu de remplacer sa totalité par un instantané de la vue. Les ajouts effectués entre-temps dans une autre vue sont conservés.
+
+Le parcours Chrome garde volontairement une vue ancienne, ajoute une œuvre côté stockage, simule un échec de retrait, vérifie que la sélection et les données sont conservées, puis réessaie et contrôle la conservation de l’ajout concurrent. Les requêtes malformées sont rejetées et les œuvres sauvegardées restent intactes. G13 reste partiel ; score inchangé 19/60 (32 %). Aucun déploiement ni publication.
+
 ## Bibliothèque : changement de présentation et correctif de sécurité — 21 octobre 2026
 
 [CI complète](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39570260034), commit 0fdcc5fbb2363a8653206134c32a19c13aa5597f : vérification complète et capacité PostgreSQL isolée réussies. Le bouton de présentation lignes/grille est désactivé pendant l’enregistrement et indique son état occupé. Un échec conserve la présentation précédente et permet de réessayer ; le focus revient au bouton après un changement réussi au clavier.
