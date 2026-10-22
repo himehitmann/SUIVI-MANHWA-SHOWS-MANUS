@@ -1,27 +1,36 @@
-# Mise en service personnelle : sauvegarde indépendante de l’extension
+# Sauvegarde personnelle gratuite : mise en service
 
-État au 21 octobre 2026 : configuration préparée, aucun hébergement créé, aucune protection de données réelles revendiquée. Le test CI scripts/verify-recovery.mjs vérifie une base synthétique PostgreSQL, pas le service Render ni la désinstallation réelle de Chrome.
+État au 22 octobre 2026 : sauvegarde en ligne non activée. Aucun hébergement ni compte fournisseur créé. Budget imposé par la propriétaire : 0 €, sans carte bancaire, sans facturation automatique et sans essai temporaire payant.
 
-## Proposition concrète
+## Proposition payante retirée
 
-Le fichier render.yaml prévoit un service Node et PostgreSQL 16 à Francfort. Les déploiements automatiques sont désactivés. Le secret de session est généré par Render ; aucun mot de passe ou secret n’est à copier dans le dépôt. La base refuse les connexions publiques ; le démarrage dédié Render exige son nom d’hôte privé et TLS. Le certificat interne étant auto-signé chez Render, sa validation CA est désactivée uniquement dans cette configuration privée ; la configuration serveur générale conserve sa validation stricte.
+La proposition Render du 21 octobre a été refusée. render.yaml et scripts/start-render.mjs sont retirés du dépôt ; aucune ressource Render n'a été créée. Ne pas réintroduire cette proposition comme prérequis à la sauvegarde personnelle. Les tests PostgreSQL existants restent utiles et sont conservés.
 
-Estimation vérifiée le 21 octobre 2026 : service 7 USD/mois + base 6 USD/mois + stockage 1 Go à 0,30 USD/mois, soit environ 13,30 USD/mois avant taxes, change, trafic ou autres dépassements. L’espace Hobby est suffisant pour cette proposition personnelle. Aucun plan Pro, domaine payant ou service supplémentaire n’est nécessaire au test initial. Le montant affiché dans Render doit être accepté par la propriétaire avant création.
+## Piste gratuite vérifiée : Firebase Spark
 
-Sources officielles :
-- https://render.com/articles/production-rails-hosting-guide
-- https://render.com/articles/how-much-does-cloud-application-hosting-cost-for-small-businesses
-- https://render.com/docs/blueprint-spec
-- https://render.com/docs/postgresql-creating-connecting
-- https://render.com/docs/postgresql-backups
+Spark permet de démarrer sans moyen de paiement. Firestore propose une base gratuite par projet : 1 Gio stocké, 50 000 lectures et 20 000 écritures quotidiennes, et 10 Gio de trafic sortant mensuel. Les quotas sont partagés par les utilisateurs du projet ; ils ne prouvent aucune capacité particulière de Yomu.
 
-## Activation par l’opérateur
+Les fonctions de sauvegarde gérée, restauration et récupération à un instant passé exigent une facturation. Elles sont donc exclues du périmètre gratuit. Ne pas lier de compte de facturation ni passer à Blaze. Une copie synchronisée Firestore survivrait à la désinstallation de l'extension, mais resterait exposée à la suppression du projet ou du compte fournisseur : ce n'est pas une sauvegarde indépendante.
 
-1. Créer un compte Render contrôlé par la propriétaire et connecter le dépôt GitHub. Utiliser New > Blueprint, sélectionner la branche contenant cette configuration, examiner le coût avant de confirmer. Ne pas créer les ressources sans accord sur la facturation.
-2. Renseigner ALLOWED_ORIGINS avec l’origine exacte de l’extension installée (chrome-extension://IDENTIFIANT). Ajouter l’origine HTTPS du service si nécessaire. Ne pas utiliser une autorisation globale.
-3. Après démarrage, vérifier /healthz, création/connexion d’un compte de test, disponibilité de la base et page Recovery. Conserver le secret de session entre déploiements.
-4. Configurer l’extension avec l’adresse réelle HTTPS du service suivie de /api. La valeur DEFAULT_SYNC_API de options.js reste vide tant que cette adresse n’existe pas ; ne pas inventer une adresse.
-5. Faire le parcours de réception ci-dessous avant d’importer la bibliothèque personnelle complète. Le compte invité et les comptes connectés sont volontairement séparés : les œuvres locales ne migrent pas silencieusement au premier login. Le transfert explicite de l’invité reste à préparer pour éviter toute confusion.
+Cette piste n'est PAS implémentée. Le serveur actuel utilise Express/PostgreSQL et son propre système de sessions. Changer une adresse ou une variable d'environnement ne suffit pas à le connecter à Firebase.
+
+Sources officielles vérifiées le 22 octobre 2026 :
+- https://firebase.google.com/docs/projects/billing/firebase-pricing-plans
+- https://firebase.google.com/docs/firestore/quotas
+
+## Travail restant avant activation
+
+1. Préparer et tester un adaptateur distinct pour Firebase Authentication et Firestore ; conserver le fonctionnement du serveur existant.
+2. Utiliser une identité persistante récupérable, pas un compte anonyme. Vérifier connexion, renouvellement de session, déconnexion et récupération du compte.
+3. Protéger les données par identité côté Firestore, refus par défaut et tests d'accès croisés. Aucun secret administrateur dans l'extension. Les rôles administrateur et abonnements ne doivent jamais pouvoir être accordés par une écriture du client.
+4. Préserver la fusion, les suppressions et l'isolation des comptes. Les bibliothèques actuelles peuvent dépasser la taille maximale d'un document Firestore : définir un stockage par enregistrement ou des versions fragmentées avant tout transfert. Une réponse tardive d'un autre compte ne doit pas écraser la bibliothèque active.
+5. Limiter les lectures et écritures aux modifications utiles ; gérer les quotas et les pannes sans effacer les données locales et sans afficher « sauvegardé » avant confirmation distante.
+6. Afficher clairement les états non configuré, en attente, sauvegardé et erreur. La dernière synchronisation doit correspondre à la dernière modification confirmée.
+7. Préparer une protection contre l'écrasement accidentel et une copie indépendante automatique compatible avec le budget. Des versions dans le même projet ne protègent pas contre la perte de ce projet.
+8. Créer le projet gratuit dans un compte contrôlé par la propriétaire, sans facturation ; déployer et vérifier les règles avant tout import. Aucun accès Firebase n'est actuellement connecté à cette tâche.
+9. Tester les parcours ci-dessous avec des données synthétiques avant d'utiliser la bibliothèque personnelle principale.
+
+Le point d'accès de l'extension reste vide tant qu'aucun service fonctionnel n'est configuré. Ne pas inventer d'URL ou revendiquer une synchronisation active.
 
 ## Réception obligatoire avant utilisation comme bibliothèque principale
 
@@ -31,13 +40,11 @@ Sources officielles :
 - Couper le réseau, modifier une progression, rétablir le réseau et contrôler la sauvegarde. Une modification encore hors ligne ne peut pas être récupérée après effacement du navigateur.
 - Vérifier les indicateurs de modifications en attente : une date de dernière synchronisation seule n’atteste pas que les dernières modifications ont été transmises. Cette distinction reste à renforcer dans le produit.
 - Déclencher un export de base et restaurer vers une base distincte. Contrôler les comptes et bibliothèques avant toute bascule, sans effacer la base active.
-- Configurer une copie périodique externe et sa rétention avant de qualifier la protection contre une perte du compte fournisseur. La seule configuration render.yaml ne réalise pas cette copie.
+- Configurer une copie périodique externe gratuite et sa rétention avant de qualifier la protection contre une perte du compte fournisseur.
 - Prévoir la récupération du compte en cas de mot de passe oublié : l’envoi d’e-mails de récupération reste à vérifier avant lancement public.
 
-## Portée des sauvegardes Render
-
-Les bases payantes disposent de récupération à un instant passé : trois jours sur espace Hobby, sept sur Pro ou supérieur. Les exports logiques créés sont conservés sept jours par Render. Cela ne signifie pas que tous les exports sont automatiquement créés ni stockés ailleurs. La suppression de la base Render supprime aussi ses sauvegardes chez le fournisseur. Une copie externe contrôlée et testée reste nécessaire.
 
 ## Test automatisé ajouté
 
 Le job recovery crée exclusivement deux bases jetables sur localhost dans GitHub Actions, crée un compte via l’API, enregistre des données, ferme les connexions, se reconnecte sans ancien jeton puis exécute pg_dump et pg_restore. Il supprime la base source et contrôle les données via une nouvelle connexion sur la restauration. Il vérifie aussi l’isolation d’un autre compte, le refus sans authentification et la conservation des données lors d’une synchronisation cliente vide. Le rapport ne contient pas de mots de passe, de jetons ou de dump.
+

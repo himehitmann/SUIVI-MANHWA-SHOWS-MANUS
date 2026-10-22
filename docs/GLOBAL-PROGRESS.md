@@ -1,6 +1,6 @@
 # Suivi global Yomu
 
-Mise à jour : 21 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 22 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
@@ -12,7 +12,7 @@ Mise à jour : 21 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 [CI complète](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39658799771), commit 53e9394c3936533df27afdc0b188c2ec100f590f : vérification, capacité PostgreSQL isolée et nouveau job recovery réussis. Le scénario crée un compte via HTTP, enregistre séries/film/webtoon, progression, listes, sites et profil, redémarre API et connexions puis se reconnecte sans ancien jeton. Un pg_dump est restauré dans une autre base ; la source est supprimée et les données sont relues par l’API restaurée. Autre compte, requête non authentifiée et synchronisation cliente vide sont contrôlés. Ce test synthétique ne constitue pas une réception de désinstallation Chrome ni de l’hébergeur réel.
 
-render.yaml, scripts/start-render.mjs et docs/PERSONAL-CLOUD-SETUP.md préparent un service Render et PostgreSQL payants à Francfort, déploiements automatiques désactivés, accès public base fermé et TLS interne selon les exigences Render. Syntaxe du script et tests du projet validés ; ressources Render non créées et Blueprint non validé par l’API Render. Coût estimé 13,30 USD/mois avant taxes/dépassements, soumis à accord utilisateur et tarif affiché lors de création.
+**Proposition payante annulée le 22 octobre après refus utilisateur.** render.yaml et scripts/start-render.mjs sont retirés, ainsi que le contrôle CI de ce script. Aucun service n'a été créé. Budget strict : 0 €, sans carte et sans facturation automatique. Firebase Spark est une piste gratuite vérifiée, mais son intégration dans Yomu n'est pas réalisée ; ses sauvegardes gérées nécessitent une facturation et ne sont pas retenues. Voir docs/PERSONAL-CLOUD-SETUP.md pour les limites et les étapes restantes. Les tests de récupération PostgreSQL sont conservés et ne constituent pas des tests Firebase.
 
 L’utilisateur confirme ne disposer d’aucun hébergement. Le point d’accès de l’extension reste vide. Activation du compte fournisseur, essai sur Chrome neuf, indicateurs de sauvegarde en attente, transfert explicite de la bibliothèque invitée et copie externe périodique restent à terminer. Ne pas conseiller d’utiliser Yomu comme seule copie personnelle avant réception. G23 reste P ; score inchangé 19/60 (32 %).
 
