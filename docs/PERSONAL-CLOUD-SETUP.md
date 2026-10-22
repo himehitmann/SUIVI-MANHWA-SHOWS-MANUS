@@ -25,7 +25,7 @@ Sources officielles vérifiées le 22 octobre 2026 :
 3. Protéger les données par identité côté Firestore, refus par défaut et tests d'accès croisés. Aucun secret administrateur dans l'extension. Les rôles administrateur et abonnements ne doivent jamais pouvoir être accordés par une écriture du client.
 4. Préserver la fusion, les suppressions et l'isolation des comptes. Les bibliothèques actuelles peuvent dépasser la taille maximale d'un document Firestore : définir un stockage par enregistrement ou des versions fragmentées avant tout transfert. Une réponse tardive d'un autre compte ne doit pas écraser la bibliothèque active.
 5. Limiter les lectures et écritures aux modifications utiles ; gérer les quotas et les pannes sans effacer les données locales et sans afficher « sauvegardé » avant confirmation distante.
-6. Afficher clairement les états non configuré, en attente, sauvegardé et erreur. La dernière synchronisation doit correspondre à la dernière modification confirmée.
+6. États non configuré, en attente, sauvegardé et erreur ajoutés au protocole HTTP existant le 22 octobre, avec empreinte du contenu confirmé et tests de concurrence/redémarrage. Les paramètres et le compte reflètent ces états. Étendre cette confirmation à l'adaptateur gratuit lors de son intégration ; ce correctif ne l'active pas.
 7. Préparer une protection contre l'écrasement accidentel et une copie indépendante automatique compatible avec le budget. Des versions dans le même projet ne protègent pas contre la perte de ce projet.
 8. Créer le projet gratuit dans un compte contrôlé par la propriétaire, sans facturation ; déployer et vérifier les règles avant tout import. Aucun accès Firebase n'est actuellement connecté à cette tâche.
 9. Tester les parcours ci-dessous avec des données synthétiques avant d'utiliser la bibliothèque personnelle principale.
@@ -38,7 +38,7 @@ Le point d'accès de l'extension reste vide tant qu'aucun service fonctionnel n'
 - Vérifier le succès du dépôt serveur, fermer la session et récupérer ces données depuis un profil Chrome neuf avec la même identité de compte, sans aucun export local.
 - Désinstaller seulement l’extension du profil de test, la réinstaller et contrôler la récupération ; ne jamais utiliser les données personnelles pour ce test.
 - Couper le réseau, modifier une progression, rétablir le réseau et contrôler la sauvegarde. Une modification encore hors ligne ne peut pas être récupérée après effacement du navigateur.
-- Vérifier les indicateurs de modifications en attente : une date de dernière synchronisation seule n’atteste pas que les dernières modifications ont été transmises. Cette distinction reste à renforcer dans le produit.
+- Vérifier les indicateurs de modifications en attente : une date de dernière synchronisation seule n’atteste pas que les dernières modifications ont été transmises. Cette distinction est désormais testée pour le protocole HTTP existant ; elle devra être reçue également sur l'adaptateur gratuit.
 - Déclencher un export de base et restaurer vers une base distincte. Contrôler les comptes et bibliothèques avant toute bascule, sans effacer la base active.
 - Configurer une copie périodique externe gratuite et sa rétention avant de qualifier la protection contre une perte du compte fournisseur.
 - Prévoir la récupération du compte en cas de mot de passe oublié : l’envoi d’e-mails de récupération reste à vérifier avant lancement public.

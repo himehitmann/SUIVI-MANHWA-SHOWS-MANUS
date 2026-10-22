@@ -8,6 +8,16 @@ Mise à jour : 22 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Confirmation des sauvegardes — 22 octobre 2026
+
+[CI complète](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39803503065), commit a0a09207b5a483e0580b40d9dd0eedf3955cd44b : vérification, parcours web/extension, capacité et récupération PostgreSQL réussis.
+
+Le worker distingue maintenant local_only, pending, saved et error. Une empreinte SHA-256 du contenu envoyé est conservée uniquement après succès HTTP du dépôt serveur ; elle est comparée au contenu courant pour établir l'état. Une date historique seule ne suffit plus. L'empreinte contient les collections, suppressions et profil, sans les réglages techniques locaux. Elle est conservée au redémarrage du worker. Les changements d'ordre des clés d'objet sont neutralisés.
+
+Cinq nouveaux tests couvrent : compte connecté sans dépôt confirmé et ancienne date, redémarrage, modification pendant un envoi, panne manuelle puis reprise, réponse tardive d'un autre compte, profil et exclusion des paramètres techniques. Les erreurs manuelles sont enregistrées aussi. Les paramètres et le panneau de compte affichent les états en français ou anglais ; les libellés se rafraîchissent sans recréer les formulaires de compte.
+
+Portée : confirmation du protocole HTTP existant, pas sauvegarde Firebase, copie indépendante ou garantie de durabilité de l'hébergeur. Aucun hébergement n'est activé. L'adaptateur gratuit et la réception après désinstallation réelle restent à terminer ; G13 et G23 restent partiels, global 19/60 (32 % arrondi).
+
 ## Budget gratuit et contrôle de sécurité — 22 octobre 2026
 
 La configuration de déploiement payante a été retirée dans 0123771dce3fb924d3c3477ce440445cf43aee8e. La relance des contrôles a détecté deux alertes modérées dans @vitest/mocker (GHSA-qxg6-89mg-rqv8 et GHSA-xp26-3454-mjgp). Vitest et son fichier de verrouillage ont été mis à jour vers 4.1.12, sans désactiver l'audit. Le workflow temporaire de génération du verrouillage a été supprimé.
