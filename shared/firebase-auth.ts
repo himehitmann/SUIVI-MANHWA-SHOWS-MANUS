@@ -70,7 +70,7 @@ export function createFirebaseAuth(
       return result;
     } catch(error) {
       if(error instanceof FirebaseAuthError)throw error;
-      fail(controller.signal.aborted?"request_timeout":"network_error");
+      return fail(controller.signal.aborted?"request_timeout":"network_error");
     } finally {clearTimeout(timer);}
   }
   function session(data:Payload,refresh:boolean,email:string,expectedUser?:string):FirebaseSession {
