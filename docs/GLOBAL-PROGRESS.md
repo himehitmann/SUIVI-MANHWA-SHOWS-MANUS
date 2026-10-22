@@ -8,6 +8,12 @@ Mise à jour : 22 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Budget gratuit et contrôle de sécurité — 22 octobre 2026
+
+La configuration de déploiement payante a été retirée dans 0123771dce3fb924d3c3477ce440445cf43aee8e. La relance des contrôles a détecté deux alertes modérées dans @vitest/mocker (GHSA-qxg6-89mg-rqv8 et GHSA-xp26-3454-mjgp). Vitest et son fichier de verrouillage ont été mis à jour vers 4.1.12, sans désactiver l'audit. Le workflow temporaire de génération du verrouillage a été supprimé.
+
+[CI complète](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39801188749), commit fdef1ef9c7a4fda1b1c41614cc129f5787c533d4 : vérification, audit des dépendances, parcours web/extension, capacité et récupération PostgreSQL réussis. Aucun déploiement ni changement de l'extension installée. Firebase reste une piste documentée, pas une fonctionnalité livrée. G13 et G23 restent partiels ; global 19/60 (32 % arrondi).
+
 ## Préparation de la sauvegarde personnelle en ligne — 21 octobre 2026
 
 [CI complète](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39658799771), commit 53e9394c3936533df27afdc0b188c2ec100f590f : vérification, capacité PostgreSQL isolée et nouveau job recovery réussis. Le scénario crée un compte via HTTP, enregistre séries/film/webtoon, progression, listes, sites et profil, redémarre API et connexions puis se reconnecte sans ancien jeton. Un pg_dump est restauré dans une autre base ; la source est supprimée et les données sont relues par l’API restaurée. Autre compte, requête non authentifiée et synchronisation cliente vide sont contrôlés. Ce test synthétique ne constitue pas une réception de désinstallation Chrome ni de l’hébergeur réel.
