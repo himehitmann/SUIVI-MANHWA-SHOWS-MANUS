@@ -2434,6 +2434,24 @@ function backupLabel(s, lang=s.lang) {
   })[s.state] || (fr?'Sauvegarde non confirmée':'Backup not confirmed');
 }
 
+
+let backupRefreshTimer=null;
+function refreshBackupLabels() {
+  if(!document.getElementById("sync-state")&&!document.getElementById("account-backup-state"))return;
+  api.runtime.sendMessage({type:"SYNC_STATUS"},s=>{
+    if(api.runtime.lastError||!s)return;
+    for(const id of ["sync-state","account-backup-state"]) {
+      const el=document.getElementById(id);
+      if(el)el.textContent=backupLabel(s,settings.lang);
+    }
+  });
+}
+api.storage.onChanged.addListener((changes,area)=>{
+  if(area!=="local"||!Object.keys(changes).some(key=>["dasi.items","dasi.lists","dasi.sites","dasi.notifications","dasi.settings","yomu.tombstones.v1","dasi.sync.meta","dasi.sync.config"].includes(key)))return;
+  clearTimeout(backupRefreshTimer);
+  backupRefreshTimer=setTimeout(refreshBackupLabels,120);
+});
+
 function renderAccountPanel() {
   const el = document.getElementById("account-panel");
   if (!el) return;
@@ -2446,7 +2464,7 @@ function renderAccountPanel() {
       return;
     }
     el.innerHTML = `
-      <div class="row"><div class="grow"><b>${esc(s.email || "")}</b><small>${t("signedInAs")} — ${esc(s.plan || "free")}</small><small role="status">${esc(backupLabel(s,settings.lang))}</small></div><button class="btn" id="acc-manage">${t("manageSync")}</button></div>
+      <div class="row"><div class="grow"><b>${esc(s.email || "")}</b><small>${t("signedInAs")} — ${esc(s.plan || "free")}</small><small role="status" id="account-backup-state">${esc(backupLabel(s,settings.lang))}</small></div><button class="btn" id="acc-manage">${t("manageSync")}</button></div>
       <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changeEmail")}</b></div><input class="field" id="acc-email" type="email" placeholder="new@email.com" style="max-width:200px" /><input class="field" id="acc-email-current" type="password" autocomplete="current-password" placeholder="${t("currentPassword")}" style="max-width:150px" /><button class="btn" id="acc-email-btn">${t("save")}</button></div>
       <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changePassword")}</b></div><input class="field" id="acc-pw-cur" type="password" placeholder="${t("currentPassword")}" style="max-width:150px" /><input class="field" id="acc-pw-new" type="password" placeholder="${t("newPassword")}" style="max-width:150px" /><button class="btn" id="acc-pw-btn">${t("save")}</button></div>
       <div class="row"><button class="btn" id="acc-logout-all">${settings.lang==='fr'?'Déconnecter tous les appareils':'Sign out all devices'}</button><button class="btn" id="acc-delete">${settings.lang==='fr'?'Supprimer mon compte':'Delete my account'}</button></div>`;

@@ -62,6 +62,7 @@ async function render() {
     $("endpoint").textContent = (s.apiUrl || "").replace(/^https?:\/\//, "");
     $("lastsync").textContent = backupLabel(s) + (s.meta?.lastSyncAt ? " — " + fmtTime(s.meta.lastSyncAt) : "");
     if (s.meta && s.meta.lastError) showMsg($("msg-in"), errorText(s.meta.lastError), "err");
+    else showMsg($("msg-in"),backupLabel(s),s.state==="saved"?"ok":"");
   } else {
     $("signed-in").classList.add("hidden");
     $("signed-out").classList.remove("hidden");
