@@ -24,6 +24,7 @@ function worker(seed: Record<string, any> = {}, syncSeed:Record<string,any>={}) 
     URL,
     AbortController,
     AbortSignal,
+    TextEncoder,
     Date,
     Map,
     Set,
@@ -2303,4 +2304,75 @@ describe("game price availability",()=>{
    const w=worker();const result=w.run('applyMetadataPatch({price:"Edited",priceStatus:"unavailable",priceCheckedAt:1},{price:"Old",priceStatus:"unavailable",priceCheckedAt:1},{price:"New",priceStatus:"available",priceCheckedAt:2})');
    expect(result).toMatchObject({price:"Edited",priceStatus:"unavailable",priceCheckedAt:1});
  });
+});
+
+describe("confirmed online backup state",()=>{
+  const cfg={apiUrl:"https://sync.example/api",userId:"a",email:"a@example.com",token:"a"};
+  const ready=()=>{
+    const w=worker({"dasi.sync.config":cfg,"dasi.items":[{id:"book",title:"Book",type:"reading",chapter:1,updatedAt:1}]});
+    w.run("autoSync=()=>{}");
+    w.ctx.fetch=async()=>({ok:true,status:200,json:async()=>({blob:null})});
+    return w;
+  };
+  it("never treats a login or legacy sync date as a confirmed backup",async()=>{
+    expect((await worker().call({type:"SYNC_STATUS"})).state).toBe("local_only");
+    const w=ready();w.data["dasi.sync.meta"]={lastSyncAt:Date.now()};
+    expect((await w.call({type:"SYNC_STATUS"})).state).toBe("pending");
+    await w.run("syncNow()");
+    expect((await w.call({type:"SYNC_STATUS"})).state).toBe("saved");
+    const restarted=worker(w.data);
+    expect((await restarted.call({type:"SYNC_STATUS"})).state).toBe("saved");
+    expect(JSON.stringify(w.data["dasi.sync.meta"])).not.toContain("Book");
+    expect(w.data["dasi.sync.meta"].confirmedFingerprint).toMatch(/^[a-f0-9]{64}$/);
+  });
+  it("keeps a later edit pending when an older upload succeeds",async()=>{
+    const w=ready();let finish:any,started:any;
+    const uploading=new Promise<void>(resolve=>started=resolve);
+    w.ctx.fetch=async(_url:any,init:any)=>{
+      if(init?.method==="PUT"){started();return new Promise(resolve=>finish=resolve);}
+      return {ok:true,status:200,json:async()=>({blob:null})};
+    };
+    const sync=w.run("syncNow()");await uploading;
+    await w.call({type:"UPDATE_ITEM",id:"book",patch:{chapter:7}});
+    finish({ok:true,status:200});
+    expect((await sync).state).toBe("pending");
+    expect((await w.call({type:"SYNC_STATUS"})).state).toBe("pending");
+    expect(w.data["dasi.items"][0].chapter).toBe(7);
+    w.ctx.fetch=async()=>({ok:true,status:200,json:async()=>({blob:null})});
+    await w.run("syncNow()");
+    expect((await w.call({type:"SYNC_STATUS"})).state).toBe("saved");
+  });
+  it("reports manual network failures and clears them only on successful upload",async()=>{
+    const w=ready();await w.run("syncNow()");
+    const confirmed=w.data["dasi.sync.meta"].confirmedFingerprint;
+    await w.call({type:"UPDATE_ITEM",id:"book",patch:{chapter:8}});
+    w.ctx.fetch=async()=>{throw Error("offline");};
+    expect((await w.call({type:"SYNC_NOW"})).ok).toBe(false);
+    expect((await w.call({type:"SYNC_STATUS"})).state).toBe("error");
+    expect(w.data["dasi.sync.meta"].confirmedFingerprint).toBe(confirmed);
+    w.ctx.fetch=async()=>({ok:true,status:200,json:async()=>({blob:null})});
+    expect((await w.call({type:"SYNC_NOW"})).ok).toBe(true);
+    expect((await w.call({type:"SYNC_STATUS"})).state).toBe("saved");
+  });
+  it("does not confirm a different account after a delayed upload",async()=>{
+    const w=ready();let finish:any,started:any;
+    const uploading=new Promise<void>(resolve=>started=resolve);
+    w.ctx.fetch=async(_url:any,init:any)=>{
+      if(init?.method==="PUT"){started();return new Promise(resolve=>finish=resolve);}
+      return {ok:true,status:200,json:async()=>({blob:null})};
+    };
+    const sync=w.run("syncNow()").catch((error:any)=>error.message);await uploading;
+    await w.run("serializeLibrary(()=>switchSyncAccount({...input,userId:'b',token:'b'}))".replace("...input","..."+JSON.stringify(cfg)));
+    finish({ok:true,status:200});
+    expect(await sync).toBe("account_changed");
+    expect((await w.call({type:"SYNC_STATUS"})).state).toBe("pending");
+    expect(w.data["dasi.sync.meta"]).toEqual({});
+  });
+  it("tracks profile changes but excludes device-only service settings",async()=>{
+    const w=ready();await w.run("syncNow()");
+    w.data["dasi.settings"]={ocrKey:"device-secret"};
+    expect((await w.call({type:"SYNC_STATUS"})).state).toBe("saved");
+    w.data["dasi.settings"].profile={name:"New name"};
+    expect((await w.call({type:"SYNC_STATUS"})).state).toBe("pending");
+  });
 });

@@ -42,6 +42,16 @@ function errorText(code) {
   return "Something went wrong. Check the backend URL and try again.";
 }
 
+function backupLabel(s, lang=s.lang) {
+  const fr=lang==='fr';
+  return ({
+    local_only:fr?'Sur cet appareil uniquement — sauvegarde en ligne non activée':'On this device only — online backup is not enabled',
+    pending:fr?'Modifications en attente de sauvegarde en ligne':'Changes waiting for online backup',
+    saved:fr?'Modifications sauvegardées en ligne':'Changes saved online',
+    error:fr?'Sauvegarde non confirmée — réessayer':'Backup not confirmed — try again',
+  })[s.state] || (fr?'Sauvegarde non confirmée':'Backup not confirmed');
+}
+
 async function render() {
   const s = await send({ type: "SYNC_STATUS" });
   if (s.configured) {
@@ -50,7 +60,7 @@ async function render() {
     $("who").textContent = s.email || "Signed in";
     $("plan").textContent = (s.plan || "free").toUpperCase();
     $("endpoint").textContent = (s.apiUrl || "").replace(/^https?:\/\//, "");
-    $("lastsync").textContent = fmtTime(s.meta && s.meta.lastSyncAt);
+    $("lastsync").textContent = backupLabel(s) + (s.meta?.lastSyncAt ? " — " + fmtTime(s.meta.lastSyncAt) : "");
     if (s.meta && s.meta.lastError) showMsg($("msg-in"), errorText(s.meta.lastError), "err");
   } else {
     $("signed-in").classList.add("hidden");
@@ -81,11 +91,12 @@ async function authenticate(type) {
   if (!resp.ok) return showMsg($("msg-out"), errorText(resp.error), "err");
   await render();
   if (resp.warn) showMsg($("msg-in"), "Signed in, but the first sync failed: " + errorText(resp.warn), "err");
-  else if (resp.result) showMsg($("msg-in"), `Synced — ${resp.result.items} works in your library.`, "ok");
+  else if (resp.result) { const status=await send({type:"SYNC_STATUS"}); showMsg($("msg-in"),backupLabel(status),status.state==="saved"?"ok":""); }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   render();
+  api.storage.onChanged.addListener((_changes,area)=>{if(area==="local")render();});
 
   $("signin").addEventListener("click", () => authenticate("SYNC_SIGN_IN"));
   $("signup").addEventListener("click", () => authenticate("SYNC_SIGN_UP"));
@@ -95,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
     $("syncnow").disabled = true;
     const resp = await send({ type: "SYNC_NOW" });
     $("syncnow").disabled = false;
-    if (resp.ok) showMsg($("msg-in"), `Synced — ${resp.result.items} works, ${resp.result.sites} sites.`, "ok");
+    if (resp.ok) { const status=await send({type:"SYNC_STATUS"}); showMsg($("msg-in"),backupLabel(status),status.state==="saved"?"ok":""); }
     else showMsg($("msg-in"), errorText(resp.error), "err");
     render();
   });

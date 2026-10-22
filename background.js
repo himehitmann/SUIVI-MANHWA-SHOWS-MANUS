@@ -381,37 +381,60 @@ function mergeById(remote, local) {
   return [...byId.values()];
 }
 
+
+async function readSyncSnapshot() {
+  const snapshot={tombstones:await read(TOMBSTONES_KEY,[]),profile:(await read(SETTINGS_KEY,{})).profile};
+  for(const [kind,key] of Object.entries(DATA_KEYS))snapshot[kind]=await read(key,[]);
+  return snapshot;
+}
+async function syncFingerprint(snapshot) {
+  // Ignore object insertion order, but preserve meaningful collection order.
+  const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'
+    ?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(canonical(snapshot))));
+  return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+async function syncStatusUnlocked() {
+  const cfg=await getSyncConfig(),meta=await read(SYNC_META_KEY,{});
+  const configured=Boolean(cfg?.token);
+  const fingerprint=configured?await syncFingerprint(await readSyncSnapshot()):null;
+  const state=!configured?'local_only':meta.lastError?'error':meta.confirmedFingerprint===fingerprint?'saved':'pending';
+  return {configured,apiUrl:cfg?.apiUrl||'',email:cfg?.email||'',plan:cfg?.plan||null,meta,state,
+    lang:(await read(SETTINGS_KEY,{})).lang||'en'};
+}
+
 /** Pull the remote blob, merge into local storage, push the union back. */
 async function syncNow() {
-  const cfg = await getSyncConfig();
-  if (!cfg || !cfg.token) throw new Error("not_signed_in");
-
-  const getRes = await apiCall(cfg, "/sync");
-  if (getRes.status === 401) {
-    if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({ lastError: "unauthorized" });
-    throw new Error("unauthorized");
+  const cfg=await getSyncConfig(),epoch=accountEpoch;
+  if(!cfg?.token)throw Error('not_signed_in');
+  const current=async()=>epoch===accountEpoch&&(await getSyncConfig())?.token===cfg.token;
+  try {
+    const getRes=await apiCall(cfg,'/sync');
+    if(!getRes.ok)throw Error(getRes.status===401?'unauthorized':`pull_${getRes.status}`);
+    const remote=await getRes.json();
+    const {blob,fingerprint}=await serializeLibrary(async()=>{
+      if(!await current())throw Error('account_changed');
+      const localSettings=await read(SETTINGS_KEY,{});
+      const local=await readSyncSnapshot();
+      const merged=YomuSync.mergeBlobs(remote.blob||null,local),values={[TOMBSTONES_KEY]:merged.tombstones||[]};
+      for(const [kind,key] of Object.entries(DATA_KEYS))values[key]=merged[kind]||[];
+      if(merged.profile)values[SETTINGS_KEY]={...localSettings,profile:merged.profile};
+      await writeData(values,true);
+      return {blob:merged,fingerprint:await syncFingerprint(await readSyncSnapshot())};
+    });
+    const putRes=await apiCall(cfg,'/sync',{method:'PUT',body:JSON.stringify({blob})});
+    if(!putRes.ok)throw Error(`push_${putRes.status}`);
+    const status=await serializeLibrary(async()=>{
+      if(!await current())throw Error('account_changed');
+      // A later edit remains pending even if this older upload succeeds.
+      await setSyncMeta({lastSyncAt:Date.now(),lastError:null,confirmedFingerprint:fingerprint});
+      return syncStatusUnlocked();
+    });
+    return {items:blob.items.length,sites:blob.sites.length,notifications:blob.notifications.length,state:status.state};
+  } catch(error) {
+    await serializeLibrary(async()=>{if(await current())await setSyncMeta({lastError:String(error.message)});});
+    throw error;
   }
-  if(!getRes.ok)throw new Error(`pull_${getRes.status}`);
-  const remote = await getRes.json();
-  const rb = remote.blob || null;
-
-  const blob=await serializeLibrary(async()=>{
-    if((await getSyncConfig())?.token!==cfg.token)throw new Error('account_changed');
-    const localSettings=await read(SETTINGS_KEY,{});
-    const local={updatedAt:0,tombstones:await read(TOMBSTONES_KEY,[]),profile:localSettings.profile};
-    for(const [kind,key] of Object.entries(DATA_KEYS))local[kind]=await read(key,[]);
-    const merged=YomuSync.mergeBlobs(rb,local),values={[TOMBSTONES_KEY]:merged.tombstones||[]};
-    for(const [kind,key] of Object.entries(DATA_KEYS))values[key]=merged[kind]||[];
-    if(merged.profile)values[SETTINGS_KEY]={...localSettings,profile:merged.profile};
-    await writeData(values,true);return merged;
-  });
-  const putRes = await apiCall(cfg, "/sync", { method: "PUT", body: JSON.stringify({ blob }) });
-  if (!putRes.ok) {
-    if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({ lastError: `push_${putRes.status}` });
-    throw new Error(`push_${putRes.status}`);
-  }
-  if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({ lastSyncAt: Date.now(), lastError: null });
-  return { items: blob.items.length, sites: blob.sites.length, notifications: blob.notifications.length };
 }
 
 /** Short-delay saves plus a durable alarm for suspension/network recovery. */
@@ -2468,15 +2491,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case "SYNC_STATUS":
-      Promise.all([getSyncConfig(), api.storage.local.get(SYNC_META_KEY)]).then(([cfg, m]) =>
-        sendResponse({
-          configured: Boolean(cfg && cfg.token),
-          apiUrl: (cfg && cfg.apiUrl) || "",
-          email: (cfg && cfg.email) || "",
-          plan: (cfg && cfg.plan) || null,
-          meta: m[SYNC_META_KEY] || {},
-        }),
-      );
+      serializeLibrary(syncStatusUnlocked).then(sendResponse).catch(()=>sendResponse({configured:false,state:'error',meta:{lastError:'status_unavailable'}}));
       return true;
 
     case "SYNC_SIGN_IN":
