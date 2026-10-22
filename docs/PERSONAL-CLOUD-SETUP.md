@@ -12,7 +12,7 @@ Spark permet de démarrer sans moyen de paiement. Firestore propose une base gra
 
 Les fonctions de sauvegarde gérée, restauration et récupération à un instant passé exigent une facturation. Elles sont donc exclues du périmètre gratuit. Ne pas lier de compte de facturation ni passer à Blaze. Une copie synchronisée Firestore survivrait à la désinstallation de l'extension, mais resterait exposée à la suppression du projet ou du compte fournisseur : ce n'est pas une sauvegarde indépendante.
 
-Cette piste n'est PAS implémentée. Le serveur actuel utilise Express/PostgreSQL et son propre système de sessions. Changer une adresse ou une variable d'environnement ne suffit pas à le connecter à Firebase.
+Le transport d'authentification est préparé dans shared/firebase-auth.ts et couvert par 19 tests à réponses simulées. Il n'est pas branché à l'interface ni au worker distribué. Le stockage Firestore n'est PAS implémenté. Le serveur actuel utilise Express/PostgreSQL et son propre système de sessions. Changer une adresse ou une variable d'environnement ne suffit pas à le connecter à Firebase.
 
 Sources officielles vérifiées le 22 octobre 2026 :
 - https://firebase.google.com/docs/projects/billing/firebase-pricing-plans
@@ -21,7 +21,7 @@ Sources officielles vérifiées le 22 octobre 2026 :
 ## Travail restant avant activation
 
 1. Préparer et tester un adaptateur distinct pour Firebase Authentication et Firestore ; conserver le fonctionnement du serveur existant.
-2. Utiliser une identité persistante récupérable, pas un compte anonyme. Vérifier connexion, renouvellement de session, déconnexion et récupération du compte.
+2. Le transport e-mail/mot de passe et renouvellement est testé avec des réponses contrôlées ; la demande de récupération est préparée sans envoi réel. Raccorder la session au stockage local protégé, gérer les renouvellements concurrents et la déconnexion, puis vérifier ces parcours sur un projet réel. Ne pas utiliser de compte anonyme.
 3. Protéger les données par identité côté Firestore, refus par défaut et tests d'accès croisés. Aucun secret administrateur dans l'extension. Les rôles administrateur et abonnements ne doivent jamais pouvoir être accordés par une écriture du client.
 4. Préserver la fusion, les suppressions et l'isolation des comptes. Les bibliothèques actuelles peuvent dépasser la taille maximale d'un document Firestore : définir un stockage par enregistrement ou des versions fragmentées avant tout transfert. Une réponse tardive d'un autre compte ne doit pas écraser la bibliothèque active.
 5. Limiter les lectures et écritures aux modifications utiles ; gérer les quotas et les pannes sans effacer les données locales et sans afficher « sauvegardé » avant confirmation distante.

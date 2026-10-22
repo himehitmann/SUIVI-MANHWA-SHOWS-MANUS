@@ -8,6 +8,17 @@ Mise à jour : 22 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Connexion Firebase préparée — 22 octobre 2026
+
+[CI complète](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39805274938), commit 526eb99f4d5a045fe571517d7b282e459d9dee68 : 602 tests unitaires réussis dont 19 tests du nouveau transport Firebase, contrôles web/extension, audit des dépendances, capacité et récupération PostgreSQL réussis.
+
+shared/firebase-auth.ts implémente les appels REST de création/connexion par e-mail, renouvellement de session et demande de réinitialisation de mot de passe. Les requêtes ciblent exclusivement les hôtes HTTPS Google fixés dans le module, refusent les redirections, omettent les cookies et expirent aussi pendant la lecture du corps. Les erreurs publiques ne contiennent pas les réponses brutes ni les identifiants secrets. Le renouvellement conserve l'identité attendue et refuse un autre projet ou utilisateur. Les métadonnées du jeton sont contrôlées, mais ce contrôle local ne vérifie pas sa signature et ne remplace jamais les règles Firestore côté service.
+
+Le module n'est pas encore raccordé à l'interface ou au worker distribué. Aucun compte, projet, e-mail de récupération ni accès réel Firebase n'a été créé par ces tests : les réponses sont simulées. Stockage Firestore, règles d'accès, persistance locale protégée des sessions, gestion des renouvellements concurrents, projet Spark réel et réception Chrome après réinstallation restent à réaliser. Aucune nouvelle permission d'extension ni dépendance n'a été ajoutée.
+
+Référence : https://firebase.google.com/docs/reference/rest/auth
+Global inchangé : 19/60 (32 % arrondi), G13 et G23 partiels.
+
 ## Confirmation des sauvegardes — 22 octobre 2026
 
 [CI complète](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39803503065), commit a0a09207b5a483e0580b40d9dd0eedf3955cd44b : vérification, parcours web/extension, capacité et récupération PostgreSQL réussis.
