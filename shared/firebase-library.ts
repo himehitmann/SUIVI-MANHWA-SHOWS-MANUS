@@ -154,7 +154,18 @@ export function createFirebaseLibrary(input:FirebaseSession,fetcher:typeof fetch
         currentDocument:stored.head?{updateTime:stored.head.updateTime}:{exists:false}});
       // Retain current + previous only, atomically with the pointer change.
       if(stored.head?.previous)for(let i=0;i<stored.head.previous.chunks;i++)writes.push({delete:chunkName(stored.head.previous,i)});
-      const result=await request(root+":commit","POST",{writes});
+      let result;
+      try {result=await request(root+":commit","POST",{writes});}
+      catch(error){
+        // Rules can reject a stale previous-version pointer before Firestore
+        // evaluates updateTime. Only classify it as conflict after an authorized reread.
+        if(error instanceof FirebaseLibraryError&&error.code==="access_denied"){
+          let latest:Document|null;
+          try{latest=await request(headName,"GET",undefined,true);}catch{throw error;}
+          if((latest===null&&stored.head!==null)||(latest?.name===headName&&timestamp(latest.updateTime)&&latest.updateTime!==stored.head?.updateTime))fail("sync_conflict");
+        }
+        throw error;
+      }
       const updateTime=result.writeResults?.[headIndex]?.updateTime;
       if(!timestamp(updateTime)||!timestamp(result.commitTime))fail("commit_not_confirmed");
       return receipt(merged,{current,previous:stored.head?.current||null,updateTime});

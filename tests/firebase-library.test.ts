@@ -139,3 +139,19 @@ describe("Firebase library transport with atomic provider simulation",()=>{
     expect(stale.blob?.items).toEqual([]);
   });
 });
+
+describe("Firebase permission failures during concurrent writes",()=>{
+  it("reports a conflict only when an authorized reread proves the head changed",async()=>{
+    const p=provider(),client=p.client(),old=await client.save(await client.read(),blob(1));
+    const other=p.client();await other.save(await other.read(),blob(2));
+    p.block(403);
+    await expect(client.save(old,blob(3))).rejects.toThrow("sync_conflict");
+    expect((await other.read()).blob?.items[0].chapter).toBe(2);
+  });
+  it("keeps a genuine permission denial when the head did not change",async()=>{
+    const p=provider(),client=p.client(),old=await client.save(await client.read(),blob(1));
+    p.block(403);
+    await expect(client.save(old,blob(2))).rejects.toThrow("access_denied");
+    expect((await client.read()).blob?.items[0].chapter).toBe(1);
+  });
+});
