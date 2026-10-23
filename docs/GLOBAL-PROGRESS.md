@@ -1,12 +1,24 @@
 # Suivi global Yomu
 
-Mise à jour : 22 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 23 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Stockage Firebase privé et récupération en émulateur — 23 octobre 2026
+
+[CI de branche réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39940790456), commit 8455578d0e46e0deac3b543cd38f1b93aff167d0 : 618 tests unitaires dont 16 sur le stockage Firebase, contrôles de sécurité, parcours web et extension, capacité PostgreSQL, récupération PostgreSQL et nouveau job firebase-recovery réussis. Le run PR parallèle 39940797254 attendait encore l'installation Chromium au moment de ce relevé ; sa sonde de catalogues réels n'est pas revendiquée comme terminée.
+
+shared/firebase-library.ts stocke une bibliothèque fragmentée avec empreinte SHA-256, dans la portée fixe du compte. Les données sont fusionnées selon la politique existante ; un client vide ne remplace pas les œuvres, et les suppressions sont conservées. Le manifeste, les fragments et le nettoyage de la plus ancienne version sont atomiques. Une version concurrente est refusée et doit être relue avant fusion. Deux versions seulement restent en base ; la précédente est lisible. Les snapshots sont bornés à 4 Mio avant encodage, avec erreur explicite au-delà, sans troncature.
+
+firestore.rules refuse les accès entre comptes, les requêtes non authentifiées, les listes de fragments, les écritures de rôles, la modification de fragments existants et la suppression du pointeur de récupération. Les fragments encore référencés sont protégés contre la suppression. Les index de contenu des fragments sont désactivés dans la configuration.
+
+Le test utilise les émulateurs officiels Authentication/Firestore avec Firebase CLI 15.34.1, Java 21 et demo-yomu-backup, sans projet réel. Il exerce le code REST de connexion, renouvellement, sauvegarde et récupération avec les règles chargées. Il vérifie aussi une bibliothèque de seize fragments et la rotation des deux versions. Ce contrôle a révélé qu'une écriture obsolète peut être refusée par les règles avant sa précondition : le code distingue maintenant ce conflit d'un vrai refus d'accès par une relecture autorisée.
+
+Limites : modules non raccordés au worker distribué, projet gratuit non créé, aucune réception Chrome après désinstallation, aucune copie externe automatique. Les deux versions sont dans le même projet et ne protègent pas contre sa disparition. Les quotas gratuits doivent être suivis ; une modification réécrit actuellement le snapshot entier. G13/G23 restent partiels ; global 19/60 (32 % arrondi).
 
 ## Connexion Firebase préparée — 22 octobre 2026
 
