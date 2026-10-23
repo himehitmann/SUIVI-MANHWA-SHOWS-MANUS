@@ -120,3 +120,32 @@ jobs:
         with:
           name: yomu-recovery-report
           path: test-results/recovery-report.json
+
+  firebase-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: pnpm install --frozen-lockfile
+      - name: Verify Firebase rules and recovery with isolated emulators
+        run: npx --yes firebase-tools@15.34.1 emulators:exec --project demo-yomu-backup --only auth,firestore --config firebase.emulator.json "node --import tsx scripts/verify-firebase-recovery.mjs"
+        env:
+          CI: "true"
+          FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080"
+          FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yomu-firebase-recovery
+          path: test-results/firebase-recovery-report.json
