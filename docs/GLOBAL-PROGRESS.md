@@ -8,6 +8,14 @@ Mise à jour : 23 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Sessions Firebase préparées dans le paquet extension — 23 octobre 2026
+
+[CI de branche réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39943797703), commit 5b0c25d41afe0c15278801675637cdfd19c8da34 : 627 tests unitaires dans 34 fichiers, dont 9 nouveaux tests de session, parcours web/extension, récupération Firebase/PostgreSQL et capacité réussis.
+
+shared/firebase-session.ts prépare la persistance via un stockage fourni par le worker, le renouvellement groupé des connexions proches de l'expiration et la sérialisation des écritures. Une réponse tardive de renouvellement ou connexion ne peut pas rétablir un compte déconnecté ou remplacer un nouveau compte. Une erreur réseau conserve les identifiants persistés ; un échec d'écriture locale n'est pas présenté comme une connexion ou déconnexion réussie. Seuls les champs de session sont persistables, sans mot de passe ni rôle.
+
+shared/extension-sync.ts inclut les adaptateurs et le gestionnaire dans le bundle YomuSync déjà chargé par le worker. L'import n'effectue aucun accès réseau ou stockage. Les tests du paquet généré et de mise à jour Chrome passent. Ceci prépare le raccordement, mais ne branche pas encore les commandes de l'interface, le stockage Chrome protégé, les changements de bibliothèque ou les messages de synchronisation à Firebase. Aucun projet réel ni compte fournisseur créé ; aucune récupération après désinstallation réelle validée. Global inchangé : 19/60 (32 % arrondi), G13/G23 partiels.
+
 ## Stockage Firebase privé et récupération en émulateur — 23 octobre 2026
 
 [CI de branche réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/39940790456), commit 8455578d0e46e0deac3b543cd38f1b93aff167d0 : 618 tests unitaires dont 16 sur le stockage Firebase, contrôles de sécurité, parcours web et extension, capacité PostgreSQL, récupération PostgreSQL et nouveau job firebase-recovery réussis. Le run PR parallèle 39940797254 attendait encore l'installation Chromium au moment de ce relevé ; sa sonde de catalogues réels n'est pas revendiquée comme terminée.
