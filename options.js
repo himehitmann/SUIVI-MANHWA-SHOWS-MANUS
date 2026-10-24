@@ -35,6 +35,12 @@ function errorText(code) {
     invalid_credentials: "Wrong email or password.",
     not_signed_in: "Sign in first.",
     unauthorized: "Session expired — sign in again.",
+    session_expired: "Session expired — sign in again. Your saved library is retained.",
+    quota_exceeded: "Backup quota reached. Your changes remain on this device; try again later.",
+    sync_conflict: "Another device updated your library. Sync again to merge the changes.",
+    network_error: "Connection unavailable. Your changes remain on this device.",
+    account_action_unavailable: "This account action is not available for this backup provider yet.",
+    account_changed: "The account changed during this operation. Try again.",
   };
   if (map[code]) return map[code];
   if (/^http_\d+/.test(code || "")) return "Couldn't reach the backend. Check the URL.";
@@ -59,7 +65,7 @@ async function render() {
     $("signed-in").classList.remove("hidden");
     $("who").textContent = s.email || "Signed in";
     $("plan").textContent = (s.plan || "free").toUpperCase();
-    $("endpoint").textContent = (s.apiUrl || "").replace(/^https?:\/\//, "");
+    $("endpoint").textContent = s.provider==="firebase" ? "Firebase — "+s.projectId : (s.apiUrl || "").replace(/^https?:\/\//, "");
     $("lastsync").textContent = backupLabel(s) + (s.meta?.lastSyncAt ? " — " + fmtTime(s.meta.lastSyncAt) : "");
     if (s.meta && s.meta.lastError) showMsg($("msg-in"), errorText(s.meta.lastError), "err");
     else showMsg($("msg-in"),backupLabel(s),s.state==="saved"?"ok":"");
@@ -74,18 +80,20 @@ async function render() {
 // Sync endpoint is baked in so users never type a URL. Set this once at
 // deploy time (the hosted Yomu sync API). Empty = sync not configured.
 const DEFAULT_SYNC_API = "";
+// Public project configuration only; keep null until rules and recovery are verified.
+const DEFAULT_FIREBASE_CONFIG = null;
 
 async function authenticate(type) {
   const apiUrl = ($("apiUrl").value.trim() || DEFAULT_SYNC_API);
   const email = $("email").value.trim();
   const password = $("password").value;
   clearMsg($("msg-out"));
-  if (!apiUrl) return showMsg($("msg-out"), "Cloud sync isn't available yet — everything still works on this device.", "err");
+  if (!apiUrl && !DEFAULT_FIREBASE_CONFIG) return showMsg($("msg-out"), "Cloud sync isn't available yet — everything still works on this device.", "err");
   if (!email || !password) return showMsg($("msg-out"), "Enter your email and password.", "err");
 
   $("signin").disabled = true;
   $("signup").disabled = true;
-  const resp = await send({ type, payload: { apiUrl, email, password } });
+  const resp = await send({ type, payload: { apiUrl, email, password, ...(DEFAULT_FIREBASE_CONFIG ? {firebase:DEFAULT_FIREBASE_CONFIG} : {}) } });
   $("signin").disabled = false;
   $("signup").disabled = false;
 
@@ -113,7 +121,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   $("signout").addEventListener("click", async () => {
-    await send({ type: "SYNC_SIGN_OUT" });
+    const result=await send({ type: "SYNC_SIGN_OUT" });
+    if(!result.ok)return showMsg($("msg-in"),errorText(result.error),"err");
     render();
   });
 });
