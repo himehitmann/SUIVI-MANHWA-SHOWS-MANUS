@@ -1276,6 +1276,9 @@ function loadDiscover(force) {
   requestMetadata({ type: "DISCOVER", force: !!force }, (r) => {
     void api.runtime.lastError;
     discoverLoading = false;
+    document.querySelectorAll("[data-discover-refresh]").forEach(button=>{
+      button.disabled=false;button.setAttribute("aria-busy","false");button.innerHTML=I.refresh+t("refresh");
+    });
     discoverTried = true;
     if (r && r.ok && r.data) {
       discover = r.data;

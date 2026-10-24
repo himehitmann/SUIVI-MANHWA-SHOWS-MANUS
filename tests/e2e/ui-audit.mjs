@@ -71,7 +71,7 @@ try {
    return {released,lateIgnored:discover===before};
   }finally{api.runtime.sendMessage=original;requestMetadata=request;}
  });
- assert(discovery.released&&discovery.lateIgnored);
+ assert(discovery.released&&discovery.lateIgnored,JSON.stringify(discovery));
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{
