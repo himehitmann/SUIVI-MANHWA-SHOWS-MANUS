@@ -87,7 +87,14 @@
           <button class="primary" id="syncnow">Sync now</button>
           <button class="secondary" id="signout">Sign out</button>
         </div>
-        <div class="msg" id="msg-in"></div>
+        <div class="msg" id="msg-in" role="status" aria-live="polite"></div>
+        <section aria-labelledby="guest-import-title" style="margin-top:24px">
+          <h2 id="guest-import-title" style="font-size:16px">Library saved without an account</h2>
+          <p id="guest-import-help" class="field-hint">Copy works, lists and saved sites into this account. Your original local library is retained. Online backup is confirmed separately.</p>
+          <button class="secondary" id="guest-preview" style="margin-top:12px">Review what to copy</button>
+          <p id="guest-summary" class="field-hint" role="status" aria-live="polite"></p>
+          <button class="primary hidden" id="guest-confirm" style="margin-top:12px">Copy into this account</button>
+        </section>
       </div>
 
       <div class="note"><i></i> Your credentials are stored only on this device and never mirrored to browser sync.</div>

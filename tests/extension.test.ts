@@ -2459,3 +2459,57 @@ describe("Firebase worker backup routing",()=>{
   expect(result.ok).toBe(false);expect(calls).toBe(0);
  });
 });
+
+describe("explicit guest library transfer",()=>{
+ const cfg=(id="a")=>({apiUrl:"https://sync.example/api",userId:id,email:id+"@example.com",token:id});
+ const guest={
+  "dasi.items":[{id:"guest-show",title:"Guest show",type:"watching",season:2,episode:3,enrichedAt:1,cover:"cover",synopsis:"story",updatedAt:10}],
+  "dasi.lists":[{id:"guest-list",name:"To watch",itemIds:["guest-show"]}],
+  "dasi.sites":[{id:"reader",url:"https://reader.example"}],
+  "dasi.settings":{ocrKey:"guest-secret",profile:{name:"Guest"}},
+ };
+ const setup=()=>worker({"dasi.sync.config":cfg(),"dasi.items":[{id:"existing",title:"Existing",type:"reading"}],
+  "dasi.settings":{profile:{name:"Account"}},"yomu.accountCaches.v1":{guest:structuredClone(guest)}});
+ it("requires an explicit preview and keeps the original guest library",async()=>{
+  const w=setup(),before=structuredClone(w.data["yomu.accountCaches.v1"].guest);
+  expect(await w.call({type:"SYNC_IMPORT_GUEST",token:"invented"})).toMatchObject({ok:false,error:"transfer_preview_required"});
+  const preview=await w.call({type:"SYNC_PREVIEW_GUEST_IMPORT"});
+  expect(preview).toMatchObject({ok:true,email:"a@example.com",items:1,lists:1,sites:1});
+  expect(JSON.stringify(preview)).not.toContain("guest-secret");
+  const result=await w.call({type:"SYNC_IMPORT_GUEST",token:preview.token});
+  expect(result).toMatchObject({ok:true,added:1,backupState:"pending"});
+  expect(w.data["dasi.items"].map((x:any)=>x.id)).toEqual(["existing","guest-show"]);
+  expect(w.data["dasi.lists"][0].itemIds).toEqual(["guest-show"]);
+  expect(w.data["dasi.settings"].profile.name).toBe("Account");
+  expect(w.data["yomu.accountCaches.v1"].guest).toEqual(before);
+  expect((await w.call({type:"SYNC_STATUS"})).state).toBe("pending");
+  expect(await w.call({type:"SYNC_IMPORT_GUEST",token:preview.token})).toMatchObject({ok:false,error:"transfer_preview_required"});
+ });
+ it("refuses a preview approved for another account",async()=>{
+  const w=setup(),p=await w.call({type:"SYNC_PREVIEW_GUEST_IMPORT"});
+  w.ctx.next=cfg("b");await w.run("serializeLibrary(()=>switchSyncAccount(next))");
+  expect(await w.call({type:"SYNC_IMPORT_GUEST",token:p.token})).toMatchObject({ok:false,error:"account_changed"});
+  expect(w.data["dasi.items"]).toEqual([]);
+ });
+ it("requires a fresh preview if the guest source changes",async()=>{
+  const w=setup(),p=await w.call({type:"SYNC_PREVIEW_GUEST_IMPORT"});
+  w.data["yomu.accountCaches.v1"].guest["dasi.items"][0].episode=7;
+  expect(await w.call({type:"SYNC_IMPORT_GUEST",token:p.token})).toMatchObject({ok:false,error:"guest_library_changed"});
+  expect(w.data["dasi.items"]).toHaveLength(1);
+ });
+ it("does not copy guest deletion markers, deleted records, settings or profile",async()=>{
+  const w=setup();
+  w.data["yomu.accountCaches.v1"].guest["yomu.tombstones.v1"]=[{kind:"items",id:"guest-show",deletedAt:20},{kind:"items",id:"existing",deletedAt:20}];
+  const p=await w.call({type:"SYNC_PREVIEW_GUEST_IMPORT"});expect(p.items).toBe(0);
+  await w.call({type:"SYNC_IMPORT_GUEST",token:p.token});
+  expect(w.data["dasi.items"].map((x:any)=>x.id)).toEqual(["existing"]);
+  expect(w.data["dasi.lists"][0].itemIds).toEqual([]);
+  expect(w.data["dasi.settings"]).toEqual({profile:{name:"Account"}});
+ });
+ it("refuses guest preview without an account and from a page content script",async()=>{
+  const w=worker();
+  expect(await w.call({type:"SYNC_PREVIEW_GUEST_IMPORT"})).toMatchObject({ok:false,error:"not_signed_in"});
+  const signed=setup();
+  expect(await signed.call({type:"SYNC_PREVIEW_GUEST_IMPORT"},{id:"test",url:"https://reader.example",tab:{id:1}})).toMatchObject({ok:false,error:"forbidden_message"});
+ });
+});

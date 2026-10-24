@@ -40,6 +40,8 @@ function errorText(code) {
     sync_conflict: "Another device updated your library. Sync again to merge the changes.",
     network_error: "Connection unavailable. Your changes remain on this device.",
     account_action_unavailable: "This account action is not available for this backup provider yet.",
+    transfer_preview_required: "Review the local library again before copying.",
+    guest_library_changed: "The local library changed. Review it again before copying.",
     account_changed: "The account changed during this operation. Try again.",
   };
   if (map[code]) return map[code];
@@ -58,8 +60,15 @@ function backupLabel(s, lang=s.lang) {
   })[s.state] || (fr?'Sauvegarde non confirmée':'Backup not confirmed');
 }
 
+let guestPreview=null, guestBusy=false, guestLang="en";
 async function render() {
   const s = await send({ type: "SYNC_STATUS" });
+  guestLang=s.lang||"en";
+  const fr=guestLang==="fr";
+  $("guest-import-title").textContent=fr?"Bibliothèque enregistrée sans compte":"Library saved without an account";
+  $("guest-import-help").textContent=fr?"Copier les œuvres, listes et sites favoris dans ce compte. La bibliothèque locale d’origine reste conservée. La sauvegarde en ligne est confirmée séparément.":"Copy works, lists and saved sites into this account. Your original local library is retained. Online backup is confirmed separately.";
+  $("guest-preview").textContent=fr?"Voir ce qui sera copié":"Review what to copy";
+  $("guest-confirm").textContent=fr?"Copier dans ce compte":"Copy into this account";
   if (s.configured) {
     $("signed-out").classList.add("hidden");
     $("signed-in").classList.remove("hidden");
@@ -106,6 +115,30 @@ async function authenticate(type) {
 document.addEventListener("DOMContentLoaded", () => {
   render();
   api.storage.onChanged.addListener((_changes,area)=>{if(area==="local")render();});
+
+  $("guest-preview").addEventListener("click",async()=>{
+    if(guestBusy)return;
+    guestBusy=true;$("guest-preview").disabled=true;
+    guestPreview=null;$("guest-confirm").classList.add("hidden");
+    const result=await send({type:"SYNC_PREVIEW_GUEST_IMPORT"});
+    guestBusy=false;$("guest-preview").disabled=false;
+    if(!result.ok){$("guest-summary").textContent=errorText(result.error);return;}
+    const fr=guestLang==="fr";
+    $("guest-summary").textContent=fr
+      ? result.items+" œuvres, "+result.lists+" listes et "+result.sites+" sites à copier vers "+result.email+"."
+      : result.items+" works, "+result.lists+" lists and "+result.sites+" sites to copy into "+result.email+".";
+    if(result.items+result.lists+result.sites){guestPreview=result;$("guest-confirm").classList.remove("hidden");}
+  });
+  $("guest-confirm").addEventListener("click",async()=>{
+    if(guestBusy||!guestPreview)return;
+    guestBusy=true;$("guest-confirm").disabled=true;
+    const result=await send({type:"SYNC_IMPORT_GUEST",token:guestPreview.token});
+    guestPreview=null;guestBusy=false;$("guest-confirm").disabled=false;$("guest-confirm").classList.add("hidden");
+    $("guest-summary").textContent=result.ok
+      ? (guestLang==="fr"?"Copie ajoutée au compte sur cet appareil. Vérifie l’état de sauvegarde ci-dessus avant de désinstaller.":"Copy added to the account on this device. Check the backup status above before uninstalling.")
+      : errorText(result.error);
+    await render();
+  });
 
   $("signin").addEventListener("click", () => authenticate("SYNC_SIGN_IN"));
   $("signup").addEventListener("click", () => authenticate("SYNC_SIGN_UP"));

@@ -430,6 +430,41 @@ async function syncFingerprint(snapshot) {
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(canonical(snapshot))));
   return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
 }
+
+let guestTransferReceipt=null;
+async function guestTransferPayload() {
+  const cached=(await read(ACCOUNT_CACHE_KEY,{})).guest;
+  if(!cached)return {items:[],lists:[],sites:[]};
+  const deleted=new Set((cached[TOMBSTONES_KEY]||[]).map(t=>t.kind+":"+t.id));
+  const items=(cached[ITEMS_KEY]||[]).filter(i=>!deleted.has("items:"+i.id));
+  const ids=new Set(items.map(i=>i.id));
+  return {
+    items,
+    lists:(cached[LISTS_KEY]||[]).filter(l=>!deleted.has("lists:"+l.id)).map(l=>({...l,itemIds:(l.itemIds||[]).filter(id=>ids.has(id))})),
+    sites:(cached[SITES_KEY]||[]).filter(site=>!deleted.has("sites:"+site.id)),
+  };
+}
+async function previewGuestTransfer() {
+  const cfg=await getSyncConfig();if(!cfg?.token)throw Error("not_signed_in");
+  const payload=await guestTransferPayload();
+  const token=crypto.randomUUID();
+  guestTransferReceipt={token,epoch:accountEpoch,scope:scopeOf(cfg),fingerprint:await syncFingerprint(payload)};
+  return {ok:true,token,email:cfg.email||"",items:payload.items.length,lists:payload.lists.length,sites:payload.sites.length};
+}
+async function importGuestTransfer(token) {
+  const cfg=await getSyncConfig();if(!cfg?.token)throw Error("not_signed_in");
+  const receipt=guestTransferReceipt;
+  if(!receipt||receipt.token!==token)throw Error("transfer_preview_required");
+  if(receipt.epoch!==accountEpoch||receipt.scope!==scopeOf(cfg))throw Error("account_changed");
+  const payload=await guestTransferPayload();
+  if(await syncFingerprint(payload)!==receipt.fingerprint)throw Error("guest_library_changed");
+  // No settings, profile, credentials or deletion markers cross into the account.
+  // mergeImport preserves existing records and remaps imported list membership.
+  const result=await mergeImport(payload);
+  guestTransferReceipt=null;
+  return {...result,backupState:"pending"};
+}
+
 async function syncStatusUnlocked() {
   const cfg=await getSyncConfig(),meta=await read(SYNC_META_KEY,{});
   const configured=Boolean(cfg?.token);
@@ -2540,6 +2575,12 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }).catch(e => sendResponse({ok:false,error:String(e.message)}));
       return true;
 
+    case "SYNC_PREVIEW_GUEST_IMPORT":
+      serializeLibrary(previewGuestTransfer).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));
+      return true;
+    case "SYNC_IMPORT_GUEST":
+      mutateAndReply(()=>importGuestTransfer(message.token),sendResponse);
+      return true;
     case "SYNC_STATUS":
       serializeLibrary(syncStatusUnlocked).then(sendResponse).catch(()=>sendResponse({configured:false,state:'error',meta:{lastError:'status_unavailable'}}));
       return true;
