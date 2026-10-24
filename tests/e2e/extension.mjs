@@ -986,7 +986,7 @@ try {
     const holder=document.createElement("div");holder.id="quick-fixture";holder.style.cssText="height:1800px;position:relative";
     const anchor=document.createElement("button");anchor.id="quick-anchor";anchor.className="quick-add";anchor.dataset.quickadd="quick-work";anchor.textContent="Ajouter à une liste";
     anchor.style.cssText="position:absolute;top:900px;right:8px";
-    holder.append(anchor);document.body.append(holder);anchor.scrollIntoView({block:"center"});
+    holder.append(anchor);document.getElementById("grid").append(holder);anchor.scrollIntoView({block:"center"});
   });
   await page.locator("#quick-anchor").click();
   const menu=page.locator(".qa-menu");
