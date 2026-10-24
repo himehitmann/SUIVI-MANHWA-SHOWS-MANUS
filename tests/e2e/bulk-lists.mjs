@@ -224,7 +224,8 @@ try {
  });
  await p.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"GET_STATE"},r=>{hydrate(r);query="";filter="all";clearSearchResults();switchView("library");resolve();})));
  assert.equal(await p.locator("#grid .card").count(),7,"All seven tracked works must remain visible");
- assert.equal(await p.locator("#grid .quick-add").count(),0);
+ assert.equal(await p.locator("#grid .quick-add").count(),7,"Each saved work must expose its list action");
+ assert(await p.locator("#grid .quick-add").evaluateAll(buttons=>buttons.every(button=>button.getAttribute("aria-label")?.includes("Fixture")&&button.getAttribute("aria-haspopup")==="dialog")),"List actions must identify their work and announce the menu");
  await p.evaluate(()=>{globalThis.beforeStatusFilter=items;items=items.map((item,index)=>({...item,state:index===0?"planned":index===1?"completed":"current"}));renderAll();});
  await p.locator('#filters [data-f="current"]').focus();await p.keyboard.press("Enter");
  assert.equal(await p.locator("#grid .card").count(),5,"In-progress filter excludes planned and completed works");
