@@ -968,6 +968,41 @@ try {
   assert((await page.locator("#drawer").innerText()).includes("School"));
   await page.locator("#dr-close").click();
 
+
+  // Exercise the actual options controls. Only synthetic local accounts are used.
+  await worker.evaluate(async()=>{
+    autoSync=()=>{};
+    await serializeLibrary(()=>switchSyncAccount({apiUrl:"https://sync.example/api",userId:"transfer-test",email:"transfer@example.com",token:"synthetic-transfer-token"}));
+    await chrome.storage.local.set({
+      "dasi.items":[], "dasi.lists":[], "dasi.sites":[],
+      "dasi.settings":{lang:"fr",profile:{name:"Account profile"}},
+      "yomu.accountCaches.v1":{guest:{
+        "dasi.items":[{id:"guest-series",title:"Guest series",type:"watching",season:2,episode:4,cover:testCover,synopsis:"Fixture",enrichedAt:1}],
+        "dasi.lists":[{id:"guest-favorites",name:"Favorites",itemIds:["guest-series"]}],
+        "dasi.sites":[{id:"guest-site",url:"https://reader.example"}],
+        "dasi.settings":{ocrKey:"not-to-transfer",profile:{name:"Guest profile"}},
+      }},
+    });
+  });
+  const transferPage=await context.newPage();
+  await transferPage.goto(base+"options.html");
+  await transferPage.locator("#guest-preview").click();
+  await transferPage.locator("#guest-confirm").waitFor({state:"visible"});
+  assert((await transferPage.locator("#guest-summary").innerText()).includes("transfer@example.com"));
+  assert((await transferPage.locator("#guest-summary").innerText()).includes("1 œuvres"));
+  await transferPage.locator("#guest-confirm").click();
+  await transferPage.waitForFunction(()=>document.querySelector("#guest-summary").textContent.includes("Copie ajoutée"));
+  const copied=await worker.evaluate(async()=>chrome.storage.local.get(["dasi.items","dasi.lists","dasi.settings","yomu.accountCaches.v1"]));
+  assert.equal(copied["dasi.items"][0].episode,4);
+  assert.deepEqual(copied["dasi.lists"][0].itemIds,["guest-series"]);
+  assert.equal(copied["dasi.settings"].profile.name,"Account profile");
+  assert.equal(copied["dasi.settings"].ocrKey,undefined);
+  assert.equal(copied["yomu.accountCaches.v1"].guest["dasi.items"][0].episode,4);
+  assert((await transferPage.locator("#lastsync").innerText()).includes("attente"));
+  await transferPage.screenshot({path:path.join(artifactDir,"guest-library-transfer.png"),fullPage:true});
+  await transferPage.close();
+  console.log("Guest library transfer: preview, target account, copy, original retention and pending backup passed");
+
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(
