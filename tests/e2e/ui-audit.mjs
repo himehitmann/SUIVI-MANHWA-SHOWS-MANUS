@@ -19,7 +19,7 @@ try {
   await page.setViewportSize({width,height:900});
   for(const target of ["home","library","games","plans","settings"]){
    if(["home","library","games"].includes(target))await page.locator('#nav [data-v="'+target+'"]').click();
-   else {await page.locator("#avatar").click();await page.locator('#profile-menu [data-go="'+target+'"]').click();}
+   else await page.locator(target==="plans"?"#go-pro":"#avatar").click();
    await page.locator("#view-"+target).waitFor({state:"visible"});
    const geometry=await page.evaluate(()=>{
     const root=document.querySelector(".view.active"),r=root.getBoundingClientRect();
