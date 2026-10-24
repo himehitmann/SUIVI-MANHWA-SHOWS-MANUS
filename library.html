@@ -117,8 +117,8 @@
       .cat-badge { position:absolute; top:6px; right:6px; font-size:8.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:2px 6px; border-radius:6px; background:rgba(36,31,51,.72); color:#fff; backdrop-filter:blur(3px); }
       .card .cat-inline { font-size:9px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--lav-ink); background:var(--lav); border-radius:5px; padding:1px 6px; margin-left:6px; vertical-align:middle; }
       /* quick add to list */
-      .quick-add { position:absolute; bottom:11px; right:11px; width:28px; height:28px; border-radius:9px; border:1px solid var(--line); background:#fff; color:var(--lav-ink); display:grid; place-items:center; cursor:pointer; opacity:0; transition:.15s; }
-      .card:hover .quick-add { opacity:1; } .quick-add:hover { background:var(--lav); }
+      .quick-add { position:static; width:100%; min-height:36px; margin-top:12px; padding:8px 0; border-radius:0; border:0; background:none; color:var(--ink); display:flex; align-items:center; gap:6px; text-align:left; cursor:pointer; opacity:1; white-space:normal; overflow-wrap:anywhere; }
+      .quick-add:hover { text-decoration:underline; } .quick-add:focus-visible { outline:2px solid var(--lav-ink);outline-offset:3px; }
       .quick-add .ic { width:15px; height:15px; }
       .qa-menu { position:fixed; z-index:70; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-lg); padding:6px; min-width:min(180px,calc(100vw - 16px)); width:max-content; max-width:calc(100vw - 16px); max-height:320px; overflow-y:auto; overscroll-behavior:contain; }
       .qa-menu button { width:100%; display:flex; align-items:center; gap:8px; border:0; background:none; text-align:left; padding:8px 10px; border-radius:8px; font-size:12.5px; font-weight:600; color:#4E4960; cursor:pointer; }

@@ -1568,6 +1568,7 @@ function cardHtml(i) {
       <small>${relative(i.activityAt||i.updatedAt)}</small>
       <div class="rate">${[1,2,3,4,5].map((n) => `<button type="button" data-rate="${esc(i.id)}" data-v="${n}" aria-pressed="${rating===n}" aria-label="${esc((settings.lang==="fr"?"Note ":"Rating ")+n+"/5 : "+i.title)}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= rating ? "on" : ""}"`)}</button>`).join("")}</div>
       ${tags ? `<div class="tags">${tags}</div>` : ""}
+      <button type="button" class="quick-add" data-quickadd="${esc(i.id)}" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(t("addToList")+": "+i.title)}">${I.plus}<span>${esc(t("addToList"))}</span></button>
     </div>
 
   </article>`;

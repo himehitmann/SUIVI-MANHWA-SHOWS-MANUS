@@ -977,6 +977,11 @@ try {
   assert(await page.locator("#library-lists-title").evaluate(el=>el===document.activeElement));
   await page.locator('[data-library-section="collection-title"]').click();
   assert(await page.locator("#collection-title").evaluate(el=>el===document.activeElement));
+  const actualQuickAdd=page.locator("#grid .card .quick-add").first();
+  await actualQuickAdd.click();
+  await page.locator(".qa-menu").waitFor({state:"visible"});
+  await page.keyboard.press("Escape");
+  assert(await actualQuickAdd.evaluate(el=>el===document.activeElement));
   // Quick list chooser stays on screen after scrolling and on narrow viewports.
   await page.setViewportSize({width:320,height:600});
   await page.evaluate(()=>{
