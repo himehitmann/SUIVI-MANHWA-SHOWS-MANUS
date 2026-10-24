@@ -517,7 +517,7 @@ try {
   await page.locator('[data-v="home"]').click();
   await page.locator('[data-v="library"]').click();
   assert.equal(await page.locator("#search-results").innerText(), "");
-  await page.locator('#grid [data-open="alchemy-of-souls"]').first().click();
+  await page.locator('#grid h3 button[data-open="alchemy-of-souls"]').click();
   await page.locator("#dr-num").fill("847");
   await page.locator("#dr-num").press("Tab");
   await page.waitForTimeout(250);
