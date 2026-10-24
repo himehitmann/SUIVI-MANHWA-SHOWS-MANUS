@@ -1531,6 +1531,22 @@ function renderStats() {
     [libraryItems.filter((i) => itemState(i) === "completed").length, t("finished")],
   ];
   document.getElementById("stats").innerHTML = s.map(([n, l]) => `<div class="chip"><b>${n}</b><span>${l}</span></div>`).join("");
+  const shortcuts=document.getElementById("library-shortcuts");
+  if(shortcuts){
+    shortcuts.setAttribute("aria-label",settings.lang==="fr"?"Sections de ma bibliothèque":"Library sections");
+    shortcuts.innerHTML=[
+      ["collection-title",t("collectionTitle"),libraryItems.length],
+      ["library-lists-title",t("lists"),lists.filter(l=>!l.archived).length],
+      ["sites-h",t("sitesTitle"),sites.length],
+    ].map(([id,label,count])=>'<button type="button" data-library-section="'+id+'"><span>'+esc(label)+'</span><strong>'+count+'</strong></button>').join("");
+    shortcuts.querySelectorAll("[data-library-section]").forEach(button=>button.onclick=()=>{
+      if(button.dataset.librarySection==="library-lists-title"&&showArchivedLists){showArchivedLists=false;renderLists();}
+      const heading=document.getElementById(button.dataset.librarySection);
+      if(!heading)return;
+      heading.setAttribute("tabindex","-1");heading.focus({preventScroll:true});
+      heading.scrollIntoView({block:"start",behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
+    });
+  }
 }
 function renderFilters() {
   const f = [["all", t("all")], ["reading", t("reading")], ["watching", t("watching")], ["favorites", t("favorites")], ["current", t("current")], ["planned", t("planned")], ["completed", t("completed")], ["on_hold", t("on_hold")], ["dropped", t("dropped")]];

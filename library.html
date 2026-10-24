@@ -645,6 +645,11 @@ main:focus{outline:none}
 .detail-trailer{width:100%;min-width:0;flex-basis:100%}
 
 .top-right{position:relative}.top-right .menu,.top-right .lang-menu{top:calc(100% + 12px);right:0;max-width:calc(100vw - 32px)}
+.library-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}
+.library-shortcuts button{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;color:var(--text);font:inherit;text-align:left;min-width:0;cursor:pointer}
+.library-shortcuts button span{overflow-wrap:anywhere}.library-shortcuts strong{font-size:20px;flex-shrink:0}.library-shortcuts button:focus-visible{outline:2px solid var(--lav-ink);outline-offset:3px}
+#collection-title,#library-lists-title,#sites-h{scroll-margin-top:100px}
+@media(max-width:480px){.library-shortcuts{grid-template-columns:1fr;gap:0}.library-shortcuts button{padding:10px 0}}
 .library-section{margin:28px 0;padding:24px 0;border-top:1px solid var(--line);min-width:0}
 .library-section h2{margin:0 0 8px;font-size:20px}.library-section>.sub{margin:0 0 18px;max-width:72ch;line-height:1.6}
 .library-section .filters{margin-top:20px;gap:10px;flex-wrap:wrap}.site-chips{display:flex;flex-wrap:wrap;gap:12px}.site-chip{max-width:100%;overflow-wrap:anywhere}
@@ -681,6 +686,7 @@ main:focus{outline:none}
         <div id="lib-main">
           <div id="lib-header"></div><p class="library-intro sub" data-t="libraryIntro"></p>
           <div id="search-results"></div>
+          <nav id="library-shortcuts" class="library-shortcuts" aria-label="Library sections"></nav>
           <div class="stats" id="stats"></div>
           <div class="metadata-notice" id="library-metadata-status" hidden></div>
           <section class="library-section" aria-labelledby="library-lists-title"><div class="lists-strip-head"><h2 id="library-lists-title" data-t="lists"></h2><button class="btn sm" id="add-list-inline"></button></div>
