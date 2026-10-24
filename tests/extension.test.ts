@@ -24,7 +24,7 @@ function worker(seed: Record<string, any> = {}, syncSeed:Record<string,any>={}) 
     URL,
     AbortController,
     AbortSignal,
-    TextEncoder,
+    TextEncoder, TextDecoder, atob, btoa, URLSearchParams,
     Date,
     Map,
     Set,
@@ -2375,4 +2375,87 @@ describe("confirmed online backup state",()=>{
     w.data["dasi.settings"].profile={name:"New name"};
     expect((await w.call({type:"SYNC_STATUS"})).state).toBe("pending");
   });
+});
+
+describe("Firebase worker backup routing",()=>{
+ const firebase={projectId:"yomu-test-project",apiKey:"public-test-configuration-key"};
+ const cfg=(userId="reader")=>({provider:"firebase",...firebase,userId,email:userId+"@example.com",
+  token:"synthetic-token",refreshToken:"synthetic-refresh",expiresAt:Date.now()+3600000});
+ function provider(w:ReturnType<typeof worker>){
+  const docs=new Map<string,any>();let revision=0,blocked=false;
+  w.ctx.fetch=async(url:string,init:any)=>{
+   if(!url.startsWith("https://firestore.googleapis.com/v1/"))throw Error("unexpected_host");
+   const name=url.replace("https://firestore.googleapis.com/v1/","");
+   if(init?.method!=="POST")return new Response(JSON.stringify(docs.get(name)||{}),{status:docs.has(name)?200:404});
+   if(blocked)return new Response("{}",{status:429});
+   const writes=JSON.parse(init.body).writes;
+   for(const entry of writes){
+    const current=docs.get(entry.update?.name||entry.delete),c=entry.currentDocument;
+    if(c?.exists===false&&current||c?.updateTime&&current?.updateTime!==c.updateTime)return new Response("{}",{status:409});
+   }
+   const updateTime="2026-10-24T12:00:00."+String(++revision).padStart(9,"0")+"Z";
+   for(const entry of writes)if(entry.delete)docs.delete(entry.delete);else docs.set(entry.update.name,{...entry.update,updateTime});
+   return new Response(JSON.stringify({commitTime:updateTime,writeResults:writes.map(()=>({updateTime}))}));
+  };
+  return {docs,block:()=>{blocked=true;},fetch:()=>w.ctx.fetch};
+ }
+ it("recovers progress, lists and profile in a fresh worker without a local export",async()=>{
+  const w=worker({"dasi.sync.config":cfg(),"dasi.items":[{id:"show",title:"Show",type:"watching",season:3,episode:7,updatedAt:5}],
+   "dasi.lists":[{id:"favorites",itemIds:["show"],updatedAt:5}],"dasi.settings":{profile:{name:"Reader",updatedAt:5},ocrKey:"not-for-cloud"}});
+  const p=provider(w);
+  expect((await w.call({type:"SYNC_NOW"})).ok).toBe(true);
+  expect((await w.call({type:"SYNC_STATUS"})).state).toBe("saved");
+  const fresh=worker({"dasi.sync.config":cfg()});fresh.ctx.fetch=p.fetch();
+  expect((await fresh.call({type:"SYNC_NOW"})).ok).toBe(true);
+  expect(fresh.data["dasi.items"][0]).toMatchObject({season:3,episode:7});
+  expect(fresh.data["dasi.lists"][0].itemIds).toEqual(["show"]);
+  expect(fresh.data["dasi.settings"].profile.name).toBe("Reader");
+  expect(JSON.stringify([...p.docs])).not.toContain("not-for-cloud");
+  const status=await fresh.call({type:"SYNC_STATUS"});
+  expect(status.provider).toBe("firebase");expect(JSON.stringify(status)).not.toContain("synthetic");
+ });
+ it("keeps local progress and reports unconfirmed backup on quota failure",async()=>{
+  const w=worker({"dasi.sync.config":cfg(),"dasi.items":[{id:"saved",chapter:12,updatedAt:1}]});
+  const p=provider(w);p.block();
+  expect(await w.call({type:"SYNC_NOW"})).toMatchObject({ok:false,error:"quota_exceeded"});
+  expect(w.data["dasi.items"][0].chapter).toBe(12);
+  expect((await w.call({type:"SYNC_STATUS"})).state).toBe("error");
+ });
+ it("drops an old Firebase pull after logout without calling an HTTP logout endpoint",async()=>{
+  const w=worker({"dasi.sync.config":cfg(),"dasi.items":[{id:"private"}]});
+  let respond:any;w.ctx.fetch=()=>new Promise(resolve=>{respond=resolve;});
+  const pending=w.call({type:"SYNC_NOW"});
+  while(!respond)await new Promise(resolve=>setTimeout(resolve,1));
+  expect((await w.call({type:"SYNC_SIGN_OUT"})).ok).toBe(true);
+  respond(new Response("{}",{status:404}));
+  expect(await pending).toMatchObject({ok:false,error:"account_changed"});
+  expect(w.data["dasi.items"]).toEqual([]);
+  expect(w.data["dasi.sync.config"]).toBeNull();
+ });
+ it("refreshes expired credentials and preserves retry backoff after token rotation",async()=>{
+  const w=worker({"dasi.sync.config":{...cfg(),expiresAt:Date.now()-1}});
+  const p=provider(w),firestore=p.fetch();p.block();let refreshes=0;
+  const token=["e30",Buffer.from(JSON.stringify({aud:firebase.projectId,iss:"https://securetoken.google.com/"+firebase.projectId,sub:"reader",exp:Math.floor(Date.now()/1000)+3600})).toString("base64url"),"test"].join(".");
+  w.ctx.fetch=async(url:string,init:any)=>{
+   if(url.startsWith("https://securetoken.googleapis.com/")){
+    refreshes++;return new Response(JSON.stringify({user_id:"reader",id_token:token,refresh_token:"rotated-refresh",expires_in:"3600"}));
+   }
+   return firestore(url,init);
+  };
+  await w.run("runAutoSync()");
+  expect(refreshes).toBe(1);expect(w.data["dasi.sync.config"].refreshToken).toBe("rotated-refresh");
+  expect(w.data["dasi.sync.meta"].retryCount).toBe(1);
+  expect(w.data["dasi.sync.meta"].nextRetryAt).toBeGreaterThan(Date.now());
+  expect(JSON.stringify(w.synced)).not.toContain("rotated-refresh");
+ });
+ it("blocks unsupported HTTP account actions for Firebase without a network call",async()=>{
+  const w=worker({"dasi.sync.config":cfg()});let calls=0;w.ctx.fetch=async()=>{calls++;throw Error("should_not_fetch");};
+  expect(await w.call({type:"SYNC_CHANGE_PASSWORD",current:"old",next:"new"})).toMatchObject({ok:false,error:"account_action_unavailable"});
+  expect(calls).toBe(0);
+ });
+ it("does not let content scripts connect a Firebase account",async()=>{
+  const w=worker();let calls=0;w.ctx.fetch=async()=>{calls++;throw Error("should_not_fetch");};
+  const result=await w.call({type:"SYNC_SIGN_IN",payload:{firebase,email:"reader@example.com",password:"password"}},{id:"test",url:"https://reader.example",tab:{id:1}});
+  expect(result.ok).toBe(false);expect(calls).toBe(0);
+ });
 });

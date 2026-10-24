@@ -308,7 +308,8 @@ async function systemNotify(title, message, id) {
 const SYNC_CFG_KEY = "dasi.sync.config";
 const SYNC_META_KEY = "dasi.sync.meta";
 const AUTO_SYNC_COOLDOWN_MS = 8000;
-let lastAutoSync = 0, autoSyncTimer = null, accountEpoch = 0;
+let lastAutoSync = 0, autoSyncTimer = null, accountEpoch = 0, authAttempt = 0;
+let firebaseManager = null;
 
 const apiBase = (url) => (url || "").replace(/\/+$/, "");
 const getSyncConfig = async () => (await api.storage.local.get(SYNC_CFG_KEY))[SYNC_CFG_KEY] || null;
@@ -319,6 +320,7 @@ const setSyncMeta = async (meta) => {
 };
 
 async function apiCall(cfg, path, init = {}) {
+  if(cfg?.provider==="firebase")throw Error("account_action_unavailable");
   return fetchRemote(syncEndpoint(cfg.apiUrl) + path, {
     ...init,
     redirect: "error", credentials: "omit",
@@ -331,7 +333,7 @@ async function apiCall(cfg, path, init = {}) {
 }
 
 const ACCOUNT_CACHE_KEY='yomu.accountCaches.v1';
-const scopeOf=cfg=>cfg?.token?apiBase(cfg.apiUrl)+'|'+(cfg.userId || 'legacy:'+String(cfg.email||'').toLowerCase()):'guest';
+const scopeOf=cfg=>cfg?.provider==='firebase'&&cfg.token?'firebase|'+cfg.projectId+'|'+cfg.userId:cfg?.token?apiBase(cfg.apiUrl)+'|'+(cfg.userId || 'legacy:'+String(cfg.email||'').toLowerCase()):'guest';
 async function switchSyncAccount(nextConfig){
   const previous=await getSyncConfig(), caches=await read(ACCOUNT_CACHE_KEY,{});
   const keys=[ITEMS_KEY,LISTS_KEY,SITES_KEY,NOTIF_KEY,SETTINGS_KEY,TOMBSTONES_KEY];
@@ -340,11 +342,45 @@ async function switchSyncAccount(nextConfig){
   const sameLegacy=previous?.token && !previous.userId && nextConfig?.token && previous.apiUrl===nextConfig.apiUrl && previous.email?.toLowerCase()===nextConfig.email?.toLowerCase();
   const nextData=(sameLegacy?previousData:caches[scopeOf(nextConfig)]) || {[ITEMS_KEY]:[],[LISTS_KEY]:[],[SITES_KEY]:[],[NOTIF_KEY]:[],[TOMBSTONES_KEY]:[],[SETTINGS_KEY]:{...DEFAULT_SETTINGS,lang:previousData[SETTINGS_KEY]?.lang||'en'}};
   await api.storage.local.set({...nextData,[ACCOUNT_CACHE_KEY]:caches,[SYNC_CFG_KEY]:nextConfig,[SYNC_META_KEY]:{},'dasi.lastConflict':null,'dasi.currentDetection':null});
-  ++accountEpoch;clearTimeout(autoSyncTimer);autoSyncTimer=null;lastAutoSync=0;
+  ++accountEpoch;firebaseManager=null;clearTimeout(autoSyncTimer);autoSyncTimer=null;lastAutoSync=0;
 }
 
+
+/** Keep Firebase credentials in trusted extension-local storage only. */
+async function firebaseSessionConfig(cfg) {
+  await storageProtection;
+  const epoch=accountEpoch;
+  if(!firebaseManager || firebaseManager.epoch!==epoch){
+    const manager=YomuSync.createFirebaseSessionManager({projectId:cfg.projectId,apiKey:cfg.apiKey},{
+      read:async()=>cfg,
+      write:next=>serializeLibrary(async()=>{
+        const active=await getSyncConfig();
+        if(epoch!==accountEpoch || scopeOf(active)!==scopeOf(cfg))throw Error('account_changed');
+        if(!next)throw Error('invalid_session');
+        await api.storage.local.set({[SYNC_CFG_KEY]:{...next,apiKey:cfg.apiKey}});
+      }),
+    });
+    firebaseManager={epoch,manager};
+  }
+  const session=await firebaseManager.manager.getSession();
+  if(epoch!==accountEpoch || !session)throw Error('account_changed');
+  return {...session,apiKey:cfg.apiKey};
+}
+async function firebaseAuth(signup,config,email,password) {
+  await storageProtection;
+  const ticket=++authAttempt,epoch=accountEpoch;
+  const auth=YomuSync.createFirebaseAuth(config);
+  const session=await auth[signup?'signUp':'signIn'](email,password);
+  const cfg={...session,apiKey:config.apiKey};
+  await serializeLibrary(async()=>{
+    if(ticket!==authAttempt || epoch!==accountEpoch)throw Error('account_changed');
+    await switchSyncAccount(cfg);
+  });
+  return cfg;
+}
 /** Sign in / sign up against the backend and persist the resulting config. */
 async function syncAuth(path, apiUrl, email, password) {
+  const ticket=++authAttempt,epoch=accountEpoch;
   const res = await fetchRemote(syncEndpoint(apiUrl) + path, {
     redirect: "error", credentials: "omit",
     method: "POST",
@@ -357,7 +393,7 @@ async function syncAuth(path, apiUrl, email, password) {
   }
   const data = await res.json();
   const cfg = { apiUrl: apiBase(apiUrl), token: data.token, userId:data.user.id, email: data.user.email, plan: data.user.plan };
-  await serializeLibrary(()=>switchSyncAccount(cfg));
+  await serializeLibrary(async()=>{if(ticket!==authAttempt||epoch!==accountEpoch)throw Error("account_changed");await switchSyncAccount(cfg);});
   await setSyncMeta({ lastError: null });
   return cfg;
 }
@@ -399,19 +435,28 @@ async function syncStatusUnlocked() {
   const configured=Boolean(cfg?.token);
   const fingerprint=configured?await syncFingerprint(await readSyncSnapshot()):null;
   const state=!configured?'local_only':meta.lastError?'error':meta.confirmedFingerprint===fingerprint?'saved':'pending';
-  return {configured,apiUrl:cfg?.apiUrl||'',email:cfg?.email||'',plan:cfg?.plan||null,meta,state,
+  return {configured,provider:cfg?.provider||'http',projectId:cfg?.provider==='firebase'?cfg.projectId:'',apiUrl:cfg?.apiUrl||'',email:cfg?.email||'',plan:cfg?.plan||null,meta,state,
     lang:(await read(SETTINGS_KEY,{})).lang||'en'};
 }
 
 /** Pull the remote blob, merge into local storage, push the union back. */
 async function syncNow() {
-  const cfg=await getSyncConfig(),epoch=accountEpoch;
+  let cfg=await getSyncConfig();const epoch=accountEpoch;
   if(!cfg?.token)throw Error('not_signed_in');
   const current=async()=>epoch===accountEpoch&&(await getSyncConfig())?.token===cfg.token;
   try {
-    const getRes=await apiCall(cfg,'/sync');
-    if(!getRes.ok)throw Error(getRes.status===401?'unauthorized':`pull_${getRes.status}`);
-    const remote=await getRes.json();
+    let remote, firebaseClient, firebaseSnapshot;
+    if(cfg.provider==='firebase'){
+      cfg=await firebaseSessionConfig(cfg);
+      if(!await current())throw Error('account_changed');
+      firebaseClient=YomuSync.createFirebaseLibrary(cfg);
+      firebaseSnapshot=await firebaseClient.read();
+      remote={blob:firebaseSnapshot.blob};
+    }else{
+      const getRes=await apiCall(cfg,'/sync');
+      if(!getRes.ok)throw Error(getRes.status===401?'unauthorized':`pull_${getRes.status}`);
+      remote=await getRes.json();
+    }
     const {blob,fingerprint}=await serializeLibrary(async()=>{
       if(!await current())throw Error('account_changed');
       const localSettings=await read(SETTINGS_KEY,{});
@@ -422,8 +467,12 @@ async function syncNow() {
       await writeData(values,true);
       return {blob:merged,fingerprint:await syncFingerprint(await readSyncSnapshot())};
     });
-    const putRes=await apiCall(cfg,'/sync',{method:'PUT',body:JSON.stringify({blob})});
-    if(!putRes.ok)throw Error(`push_${putRes.status}`);
+    if(!await current())throw Error('account_changed');
+    if(firebaseClient)await firebaseClient.save(firebaseSnapshot,blob);
+    else{
+      const putRes=await apiCall(cfg,'/sync',{method:'PUT',body:JSON.stringify({blob})});
+      if(!putRes.ok)throw Error(`push_${putRes.status}`);
+    }
     const status=await serializeLibrary(async()=>{
       if(!await current())throw Error('account_changed');
       // A later edit remains pending even if this older upload succeeds.
@@ -443,11 +492,12 @@ let syncInFlight=null;
 async function runAutoSync(){
  if(syncInFlight)return syncInFlight;
  syncInFlight=(async()=>{
- const cfg=await getSyncConfig();if(!cfg?.token)return;
+ const cfg=await getSyncConfig(),epoch=accountEpoch;if(!cfg?.token)return;
+ const stillCurrent=async()=>epoch===accountEpoch&&scopeOf(await getSyncConfig())===scopeOf(cfg);
  const meta=await read(SYNC_META_KEY,{});if(Date.now()<(meta.nextRetryAt||0))return;
   lastAutoSync=Date.now();
-  try{await syncNow();if((await getSyncConfig())?.token===cfg.token)await setSyncMeta({retryCount:0,nextRetryAt:0});}
-  catch(error){if((await getSyncConfig())?.token===cfg.token){const retryCount=Math.min(8,(meta.retryCount||0)+1);await setSyncMeta({lastError:String(error.message),retryCount,nextRetryAt:Date.now()+Math.min(900000,30000*2**(retryCount-1))});}}
+  try{await syncNow();await serializeLibrary(async()=>{if(await stillCurrent())await setSyncMeta({retryCount:0,nextRetryAt:0});});}
+  catch(error){await serializeLibrary(async()=>{if(await stillCurrent()){const retryCount=Math.min(8,(meta.retryCount||0)+1);await setSyncMeta({lastError:String(error.message),retryCount,nextRetryAt:Date.now()+Math.min(900000,30000*2**(retryCount-1))});}});}
  })();try{return await syncInFlight;}finally{syncInFlight=null;}
 }
 async function ensureSyncAlarm(){
@@ -2497,9 +2547,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "SYNC_SIGN_IN":
     case "SYNC_SIGN_UP":
       {
-        const { apiUrl, email, password } = message.payload || {};
+        const { apiUrl, email, password, firebase } = message.payload || {};
         const path = message.type === "SYNC_SIGN_UP" ? "/auth/signup" : "/auth/login";
-        syncAuth(path, apiUrl, email, password)
+        (firebase?firebaseAuth(message.type==="SYNC_SIGN_UP",firebase,email,password):syncAuth(path, apiUrl, email, password))
           .then((cfg) =>
             syncNow()
               .then((result) => sendResponse({ ok: true, email: cfg.email, plan: cfg.plan, result }))
@@ -2544,9 +2594,10 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ok:true});
       })().catch(error=>sendResponse({ok:false,error:String(error.message)}));return true;
     case "SYNC_SIGN_OUT":
+      ++authAttempt;
       mutateAndReply(async()=>{
         const cfg=await getSyncConfig();
-        if(cfg?.token){const res=await apiCall(cfg,'/auth/logout',{method:'POST'});if(!res.ok)throw Error('sign_out_failed');}
+        if(cfg?.token&&cfg.provider!=='firebase'){const res=await apiCall(cfg,'/auth/logout',{method:'POST'});if(!res.ok)throw Error('sign_out_failed');}
         await switchSyncAccount(null);return {ok:true};
       },sendResponse);
       return true;

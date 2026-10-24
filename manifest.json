@@ -44,7 +44,10 @@
     "https://ko.wikipedia.org/*",
     "https://pt.wikipedia.org/*",
     "https://zh.wikipedia.org/*",
-    "https://api.jikan.moe/*"
+    "https://api.jikan.moe/*",
+    "https://identitytoolkit.googleapis.com/*",
+    "https://securetoken.googleapis.com/*",
+    "https://firestore.googleapis.com/*"
   ],
   "optional_host_permissions": [
     "<all_urls>"
