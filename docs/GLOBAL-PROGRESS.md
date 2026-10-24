@@ -1,12 +1,24 @@
 # Suivi global Yomu
 
-Mise à jour : 23 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 24 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Sauvegarde Firebase raccordée au worker — 24 octobre 2026
+
+[CI de branche réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40088329732), commit 3b38a2d416d9f503e559c1bc9c9a0234525e2f51 : 633 tests unitaires, audit sans vulnérabilité connue, parcours web/extension, paquet Chrome et mise à jour de profil, capacité et récupérations PostgreSQL/Firebase réussis.
+
+Le worker route maintenant les messages de connexion avec configuration Firebase vers Authentication, puis SYNC_NOW et la sauvegarde automatique vers le stockage privé Firestore. La session est renouvelée et persistée dans le stockage local protégé. La portée des caches inclut le fournisseur, le projet et l'utilisateur. Les réponses tardives sont refusées après changement de compte ; la déconnexion Firebase locale ne dépend pas d'un endpoint HTTP inexistant. Les opérations de compte HTTP non implémentées pour Firebase répondent explicitement account_action_unavailable. Le délai de reprise automatique survit à une rotation de jeton sans être appliqué à un autre compte.
+
+Six tests supplémentaires du worker avec transport simulé couvrent la récupération depuis un worker neuf, les quotas, la déconnexion pendant une lecture, le renouvellement avec reprise différée, le refus des opérations HTTP et l'interdiction de connexion depuis un script de page. Ce test de worker neuf ne constitue pas une réception de désinstallation/réinstallation Chrome sur un projet réel.
+
+L'audit a détecté deux alertes nouvelles dans Zod et body-parser. Le lockfile résolu par pnpm fixe Zod à 4.6.7 et body-parser à 1.20.9 via une surcharge ciblée Express. Le workflow temporaire de résolution sans scripts de paquets a été retiré après utilisation. L'audit final est propre.
+
+Les paramètres reconnaissent le fournisseur et proposent des erreurs explicites ; le texte ne promet plus une fusion automatique de la bibliothèque invitée. DEFAULT_FIREBASE_CONFIG reste null : aucun projet réel activé, aucun accès utilisateur de production disponible, aucun compte fournisseur créé. L'import explicite des données invitées, les fonctions de gestion de compte Firebase, la copie indépendante et la réception Chrome réelle restent à terminer. G13/G23 partiels, global inchangé : 19/60 (32 % arrondi).
 
 ## Sessions Firebase préparées dans le paquet extension — 23 octobre 2026
 

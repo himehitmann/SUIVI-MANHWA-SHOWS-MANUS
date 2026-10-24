@@ -1,6 +1,6 @@
 # Sauvegarde personnelle gratuite : mise en service
 
-État au 23 octobre 2026 : sauvegarde en ligne non activée. Aucun hébergement ni compte fournisseur créé. Budget imposé par la propriétaire : 0 €, sans carte bancaire, sans facturation automatique et sans essai temporaire payant.
+État au 24 octobre 2026 : sauvegarde en ligne non activée. Aucun hébergement ni compte fournisseur créé. Budget imposé par la propriétaire : 0 €, sans carte bancaire, sans facturation automatique et sans essai temporaire payant.
 
 ## Proposition payante retirée
 
@@ -12,7 +12,7 @@ Spark permet de démarrer sans moyen de paiement. Firestore propose une base gra
 
 Les fonctions de sauvegarde gérée, restauration et récupération à un instant passé exigent une facturation. Elles sont donc exclues du périmètre gratuit. Ne pas lier de compte de facturation ni passer à Blaze. Une copie synchronisée Firestore survivrait à la désinstallation de l'extension, mais resterait exposée à la suppression du projet ou du compte fournisseur : ce n'est pas une sauvegarde indépendante.
 
-Les transports d'authentification et de bibliothèque sont implémentés dans shared/firebase-auth.ts et shared/firebase-library.ts. Ils sont testés avec des réponses contrôlées et avec les émulateurs officiels Authentication/Firestore. Les règles privées sont dans firestore.rules. Ces modules sont désormais inclus dans le bundle chargé par le worker via shared/extension-sync.ts, mais les commandes de l'interface et de synchronisation ne les appellent pas encore ; aucun projet Firebase réel n'est activé. Le serveur actuel utilise Express/PostgreSQL et son propre système de sessions. Changer une adresse ou une variable d'environnement ne suffit pas à le connecter à Firebase.
+Les transports d'authentification et de bibliothèque sont implémentés dans shared/firebase-auth.ts et shared/firebase-library.ts. Ils sont testés avec des réponses contrôlées et avec les émulateurs officiels Authentication/Firestore. Les règles privées sont dans firestore.rules. Ces modules sont inclus dans le bundle chargé par le worker via shared/extension-sync.ts. Le worker appelle désormais Authentication et Firestore pour une session Firebase et les paramètres prévoient une configuration publique de déploiement. DEFAULT_FIREBASE_CONFIG reste null : aucun projet Firebase réel n'est activé. Le serveur actuel utilise Express/PostgreSQL et son propre système de sessions. Changer une adresse ou une variable d'environnement ne suffit pas à le connecter à Firebase.
 
 Sources officielles vérifiées le 22 octobre 2026 :
 - https://firebase.google.com/docs/projects/billing/firebase-pricing-plans
@@ -20,12 +20,12 @@ Sources officielles vérifiées le 22 octobre 2026 :
 
 ## Travail restant avant activation
 
-1. Raccorder les adaptateurs Firebase testés au worker et à l'interface, en conservant le protocole du serveur existant. Inclure la nouvelle voie dans les parcours Chrome du paquet distribué.
-2. Le transport e-mail/mot de passe et renouvellement est testé aussi avec l'émulateur ; la demande de récupération est préparée sans envoi réel. Le gestionnaire shared/firebase-session.ts couvre les renouvellements concurrents, la déconnexion et les réponses tardives, avec neuf tests réussis. Le raccorder au stockage Chrome local protégé et aux commandes du worker, puis vérifier ces parcours sur un projet réel. Ne pas utiliser de compte anonyme.
+1. Raccordement worker et préparation des paramètres effectués le 24 octobre, avec tests du worker sur transport simulé. Valider cette nouvelle voie dans Chrome avec le projet réel et terminer les opérations de gestion de compte Firebase.
+2. Le transport e-mail/mot de passe et renouvellement est testé aussi avec l'émulateur ; la demande de récupération est préparée sans envoi réel. Le gestionnaire shared/firebase-session.ts couvre les renouvellements concurrents, la déconnexion et les réponses tardives, avec neuf tests réussis. Raccordé au stockage Chrome local protégé et aux commandes du worker le 24 octobre. Vérifier ces parcours sur un projet réel. Ne pas utiliser de compte anonyme.
 3. Règles d'isolation par identité, refus par défaut, documents immuables et tests d'accès croisés validés dans l'émulateur. Déployer ces mêmes règles et les contrôler sur le projet réel avant activation. Aucun secret administrateur dans l'extension. Les rôles administrateur et abonnements ne doivent jamais pouvoir être accordés par une écriture du client.
-4. Fusion, suppressions, conflits et fragmentation sont testés dans l'adaptateur. Lors du raccordement au worker, empêcher toute réponse tardive d'un autre compte d'écraser la bibliothèque active.
-5. L'adaptateur évite les écritures de contenu inchangé, limite les lectures parallèles à quatre et conserve les données distantes si le dépôt échoue. Ajouter la planification, le délai de reprise après quota et la confirmation d'état dans le worker. Mesurer les volumes avant toute promesse de capacité gratuite.
-6. États non configuré, en attente, sauvegardé et erreur ajoutés au protocole HTTP existant le 22 octobre, avec empreinte du contenu confirmé et tests de concurrence/redémarrage. Les paramètres et le compte reflètent ces états. Étendre cette confirmation à l'adaptateur gratuit lors de son intégration ; ce correctif ne l'active pas.
+4. Fusion, suppressions, conflits et fragmentation sont testés dans l'adaptateur. Le worker refuse les réponses tardives après changement de compte ; contrôle validé en test simulé.
+5. L'adaptateur évite les écritures de contenu inchangé, limite les lectures parallèles à quatre et conserve les données distantes si le dépôt échoue. La planification, le délai de reprise après quota et la confirmation d'état sont raccordés au worker. Mesurer les volumes avant toute promesse de capacité gratuite.
+6. États non configuré, en attente, sauvegardé et erreur ajoutés au protocole HTTP existant le 22 octobre, avec empreinte du contenu confirmé et tests de concurrence/redémarrage. Les paramètres et le compte reflètent ces états. Confirmation étendue au chemin Firebase le 24 octobre ; aucune configuration de production n'est activée.
 7. Deux versions de la bibliothèque sont conservées et la précédente peut être lue par le code ; l'interface de récupération reste à faire. Préparer une copie indépendante automatique compatible avec le budget. Des versions dans le même projet ne protègent pas contre la perte de ce projet.
 8. Créer le projet gratuit dans un compte contrôlé par la propriétaire, sans facturation ; déployer et vérifier les règles avant tout import. Aucun accès Firebase n'est actuellement connecté à cette tâche.
 9. Tester les parcours ci-dessous avec des données synthétiques avant d'utiliser la bibliothèque personnelle principale.
