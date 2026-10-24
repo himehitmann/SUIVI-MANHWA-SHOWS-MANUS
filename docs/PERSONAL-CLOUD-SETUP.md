@@ -65,3 +65,9 @@ Les règles peuvent signaler une écriture obsolète par un refus d'accès avant
 - Les fragments en base sont encodés en base64, pas chiffrés par l'application. Cet encodage augmente le stockage d'environ un tiers. Les droits d'accès reposent sur Firebase Authentication et les règles serveur ; l'empreinte sert à contrôler l'intégrité, pas à chiffrer.
 - Deux versions dans le même projet ne constituent pas une copie externe et ne protègent pas contre la suppression de ce projet. Le test d'émulateur ne prouve ni la disponibilité du service hébergé ni la récupération après désinstallation réelle de Chrome.
 - Aucun changement de facturation, publication Store, déploiement Firebase ou remplacement de l'extension installée n'a été effectué.
+
+## Transférer une bibliothèque enregistrée sans compte
+
+Fonction implémentée et vérifiée dans le paquet Chrome le 24 octobre 2026. Une fois le service configuré et connecté, ouvrir les paramètres de synchronisation, choisir « Voir ce qui sera copié », vérifier le compte destinataire et choisir « Copier dans ce compte ». La bibliothèque invitée est conservée. Œuvres, listes et sites sont copiés ; le profil et les paramètres du compte sont conservés. Une confirmation périmée après changement de compte ou de source est refusée.
+
+La copie locale ne suffit pas : attendre l'état « Modifications sauvegardées en ligne » et effectuer la réception de récupération avant d'utiliser cette fonction comme protection principale. La configuration de production reste vide. Preuve de test : https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40088857064.

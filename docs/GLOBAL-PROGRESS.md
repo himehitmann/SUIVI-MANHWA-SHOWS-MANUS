@@ -8,6 +8,16 @@ Mise à jour : 24 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Copie explicite de la bibliothèque invitée — 24 octobre 2026
+
+[CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40088857064), commit a60d7cf63536ca43c7445b11a4e232957173c651 : 638 tests unitaires, audit sans vulnérabilité connue, contrôles web et paquet Chrome, capacité et récupération PostgreSQL/Firebase réussis.
+
+Les paramètres permettent de prévisualiser le nombre d'œuvres, listes et sites puis de copier explicitement ces données dans le compte affiché. Un reçu lié au compte, à son changement de session et à l'empreinte de la source refuse les confirmations périmées ou réutilisées. La bibliothèque invitée reste conservée. Les suppressions de l'invité ne sont pas appliquées au compte ; ses éléments déjà supprimés, paramètres techniques, profil et identifiants ne sont pas transférés. La fusion réutilise la politique additive et le remappage des références de listes existants.
+
+Cinq tests du worker couvrent prévisualisation, conservation, changement de compte, changement de source, suppressions et accès depuis une page. Le parcours réel du paquet Chrome clique sur les deux boutons et vérifie épisodes, listes, profil du compte conservé, source intacte et état en attente. Capture de preuve dans l'artefact CI : test-results/guest-library-transfer.png.
+
+Le transfert confirme une copie locale dans la bibliothèque du compte, pas son dépôt distant. La synchronisation est ensuite planifiée. La configuration Firebase de production reste vide ; aucun projet ni compte créé, aucun test réel de désinstallation/restitution cloud effectué. G13/G23 restent partiels, global 19/60 (32 % arrondi).
+
 ## Sauvegarde Firebase raccordée au worker — 24 octobre 2026
 
 [CI de branche réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40088329732), commit 3b38a2d416d9f503e559c1bc9c9a0234525e2f51 : 633 tests unitaires, audit sans vulnérabilité connue, parcours web/extension, paquet Chrome et mise à jour de profil, capacité et récupérations PostgreSQL/Firebase réussis.
