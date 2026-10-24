@@ -8,6 +8,18 @@ Mise à jour : 25 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Audit transversal des commandes et chargements — 25 octobre 2026
+
+[CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40141932682), commit 098318bb5e6db085a821a0ef0a8ffd398471b4e8 : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, nouvel audit UI, capacité et récupérations PostgreSQL/Firebase réussis.
+
+L'actualisation Accueil/Jeux dispose d'un délai de réponse borné. Une absence de réponse libère les commandes dans toutes les vues déjà rendues et les réponses tardives ne remplacent pas le résultat courant. La recherche des informations manquantes réactive les deux points d'entrée après échec ou absence de réponse, avec un message visible dans la bibliothèque et les paramètres.
+
+Les échanges des paramètres de synchronisation sont bornés à 45 secondes et absorbent les erreurs de transport. Le message précise qu'une opération peut encore finir : l'expiration de l'attente n'est pas une annulation côté worker. Le rendu de l'état du compte ignore les anciennes réponses arrivant après une demande plus récente.
+
+Un nouveau parcours Chrome tests/e2e/ui-audit.mjs ouvre Accueil, Bibliothèque, Jeux, Offres et Paramètres à 320, 390, 768 et 1440 px. Il contrôle la navigation réelle, les limites horizontales des vues et l'absence de chevauchement des commandes d'en-tête. Il simule les pannes, réponses absentes et tardives des recommandations, de la recherche des métadonnées et du transport des paramètres, ainsi que l'inversion des réponses d'état du compte. Les captures 320 px et le rapport ui-audit.json sont conservés avec les résultats CI.
+
+Périmètre limité : ces contrôles géométriques ne sont pas une revue visuelle exhaustive des contenus réels ni de tous les textes/langues, formulaires ou boutons. Les tests de capacité et récupération restent isolés. Sauvegarde de production, paiement réel, publication et couverture exhaustive des catalogues restent non validés. Aucun paquet installé sur le navigateur utilisateur. Aucun nouveau critère global entièrement clos : 19/60 (32 % arrondi).
+
 ## Bibliothèque : accès aux sections et ajout aux listes — 25 octobre 2026
 
 [CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40140602189), commit f7deb88f765920285724d130cdfe2d566644877d : 643 tests unitaires, audit sans vulnérabilité connue, parcours web et Chrome, tests des listes, capacité et récupérations PostgreSQL/Firebase réussis. La mise à jour du profil Chrome de 0.3.1 vers 0.4.24 conserve compte, progression, listes et profil.
