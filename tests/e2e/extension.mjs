@@ -969,6 +969,46 @@ try {
   await page.locator("#dr-close").click();
 
 
+
+  // Quick list chooser stays on screen after scrolling and on narrow viewports.
+  await page.setViewportSize({width:320,height:600});
+  await page.evaluate(()=>{
+    globalThis.quickFixture={lists,items};
+    lists=Array.from({length:40},(_,i)=>({id:"quick-"+i,name:"Une très longue liste de séries et webtoons "+i+" "+("Titre".repeat(12)),itemIds:[]}));
+    items=[{id:"quick-work",title:"Fixture work",type:"reading"}];
+    const holder=document.createElement("div");holder.id="quick-fixture";holder.style.cssText="height:1800px;position:relative";
+    const anchor=document.createElement("button");anchor.id="quick-anchor";anchor.className="quick-add";anchor.dataset.quickadd="quick-work";anchor.textContent="Ajouter à une liste";
+    anchor.style.cssText="position:absolute;top:900px;right:8px";
+    holder.append(anchor);document.body.append(holder);anchor.scrollIntoView({block:"center"});
+  });
+  await page.locator("#quick-anchor").click();
+  const menu=page.locator(".qa-menu");
+  await menu.waitFor();
+  const boundsInViewport=()=>page.evaluate(()=>{
+    const m=document.querySelector(".qa-menu"),r=m.getBoundingClientRect();
+    return r.left>=7&&r.top>=7&&r.right<=innerWidth-7&&r.bottom<=innerHeight-7&&m.scrollHeight>m.clientHeight;
+  });
+  assert(await boundsInViewport(),"Long quick-add menu escaped the scrolled mobile viewport");
+  assert.equal(await menu.getAttribute("role"),"dialog");
+  await page.keyboard.press("End");
+  assert(await page.locator("[data-ql-new]").evaluate(el=>el===document.activeElement));
+  await page.keyboard.press("Home");
+  assert(await page.locator('[data-ql="quick-0"]').evaluate(el=>el===document.activeElement));
+  await page.setViewportSize({width:390,height:500});
+  await page.evaluate(()=>window.scrollBy(0,100));
+  assert(await boundsInViewport(),"Quick-add chooser escaped after resize or scrolling");
+  await page.screenshot({path:path.join(artifactDir,"library-quick-add-mobile.png"),fullPage:false});
+  await page.keyboard.press("Escape");
+  assert.equal(await menu.count(),0);
+  assert(await page.locator("#quick-anchor").evaluate(el=>el===document.activeElement));
+  assert.equal(await page.locator("#quick-anchor").getAttribute("aria-expanded"),"false");
+  await page.evaluate(()=>{
+    lists=quickFixture.lists;items=quickFixture.items;delete globalThis.quickFixture;
+    document.getElementById("quick-fixture").remove();window.scrollTo(0,0);
+  });
+  await page.setViewportSize({width:1440,height:1000});
+  console.log("Library quick-add: scrolled mobile bounds, long names, resize, keyboard and restored focus passed");
+
   // Exercise the actual options controls. Only synthetic local accounts are used.
   await worker.evaluate(async()=>{
     autoSync=()=>{};

@@ -120,8 +120,9 @@
       .quick-add { position:absolute; bottom:11px; right:11px; width:28px; height:28px; border-radius:9px; border:1px solid var(--line); background:#fff; color:var(--lav-ink); display:grid; place-items:center; cursor:pointer; opacity:0; transition:.15s; }
       .card:hover .quick-add { opacity:1; } .quick-add:hover { background:var(--lav); }
       .quick-add .ic { width:15px; height:15px; }
-      .qa-menu { position:absolute; z-index:70; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-lg); padding:6px; min-width:180px; max-height:260px; overflow-y:auto; }
+      .qa-menu { position:fixed; z-index:70; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-lg); padding:6px; min-width:min(180px,calc(100vw - 16px)); width:max-content; max-width:calc(100vw - 16px); max-height:320px; overflow-y:auto; overscroll-behavior:contain; }
       .qa-menu button { width:100%; display:flex; align-items:center; gap:8px; border:0; background:none; text-align:left; padding:8px 10px; border-radius:8px; font-size:12.5px; font-weight:600; color:#4E4960; cursor:pointer; }
+      .qa-menu button{white-space:normal;overflow-wrap:anywhere;min-width:0}.qa-menu button:focus-visible{outline:2px solid var(--lav-ink);outline-offset:-2px}.qa-menu button>span{flex-shrink:0}
       .qa-menu button:hover { background:#F3F1F9; } .qa-menu .qa-on { color:var(--lav-ink); }
       .cats-menu { min-width:230px; }
       .cats-menu-h { font-size:11px; font-weight:700; color:var(--muted); padding:6px 10px 8px; line-height:1.3; }

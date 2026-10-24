@@ -1758,8 +1758,11 @@ document.getElementById("list-delete-confirm")?.remove();
     document.getElementById("list-delete-cancel").focus();
 }
 /* Quick add-to-list menu anchored to a card's + button. */
-let qaMenuEl = null;
-function closeQuickAdd() { if (qaMenuEl) { qaMenuEl.remove(); qaMenuEl = null; } }
+let qaMenuEl = null, qaMenuCleanup=null;
+function closeQuickAdd(restoreFocus=false) {
+  if(qaMenuCleanup){qaMenuCleanup(restoreFocus);qaMenuCleanup=null;}
+  if(qaMenuEl){qaMenuEl.remove();qaMenuEl=null;}
+}
 function openQuickAdd(itemId, anchor) {
   closeQuickAdd();
   const build = () => {
@@ -1768,13 +1771,47 @@ function openQuickAdd(itemId, anchor) {
   };
   const m = document.createElement("div");
   m.className = "qa-menu";
+  m.setAttribute("role","dialog");m.setAttribute("aria-label",t("lists"));
   m.innerHTML = build();
   document.body.appendChild(m);
   qaMenuEl = m;
-  const r = anchor.getBoundingClientRect();
-  m.style.top = `${Math.min(window.innerHeight - m.offsetHeight - 8, r.bottom + 6)}px`;
-  m.style.left = `${Math.min(window.innerWidth - m.offsetWidth - 8, r.left - m.offsetWidth + r.width)}px`;
-  const rewire = () => { m.innerHTML = build(); wire(); };
+  const position=()=>{
+    if(!anchor.isConnected){closeQuickAdd();return;}
+    const r=anchor.getBoundingClientRect(),gap=8;
+    const viewport=window.visualViewport;
+    const left=viewport?.offsetLeft||0,top=viewport?.offsetTop||0;
+    const width=viewport?.width||innerWidth,height=viewport?.height||innerHeight;
+    m.style.maxWidth=Math.max(0,width-gap*2)+"px";
+    m.style.maxHeight=Math.max(0,Math.min(320,height-gap*2))+"px";
+    const below=r.bottom+6,above=r.top-m.offsetHeight-6;
+    m.style.left=Math.max(left+gap,Math.min(r.right-m.offsetWidth,left+width-m.offsetWidth-gap))+"px";
+    m.style.top=Math.max(top+gap,Math.min(below+m.offsetHeight<=top+height-gap?below:above,top+height-m.offsetHeight-gap))+"px";
+  };
+  const onScroll=e=>{if(!m.contains(e.target))position();};
+  window.addEventListener("resize",position);
+  document.addEventListener("scroll",onScroll,true);
+  window.visualViewport?.addEventListener("resize",position);
+  window.visualViewport?.addEventListener("scroll",position);
+  anchor.setAttribute("aria-expanded","true");
+  qaMenuCleanup=restore=>{
+    window.removeEventListener("resize",position);
+    document.removeEventListener("scroll",onScroll,true);
+    window.visualViewport?.removeEventListener("resize",position);
+    window.visualViewport?.removeEventListener("scroll",position);
+    anchor.setAttribute("aria-expanded","false");
+    if(restore&&anchor.isConnected)anchor.focus({preventScroll:true});
+  };
+  m.addEventListener("keydown",e=>{
+    if(e.key==="Escape"){e.preventDefault();e.stopPropagation();closeQuickAdd(true);return;}
+    const buttons=[...m.querySelectorAll("button:not(:disabled)")],at=buttons.indexOf(document.activeElement);
+    if(["ArrowDown","ArrowUp","Home","End"].includes(e.key)){
+      e.preventDefault();
+      const index=e.key==="Home"?0:e.key==="End"?buttons.length-1:(at+(e.key==="ArrowDown"?1:-1)+buttons.length)%buttons.length;
+      buttons[index]?.focus();
+    }
+    if(e.key==="Tab")setTimeout(()=>{if(qaMenuEl===m&&!m.contains(document.activeElement))closeQuickAdd();},0);
+  });
+  const rewire = id => { m.innerHTML = build(); wire();position();[...m.querySelectorAll("[data-ql]")].find(b=>b.dataset.ql===id)?.focus({preventScroll:true}); };
   const wire = () => {
     m.querySelectorAll("[data-ql]").forEach((b) => (b.onclick = async (e) => {
       e.stopPropagation();
@@ -1782,7 +1819,7 @@ function openQuickAdd(itemId, anchor) {
       const has = (l.itemIds || []).includes(itemId);
       b.disabled=true;
       await changeListMembership(l.id,itemId,!has,true);
-      rewire();
+      if(m.isConnected)rewire(l.id);
     }));
     const nb = m.querySelector("[data-ql-new]");
     if (nb) nb.onclick = async (e) => {
@@ -1792,7 +1829,7 @@ function openQuickAdd(itemId, anchor) {
       if(m.isConnected)rewire();
     };
   };
-  wire();
+  wire();position();m.querySelector("button")?.focus({preventScroll:true});
 }
 function renderSites() {
   const block = document.getElementById("sites-block");
