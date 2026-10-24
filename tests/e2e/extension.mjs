@@ -1000,7 +1000,7 @@ try {
   assert.equal(copied["yomu.accountCaches.v1"].guest["dasi.items"][0].episode,4);
   assert((await transferPage.locator("#lastsync").innerText()).includes("attente"));
   await transferPage.screenshot({path:path.join(artifactDir,"guest-library-transfer.png"),fullPage:true});
-  await worker.evaluate(async()=>serializeLibrary(()=>switchSyncAccount(null)));
+  await worker.evaluate(async()=>{await serializeLibrary(()=>switchSyncAccount(null));await chrome.storage.local.set({"dasi.settings":{lang:"fr"}});});
   await transferPage.reload();
   await transferPage.locator("#forgot-password").click();
   await transferPage.waitForFunction(()=>document.querySelector("#recovery-message").textContent.includes("activation"));
