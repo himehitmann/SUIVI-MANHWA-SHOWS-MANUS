@@ -1531,6 +1531,10 @@ function renderStats() {
     [libraryItems.filter((i) => itemState(i) === "completed").length, t("finished")],
   ];
   document.getElementById("stats").innerHTML = s.map(([n, l]) => `<div class="chip"><b>${n}</b><span>${l}</span></div>`).join("");
+  renderLibraryShortcuts();
+}
+function renderLibraryShortcuts() {
+  const libraryItems=items.filter(i=>i.type!=="game");
   const shortcuts=document.getElementById("library-shortcuts");
   if(shortcuts){
     shortcuts.setAttribute("aria-label",settings.lang==="fr"?"Sections de ma bibliothèque":"Library sections");
@@ -1733,6 +1737,7 @@ function listMembers(list) {
 function renderLists() {
   const strip = document.getElementById("list-strip");
   if (!strip) return;
+  renderLibraryShortcuts();
   const fr=settings.lang==="fr";
   const activeCount=lists.filter(l=>!l.archived).length, archivedCount=lists.length-activeCount;
   const visibleLists=lists.filter(l=>Boolean(l.archived)===showArchivedLists);
@@ -1851,6 +1856,7 @@ function renderSites() {
   const block = document.getElementById("sites-block");
   const strip = document.getElementById("site-strip");
   if (!block) return;
+  renderLibraryShortcuts();
   block.hidden = false;
   const h = document.getElementById("sites-h");
   if (h) h.textContent = t("sitesTitle");
