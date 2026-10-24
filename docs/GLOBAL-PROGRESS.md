@@ -8,6 +8,16 @@ Mise à jour : 24 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Récupération du compte préparée dans l'extension — 24 octobre 2026
+
+[CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40093083009), commit 6a67df71262e45f8f7c14d9147b458ec65cb8a2c : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/paquet Chrome, capacité et récupérations Firebase/PostgreSQL réussis.
+
+Les paramètres proposent « Mot de passe oublié ». Le worker accepte la demande uniquement depuis les pages de l'extension, valide la configuration publique et l'adresse, transmet la langue du profil et conserve une temporisation d'une minute dans le stockage local protégé. L'adresse et le mot de passe ne sont pas enregistrés par ce parcours. La réponse reste identique pour une adresse inconnue. Les erreurs réseau ne sont pas présentées comme un envoi réussi. La bibliothèque et la session ne sont pas modifiées.
+
+Cinq tests contrôlent les requêtes simulées, la confidentialité des réponses, la persistance de la temporisation après redémarrage, les refus avant réseau et les erreurs. Le parcours Chrome contrôle aussi le message honnête lorsque le service n'est pas configuré. Aucun e-mail réel envoyé et aucun lien de réinitialisation réel reçu/consommé : ces étapes restent à vérifier sur le projet gratuit.
+
+La configuration de production reste vide et aucun accès Firebase n'est connecté. La sauvegarde personnelle après désinstallation n'est toujours pas activée. G13/G23 partiels ; global 19/60 (32 % arrondi).
+
 ## Copie explicite de la bibliothèque invitée — 24 octobre 2026
 
 [CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40088857064), commit a60d7cf63536ca43c7445b11a4e232957173c651 : 638 tests unitaires, audit sans vulnérabilité connue, contrôles web et paquet Chrome, capacité et récupération PostgreSQL/Firebase réussis.
