@@ -56,7 +56,7 @@ describe("verifyPaddleSignature", () => {
 
 describe("planFromStripeEvent", () => {
   it("grants lifetime on a one-time checkout", () => {
-    const e = { type: "checkout.session.completed", data: { object: { mode: "payment", client_reference_id: "u1" } } };
+    const e = { type: "checkout.session.completed", data: { object: { mode: "payment", payment_status: "paid", line_items: { data: [{ price: { id: "price_life" } }] }, client_reference_id: "u1" } } };
     expect(planFromStripeEvent(e, MAP)).toEqual({ userId: "u1", email: undefined, plan: "lifetime" });
   });
   it("grants pro on an active subscription and reads the price", () => {
@@ -67,7 +67,7 @@ describe("planFromStripeEvent", () => {
     expect(planFromStripeEvent(e, MAP)?.plan).toBe("pro");
   });
   it("downgrades to free on cancel/delete", () => {
-    const e = { type: "customer.subscription.deleted", data: { object: { customer_email: "a@b.c" } } };
+    const e = { type: "customer.subscription.deleted", data: { object: { customer_email: "a@b.c", items: { data: [{ price: { id: "price_month" } }] } } } };
     expect(planFromStripeEvent(e, MAP)).toEqual({ userId: undefined, email: "a@b.c", plan: "free" });
   });
   it("ignores unrelated events", () => {
@@ -77,9 +77,9 @@ describe("planFromStripeEvent", () => {
 
 describe("planFromPaddleEvent", () => {
   it("maps transaction and cancellation", () => {
-    const paid = { event_type: "transaction.completed", data: { custom_data: { userId: "u9" }, items: [{ price: { id: "price_life" } }] } };
+    const paid = { event_type: "transaction.completed", data: { status: "completed", custom_data: { userId: "u9" }, items: [{ price: { id: "price_life" } }] } };
     expect(planFromPaddleEvent(paid, MAP)).toEqual({ userId: "u9", email: undefined, plan: "lifetime" });
-    const canceled = { event_type: "subscription.canceled", data: { custom_data: { userId: "u9" } } };
+    const canceled = { event_type: "subscription.canceled", data: { custom_data: { userId: "u9" }, items: [{ price: { id: "price_month" } }] } };
     expect(planFromPaddleEvent(canceled, MAP)?.plan).toBe("free");
   });
 });
@@ -116,5 +116,39 @@ describe("applyPlanIntent", () => {
     const store = createStore();
     expect((await applyPlanIntent(store, { userId: "nope", plan: "pro" })).reason).toBe("user_not_found");
     expect((await applyPlanIntent(store, null)).ok).toBe(false);
+  });
+});
+
+describe("billing rejects unrecognized or incomplete purchases", () => {
+  it.each([undefined, "unpaid"])("does not grant lifetime before payment (%s)", payment_status => {
+    expect(planFromStripeEvent({type:"checkout.session.completed",data:{object:{mode:"payment",payment_status,line_items:{data:[{price:{id:"price_life"}}]}}}},MAP)).toBeNull();
+  });
+  it.each([undefined, [], [{price:{id:"unrelated"}}], [{price:{id:"price_life"}},{price:{id:"unrelated"}}]])("rejects missing, unknown and ambiguous Stripe line items", items => {
+    expect(planFromStripeEvent({type:"checkout.session.completed",data:{object:{mode:"payment",payment_status:"paid",line_items:{data:items}}}},MAP)).toBeNull();
+  });
+  it("accepts delayed payment only for the configured lifetime product", () => {
+    const event={type:"checkout.session.async_payment_succeeded",data:{object:{mode:"payment",payment_status:"paid",line_items:{data:[{price:{id:"price_life"}}]},metadata:{userId:"u1"}}}};
+    expect(planFromStripeEvent(event,MAP)?.plan).toBe("lifetime");
+    expect(planFromStripeEvent(event,{})).toBeNull();
+  });
+  it.each(["customer.subscription.created","customer.subscription.updated","customer.subscription.deleted"])("ignores unrelated Stripe subscriptions (%s)",type=>{
+    expect(planFromStripeEvent({type,data:{object:{status:"active",items:{data:[{price:{id:"other_product"}}]}}}},MAP)).toBeNull();
+  });
+  it("does not grant recurring access from checkout before subscription state",()=>{
+    expect(planFromStripeEvent({type:"checkout.session.completed",data:{object:{mode:"subscription",payment_status:"paid",line_items:{data:[{price:{id:"price_month"}}]}}}},MAP)).toBeNull();
+  });
+  it.each(["transaction.completed","subscription.updated","subscription.canceled"])("ignores unrelated Paddle products (%s)",event_type=>{
+    expect(planFromPaddleEvent({event_type,data:{status:"completed",items:[{price:{id:"other_product"}}]}},MAP)).toBeNull();
+  });
+  it("ignores incomplete Paddle transactions and unknown subscription states",()=>{
+    expect(planFromPaddleEvent({event_type:"transaction.completed",data:{status:"ready",items:[{price:{id:"price_month"}}]}},MAP)).toBeNull();
+    expect(planFromPaddleEvent({event_type:"subscription.updated",data:{status:"unknown",items:[{price:{id:"price_month"}}]}},MAP)).toBeNull();
+  });
+});
+
+describe("recurring Paddle access",()=>{
+  it("does not reactivate an ended subscription from a delayed transaction",()=>{
+    expect(planFromPaddleEvent({event_type:"transaction.completed",data:{status:"completed",subscription_id:"sub_1",items:[{price:{id:"price_month"}}]}},MAP)).toBeNull();
+    expect(planFromPaddleEvent({event_type:"subscription.updated",data:{status:"active",items:[{price:{id:"price_month"}}]}},MAP)?.plan).toBe("pro");
   });
 });

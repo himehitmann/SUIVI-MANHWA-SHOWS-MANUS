@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
+import {Dialog,DialogContent,DialogTitle,DialogDescription} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n/I18nContext";
 import { useStore } from "@/store/StoreContext";
@@ -7,78 +8,82 @@ import { searchCatalog, type CatalogResult } from "@/lib/catalog";
 import type { ContentType } from "@/lib/types";
 
 /** Modal: search a title online (best-effort) or enter it manually, then add. */
-export function AddWork({ onClose }: { onClose: () => void }) {
-  const { t } = useI18n();
+export function AddWork({ onClose, initial }: { onClose: () => void; initial?:CatalogResult }) {
+  const { t, lang } = useI18n();
   const store = useStore();
+  const fr=lang==="fr";
+  const [error,setError]=useState(false);
+  const [picked,setPicked]=useState<CatalogResult | undefined>(initial);
+  const [listId,setListId]=useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CatalogResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState<ContentType>("reading");
+  const [title, setTitle] = useState(initial?.title||"");
+  const [type, setType] = useState<ContentType>(initial?.type||"reading");
   const [num, setNum] = useState("");
   const [season, setSeason] = useState("");
-  const [url, setUrl] = useState("");
-  const [cover, setCover] = useState<string | undefined>();
+  const [url, setUrl] = useState(initial?.url||"");
+  const [cover, setCover] = useState<string | undefined>(initial?.cover);
 
   const abort = useRef<AbortController | undefined>(undefined);
 
-  // Debounced online search.
   useEffect(() => {
-    if (query.trim().length < 2) {
-      setResults([]);
-      setSearched(false);
-      return;
-    }
+    abort.current?.abort();
+    const controller=new AbortController();abort.current=controller;
+    setResults([]);setSearched(false);setError(false);setSearching(false);
+    if(query.trim().length<2)return ()=>controller.abort();
     setSearching(true);
-    const id = setTimeout(async () => {
-      abort.current?.abort();
-      abort.current = new AbortController();
-      const r = await searchCatalog(query, abort.current.signal);
-      setResults(r);
-      setSearching(false);
-      setSearched(true);
-    }, 350);
-    return () => clearTimeout(id);
-  }, [query]);
+    const timer=setTimeout(async()=>{
+      try{const found=await searchCatalog(query,controller.signal);if(!controller.signal.aborted){setResults(found);setSearched(true);}}
+      catch{if(!controller.signal.aborted)setError(true);}
+      finally{if(!controller.signal.aborted)setSearching(false);}
+    },350);
+    return ()=>{clearTimeout(timer);controller.abort();};
+  },[query]);
 
   const pick = (r: CatalogResult) => {
+    setPicked(r);
+    setUrl(r.url||"");
     setTitle(r.title);
     setType(r.type);
     setCover(r.cover);
     setResults([]);
-    setQuery(r.title);
+    setQuery("");
   };
 
   const submit = () => {
     if (!title.trim()) return;
     const n = num ? parseInt(num, 10) || undefined : undefined;
-    store.addItem({
+    const added=store.addItem({
+      ...picked,
       title,
       type,
       cover,
       url: url.trim() || undefined,
+      progress: type==="game" ? n : undefined,
       chapter: type === "reading" ? n : undefined,
       episode: type === "watching" ? n : undefined,
       season: type === "watching" && season ? parseInt(season, 10) || undefined : undefined,
     });
+    if(listId)store.addItemToList(listId,added.id);
     toast.success(t("toast.itemAdded"));
     onClose();
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="add-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose} aria-label="Close">
-          <X size={18} />
-        </button>
-        <span className="eyebrow pastel-label">{t("add.title")}</span>
+    <Dialog open onOpenChange={open=>!open&&onClose()}>
+      <DialogContent className="add-modal" style={{maxHeight:"90vh",overflowY:"auto"}}>
+        <DialogTitle>{t("add.title")}</DialogTitle>
+        <DialogDescription>{fr?"Vérifiez l’œuvre et choisissez sa liste.":"Review the work and choose its list."}</DialogDescription>
+        {picked?.synopsis&&<p>{picked.synopsis}</p>}
 
         <div className="add-search">
           <Search size={16} />
           <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("add.search")} />
         </div>
+        {error && <p role="alert">{fr?"La recherche est indisponible. Réessayez ou ajoutez le titre manuellement.":"Search unavailable. Retry or add the title manually."}</p>}
         {searching && <p className="muted-note">{t("add.searching")}</p>}
         {results.length > 0 && (
           <ul className="add-results">
@@ -108,6 +113,7 @@ export function AddWork({ onClose }: { onClose: () => void }) {
               {t("type.watching")}
             </button>
           </div>
+          <button className={type === "game" ? "on" : ""} onClick={() => setType("game")}>{t("type.game")}</button>
           <div className="add-row-fields">
             {type === "watching" && (
               <input type="number" min="0" value={season} onChange={(e) => setSeason(e.target.value)} placeholder={t("add.season")} />
@@ -117,15 +123,16 @@ export function AddWork({ onClose }: { onClose: () => void }) {
               min="0"
               value={num}
               onChange={(e) => setNum(e.target.value)}
-              placeholder={type === "reading" ? t("add.chapter") : t("add.episode")}
+              placeholder={type === "game" ? "%" : type === "reading" ? t("add.chapter") : t("add.episode")}
             />
           </div>
           <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={t("add.url")} />
+          <label>{fr?"Liste de destination":"Destination list"}<select value={listId} onChange={e=>setListId(e.target.value)}><option value="">{fr?"Bibliothèque":"Library"}</option>{store.lists.filter(l=>!l.archived).map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
           <button className="primary-cta full" onClick={submit} disabled={!title.trim()}>
             {t("add.submit")}
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
