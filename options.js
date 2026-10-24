@@ -7,11 +7,18 @@
 const api = globalThis.chrome;
 const $ = (id) => document.getElementById(id);
 
-const send = (message) =>
-  new Promise((resolve) => api.runtime.sendMessage(message, (resp) => {
-    void api.runtime.lastError;
-    resolve(resp || {});
-  }));
+const send = (message, timeoutMs=45000) =>
+  new Promise(resolve => {
+    let settled=false;
+    const finish=response=>{if(settled)return;settled=true;clearTimeout(timer);resolve(response);};
+    const timer=setTimeout(()=>finish({ok:false,error:"response_timeout"}),timeoutMs);
+    try {
+      api.runtime.sendMessage(message,resp=>{
+        const error=api.runtime.lastError;
+        finish(error?{ok:false,error:"connection_unavailable"}:(resp||{ok:false,error:"connection_unavailable"}));
+      });
+    } catch { finish({ok:false,error:"connection_unavailable"}); }
+  });
 
 function showMsg(el, text, kind) {
   el.textContent = text;
@@ -29,6 +36,8 @@ function fmtTime(ts) {
 
 function errorText(code) {
   const map = {
+    response_timeout: guestLang==="fr"?"La confirmation prend trop de temps. Vérifie l’état avant de recommencer ; l’opération peut encore se terminer.":"Confirmation is taking too long. Check the status before retrying; the operation may still complete.",
+    connection_unavailable: guestLang==="fr"?"Connexion à l’extension indisponible. Réessaie.":"The extension connection is unavailable. Try again.",
     invalid_email: "That email doesn't look right.",
     weak_password: "Password must be at least 8 characters.",
     email_taken: "An account with that email already exists — sign in instead.",
@@ -61,8 +70,12 @@ function backupLabel(s, lang=s.lang) {
 }
 
 let guestPreview=null, guestBusy=false, guestLang="en";
+let renderVersion=0;
 async function render() {
+  const version=++renderVersion;
   const s = await send({ type: "SYNC_STATUS" });
+  if(version!==renderVersion)return;
+  if(s.ok===false){showMsg($("signed-in").classList.contains("hidden")?$("msg-out"):$("msg-in"),errorText(s.error),"err");return;}
   guestLang=s.lang||"en";
   const fr=guestLang==="fr";
   $("forgot-password").textContent=fr?"Mot de passe oublié ?":"Forgot password?";

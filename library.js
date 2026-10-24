@@ -1273,7 +1273,7 @@ function loadDiscover(force) {
     button.setAttribute("aria-busy","true");
     button.innerHTML=I.refresh+(settings.lang==="fr"?"Actualisation…":"Refreshing…");
   });
-  api.runtime.sendMessage({ type: "DISCOVER", force: !!force }, (r) => {
+  requestMetadata({ type: "DISCOVER", force: !!force }, (r) => {
     void api.runtime.lastError;
     discoverLoading = false;
     discoverTried = true;
@@ -3200,7 +3200,7 @@ api.storage.onChanged.addListener((changes, area) => {
 
 document.addEventListener("load", (event) => { const im=event.target; if(im instanceof HTMLImageElement && im.matches("img.cov")) {im.classList.toggle("landscape", im.naturalWidth > im.naturalHeight * 1.2);fitDiscoveryArtwork(im);} }, true);
 
-let completingMetadata = false;
+let completingMetadata = false, metadataQueueError = "";
 function renderMetadataStatus() {
   const fr=settings.lang==="fr", pending=items.filter(i=>i.metadataPending).length;
   const unresolved=items.filter(i=>["failed","not_found","ambiguous","partial"].includes(i.metadataStatus?.state)&&!i.metadataPending).length;
@@ -3209,32 +3209,29 @@ function renderMetadataStatus() {
     unresolved?(fr?unresolved+(unresolved===1?" fiche reste incomplète ou sans correspondance certaine.":" fiches restent incomplètes ou sans correspondance certaine."):unresolved+(unresolved===1?" work still has missing details or an uncertain match.":" works still have missing details or an uncertain match.")):
     missing?(fr?missing+(missing===1?" fiche peut être complétée.":" fiches peuvent être complétées."):missing+(missing===1?" work can be checked for missing details.":" works can be checked for missing details.")):
     (fr?"Les affiches et descriptions disponibles sont enregistrées.":"Available artwork and descriptions are saved.");
-  const label=document.getElementById("metadata-status");if(label)label.textContent=message;
+  const label=document.getElementById("metadata-status");if(label)label.textContent=metadataQueueError||message;
   const button=document.getElementById("complete-metadata");
   if(button){button.disabled=completingMetadata;button.textContent=fr?"Rechercher les informations":"Find missing details";}
   const banner=document.getElementById("library-metadata-status");
   if(banner){
-    banner.hidden=!(pending||unresolved);
-    banner.innerHTML='<span role="status">'+message+'</span>'+((unresolved||missing)?'<button class="btn sm" id="retry-library-metadata">'+(t("retryLabel"))+'</button>':"");
+    banner.hidden=!(pending||unresolved||metadataQueueError);
+    banner.innerHTML='<span role="status">'+esc(metadataQueueError||message)+'</span>'+((unresolved||missing||metadataQueueError)?'<button class="btn sm" id="retry-library-metadata">'+(t("retryLabel"))+'</button>':"");
     const retry=document.getElementById("retry-library-metadata");if(retry){retry.disabled=completingMetadata;retry.onclick=completeMissingMetadata;}
   }
 }
 async function completeMissingMetadata() {
   if(completingMetadata)return;
-  completingMetadata=true;renderMetadataStatus();
+  completingMetadata=true;metadataQueueError="";renderMetadataStatus();
   try {
-    const response=await new Promise((resolve,reject)=>api.runtime.sendMessage({type:"QUEUE_MISSING_METADATA"},result=>{
-      if(api.runtime.lastError||!result?.ok)reject(new Error("metadata_unavailable"));else resolve(result);
+    const response=await new Promise((resolve,reject)=>requestMetadata({type:"QUEUE_MISSING_METADATA"},result=>{
+      if(!result?.ok)reject(new Error("metadata_unavailable"));else resolve(result);
     }));
     if(Array.isArray(response.items))items=response.items;
   } catch {
-    const label=document.getElementById("metadata-status");
-    if(label)label.textContent=settings.lang==="fr"?"La recherche n’a pas pu démarrer. Réessaie dans un instant.":"The search could not start. Please try again shortly.";
-    completingMetadata=false;
-    const button=document.getElementById("complete-metadata");if(button)button.disabled=false;
-    return;
+    metadataQueueError=settings.lang==="fr"?"La recherche n’a pas pu être confirmée. Réessaie dans un instant.":"The search could not be confirmed. Please try again shortly.";
+  } finally {
+    completingMetadata=false;renderMetadataStatus();
   }
-  completingMetadata=false;renderMetadataStatus();
 }
 
 // Refresh visible discovery as its provider cache expires.

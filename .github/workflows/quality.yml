@@ -36,6 +36,7 @@ jobs:
       - run: pnpm test:package
       - run: node tests/e2e/crop.mjs
       - run: node tests/e2e/bulk-lists.mjs
+      - run: node tests/e2e/ui-audit.mjs
       - run: node tests/e2e/video.mjs
       - name: Observe live homepage catalogs
         if: github.event_name == 'pull_request'
