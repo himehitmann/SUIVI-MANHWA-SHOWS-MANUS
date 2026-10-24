@@ -65,6 +65,7 @@ async function render() {
   const s = await send({ type: "SYNC_STATUS" });
   guestLang=s.lang||"en";
   const fr=guestLang==="fr";
+  $("forgot-password").textContent=fr?"Mot de passe oublié ?":"Forgot password?";
   $("guest-import-title").textContent=fr?"Bibliothèque enregistrée sans compte":"Library saved without an account";
   $("guest-import-help").textContent=fr?"Copier les œuvres, listes et sites favoris dans ce compte. La bibliothèque locale d’origine reste conservée. La sauvegarde en ligne est confirmée séparément.":"Copy works, lists and saved sites into this account. Your original local library is retained. Online backup is confirmed separately.";
   $("guest-preview").textContent=fr?"Voir ce qui sera copié":"Review what to copy";
@@ -138,6 +139,23 @@ document.addEventListener("DOMContentLoaded", () => {
       ? (guestLang==="fr"?"Copie ajoutée au compte sur cet appareil. Vérifie l’état de sauvegarde ci-dessus avant de désinstaller.":"Copy added to the account on this device. Check the backup status above before uninstalling.")
       : errorText(result.error);
     await render();
+  });
+
+  $("forgot-password").addEventListener("click",async()=>{
+    const fr=guestLang==="fr",button=$("forgot-password"),message=$("recovery-message");
+    if(!DEFAULT_FIREBASE_CONFIG){message.textContent=fr?"La récupération du compte sera disponible après l’activation de la sauvegarde en ligne.":"Account recovery will be available once online backup is configured.";return;}
+    const email=$("email").value.trim();
+    if(!email){message.textContent=fr?"Saisis ton adresse e-mail ci-dessus.":"Enter your email address above.";return;}
+    button.disabled=true;
+    const result=await send({type:"SYNC_PASSWORD_RESET",payload:{firebase:DEFAULT_FIREBASE_CONFIG,email}});
+    button.disabled=false;
+    message.textContent=result.ok
+      ? (fr?"Si un compte correspond à cette adresse, un lien de réinitialisation sera envoyé. Vérifie aussi les courriers indésirables.":"If an account matches this address, a reset link will be sent. Check your spam folder too.")
+      : result.error==="rate_limited"
+        ? (fr?"Attends une minute avant de réessayer.":"Wait a minute before trying again.")
+        : result.error==="invalid_email"
+          ? (fr?"Vérifie ton adresse e-mail.":"Check your email address.")
+          : (fr?"La demande n’a pas pu être confirmée. Réessaie plus tard.":"The request could not be confirmed. Try again later.");
   });
 
   $("signin").addEventListener("click", () => authenticate("SYNC_SIGN_IN"));

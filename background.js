@@ -366,6 +366,25 @@ async function firebaseSessionConfig(cfg) {
   if(epoch!==accountEpoch || !session)throw Error('account_changed');
   return {...session,apiKey:cfg.apiKey};
 }
+
+async function requestAccountRecovery(payload={}) {
+  await storageProtection;
+  if(!payload.firebase)throw Error("provider_not_configured");
+  const auth=YomuSync.createFirebaseAuth(payload.firebase);
+  const email=typeof payload.email==="string"?payload.email.trim():"";
+  if(email.length>254||!/^\S+@\S+\.\S+$/.test(email))throw Error("invalid_email");
+  // Persist the throttle across worker suspension; do not store the email.
+  await serializeLibrary(async()=>{
+    const next=await read("yomu.passwordReset.nextAllowedAt",0);
+    if(Number.isFinite(next)&&next>Date.now())throw Error("rate_limited");
+    await api.storage.local.set({"yomu.passwordReset.nextAllowedAt":Date.now()+60000});
+  });
+  const lang=(await read(SETTINGS_KEY,{})).lang||"en";
+  await auth.requestPasswordReset(email,lang);
+  // Never expose whether the address belongs to an existing account.
+  return {ok:true};
+}
+
 async function firebaseAuth(signup,config,email,password) {
   await storageProtection;
   const ticket=++authAttempt,epoch=accountEpoch;
@@ -2575,6 +2594,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }).catch(e => sendResponse({ok:false,error:String(e.message)}));
       return true;
 
+    case "SYNC_PASSWORD_RESET":
+      requestAccountRecovery(message.payload).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));
+      return true;
     case "SYNC_PREVIEW_GUEST_IMPORT":
       serializeLibrary(previewGuestTransfer).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));
       return true;

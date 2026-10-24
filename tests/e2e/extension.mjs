@@ -1000,6 +1000,11 @@ try {
   assert.equal(copied["yomu.accountCaches.v1"].guest["dasi.items"][0].episode,4);
   assert((await transferPage.locator("#lastsync").innerText()).includes("attente"));
   await transferPage.screenshot({path:path.join(artifactDir,"guest-library-transfer.png"),fullPage:true});
+  await worker.evaluate(async()=>serializeLibrary(()=>switchSyncAccount(null)));
+  await transferPage.reload();
+  await transferPage.locator("#forgot-password").click();
+  await transferPage.waitForFunction(()=>document.querySelector("#recovery-message").textContent.includes("activation"));
+  assert(!(await transferPage.locator("#recovery-message").innerText()).includes("envoyé"));
   await transferPage.close();
   console.log("Guest library transfer: preview, target account, copy, original retention and pending backup passed");
 

@@ -2513,3 +2513,43 @@ describe("explicit guest library transfer",()=>{
   expect(await signed.call({type:"SYNC_PREVIEW_GUEST_IMPORT"},{id:"test",url:"https://reader.example",tab:{id:1}})).toMatchObject({ok:false,error:"forbidden_message"});
  });
 });
+
+describe("Firebase password recovery from extension",()=>{
+ const firebase={projectId:"yomu-test-project",apiKey:"public-test-configuration-key"};
+ it("requests a localized reset without persisting email or modifying the library",async()=>{
+  const w=worker({"dasi.items":[{id:"kept"}],"dasi.settings":{lang:"fr"}});
+  let request:any;
+  w.ctx.fetch=async(url:string,init:any)=>{request={url,init};return new Response(JSON.stringify({email:"reader@example.com"}));};
+  expect(await w.call({type:"SYNC_PASSWORD_RESET",payload:{firebase,email:"reader@example.com",password:"must-not-send"}})).toEqual({ok:true});
+  expect(request.url).toContain("https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?");
+  expect(JSON.parse(request.init.body)).toEqual({requestType:"PASSWORD_RESET",email:"reader@example.com"});
+  expect(request.init.headers["X-Firebase-Locale"]).toBe("fr");
+  expect(w.data["dasi.items"]).toEqual([{id:"kept"}]);
+  expect(JSON.stringify(w.data)).not.toContain("reader@example.com");
+  expect(JSON.stringify(request)).not.toContain("must-not-send");
+ });
+ it("returns the same result for an unknown email address",async()=>{
+  const w=worker();w.ctx.fetch=async()=>new Response(JSON.stringify({error:{message:"EMAIL_NOT_FOUND"}}),{status:400});
+  expect(await w.call({type:"SYNC_PASSWORD_RESET",payload:{firebase,email:"unknown@example.com"}})).toEqual({ok:true});
+ });
+ it("retains the recovery throttle after worker restart",async()=>{
+  const w=worker();let calls=0;w.ctx.fetch=async()=>{calls++;return new Response("{}");};
+  const request={type:"SYNC_PASSWORD_RESET",payload:{firebase,email:"reader@example.com"}};
+  expect(await w.call(request)).toEqual({ok:true});
+  expect(await w.call(request)).toMatchObject({ok:false,error:"rate_limited"});
+  expect(calls).toBe(1);
+  const next=worker(w.data);
+  expect(await next.call(request)).toMatchObject({ok:false,error:"rate_limited"});
+ });
+ it("rejects missing configuration, malformed addresses and page senders before networking",async()=>{
+  const w=worker();let calls=0;w.ctx.fetch=async()=>{calls++;return new Response("{}");};
+  expect(await w.call({type:"SYNC_PASSWORD_RESET",payload:{email:"reader@example.com"}})).toMatchObject({ok:false,error:"provider_not_configured"});
+  expect(await w.call({type:"SYNC_PASSWORD_RESET",payload:{firebase,email:"bad"}})).toMatchObject({ok:false,error:"invalid_email"});
+  expect(await w.call({type:"SYNC_PASSWORD_RESET",payload:{firebase,email:"reader@example.com"}},{id:"test",url:"https://reader.example",tab:{id:1}})).toMatchObject({ok:false,error:"forbidden_message"});
+  expect(calls).toBe(0);
+ });
+ it("reports network failure without claiming a recovery email was sent",async()=>{
+  const w=worker();w.ctx.fetch=async()=>{throw Error("private upstream error");};
+  expect(await w.call({type:"SYNC_PASSWORD_RESET",payload:{firebase,email:"reader@example.com"}})).toMatchObject({ok:false,error:"network_error"});
+ });
+});
