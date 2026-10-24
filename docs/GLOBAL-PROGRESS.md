@@ -1,12 +1,22 @@
 # Suivi global Yomu
 
-Mise à jour : 24 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 25 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Bibliothèque : accès aux sections et ajout aux listes — 25 octobre 2026
+
+[CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40140602189), commit f7deb88f765920285724d130cdfe2d566644877d : 643 tests unitaires, audit sans vulnérabilité connue, parcours web et Chrome, tests des listes, capacité et récupérations PostgreSQL/Firebase réussis. La mise à jour du profil Chrome de 0.3.1 vers 0.4.24 conserve compte, progression, listes et profil.
+
+Les cartes d'œuvres enregistrées proposent maintenant une action visible et nommée « Ajouter à une liste ». Le titre conserve son action distincte d'ouverture de fiche. Les raccourcis Collection, Listes et Sites affichent leurs compteurs, se mettent à jour après modification et déplacent le focus vers le bon titre. Le raccourci Listes revient aux listes actives si les archives étaient affichées.
+
+Le menu d'ajout suit le bouton après défilement et redimensionnement, reste dans la fenêtre sur petit écran et accepte les noms longs avec défilement interne. Échap rend le focus au bouton ; les flèches et Début/Fin parcourent les choix. Les écouteurs sont retirés à la fermeture. Les contrôles Chrome utilisent un vrai bouton de carte puis une page défilée à 320 px, avec 40 listes aux noms longs, et vérifient les limites après redimensionnement. Capture : test-results/library-quick-add-mobile.png.
+
+Les anciens tests qui cliquaient le centre d'une carte ou exigeaient l'absence du bouton ont été remplacés par des contrôles des actions explicites et de leur nom accessible. Aucun paquet installé dans le navigateur utilisateur. G13 reste partiel : cette réception ne valide pas à elle seule tout le tableau de bord, les imports et la sauvegarde de production. Global inchangé : 19/60 (32 % arrondi).
 
 ## Récupération du compte préparée dans l'extension — 24 octobre 2026
 
