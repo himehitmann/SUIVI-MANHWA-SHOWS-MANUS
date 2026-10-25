@@ -8,6 +8,16 @@ Mise à jour : 25 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Sélection et enregistrement des images — 25 octobre 2026
+
+[CI PR réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40220908473), commit c4c68167936303870aa19cb71aa9cb3aa7b02dd1 : 643 tests unitaires, audit sans vulnérabilité connue, parcours Chrome/web, recadrage, capacité et récupérations réussis. L'exécution push parallèle 40220901971 a échoué avant le recadrage sur l'absence de alchemy-of-souls dans la liste au test extension.mjs:231. Le parcours identique passe dans la CI PR ; cause de cette intermittence non déterminée et non revendiquée comme corrigée.
+
+Le recadrage ignore le chargement tardif d'une ancienne sélection. Une image illisible désactive l'enregistrement au lieu de conserver silencieusement l'ancienne image. Les retours de lecture de fichiers après fermeture ou nouvelle sélection sont ignorés. Pendant la sauvegarde, les actions concurrentes sont désactivées ; en cas de refus, le cadrage reste disponible avec un message de reprise. La fermeture pendant une demande ne permet pas à sa réponse de fermer un nouveau recadrage.
+
+Les nouveaux tests contrôlent deux chargements dans l'ordre inverse, une erreur d'image, les doubles clics, la conservation du cadrage après refus et une reprise réussie. Le test de chargement utilise des événements Image contrôlés ; l'enregistrement utilise une image canvas réelle. Les contrôles de taille desktop/mobile, zoom et annulation existants passent également.
+
+Aucun paquet installé dans le navigateur utilisateur. Global inchangé : 19/60 (32 % arrondi).
+
 ## Édition directe du profil dans la bibliothèque — 25 octobre 2026
 
 [CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40214910973), commit f3e78cb9a919a2d87f779ba089e8c43e45259fe7 : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, capacité et récupérations réussis.
