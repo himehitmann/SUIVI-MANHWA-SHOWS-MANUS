@@ -2336,6 +2336,7 @@ function openCropper({ shape = "square", onSave, initial, title, allowClear = fa
   document.getElementById("crop-remove").hidden = !allowClear;
   document.getElementById("crop-url-row").hidden = !allowClear;
   document.getElementById("crop-url").value = "";
+  ["crop-remove","crop-use-url","crop-file","crop-zoom"].forEach(id=>document.getElementById(id).disabled=false);
   clearCanvas();
   if (initial) loadCropImage(initial); else document.getElementById("crop-input").click();
 }
@@ -2350,10 +2351,12 @@ function clearCanvas() {
 }
 function loadCropImage(src) {
   const state = cropState;
-  if (!state) return;
+  if (!state || state.saving) return;
+  const request=state.imageRequest=(state.imageRequest||0)+1;
+  state.img=null;clearCanvas();document.getElementById("crop-save").disabled=true;
   const img = new Image();
   img.onload = () => {
-    if (cropState !== state) return;
+    if (cropState !== state || state.imageRequest!==request) return;
     document.getElementById("crop-save").disabled = false;
     const cover = Math.max(CT_W / img.naturalWidth, CT_H / img.naturalHeight);
     cropState.img = img; cropState.cover = cover; cropState.zoom = 1;
@@ -2362,7 +2365,7 @@ function loadCropImage(src) {
     document.getElementById("crop-zoom").value = 1;
     drawCrop();
   };
-  img.onerror = () => { if(cropState === state) document.getElementById("crop-hint").textContent = "This image could not be loaded. Choose another file."; };
+  img.onerror = () => { if(cropState === state && state.imageRequest===request) document.getElementById("crop-hint").textContent = "This image could not be loaded. Choose another file."; };
   img.src = src;
 }
 function cropDims() { const s = cropState.cover * cropState.zoom; return { dw: cropState.img.naturalWidth * s, dh: cropState.img.naturalHeight * s }; }
@@ -2415,22 +2418,29 @@ function exportCrop() {
   document.getElementById("crop-file").onclick = () => document.getElementById("crop-input").click();
   document.getElementById("crop-input").addEventListener("change", (e) => {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
-    if (!f) return; const rd = new FileReader(); rd.onload = () => loadCropImage(String(rd.result)); rd.readAsDataURL(f);
+    if (!f || !cropState || cropState.saving) return; const state=cropState,selection=state.fileRequest=(state.fileRequest||0)+1; const rd = new FileReader(); rd.onload = () => {if(cropState===state&&state.fileRequest===selection)loadCropImage(String(rd.result));}; rd.readAsDataURL(f);
   });
   document.getElementById("crop-cancel").onclick = closeCropper;
   const commitCrop = async (clear, imageUrl) => {
     const state=cropState;
-    if(!state?.onSave || (!clear && !imageUrl && !state.img))return;
-    const button=document.getElementById("crop-save");button.disabled=true;
+    if(!state?.onSave || state.saving || (!clear && !imageUrl && !state.img))return;
+    state.saving=true;
+    const controls=["crop-save","crop-remove","crop-use-url","crop-file","crop-zoom"].map(id=>document.getElementById(id));
+    const previous=controls.map(control=>control.disabled);
+    controls.forEach(control=>control.disabled=true);
+    const button=document.getElementById("crop-save");
     try {
       const saved=await state.onSave(imageUrl || (clear?"":exportCrop()));
       if(cropState!==state)return;
-      if(saved===false){button.disabled=!state.img;return;}
+      if(saved===false){document.getElementById("crop-hint").textContent=settings.lang==="fr"?"Enregistrement non confirmé. Ton cadrage est conservé, tu peux réessayer.":"Save not confirmed. Your crop is retained; you can retry.";return;}
       closeCropper();
     }catch{
       if(cropState!==state)return;
       document.getElementById("crop-hint").textContent="Could not save this image. Try another image.";
       button.disabled=!state.img;
+    }finally{
+      state.saving=false;
+      if(cropState===state){controls.forEach((control,index)=>control.disabled=previous[index]);button.disabled=!state.img;}
     }
   };
   document.getElementById("crop-save").onclick=()=>commitCrop(false);

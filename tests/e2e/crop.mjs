@@ -36,5 +36,38 @@ try {
   await page.screenshot({path:`test-results/crop-banner-${width}.png`});
   await page.locator('#crop-cancel').click();
  }
+ const selection=await page.evaluate(()=>{
+  const originalImage=window.Image,originalDraw=drawCrop,pending=[];
+  openCropper({initial:"",onSave:()=>true});
+  window.Image=class {naturalWidth=800;naturalHeight=400;set src(value){this.url=value;pending.push(this);}};
+  drawCrop=()=>{};
+  try{
+   loadCropImage("old");loadCropImage("new");
+   pending[1].onload();const chosen=cropState.img;
+   pending[0].onload();pending[0].onerror();
+   const newest=cropState.img===chosen&&chosen.url==="new";
+   loadCropImage("broken");pending[2].onerror();
+   return {newest,disabled:document.getElementById("crop-save").disabled,empty:cropState.img===null};
+  }finally{window.Image=originalImage;drawCrop=originalDraw;closeCropper();}
+ });
+ assert.deepEqual(selection,{newest:true,disabled:true,empty:true});
+ await page.evaluate(()=>{
+  const canvas=document.createElement("canvas");canvas.width=100;canvas.height=100;
+  globalThis.cropCalls=0;globalThis.cropResolve=null;
+  openCropper({initial:canvas.toDataURL(),allowClear:true,onSave:()=>{cropCalls++;return new Promise(resolve=>cropResolve=resolve);}});
+ });
+ await page.waitForFunction(()=>!!cropState.img);
+ await page.locator("#crop-save").click();
+ await page.evaluate(()=>{document.getElementById("crop-remove").click();document.getElementById("crop-save").click();});
+ assert.equal(await page.evaluate(()=>cropCalls),1);
+ await page.evaluate(()=>cropResolve(false));
+ await page.waitForFunction(()=>!document.getElementById("crop-save").disabled);
+ assert(await page.locator("#cropper").evaluate(n=>n.classList.contains("open")));
+ assert(await page.evaluate(()=>!!cropState.img));
+ await page.locator("#crop-save").click();
+ assert.equal(await page.evaluate(()=>cropCalls),2);
+ await page.evaluate(()=>cropResolve(true));
+ await page.waitForFunction(()=>cropState===null);
+
  console.log('PASS: desktop/mobile bounds; wheel zoom; crop bounds; cancel');
 } finally {await context.close();}
