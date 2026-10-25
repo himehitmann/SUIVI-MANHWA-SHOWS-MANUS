@@ -8,6 +8,14 @@ Mise à jour : 25 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Édition directe du profil dans la bibliothèque — 25 octobre 2026
+
+[CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40214910973), commit f3e78cb9a919a2d87f779ba089e8c43e45259fe7 : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, capacité et récupérations réussis.
+
+Les éditeurs directs du nom et de la bio ne reconstruisent plus immédiatement l'en-tête avant confirmation. Après échec, le texte reste dans le champ courant avec état d'erreur et bouton Réessayer. Entrée enregistre, Maj+Entrée permet un retour à la ligne dans la bio et Échap annule hors sauvegarde. Les commandes empêchent les doubles demandes pendant l'enregistrement. Les changements d'image ne reconstruisent plus l'en-tête en cas d'échec.
+
+Le test Chrome ouvre la bio, saisit un brouillon, provoque un refus lors de la sortie du champ, vérifie sa conservation et clique Réessayer pour confirmer son enregistrement. La conservation concerne l'éditeur ouvert, pas un brouillon durable après rechargement. Aucun paquet installé dans le navigateur utilisateur. Global inchangé : 19/60 (32 % arrondi).
+
 ## Conservation du nom de profil après échec — 25 octobre 2026
 
 [CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40184346504), commit 9194cc6a008329aaf88cc1bfd03701665e98d71c : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, capacité et récupérations réussis.
