@@ -661,6 +661,13 @@ main:focus{outline:none}
 .list-work-title{font:inherit;font-weight:700;text-align:left;white-space:normal;overflow-wrap:anywhere;max-width:100%}.list-work-title:focus-visible{outline:2px solid var(--lav-ink);outline-offset:3px}#list-add-search{max-width:480px;width:100%;margin:8px 0}#list-add-options{max-height:320px;overflow:auto;padding:4px}
 .strip-list .list-open{font:inherit;font-weight:700;text-align:left;white-space:normal;max-width:100%;overflow-wrap:anywhere}.strip-list .list-open:focus-visible{outline:2px solid var(--lav-ink);outline-offset:3px}
 .rate button{display:grid;place-items:center;border:0;background:transparent;padding:4px;cursor:pointer}.rate button:focus-visible,.fav:focus-visible{outline:2px solid var(--lav-ink);outline-offset:3px}.rate button:disabled,.fav:disabled{cursor:wait}
+.drawer :is(.drawer-title,.drawer-marker,.synopsis,.tag,.chip-toggle,.game-meta,.game-news-card){overflow-wrap:anywhere;min-width:0;max-width:100%}
+.drawer .chip-toggle{white-space:normal;text-align:left}
+.drawer .stepper,.drawer .released-row{flex-wrap:wrap}
+.drawer .stepper>button,.drawer .stepper>input,.drawer .released-row>input{flex-shrink:0}
+#dr-rate button{display:grid;place-items:center;min-width:36px;min-height:36px;padding:5px;border:0;background:transparent;border-radius:6px}
+#dr-rate button:focus-visible{outline:2px solid var(--lav-ink);outline-offset:2px}
+#view-settings .row .grow{overflow-wrap:anywhere}
 </style>
   </head>
   <body>

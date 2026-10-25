@@ -36,6 +36,38 @@ try {
    if(width===320)await page.screenshot({path:"test-results/audit-"+target+"-320.png",fullPage:true});
   }
  }
+ // Long unbroken provider labels must not widen a mobile drawer.
+ await page.setViewportSize({width:320,height:900});
+ await page.evaluate(()=>{
+  const text="LongUnbrokenLabel".repeat(18);
+  items=[{...items[0],title:text,synopsis:text+" "+text,alternativeTitles:[text],genres:[text],authors:[text],rating:0,cast:[],identityVersion:1}];
+  lists=[{id:"audit-long",name:text,itemIds:[]}];renderAll();openDrawer("audit-work");
+ });
+ await page.locator("#dr-close").waitFor({state:"visible"});
+ await page.locator("#dr-syn-toggle").click();
+ const detailGeometry=await page.locator("#drawer").evaluate(panel=>{
+  const box=panel.getBoundingClientRect();
+  return {width:panel.clientWidth,scroll:panel.scrollWidth,overflow:[...panel.querySelectorAll(".drawer-title,.synopsis,.tag,.chip-toggle")].filter(n=>n.getClientRects().length).filter(n=>{const r=n.getBoundingClientRect();return r.left<box.left-1||r.right>box.right+1;}).map(n=>n.className)};
+ });
+ assert(detailGeometry.scroll<=detailGeometry.width+1,JSON.stringify(detailGeometry));assert.deepEqual(detailGeometry.overflow,[]);
+ await page.screenshot({path:"test-results/audit-long-detail-320.png",fullPage:true});
+ await page.evaluate(()=>{
+  globalThis.ratingTransport=api.runtime.sendMessage;
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="UPDATE_ITEM"){callback({ok:true,items:items.map(item=>item.id===message.id?{...item,...message.patch}:item)});return;}
+   return globalThis.ratingTransport.call(api.runtime,message,callback);
+  };
+ });
+ const star=page.locator('#dr-rate button[data-v="4"]');
+ await star.focus();await page.keyboard.press("Enter");
+ await page.waitForFunction(()=>items[0].rating===4);
+ assert.equal(await star.getAttribute("aria-pressed"),"true");
+ assert(await star.evaluate(node=>node===document.activeElement));
+ await page.keyboard.press("Space");await page.waitForFunction(()=>items[0].rating===0);
+ assert.equal(await star.getAttribute("aria-pressed"),"false");
+ await page.evaluate(()=>{api.runtime.sendMessage=globalThis.ratingTransport;delete globalThis.ratingTransport;closeDrawer();});
+ await page.setViewportSize({width:1440,height:900});
+
  // Settings must show confirmed values, release failed controls, and ignore late replies.
  await page.locator("#avatar").click();
  const settingFailures=await page.evaluate(async()=>{

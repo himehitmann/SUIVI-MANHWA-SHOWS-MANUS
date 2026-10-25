@@ -1047,9 +1047,9 @@ function refreshOpenItem(id) {
   if(drawer.classList.contains("open") && drawer.dataset.itemId===id)openDrawer(id);
 }
 function update(id, patch) {
-  return new Promise(resolve => api.runtime.sendMessage({type:"UPDATE_ITEM",id,patch}, r => {
+  return new Promise(resolve => requestMetadata({type:"UPDATE_ITEM",id,patch}, r => {
     if (api.runtime.lastError || r?.ok === false || !Array.isArray(r?.items)) {
-      toast(settings.lang === "fr" ? "Enregistrement impossible. Réessaie." : "Could not save. Try again.");
+      toast(settings.lang === "fr" ? "Enregistrement non confirmé. Vérifie la valeur avant de réessayer." : "Save not confirmed. Check the value before retrying.");
       refreshOpenItem(id); resolve(false); return;
     }
     items = r.items; renderAll(); refreshOpenItem(id); resolve(true);
@@ -2152,7 +2152,7 @@ function openDrawer(id) {
       ${isGame ? gameNewsHtml(i)+gameRewardsHtml() : `<div class="section-t">${t("status")}</div>
       <div class="chips-wrap" id="dr-status">${STATUSES.map((s) => `<button class="chip-toggle ${itemState(i) === s ? "on" : ""}" data-status="${s}">${itemState(i) === s ? I.check : ""} ${t(s)}</button>`).join("")}</div>`}
       <div class="section-t">${t("rating")}</div>
-      <div class="rate-big" id="dr-rate">${[1,2,3,4,5].map((n) => `<span data-v="${n}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= (i.rating || 0) ? "on" : ""}"`)}</span>`).join("")}</div>
+      <div class="rate-big" id="dr-rate">${[1,2,3,4,5].map((n) => `<button type="button" data-v="${n}" aria-pressed="${i.rating===n}" aria-label="${esc(t("rating")+" "+n+"/5")}">${I.star.replace('class="ic fill"', `class="ic fill ${n <= (i.rating || 0) ? "on" : ""}"`)}</button>`).join("")}</div>
       <div class="section-t">${t("tags")}</div><div class="tag-edit" id="dr-tags"></div>
       <div class="section-t">${t("lists")}</div>
       <div class="chips-wrap" id="dr-lists">${lists.map((l) => `<button class="chip-toggle ${memberIn.includes(l.id) ? "on" : ""}" data-list="${esc(l.id)}">${memberIn.includes(l.id) ? I.check : I.plus} ${esc(l.name)}</button>`).join("") || `<span style="color:var(--muted);font-size:12px">${t("newList")}…</span>`}</div>
@@ -2242,7 +2242,14 @@ function wireDrawer(i, isWatch, isGame) {
     document.getElementById("dr-prereg").onclick = () => { update(i.id, { preregistered: !i.preregistered }); };
   }
   document.getElementById("dr-cover").onclick = () => changeCover(async (v) => { const saved=await update(i.id, { coverOverride: v }); if(saved)openDrawer(i.id); return saved; });
-  document.querySelectorAll("#dr-rate span").forEach((s) => (s.onclick = () => { const v = Number(s.dataset.v); update(i.id, { rating: i.rating === v ? 0 : v }); }));
+  document.querySelectorAll("#dr-rate button").forEach(button=>button.onclick=async()=>{
+    if(button.disabled)return;
+    const v=Number(button.dataset.v),hadFocus=document.activeElement===button;
+    document.querySelectorAll("#dr-rate button").forEach(control=>control.disabled=true);
+    await update(i.id,{rating:i.rating===v?0:v});
+    const drawer=document.getElementById("drawer");
+    if(hadFocus&&drawer.classList.contains("open")&&drawer.dataset.itemId===i.id)drawer.querySelector('#dr-rate button[data-v="'+v+'"]')?.focus({preventScroll:true});
+  });
   document.querySelectorAll("#dr-status [data-status]").forEach((b) => (b.onclick = () => {
     const s = b.dataset.status; const patch = { state: s };
     if (s === "completed") { patch.progress = 100; patch.status = "completed"; }
