@@ -1037,9 +1037,9 @@ function toast(m) { const el = document.getElementById("toast"); el.textContent 
 
 function saveProfilePatch(patch) {
   const profile={...(settings.profile||{}),...patch};
-  return new Promise(resolve=>api.runtime.sendMessage({type:"SET_SETTINGS",patch:{profile}},r=>{
+  return new Promise(resolve=>requestMetadata({type:"SET_SETTINGS",patch:{profile}},r=>{
     if(api.runtime.lastError || r?.ok===false || !r?.settings){toast(settings.lang==="fr"?"Profil non enregistré. Réessaie.":"Profile could not be saved. Try again.");resolve(false);return;}
-    settings=r.settings;paintAvatar();renderProfileMenu();resolve(true);
+    settings={...settings,profile:r.settings.profile||settings.profile};paintAvatar();renderProfileMenu();resolve(true);
   }));
 }
 function refreshOpenItem(id) {
@@ -2436,7 +2436,7 @@ function renderSettings() {
     <div class="section-t">${t("editProfile")}</div>
     <div class="panel"><div class="row">
       <div class="avatar-lg" id="set-avatar">${p.avatar ? `<img src="${esc(p.avatar)}">` : esc(initials(p.name))}</div>
-      <div class="grow"><input class="field" id="set-name" aria-label="${esc(t("displayName"))}" placeholder="${t("displayName")}" value="${esc(p.name || "")}" style="max-width:280px" /></div>
+      <div class="grow"><input class="field" id="set-name" aria-describedby="set-name-status" aria-label="${esc(t("displayName"))}" placeholder="${t("displayName")}" value="${esc(p.name || "")}" style="max-width:280px" /><small id="set-name-status" role="status"></small><button type="button" class="link-btn" id="set-name-retry" hidden>${t("retryLabel")}</button></div>
       <button class="btn" id="set-photo">${I.image} ${t("changePhoto")}</button>
     </div></div>
     <div class="section-t">${t("account")}</div>
@@ -2482,8 +2482,19 @@ async function saveSettingControl(key,value,control,paint) {
 }
 function wireSettings() {
   const nameEl = document.getElementById("set-name");
-  const saveProfile = patch => saveProfilePatch(patch).then(saved=>{renderSettings();return saved;});
-  nameEl.onchange = () => saveProfile({ name: nameEl.value.trim() });
+  const saveProfile = patch => saveProfilePatch(patch).then(saved=>{if(saved&&view==="settings")renderSettings();return saved;});
+  const retryName=document.getElementById("set-name-retry"),nameStatus=document.getElementById("set-name-status");
+  const saveName=async()=>{
+    if(nameEl.disabled)return;
+    const draft=nameEl.value.trim();
+    nameEl.disabled=true;retryName.hidden=true;nameStatus.textContent="";
+    const saved=await saveProfilePatch({name:draft});
+    if(!nameEl.isConnected)return;
+    nameEl.disabled=false;nameEl.setAttribute("aria-invalid",String(!saved));
+    if(saved){nameEl.value=settings.profile?.name||"";nameStatus.textContent=settings.lang==="fr"?"Nom enregistré.":"Name saved.";}
+    else {retryName.hidden=false;nameStatus.textContent=settings.lang==="fr"?"Enregistrement non confirmé. Ton texte est conservé ici.":"Save not confirmed. Your text is kept here.";}
+  };
+  nameEl.onchange=saveName;retryName.onclick=saveName;
   const pickPhoto = () => openCropper({ shape: "circle", title: t("changePhoto"), initial:settings.profile?.avatar, onSave: data => saveProfile({avatar:data}) });
   document.getElementById("set-photo").onclick = pickPhoto;
   document.getElementById("set-avatar").onclick = pickPhoto;

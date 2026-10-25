@@ -111,6 +111,27 @@ try {
  await page.keyboard.press("Space");await page.waitForFunction(()=>items[0].preregistered===false);
  await page.evaluate(()=>{api.runtime.sendMessage=globalThis.gameTransport;items=globalThis.gameOriginalItems;delete globalThis.gameTransport;delete globalThis.gameOriginalItems;closeDrawer();});
 
+ // A failed profile save must retain the user's draft and offer a real retry.
+ await page.locator("#avatar").click();
+ await page.evaluate(()=>{
+  globalThis.nameTransport=api.runtime.sendMessage;
+  api.runtime.sendMessage=(message,callback)=>message.type==="SET_SETTINGS"&&message.patch?.profile?callback({ok:false}):globalThis.nameTransport.call(api.runtime,message,callback);
+ });
+ await page.locator("#set-name").fill("My retained profile draft");
+ await page.locator("#set-name").press("Tab");
+ await page.locator("#set-name-retry").waitFor({state:"visible"});
+ assert.equal(await page.locator("#set-name").inputValue(),"My retained profile draft");
+ assert.equal(await page.locator("#set-name").isEnabled(),true);
+ assert.equal(await page.locator("#set-name").getAttribute("aria-invalid"),"true");
+ await page.evaluate(()=>{
+  api.runtime.sendMessage=(message,callback)=>message.type==="SET_SETTINGS"&&message.patch?.profile?callback({ok:true,settings:{...settings,profile:message.patch.profile}}):globalThis.nameTransport.call(api.runtime,message,callback);
+ });
+ await page.locator("#set-name-retry").click();
+ await page.waitForFunction(()=>settings.profile?.name==="My retained profile draft");
+ assert.equal(await page.locator("#set-name-retry").isHidden(),true);
+ assert.equal(await page.locator("#set-name").getAttribute("aria-invalid"),"false");
+ await page.evaluate(()=>{api.runtime.sendMessage=globalThis.nameTransport;delete globalThis.nameTransport;});
+
  // Settings must show confirmed values, release failed controls, and ignore late replies.
  await page.locator("#avatar").click();
  const settingFailures=await page.evaluate(async()=>{
