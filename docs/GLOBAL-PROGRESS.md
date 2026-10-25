@@ -8,6 +8,16 @@ Mise à jour : 25 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Fiches longues et notation au clavier — 25 octobre 2026
+
+[CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40182931123), commit 81d30191806e818c9256bb82c7365c13b0205022 : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, capacité et récupérations réussis.
+
+Les titres, synopsis, auteurs, alias, tags et boutons de listes peuvent revenir à la ligne dans les fiches. Les contrôles de progression peuvent se répartir sur plusieurs lignes sur petit écran. Le parcours Chrome utilise des chaînes très longues sans espaces sur une fiche de 320 px, développe le synopsis et vérifie la largeur défilante ainsi que les limites des textes et boutons. Capture dans test-results/audit-long-detail-320.png ; ce contrôle géométrique ne remplace pas la revue visuelle de tous les contenus.
+
+Les étoiles de notation sont de vrais boutons nommés, avec état aria-pressed et focus visible. Le test vérifie Entrée pour attribuer une note, Espace pour la retirer et maintien du focus après reconstruction de la fiche. Les commandes sont désactivées pendant la sauvegarde. UPDATE_ITEM utilise maintenant le transport borné existant : une absence de réponse ne suspend plus indéfiniment la commande ; le message précise que l'enregistrement n'est pas confirmé. Le délai n'annule pas une écriture déjà engagée côté worker.
+
+Aucune installation dans le navigateur utilisateur. Pas de nouveau critère global entièrement clos : 19/60 (32 % arrondi).
+
 ## Réglages confirmés et libellés accessibles — 25 octobre 2026
 
 [CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40180544219), commit 406bcec0ef265b0a45df752c98e2ee0c59a68eba : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, audit UI enrichi, capacité et récupérations réussis.
