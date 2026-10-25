@@ -68,6 +68,49 @@ try {
  await page.evaluate(()=>{api.runtime.sendMessage=globalThis.ratingTransport;delete globalThis.ratingTransport;closeDrawer();});
  await page.setViewportSize({width:1440,height:900});
 
+ // A silent membership save must not block the serialized queue forever.
+ const membership=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,savedLists=lists;
+  let late,mode="silent";
+  requestMetadata=(message,callback)=>request(message,callback,20);
+  lists=[{id:"retry-list",name:"Retry list",itemIds:[]}];
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="LIST_MEMBERSHIP"){
+    if(mode==="silent")late=callback;
+    else callback({ok:true,lists:[{id:"retry-list",name:"Retry list",itemIds:[message.itemId]}]});
+    return;
+   }
+   return original.call(api.runtime,message,callback);
+  };
+  try{
+   openDrawer("audit-work");document.querySelector('#dr-lists [data-list="retry-list"]').click();
+   await new Promise(r=>setTimeout(r,50));
+   const enabled=!document.querySelector('#dr-lists [data-list="retry-list"]').disabled;
+   const intact=lists[0].itemIds.length===0;
+   mode="success";document.querySelector('#dr-lists [data-list="retry-list"]').click();
+   await new Promise(r=>setTimeout(r,30));
+   const recovered=lists[0].itemIds.includes("audit-work");
+   late({ok:true,lists:[]});
+   return {enabled,intact,recovered,lateIgnored:lists.length===1};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;lists=savedLists;closeDrawer();}
+ });
+ assert.deepEqual(membership,{enabled:true,intact:true,recovered:true,lateIgnored:true});
+ const gameState=await page.evaluate(()=>{
+  globalThis.gameOriginalItems=items;globalThis.gameTransport=api.runtime.sendMessage;
+  items=[{id:"keyboard-game",type:"game",title:"Keyboard game",gameEnrichedAt:Date.now(),synopsis:"Game",preregistered:false}];
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="UPDATE_ITEM"){callback({ok:true,items:items.map(item=>({...item,...message.patch}))});return;}
+   return globalThis.gameTransport.call(api.runtime,message,callback);
+  };
+  openDrawer("keyboard-game");return true;
+ });
+ const prereg=page.locator("#dr-prereg");
+ await prereg.focus();await page.keyboard.press("Enter");
+ await page.waitForFunction(()=>items[0].preregistered===true);
+ assert.equal(await prereg.getAttribute("aria-pressed"),"true");assert(await prereg.evaluate(n=>n===document.activeElement));
+ await page.keyboard.press("Space");await page.waitForFunction(()=>items[0].preregistered===false);
+ await page.evaluate(()=>{api.runtime.sendMessage=globalThis.gameTransport;items=globalThis.gameOriginalItems;delete globalThis.gameTransport;delete globalThis.gameOriginalItems;closeDrawer();});
+
  // Settings must show confirmed values, release failed controls, and ignore late replies.
  await page.locator("#avatar").click();
  const settingFailures=await page.evaluate(async()=>{

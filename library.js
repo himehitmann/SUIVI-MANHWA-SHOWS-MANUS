@@ -2071,9 +2071,9 @@ function changeListMembership(id,itemId,adding,silent=false) {
 }
 async function setListItems(id,itemIds) {const saved=await listMsg("LIST_REORDER_ITEMS",{id,itemIds},()=>{});if(currentListId===id)renderListDetail();return saved;}
 function listMsg(type, payload, done) {
-  return new Promise(resolve => api.runtime.sendMessage({type,...payload},r=>{
+  return new Promise(resolve => requestMetadata({type,...payload},r=>{
     if(api.runtime.lastError || r?.ok===false || !Array.isArray(r?.lists)){
-      toast(settings.lang==="fr"?"La liste n’a pas été enregistrée. Réessaie.":"The list could not be saved. Try again."); resolve(false); return;
+      toast(r?.error==="metadata_timeout"?(settings.lang==="fr"?"Enregistrement de la liste non confirmé. Vérifie son contenu avant de réessayer.":"List save not confirmed. Check its contents before retrying."):(settings.lang==="fr"?"La liste n’a pas été enregistrée. Réessaie.":"The list could not be saved. Try again.")); resolve(false); return;
     }
     lists=r.lists;
     if(done)done(r);else {renderLists();if(currentListId)renderListDetail();}
@@ -2135,7 +2135,7 @@ function openDrawer(id) {
         ${Array.isArray(i.genres)&&i.genres.length?`<div class="tags">${i.genres.filter(x=>typeof x==="string").map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
         <div class="game-meta">${i.platform ? `<span class="meta-pill">${I.game} ${esc(i.platform)}</span>` : ""}${i.releaseDate ? `<span class="meta-pill date">${esc(i.releaseDate)}</span>` : ""}${i.price ? `<span class="meta-pill price" title="${esc(gamePriceNote(i))}">${esc(i.price)}</span>` : ""}</div>
         ${i.price ? `<p class="sub" data-i18n-static>${esc(gamePriceNote(i))}</p>` : ""}
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${embeddedTrailer(i.trailer,i.trailerUrl)}${gameStoreButtons(i)}${gameSourceCredit(i)}<label class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</label></div>`
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${embeddedTrailer(i.trailer,i.trailerUrl)}${gameStoreButtons(i)}${gameSourceCredit(i)}<button type="button" class="prereg ${i.preregistered ? "on" : ""}" id="dr-prereg" aria-pressed="${!!i.preregistered}"><span class="box">${i.preregistered ? I.check : ""}</span>${t("preRegistered")}</button></div>`
       : `
         <div class="section-t">${t("progress")}</div>
         <p class="field-hint">${isWatch ? t("progHintWatch") : t("progHintRead")}</p>
@@ -2239,7 +2239,12 @@ function wireDrawer(i, isWatch, isGame) {
     const markall = document.getElementById("dr-markall");
     if (markall) markall.onclick = () => { setNum(i.total || currentNum(i)); };
   } else {
-    document.getElementById("dr-prereg").onclick = () => { update(i.id, { preregistered: !i.preregistered }); };
+    document.getElementById("dr-prereg").onclick = async e => {
+      const button=e.currentTarget;if(button.disabled)return;const focused=document.activeElement===button;button.disabled=true;
+      await update(i.id,{preregistered:!i.preregistered});
+      const drawer=document.getElementById("drawer");
+      if(focused&&drawer.classList.contains("open")&&drawer.dataset.itemId===i.id)document.getElementById("dr-prereg")?.focus({preventScroll:true});
+    };
   }
   document.getElementById("dr-cover").onclick = () => changeCover(async (v) => { const saved=await update(i.id, { coverOverride: v }); if(saved)openDrawer(i.id); return saved; });
   document.querySelectorAll("#dr-rate button").forEach(button=>button.onclick=async()=>{
