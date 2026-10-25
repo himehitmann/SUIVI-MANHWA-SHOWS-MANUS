@@ -8,6 +8,16 @@ Mise à jour : 25 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Reprise des listes et suivi de jeu au clavier — 25 octobre 2026
+
+[CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40183517800), commit 402be642f87ad8974fb870554afa4c9abbd32936 : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, capacité et récupérations réussis.
+
+Le transport des opérations de listes est borné. Une demande sans réponse ne retient plus indéfiniment la file de modifications des appartenances. Le message de délai dépassé indique que la sauvegarde n'est pas confirmée et demande de vérifier le contenu avant de recommencer ; une écriture engagée dans le worker n'est pas annulée. Le parcours Chrome clique sur l'ajout dans la fiche, simule une absence de réponse puis une réussite et une ancienne réponse tardive. Il vérifie déverrouillage, conservation du contenu et reprise de la file.
+
+La préinscription d'un jeu est un véritable bouton avec aria-pressed, focus visible et protection pendant l'enregistrement. Le test utilise Entrée puis Espace pour activer et désactiver ce suivi personnel, et vérifie le maintien du focus après reconstruction de la fiche. Ce bouton enregistre un état personnel ; il ne réalise pas une inscription auprès d'une boutique.
+
+Pas de paquet installé dans le navigateur utilisateur. Validation exhaustive de la bibliothèque et des jeux encore partielle ; global 19/60 (32 % arrondi).
+
 ## Fiches longues et notation au clavier — 25 octobre 2026
 
 [CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40182931123), commit 81d30191806e818c9256bb82c7365c13b0205022 : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, capacité et récupérations réussis.
