@@ -1498,7 +1498,7 @@ function renderLibHeader() {
       </div>
     </div>
   </div>`;
-  const saveP = patch => saveProfilePatch(patch).then(saved=>{renderLibHeader();return saved;});
+  const saveP = patch => saveProfilePatch(patch).then(saved=>{if(saved)renderLibHeader();return saved;});
   const av = document.getElementById("dash-av");
   if (av) av.onclick = () => openCropper({ shape: "circle", title: t("changePhoto"), initial:p.avatar, onSave: data => saveP({avatar:data}) });
   const eb = document.getElementById("dash-edit-banner");
@@ -1509,21 +1509,41 @@ function renderLibHeader() {
     if (nameEl.querySelector("input")) return;
     const inp = document.createElement("input"); inp.className = "dash-name-input"; inp.value = name; inp.maxLength = 40;
     nameEl.replaceWith(inp); inp.focus(); inp.select();
-    let done = false;
-    const commit = () => { if (done) return; done = true; const v = inp.value.trim() || "Yomu"; saveP({ name: v }); renderLibHeader(); };
-    inp.addEventListener("blur", commit);
-    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } if (e.key === "Escape") { done = true; renderLibHeader(); } });
+    bindInlineProfileEditor(inp,"name",value=>value.trim()||"Yomu");
+
   };
   const bio = document.getElementById("dash-bio");
   if (bio) bio.onclick = () => {
     if (document.getElementById("dash-bio-ta")) return;
     const ta = document.createElement("textarea"); ta.id = "dash-bio-ta"; ta.className = "dash-bio-input"; ta.value = p.bio || ""; ta.maxLength = 240; ta.placeholder = t("bioPh");
     bio.replaceWith(ta); ta.focus();
-    let done = false;
-    const commit = () => { if (done) return; done = true; saveP({ bio: ta.value.trim() }); renderLibHeader(); };
-    ta.addEventListener("blur", commit);
-    ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ta.blur(); } if (e.key === "Escape") { done = true; renderLibHeader(); } });
+    bindInlineProfileEditor(ta,"bio",value=>value.trim());
+
   };
+}
+function bindInlineProfileEditor(input,key,normalize) {
+  let busy=false,closed=false;
+  input.setAttribute("aria-label",key==="name"?t("displayName"):t("bioPh"));
+  const status=document.createElement("small");status.setAttribute("role","status");
+  const retry=document.createElement("button");retry.type="button";retry.className="link-btn";retry.textContent=t("retryLabel");retry.hidden=true;
+  input.after(status,retry);
+  const commit=async()=>{
+    if(busy||closed||!input.isConnected)return;
+    busy=true;input.disabled=true;retry.hidden=true;status.textContent="";
+    const saved=await saveProfilePatch({[key]:normalize(input.value)});
+    busy=false;
+    if(!input.isConnected)return;
+    input.disabled=false;
+    if(saved){closed=true;renderLibHeader();return;}
+    input.setAttribute("aria-invalid","true");retry.hidden=false;
+    status.textContent=settings.lang==="fr"?"Enregistrement non confirmé. Texte conservé.":"Save not confirmed. Text retained.";
+  };
+  retry.onclick=commit;
+  input.addEventListener("blur",commit);
+  input.addEventListener("keydown",event=>{
+    if(event.key==="Enter"&&!(input.tagName==="TEXTAREA"&&event.shiftKey)){event.preventDefault();commit();}
+    if(event.key==="Escape"&&!busy){closed=true;renderLibHeader();}
+  });
 }
 function renderStats() {
   const libraryItems = items.filter(i => i.type !== "game");

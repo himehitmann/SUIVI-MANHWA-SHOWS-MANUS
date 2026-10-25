@@ -132,6 +132,27 @@ try {
  assert.equal(await page.locator("#set-name").getAttribute("aria-invalid"),"false");
  await page.evaluate(()=>{api.runtime.sendMessage=globalThis.nameTransport;delete globalThis.nameTransport;});
 
+ // Inline library biography must retain its text after failed blur-save.
+ await page.locator('#nav [data-v="library"]').click();
+ await page.evaluate(()=>{
+  globalThis.bioTransport=api.runtime.sendMessage;
+  api.runtime.sendMessage=(message,callback)=>message.type==="SET_SETTINGS"&&message.patch?.profile?callback({ok:false}):globalThis.bioTransport.call(api.runtime,message,callback);
+ });
+ await page.locator("#dash-bio").click();
+ await page.locator("#dash-bio-ta").fill("My biography draft stays here");
+ await page.locator("#dash-bio-ta").press("Tab");
+ await page.waitForFunction(()=>document.getElementById("dash-bio-ta")?.getAttribute("aria-invalid")==="true");
+ assert.equal(await page.locator("#dash-bio-ta").inputValue(),"My biography draft stays here");
+ assert(await page.locator("#dash-bio-ta").isEnabled());
+ await page.evaluate(()=>{
+  api.runtime.sendMessage=(message,callback)=>message.type==="SET_SETTINGS"&&message.patch?.profile?callback({ok:true,settings:{...settings,profile:message.patch.profile}}):globalThis.bioTransport.call(api.runtime,message,callback);
+ });
+ await page.locator("#dash-bio-ta + small + button").click();
+ await page.waitForFunction(()=>settings.profile?.bio==="My biography draft stays here");
+ assert.equal(await page.locator("#dash-bio-ta").count(),0);
+ assert((await page.locator("#dash-bio").innerText()).includes("My biography draft stays here"));
+ await page.evaluate(()=>{api.runtime.sendMessage=globalThis.bioTransport;delete globalThis.bioTransport;});
+
  // Settings must show confirmed values, release failed controls, and ignore late replies.
  await page.locator("#avatar").click();
  const settingFailures=await page.evaluate(async()=>{
