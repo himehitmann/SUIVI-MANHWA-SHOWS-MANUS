@@ -884,6 +884,7 @@ const SEARCH_LOCALES={
   ]
 };
 for(const [key,values] of Object.entries(SEARCH_LOCALES))["en","fr","ja","es","de","ko","pt","zh-CN"].forEach((code,index)=>LANGS[code][key]=values[index]);
+for(const [code,label] of Object.entries({en:"Close",fr:"Fermer",ja:"閉じる",es:"Cerrar",de:"Schließen",ko:"닫기",pt:"Fechar","zh-CN":"关闭"}))LANGS[code].close=label;
 const t = (k, p) => { let s = (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || k; if (p) for (const key in p) s = s.replace(`{${key}}`, p[key]); return s; };
 // Array-valued i18n (plan feature lists), falls back to English.
 const tArr = (k) => (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || [];
@@ -2115,8 +2116,8 @@ function openDrawer(id) {
   const memberIn = lists.filter((l) => (l.itemIds || []).includes(i.id)).map((l) => l.id);
   d.innerHTML = `
     <div class="drawer-hero">
-      <button class="icon-btn drawer-close" id="dr-close">${I.close}</button>
-      <div class="drawer-cover" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i, 40)}<button class="change-cover" id="dr-cover">${I.image}</button></div>
+      <button class="icon-btn drawer-close" id="dr-close" aria-label="${esc(t("close"))}">${I.close}</button>
+      <div class="drawer-cover" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i, 40)}<button class="change-cover" id="dr-cover" aria-label="${esc(t("changePhoto"))}">${I.image}</button></div>
       <h2 class="drawer-title">${esc(i.title || "Untitled")}</h2>
       <p class="drawer-marker">${esc(marker(i))}${isGame ? "" : " — " + relative(i.activityAt||i.updatedAt)}</p>
     </div>
@@ -2423,7 +2424,7 @@ function renderSettings() {
     <div class="section-t">${t("editProfile")}</div>
     <div class="panel"><div class="row">
       <div class="avatar-lg" id="set-avatar">${p.avatar ? `<img src="${esc(p.avatar)}">` : esc(initials(p.name))}</div>
-      <div class="grow"><input class="field" id="set-name" placeholder="${t("displayName")}" value="${esc(p.name || "")}" style="max-width:280px" /></div>
+      <div class="grow"><input class="field" id="set-name" aria-label="${esc(t("displayName"))}" placeholder="${t("displayName")}" value="${esc(p.name || "")}" style="max-width:280px" /></div>
       <button class="btn" id="set-photo">${I.image} ${t("changePhoto")}</button>
     </div></div>
     <div class="section-t">${t("account")}</div>
@@ -2431,12 +2432,12 @@ function renderSettings() {
     <div class="section-t">${t("language")}</div>
     <div class="panel">
       <div class="row"><div class="grow"><b>${t("uiLanguage")}</b></div>
-        <select class="field" id="set-uilang" style="max-width:200px">${Object.entries(LANGS).map(([c, L]) => `<option value="${c}" ${settings.lang === c ? "selected" : ""}>${esc(L.name)}</option>`).join("")}</select></div>
+        <select class="field" id="set-uilang" aria-label="${esc(t("uiLanguage"))}" style="max-width:200px">${Object.entries(LANGS).map(([c, L]) => `<option value="${c}" ${settings.lang === c ? "selected" : ""}>${esc(L.name)}</option>`).join("")}</select></div>
       <div class="row"><div class="grow"><b>${t("translateLanguage")}</b></div>
-        <select class="field" id="set-trlang" style="max-width:200px">${TR_LANGS.map(([c, n]) => `<option value="${c}" ${(settings.translateLang || "en") === c ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></div>
+        <select class="field" id="set-trlang" aria-label="${esc(t("translateLanguage"))}" style="max-width:200px">${TR_LANGS.map(([c, n]) => `<option value="${c}" ${(settings.translateLang || "en") === c ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></div>
     </div>
     <div class="section-t">${t("newAlerts")}</div>
-    <div class="panel"><div class="row"><div class="grow"><b>${t("newAlerts")}</b><small>${t("newAlertsSub")}</small></div><button class="switch ${settings.notifyNew ? "on" : ""}" id="sw-notify"></button></div></div>
+    <div class="panel"><div class="row"><div class="grow"><b>${t("newAlerts")}</b><small>${t("newAlertsSub")}</small></div><button class="switch ${settings.notifyNew ? "on" : ""}" id="sw-notify" role="switch" aria-label="${esc(t("newAlerts"))}" aria-checked="${!!settings.notifyNew}"></button></div></div>
     <div class="panel"><div class="row"><div class="grow"><b>${settings.lang==='fr'?'Suivi automatique des vidéos enregistrées':'Automatically track saved videos'}</b><small>${settings.lang==='fr'?'Après ouverture de Yomu sur le lecteur, conserve la progression pendant la lecture.':'After opening Yomu on the player, keep progress updated while watching.'}</small></div><input id="set-autotrack" type="checkbox" aria-label="${settings.lang==='fr'?'Suivi automatique':'Automatic tracking'}" ${settings.autoTrack!==false?'checked':''}></div></div>
     <div class="section-t">${t("backup")}</div>
     <div class="panel">
@@ -2457,6 +2458,16 @@ function renderSettings() {
   wireSettings();
   renderMetadataStatus();
 }
+async function saveSettingControl(key,value,control,paint) {
+  if(control.disabled)return;
+  control.disabled=true;
+  const response=await new Promise(resolve=>requestMetadata({type:"SET_SETTINGS",patch:{[key]:value}},resolve));
+  const saved=response?.ok!==false&&response?.settings&&Object.hasOwn(response.settings,key);
+  if(saved)settings={...settings,[key]:response.settings[key]};
+  if(control.isConnected){paint(settings[key]);control.disabled=false;}
+  if(!saved)toast(settings.lang==="fr"?"Enregistrement non confirmé. Vérifie le réglage avant de réessayer.":"Save not confirmed. Check the setting before retrying.");
+  return !!saved;
+}
 function wireSettings() {
   const nameEl = document.getElementById("set-name");
   const saveProfile = patch => saveProfilePatch(patch).then(saved=>{renderSettings();return saved;});
@@ -2464,19 +2475,18 @@ function wireSettings() {
   const pickPhoto = () => openCropper({ shape: "circle", title: t("changePhoto"), initial:settings.profile?.avatar, onSave: data => saveProfile({avatar:data}) });
   document.getElementById("set-photo").onclick = pickPhoto;
   document.getElementById("set-avatar").onclick = pickPhoto;
-  document.getElementById("sw-notify").onclick = () => { settings.notifyNew = !settings.notifyNew; document.getElementById("sw-notify").classList.toggle("on", settings.notifyNew); api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { notifyNew: settings.notifyNew } }, (r) => { if (r?.settings) settings = r.settings; }); };
+  const notification=document.getElementById("sw-notify");
+  notification.onclick=()=>saveSettingControl("notifyNew",!settings.notifyNew,notification,paint=>{
+    notification.classList.toggle("on",!!paint);notification.setAttribute("aria-checked",String(!!paint));
+  });
   document.getElementById("set-autotrack").onchange=e=>{
-    const input=e.currentTarget;input.disabled=true;
-    api.runtime.sendMessage({type:"SET_SETTINGS",patch:{autoTrack:input.checked}},r=>{
-      if(api.runtime.lastError||!r?.settings||r.ok===false){input.checked=settings.autoTrack!==false;toast(settings.lang==="fr"?"Réglage non enregistré":"Setting could not be saved");}
-      else settings=r.settings;
-      input.disabled=false;
-    });
+    const input=e.currentTarget;
+    saveSettingControl("autoTrack",input.checked,input,value=>{input.checked=value!==false;});
   };
   const uilang = document.getElementById("set-uilang");
   uilang.onchange = () => applyLanguage(uilang.value);
   const trlang = document.getElementById("set-trlang");
-  trlang.onchange = () => { settings.translateLang = trlang.value; api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: settings.translateLang } }, (r) => { if (r?.settings) settings = r.settings; }); };
+  trlang.onchange = () => saveSettingControl("translateLang",trlang.value,trlang,value=>{trlang.value=value||"en";});
   renderAccountPanel();
   document.getElementById("complete-metadata").onclick = completeMissingMetadata;
   document.getElementById("export").onclick = doExport;
@@ -2520,6 +2530,7 @@ function renderAccountPanel() {
   if (!el) return;
   api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => {
     void api.runtime.lastError;
+    if(!el.isConnected)return;
     userPlan = (s && s.plan) || userPlan;
     if (!s || !s.configured) {
       el.innerHTML = `<div class="row"><div class="grow"><b>${t("notSignedIn")}</b><small>${t("cloudSyncSub")}</small></div><button class="btn primary" id="acc-signin">${t("manageSync")}</button></div>`;

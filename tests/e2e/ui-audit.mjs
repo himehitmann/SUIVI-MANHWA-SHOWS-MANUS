@@ -36,6 +36,49 @@ try {
    if(width===320)await page.screenshot({path:"test-results/audit-"+target+"-320.png",fullPage:true});
   }
  }
+ // Settings must show confirmed values, release failed controls, and ignore late replies.
+ await page.locator("#avatar").click();
+ const settingFailures=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata;
+  let mode="failure",late;
+  requestMetadata=(message,callback)=>request(message,callback,20);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="SET_SETTINGS"){
+    if(mode==="silent")late=callback;else callback(mode==="failure"?{ok:false}:{ok:true,settings:{...settings,...message.patch}});
+    return;
+   }
+   return original.call(api.runtime,message,callback);
+  };
+  try{
+   settings.notifyNew=true;settings.autoTrack=true;settings.translateLang="en";renderSettings();
+   document.getElementById("sw-notify").click();
+   await new Promise(r=>setTimeout(r,30));
+   const failedSwitch={value:settings.notifyNew,checked:document.getElementById("sw-notify").getAttribute("aria-checked"),enabled:!document.getElementById("sw-notify").disabled};
+   const language=document.getElementById("set-trlang");language.value="fr";language.dispatchEvent(new Event("change"));
+   await new Promise(r=>setTimeout(r,30));
+   const failedLanguage={value:settings.translateLang,display:language.value,enabled:!language.disabled};
+   mode="silent";const tracking=document.getElementById("set-autotrack");tracking.click();
+   await new Promise(r=>setTimeout(r,50));
+   const timeout={checked:tracking.checked,enabled:!tracking.disabled};
+   late({ok:true,settings:{autoTrack:false}});
+   const lateIgnored=settings.autoTrack===true;
+   mode="success";document.getElementById("sw-notify").click();
+   await new Promise(r=>setTimeout(r,30));
+   const saved=settings.notifyNew===false&&document.getElementById("sw-notify").getAttribute("aria-checked")==="false";
+   return {failedSwitch,failedLanguage,timeout,lateIgnored,saved};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;}
+ });
+ assert.deepEqual(settingFailures.failedSwitch,{value:true,checked:"true",enabled:true});
+ assert.deepEqual(settingFailures.failedLanguage,{value:"en",display:"en",enabled:true});
+ assert.deepEqual(settingFailures.timeout,{checked:true,enabled:true});assert(settingFailures.lateIgnored&&settingFailures.saved);
+ for(const selector of ["#set-name","#set-uilang","#set-trlang","#sw-notify"])assert(await page.locator(selector).getAttribute("aria-label"));
+ await page.locator('#nav [data-v="library"]').click();
+ await page.locator('#grid h3 button[data-open="audit-work"]').click();
+ assert.equal(await page.locator("#dr-close").getAttribute("aria-label"),"Close");
+ assert(await page.locator("#dr-cover").getAttribute("aria-label"));
+ await page.locator("#dr-close").click();
+ assert.equal(await page.locator("#drawer").evaluate(node=>node.inert),true);
+
  await page.evaluate(()=>{settings.lang="fr";switchView("library");});
  // A failed or silent metadata queue must release both retry controls and explain the result.
  const queue=await page.evaluate(async()=>{
@@ -100,6 +143,6 @@ try {
  });
  assert(staleStatus.visible);assert.equal(staleStatus.email,"new@example.test");
  assert.deepEqual(errors,[],"Unhandled browser errors");
- await fs.writeFile("test-results/ui-audit.json",JSON.stringify({report,queue,discovery,transport,staleStatus,errors},null,2));
+ await fs.writeFile("test-results/ui-audit.json",JSON.stringify({report,settingFailures,queue,discovery,transport,staleStatus,errors},null,2));
  console.log("PASS: five views at four widths; navigation/header geometry; silent discovery and metadata recovery; options timeout and stale-response isolation");
 }finally{await context.close();}
