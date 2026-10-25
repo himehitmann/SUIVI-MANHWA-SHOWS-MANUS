@@ -40,8 +40,12 @@ try {
   const dataUrl = "data:image/png;base64," + png.toString("base64");
   await image.close();
   await worker.evaluate(async cover => {
+    // Installation migration and fixtures must share the worker write queue.
+    // Otherwise a migration snapshot taken before seeding can erase the fixture.
+    await serializeLibrary(async()=>{
+    await migrateStorage();
     await chrome.storage.local.set({
-      "dasi.schema": 2,
+      "dasi.schema": 3,
       "dasi.settings": { lang: "fr", profile: { name: "Test Reader" } },
       "dasi.items": [
         {
@@ -58,6 +62,7 @@ try {
       "dasi.lists": [
         { id: "favorites", name: "À découvrir", itemIds: ["alchemy-of-souls"] },
       ],
+    });
     });
     globalThis.testCover = cover;
     catalogSearchAll = async query => {
@@ -83,6 +88,10 @@ try {
       gamesSoon: [],
     });
   }, dataUrl);
+  const seeded=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists","dasi.schema"]));
+  assert.equal(seeded["dasi.schema"],3);
+  assert(seeded["dasi.items"].some(item=>item.id==="alchemy-of-souls"),"Seeded work missing after serialized installation");
+  assert(seeded["dasi.lists"].some(list=>list.itemIds.includes("alchemy-of-souls")),"Seeded list lost its work");
   // Official non-Steam pages use their own media metadata; no invented release date.
   for (const [url, title] of [
     ["https://www.aniimo.com/fr", "Aniimo"],
@@ -199,6 +208,7 @@ try {
   try {
     await worker.evaluate(async()=>{
       const originals=(await chrome.storage.local.get("dasi.items"))["dasi.items"];
+      if(!originals.some(item=>item.id==="alchemy-of-souls"))throw Error("Baseline work missing before list journey");
       await chrome.storage.local.set({"dasi.items":[...originals,...Array.from({length:65},(_,n)=>({id:"list-extra-"+n,title:"Library extra "+n,type:"reading",alternativeTitles:n===64?["Étoile secrète"]:[],enrichedAt:1}))],"dasi.lists":[{id:"journey-list",name:"Reading queue",itemIds:["alchemy-of-souls"]}]});
     });
     await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("library");openList("journey-list");resolve();})));
@@ -228,6 +238,9 @@ try {
     assert.equal(await page.locator('#list-add-options [data-add]').count(),0,"The added work must leave the available matches");
     await page.waitForFunction(()=>document.activeElement===document.getElementById("list-add-search"));
 
+    const listSnapshot=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
+    assert(listSnapshot["dasi.items"].some(item=>item.id==="alchemy-of-souls"),"List operations removed the saved work");
+    assert(listSnapshot["dasi.lists"].find(list=>list.id==="journey-list")?.itemIds.includes("alchemy-of-souls"),"List operations removed the original member");
     await page.locator('#list-items [data-open="alchemy-of-souls"]').focus();
     await page.keyboard.press("Enter");
     await page.locator('#dr-close').waitFor();
