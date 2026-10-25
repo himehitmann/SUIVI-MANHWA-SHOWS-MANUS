@@ -8,6 +8,16 @@ Mise à jour : 25 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Conservation du nom de profil après échec — 25 octobre 2026
+
+[CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40184346504), commit 9194cc6a008329aaf88cc1bfd03701665e98d71c : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, capacité et récupérations réussis.
+
+Le champ de nom n'est plus remplacé par l'ancienne valeur lorsque l'enregistrement échoue. Le texte saisi reste dans le champ ouvert, avec message d'état, aria-invalid et bouton Réessayer. Après confirmation, la valeur confirmée apparaît sans reconstruire toute la page. Le transport du profil est borné et les autres réglages en mémoire ne sont plus remplacés par la réponse du profil. Un délai dépassé ne constitue pas l'annulation de l'écriture côté worker.
+
+Le parcours Chrome remplit le champ, déclenche un refus, vérifie le texte conservé et la disponibilité du champ, clique réellement Réessayer puis vérifie la valeur confirmée et la disparition de l'erreur. Ce brouillon est conservé dans le champ courant, pas promis après fermeture ou rechargement de la page. Les changements de photo ne reconstruisent plus les paramètres en cas d'échec.
+
+Aucun paquet installé dans le navigateur utilisateur. Global inchangé : 19/60 (32 % arrondi).
+
 ## Reprise des listes et suivi de jeu au clavier — 25 octobre 2026
 
 [CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40183517800), commit 402be642f87ad8974fb870554afa4c9abbd32936 : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, capacité et récupérations réussis.
