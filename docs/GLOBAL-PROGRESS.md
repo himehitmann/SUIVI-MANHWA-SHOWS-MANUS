@@ -8,6 +8,16 @@ Mise à jour : 25 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Réglages confirmés et libellés accessibles — 25 octobre 2026
+
+[CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40180544219), commit 406bcec0ef265b0a45df752c98e2ee0c59a68eba : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, audit UI enrichi, capacité et récupérations réussis.
+
+Notifications, langue de traduction et suivi automatique attendent désormais la confirmation du worker avant de modifier leur valeur en mémoire. Les commandes sont désactivées pendant la demande puis libérées ; un refus ou une absence de réponse rétablit la dernière valeur confirmée et affiche un message explicite. Le délai n'annule pas une écriture déjà engagée côté worker ; le message demande donc de vérifier le réglage avant de recommencer. Les réponses tardives de la demande expirée ne modifient pas la vue. Seul le champ demandé est fusionné pour ne pas remplacer les autres réglages depuis une ancienne réponse.
+
+Le parcours Chrome clique réellement les réglages, simule un refus et une réponse absente/tardive, puis confirme la reprise. Les tests vérifient le retour des valeurs affichées et le déverrouillage. Les champs nom/langues ont un nom accessible et les notifications exposent leur état de switch. Les boutons de fermeture et de couverture de fiche ont un libellé ; Fermer est traduit dans les huit langues. Le panneau de compte ignore sa réponse lorsqu'il a été retiré du DOM.
+
+Ce lot ne valide pas toutes les langues, tous les boutons ni une revue visuelle exhaustive. Aucun paquet installé sur le navigateur utilisateur. Global inchangé : 19/60 (32 % arrondi).
+
 ## Audit transversal des commandes et chargements — 25 octobre 2026
 
 [CI réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40141932682), commit 098318bb5e6db085a821a0ef0a8ffd398471b4e8 : 643 tests unitaires, audit sans vulnérabilité connue, parcours web/Chrome, nouvel audit UI, capacité et récupérations PostgreSQL/Firebase réussis.
