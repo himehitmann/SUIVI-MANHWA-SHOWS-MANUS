@@ -8,6 +8,12 @@ Mise à jour : 26 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Lecture des images et changement de sélection — 26 octobre 2026
+
+Commit da805d9e5dd102e1902fbc9531d2f0f9f08f32a8 : [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40280396176) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40280402932) réussies. 643 tests unitaires et parcours navigateur, recadrage, listes, affichage, capacité et récupérations passent.
+
+Choisir un fichier invalide immédiatement l'ancienne image et désactive l'enregistrement pendant la lecture. Les erreurs ou abandons de lecture affichent une indication sans conserver l'ancienne image comme sélection enregistrable. Le chargement ultérieur d'une adresse d'image invalide le retour du fichier précédent. Le test simule lecture différée, retour tardif de l'ancienne image, changement vers une adresse, échec puis nouvelle sélection réussie. Ce test ciblé ne démontre pas l'absence de toute erreur image. Aucune installation dans le navigateur utilisateur ni publication. G13 reste partiel ; 19/60 inchangé.
+
 ## Préparation des tests de bibliothèque — 26 octobre 2026
 
 Commit ad5fbdb5149b5d866e575af091680c9f8a097a07 : [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40229503716) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40229508414) réussies, dont 643 tests unitaires et les parcours extension, recadrage, bibliothèque, web et récupération. Le jeu de données attend maintenant la migration dans la même file d'écriture ; des assertions vérifient l'œuvre et son appartenance à la liste avant et après les opérations. Cela supprime une course possible de préparation, sans établir que toute intermittence de production est résolue. Aucun critère global supplémentaire validé.
