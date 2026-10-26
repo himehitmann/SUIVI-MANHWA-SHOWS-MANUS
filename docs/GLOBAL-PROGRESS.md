@@ -8,6 +8,14 @@ Mise à jour : 26 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Conservation du titre saisi après échec — 26 octobre 2026
+
+Commit 3ab061ba093b6a8ec6f5451e659b90168e9f62ea : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40365467635) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40365460752) réussies, dont 643 tests unitaires, parcours navigateur, listes, affichage, capacité et récupérations.
+
+L'édition du titre conservait mal un échec : le rafraîchissement de la fiche rétablissait l'ancien titre en effaçant la saisie. Ce champ demande désormais de conserver son brouillon, affiche un statut accessible et un bouton Réessayer, bloque les demandes simultanées et refuse un titre vide. Le test simule échec de stockage, réponse absente, réponse tardive ignorée, reprise réussie et titre vide. Le brouillon est conservé dans la fiche courante, sans garantie après fermeture/rechargement ou autre reconstruction de la fiche. Aucun critère global supplémentaire validé ; 19/60 inchangé.
+
+Complément du lot retrait : la validation parallèle 40364117670 s'est terminée avec verify annulé, et non réussi. La validation 40364127219 reste réussie ; le scénario de retrait passe également dans les deux nouvelles validations ci-dessus.
+
 ## Retrait d'une œuvre de la bibliothèque — 26 octobre 2026
 
 Commit eb6b8225dcd7a50432e236d7541c8cfc12cdf1d4 : [validation réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40364127219), dont 643 tests unitaires, parcours navigateur, listes, affichage, capacité et récupérations. La validation parallèle 40364117670 est encore en cours à l'étape installation de Chromium au moment de ce relevé ; son résultat n'est pas revendiqué.
