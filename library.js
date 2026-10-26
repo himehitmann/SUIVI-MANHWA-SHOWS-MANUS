@@ -1046,11 +1046,11 @@ function refreshOpenItem(id) {
   const drawer=document.getElementById("drawer");
   if(drawer.classList.contains("open") && drawer.dataset.itemId===id)openDrawer(id);
 }
-function update(id, patch) {
+function update(id, patch, {retainDraft=false}={}) {
   return new Promise(resolve => requestMetadata({type:"UPDATE_ITEM",id,patch}, r => {
     if (api.runtime.lastError || r?.ok === false || !Array.isArray(r?.items)) {
       toast(settings.lang === "fr" ? "Enregistrement non confirmé. Vérifie la valeur avant de réessayer." : "Save not confirmed. Check the value before retrying.");
-      refreshOpenItem(id); resolve(false); return;
+      if(!retainDraft)refreshOpenItem(id); resolve(false); return;
     }
     items = r.items; renderAll(); refreshOpenItem(id); resolve(true);
   }));
@@ -2292,7 +2292,33 @@ function wireDrawer(i, isWatch, isGame) {
   renderDrawerTags(i);
   document.querySelectorAll("#dr-lists [data-list]").forEach((b) => (b.onclick = () => { const l = lists.find((x) => x.id === b.dataset.list); if (!l) return; const has = (l.itemIds || []).includes(i.id); b.disabled=true;changeListMembership(l.id,i.id,!has,true).finally(()=>{if(b.isConnected)b.disabled=false;}); }));
   const titleEl = document.getElementById("dr-title");
-  if (titleEl) titleEl.onchange = () => { const v = titleEl.value.trim(); if (v && v !== i.title) { update(i.id, { title: v }); } };
+  if (titleEl) {
+    titleEl.setAttribute("aria-label",t("title"));
+    titleEl.setAttribute("aria-describedby","dr-title-status");
+    const status=document.createElement("small");status.id="dr-title-status";status.setAttribute("role","status");status.style.display="block";
+    const retry=document.createElement("button");retry.type="button";retry.id="dr-title-retry";retry.className="btn";retry.hidden=true;retry.textContent=settings.lang==="fr"?"Réessayer":"Retry";
+    titleEl.after(status,retry);
+    let saving=false;
+    const saveTitle=async()=>{
+      if(saving)return;
+      const value=titleEl.value.trim();
+      if(!value){titleEl.setAttribute("aria-invalid","true");status.textContent=settings.lang==="fr"?"Le titre ne peut pas être vide.":"Title cannot be empty.";retry.hidden=true;return;}
+      if(value===i.title){titleEl.removeAttribute("aria-invalid");status.textContent="";retry.hidden=true;return;}
+      saving=true;titleEl.disabled=true;retry.disabled=true;
+      status.textContent=settings.lang==="fr"?"Enregistrement…":"Saving…";
+      const saved=await update(i.id,{title:value},{retainDraft:true});
+      saving=false;
+      if(!titleEl.isConnected)return;
+      titleEl.disabled=false;retry.disabled=false;
+      if(!saved){
+        titleEl.setAttribute("aria-invalid","true");retry.hidden=false;
+        status.textContent=settings.lang==="fr"?"Enregistrement non confirmé. Ton titre reste ici pour réessayer.":"Save not confirmed. Your title remains here so you can retry.";
+      }
+    };
+    titleEl.onchange=saveTitle;
+    titleEl.onkeydown=event=>{if(event.key==="Enter"){event.preventDefault();void saveTitle();}};
+    retry.onclick=saveTitle;
+  }
   const typeEl = document.getElementById("dr-type");
   if (typeEl) typeEl.onchange = () => { update(i.id, { type: typeEl.value }); };
   const seasonEl = document.getElementById("dr-season");

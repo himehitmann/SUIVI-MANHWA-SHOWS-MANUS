@@ -196,6 +196,40 @@ try {
  await page.locator("#dr-close").click();
  assert.equal(await page.locator("#drawer").evaluate(node=>node.inert),true);
 
+ const titleDraft=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,savedItems=items;
+  let mode="failure",late,calls=0;
+  requestMetadata=(message,callback)=>request(message,callback,25);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="UPDATE_ITEM"){
+    calls++;
+    if(mode==="silent"){late=callback;return;}
+    if(mode==="failure"){callback({ok:false,error:"storage_failed"});return;}
+    callback({ok:true,items:items.map(item=>item.id===message.id?{...item,...message.patch}:item)});return;
+   }
+   return original.call(api.runtime,message,callback);
+  };
+  try{
+   openDrawer("audit-work");const input=document.getElementById("dr-title");
+   const initial=items.find(item=>item.id==="audit-work").title;
+   input.value="My personal title";input.dispatchEvent(new Event("change"));
+   await new Promise(resolve=>setTimeout(resolve,10));
+   const retained=input.isConnected&&input.value==="My personal title"&&!input.disabled&&!document.getElementById("dr-title-retry").hidden&&items.find(item=>item.id==="audit-work").title===initial;
+   mode="silent";document.getElementById("dr-title-retry").click();
+   input.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));
+   const single=calls===2&&input.disabled;
+   await new Promise(resolve=>setTimeout(resolve,50));
+   late({ok:true,items:[]});
+   const timeout=input.value==="My personal title"&&!input.disabled&&items.length>0;
+   mode="success";document.getElementById("dr-title-retry").click();
+   await new Promise(resolve=>setTimeout(resolve,10));
+   const saved=items.find(item=>item.id==="audit-work").title==="My personal title"&&document.getElementById("dr-title").value==="My personal title";
+   const fresh=document.getElementById("dr-title");fresh.value="  ";fresh.dispatchEvent(new Event("change"));
+   const emptyRejected=fresh.getAttribute("aria-invalid")==="true"&&calls===3;
+   return {retained,single,timeout,saved,emptyRejected};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;items=savedItems;closeDrawer();renderAll();}
+ });
+ assert.deepEqual(titleDraft,{retained:true,single:true,timeout:true,saved:true,emptyRejected:true});
  const removal=await page.evaluate(async()=>{
   const original=api.runtime.sendMessage,request=requestMetadata,originalConfirm=window.confirm;
   const savedItems=items;let pending,calls=0;
