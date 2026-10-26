@@ -8,6 +8,12 @@ Mise à jour : 26 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Confirmation des actions de notification — 26 octobre 2026
+
+Commit 79ffd54c15c5eee37f1a69b1f521f106ea3e32ba : [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40367294104) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40367303865) réussies. 643 tests unitaires et parcours navigateur, affichage, listes, capacité et récupérations passent.
+
+L'effacement ne remplace plus les notifications par une liste vide sur réponse absente ou en erreur. La lecture ne marque plus les alertes comme lues sans réponse valide. Les deux actions utilisent une file locale et le transport borné ; le bouton Effacer bloque les clics supplémentaires pendant l'attente puis permet une nouvelle tentative. Les tests simulent échec, réponse absente, réponse tardive ignorée, double clic, ordre lecture/effacement et reprise réussie, sans modifier les alertes de l'utilisateur. Une expiration ne prouve pas l'annulation côté worker ; la file est locale à cette page, pas un mécanisme de coordination multi-onglets. G12 reste partiel et le score reste 19/60. Aucune installation ni publication.
+
 ## Conservation du titre saisi après échec — 26 octobre 2026
 
 Commit 3ab061ba093b6a8ec6f5451e659b90168e9f62ea : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40365467635) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40365460752) réussies, dont 643 tests unitaires, parcours navigateur, listes, affichage, capacité et récupérations.
