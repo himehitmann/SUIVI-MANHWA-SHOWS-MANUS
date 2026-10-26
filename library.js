@@ -2352,6 +2352,7 @@ function clearCanvas() {
 function loadCropImage(src) {
   const state = cropState;
   if (!state || state.saving) return;
+  state.fileRequest=(state.fileRequest||0)+1;
   const request=state.imageRequest=(state.imageRequest||0)+1;
   state.img=null;clearCanvas();document.getElementById("crop-save").disabled=true;
   const img = new Image();
@@ -2418,7 +2419,19 @@ function exportCrop() {
   document.getElementById("crop-file").onclick = () => document.getElementById("crop-input").click();
   document.getElementById("crop-input").addEventListener("change", (e) => {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
-    if (!f || !cropState || cropState.saving) return; const state=cropState,selection=state.fileRequest=(state.fileRequest||0)+1; const rd = new FileReader(); rd.onload = () => {if(cropState===state&&state.fileRequest===selection)loadCropImage(String(rd.result));}; rd.readAsDataURL(f);
+    if (!f || !cropState || cropState.saving) return;
+    const state=cropState,selection=state.fileRequest=(state.fileRequest||0)+1;
+    state.imageRequest=(state.imageRequest||0)+1;
+    state.img=null;clearCanvas();document.getElementById("crop-save").disabled=true;
+    const current=()=>cropState===state&&state.fileRequest===selection;
+    const failed=()=>{
+      if(!current())return;
+      document.getElementById("crop-hint").textContent=settings.lang==="fr"?"Impossible de lire cette image. Choisis un autre fichier.":"Could not read this image. Choose another file.";
+    };
+    const rd = new FileReader();
+    rd.onload = () => {if(current())loadCropImage(String(rd.result));};
+    rd.onerror=failed;rd.onabort=failed;
+    try{rd.readAsDataURL(f);}catch{failed();}
   });
   document.getElementById("crop-cancel").onclick = closeCropper;
   const commitCrop = async (clear, imageUrl) => {

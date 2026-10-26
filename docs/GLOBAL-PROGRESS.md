@@ -1,12 +1,16 @@
 # Suivi global Yomu
 
-Mise à jour : 25 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 26 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Préparation des tests de bibliothèque — 26 octobre 2026
+
+Commit ad5fbdb5149b5d866e575af091680c9f8a097a07 : [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40229503716) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40229508414) réussies, dont 643 tests unitaires et les parcours extension, recadrage, bibliothèque, web et récupération. Le jeu de données attend maintenant la migration dans la même file d'écriture ; des assertions vérifient l'œuvre et son appartenance à la liste avant et après les opérations. Cela supprime une course possible de préparation, sans établir que toute intermittence de production est résolue. Aucun critère global supplémentaire validé.
 
 ## Sélection et enregistrement des images — 25 octobre 2026
 

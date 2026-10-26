@@ -69,5 +69,34 @@ try {
  await page.evaluate(()=>cropResolve(true));
  await page.waitForFunction(()=>cropState===null);
 
- console.log('PASS: desktop/mobile bounds; wheel zoom; crop bounds; cancel');
+
+ const fileSelection=await page.evaluate(()=>{
+  const OriginalReader=window.FileReader,OriginalImage=window.Image,originalDraw=drawCrop,reads=[],images=[];
+  openCropper({initial:"",onSave:()=>true});
+  window.FileReader=class {readAsDataURL(){reads.push(this);}};
+  window.Image=class {naturalWidth=100;naturalHeight=100;set src(value){this.url=value;images.push(this);}};
+  drawCrop=()=>{};
+  const choose=()=>{
+   const transfer=new DataTransfer();transfer.items.add(new File(["image"],"cover.png",{type:"image/png"}));
+   const input=document.getElementById("crop-input");input.files=transfer.files;input.dispatchEvent(new Event("change"));
+  };
+  try{
+   loadCropImage("original");images[0].onload();
+   choose();
+   const pendingBlocked=cropState.img===null&&document.getElementById("crop-save").disabled;
+   images[0].onload();
+   const previousIgnored=cropState.img===null;
+   loadCropImage("chosen-url");images[1].onload();
+   reads[0].result="late-file";reads[0].onload();
+   const urlKept=cropState.img.url==="chosen-url"&&images.length===2;
+   choose();reads[1].onerror();
+   const failureBlocked=cropState.img===null&&document.getElementById("crop-save").disabled;
+   choose();reads[2].result="recovered-file";reads[2].onload();images[2].onload();
+   const recovered=cropState.img.url==="recovered-file"&&!document.getElementById("crop-save").disabled;
+   return {pendingBlocked,previousIgnored,urlKept,failureBlocked,recovered};
+  }finally{window.FileReader=OriginalReader;window.Image=OriginalImage;drawCrop=originalDraw;closeCropper();}
+ });
+ assert.deepEqual(fileSelection,{pendingBlocked:true,previousIgnored:true,urlKept:true,failureBlocked:true,recovered:true});
+
+ console.log('PASS: desktop/mobile bounds; wheel zoom; crop bounds; cancel; pending file and URL selection isolation');
 } finally {await context.close();}
