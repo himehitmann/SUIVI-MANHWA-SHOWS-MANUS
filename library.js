@@ -2297,7 +2297,21 @@ function wireDrawer(i, isWatch, isGame) {
   if (typeEl) typeEl.onchange = () => { update(i.id, { type: typeEl.value }); };
   const seasonEl = document.getElementById("dr-season");
   if (seasonEl) seasonEl.onchange = () => { const v = Math.max(0, Math.round(Number(seasonEl.value) || 0)); update(i.id, isWatch ? { season: v || undefined } : { volume: v || undefined }); };
-  document.getElementById("dr-remove").onclick = () => { if (!confirm(`${t("removeLib")}?`)) return; api.runtime.sendMessage({ type: "REMOVE_ITEM", id: i.id }, (r) => { if(api.runtime.lastError || r?.ok===false || !Array.isArray(r?.items)){toast(settings.lang==="fr"?"Suppression impossible. Réessaie.":"Could not remove. Try again.");return;} items = r.items; closeDrawer(); renderAll(); }); };
+  const removeButton=document.getElementById("dr-remove");
+  removeButton.onclick = () => {
+    if(removeButton.disabled || !confirm(`${t("removeLib")}?`))return;
+    removeButton.disabled=true;removeButton.setAttribute("aria-busy","true");
+    requestMetadata({type:"REMOVE_ITEM",id:i.id},r=>{
+      removeButton.disabled=false;removeButton.removeAttribute("aria-busy");
+      if(api.runtime.lastError || r?.ok===false || !Array.isArray(r?.items)){
+        toast(settings.lang==="fr"?"Suppression non confirmée. Vérifie ta bibliothèque avant de réessayer.":"Removal not confirmed. Check your library before retrying.");
+        return;
+      }
+      items=r.items;
+      if(document.getElementById("drawer").dataset.itemId===i.id)closeDrawer();
+      renderAll();
+    });
+  };
 }
 function renderDrawerTags(i) {
   const wrap = document.getElementById("dr-tags");

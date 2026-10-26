@@ -196,6 +196,38 @@ try {
  await page.locator("#dr-close").click();
  assert.equal(await page.locator("#drawer").evaluate(node=>node.inert),true);
 
+ const removal=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,originalConfirm=window.confirm;
+  const savedItems=items;let pending,calls=0;
+  requestMetadata=(message,callback)=>request(message,callback,30);
+  window.confirm=()=>true;
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="REMOVE_ITEM"){calls++;pending=callback;return;}
+   return original.call(api.runtime,message,callback);
+  };
+  try{
+   openDrawer("audit-work");const button=document.getElementById("dr-remove");
+   button.click();button.click();
+   const single=calls===1&&button.disabled&&button.getAttribute("aria-busy")==="true";
+   await new Promise(resolve=>setTimeout(resolve,60));
+   const timeout=!button.disabled&&!button.hasAttribute("aria-busy")&&items.some(item=>item.id==="audit-work");
+   pending({ok:true,items:[]});
+   const lateIgnored=items.some(item=>item.id==="audit-work");
+   button.click();pending({ok:false,error:"storage_failed"});
+   const failureRetained=!button.disabled&&items.some(item=>item.id==="audit-work");
+   button.click();
+   const other={id:"other-detail",title:"Another work",type:"reading",chapter:1,identityVersion:1,enrichedAt:1};
+   items=[...savedItems,other];openDrawer(other.id);
+   pending({ok:true,items:[other]});
+   const otherOpen=document.getElementById("drawer").classList.contains("open")&&document.getElementById("drawer").dataset.itemId===other.id;
+   return {single,timeout,lateIgnored,failureRetained,otherOpen,removed:!items.some(item=>item.id==="audit-work")};
+  }finally{
+   api.runtime.sendMessage=original;requestMetadata=request;window.confirm=originalConfirm;
+   items=savedItems;closeDrawer();renderAll();
+  }
+ });
+ assert.deepEqual(removal,{single:true,timeout:true,lateIgnored:true,failureRetained:true,otherOpen:true,removed:true});
+
  await page.evaluate(()=>{settings.lang="fr";switchView("library");});
  // A failed or silent metadata queue must release both retry controls and explain the result.
  const queue=await page.evaluate(async()=>{
