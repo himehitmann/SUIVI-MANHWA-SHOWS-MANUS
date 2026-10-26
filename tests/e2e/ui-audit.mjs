@@ -196,6 +196,43 @@ try {
  await page.locator("#dr-close").click();
  assert.equal(await page.locator("#drawer").evaluate(node=>node.inert),true);
 
+ const notificationFailures=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,originalNotifications=notifications;
+  let mode="failure",late;const pending=[],sent=[];
+  requestMetadata=(message,callback)=>request(message,callback,30);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="NOTIF_CLEAR"||message.type==="NOTIF_READ_ALL"){
+    sent.push(message.type);
+    if(mode==="failure")callback({ok:false});
+    else if(mode==="silent")late=callback;
+    else pending.push({message,callback});
+    return;
+   }
+   return original.call(api.runtime,message,callback);
+  };
+  try{
+   notifications=[{id:"test-alert",title:"Saved alert",read:false,ts:Date.now()}];renderNotifMenu();renderBell();
+   await changeNotifications("NOTIF_READ_ALL");
+   const unreadRetained=notifications[0].read===false&&!!document.querySelector("#bell .badge-dot");
+   document.getElementById("notif-clear").click();
+   await new Promise(resolve=>setTimeout(resolve,10));
+   const failedClear=notifications.length===1&&!document.getElementById("notif-clear").disabled;
+   mode="silent";const button=document.getElementById("notif-clear");button.click();button.click();
+   await new Promise(resolve=>setTimeout(resolve,60));
+   const timeout=notifications.length===1&&!notificationClearPending&&!document.getElementById("notif-clear").disabled&&sent.filter(type=>type==="NOTIF_CLEAR").length===2;
+   late({ok:true,notifications:[]});
+   const lateIgnored=notifications.length===1;
+   mode="controlled";const read=changeNotifications("NOTIF_READ_ALL"),clear=changeNotifications("NOTIF_CLEAR");
+   await new Promise(resolve=>setTimeout(resolve,0));
+   const serialized=pending.length===1&&pending[0].message.type==="NOTIF_READ_ALL";
+   pending[0].callback({ok:true,notifications:[{...notifications[0],read:true}]});await read;
+   await new Promise(resolve=>setTimeout(resolve,0));
+   const nextIsClear=pending.length===2&&pending[1].message.type==="NOTIF_CLEAR";
+   pending[1].callback({ok:true,notifications:[]});await clear;
+   return {unreadRetained,failedClear,timeout,lateIgnored,serialized,nextIsClear,cleared:notifications.length===0&&!document.querySelector("#bell .badge-dot")};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;notifications=originalNotifications;renderNotifMenu();renderBell();}
+ });
+ assert.deepEqual(notificationFailures,{unreadRetained:true,failedClear:true,timeout:true,lateIgnored:true,serialized:true,nextIsClear:true,cleared:true});
  const titleDraft=await page.evaluate(async()=>{
   const original=api.runtime.sendMessage,request=requestMetadata,savedItems=items;
   let mode="failure",late,calls=0;

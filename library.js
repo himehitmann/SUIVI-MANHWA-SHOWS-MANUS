@@ -2774,6 +2774,21 @@ function renderLangMenu() {
 }
 function closeMenus() { document.getElementById("profile-menu").classList.remove("open"); document.getElementById("lang-menu").classList.remove("open"); document.getElementById("notif-menu").classList.remove("open"); }
 
+let notificationMutationQueue=Promise.resolve();
+let notificationClearPending=false;
+function changeNotifications(type) {
+  const operation=notificationMutationQueue.then(()=>new Promise(resolve=>{
+    requestMetadata({type},response=>{
+      if(api.runtime.lastError || response?.ok===false || !Array.isArray(response?.notifications)){
+        toast(settings.lang==="fr"?"Modification des notifications non confirmée. Réessaie.":"Notification change not confirmed. Try again.");
+        resolve(false);return;
+      }
+      notifications=response.notifications;renderBell();renderNotifMenu();resolve(true);
+    });
+  }));
+  notificationMutationQueue=operation.catch(()=>{});
+  return operation;
+}
 function renderNotifMenu() {
   const el = document.getElementById("notif-menu");
   const list = (notifications || []).slice(0, 40);
@@ -2781,7 +2796,15 @@ function renderNotifMenu() {
     (list.length ? list.map((n) => `<div class="notif-item" data-nitem="${esc(n.itemId || "")}" data-nurl="${esc(n.url || "")}"><span class="dot2 ${n.read ? "read" : ""}"></span><div><b>${esc(n.title || "")}</b><small>${esc(n.message || "")} — ${relative(n.ts)}</small></div></div>`).join("")
       : `<div class="notif-empty">${t("updatesNone")}</div>`);
   const clr = document.getElementById("notif-clear");
-  if (clr) clr.onclick = (e) => { e.stopPropagation(); api.runtime.sendMessage({ type: "NOTIF_CLEAR" }, (r) => { notifications = r?.notifications || []; renderNotifMenu(); renderBell(); }); };
+  if (clr) {
+    clr.disabled=notificationClearPending;
+    clr.onclick=async e=>{
+      e.stopPropagation();if(notificationClearPending)return;
+      notificationClearPending=true;clr.disabled=true;
+      try{await changeNotifications("NOTIF_CLEAR");}
+      finally{notificationClearPending=false;renderNotifMenu();}
+    };
+  }
   el.querySelectorAll("[data-nitem]").forEach((row) => (row.onclick = () => {
     closeMenus();
     const id = row.dataset.nitem;
@@ -2854,7 +2877,7 @@ document.getElementById("bell").onclick = (e) => {
   if (willOpen) {
     renderNotifMenu();
     menu.classList.add("open");
-    if ((notifications || []).some((n) => !n.read)) api.runtime.sendMessage({ type: "NOTIF_READ_ALL" }, (r) => { notifications = r?.notifications || notifications.map((n) => ({ ...n, read: true })); renderBell(); });
+    if ((notifications || []).some((n) => !n.read)) void changeNotifications("NOTIF_READ_ALL");
   }
 };
 document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); closeMenus(); switchView("settings"); };
