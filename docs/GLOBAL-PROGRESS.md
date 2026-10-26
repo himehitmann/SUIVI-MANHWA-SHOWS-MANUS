@@ -8,6 +8,12 @@ Mise à jour : 26 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Retrait d'une œuvre de la bibliothèque — 26 octobre 2026
+
+Commit eb6b8225dcd7a50432e236d7541c8cfc12cdf1d4 : [validation réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40364127219), dont 643 tests unitaires, parcours navigateur, listes, affichage, capacité et récupérations. La validation parallèle 40364117670 est encore en cours à l'étape installation de Chromium au moment de ce relevé ; son résultat n'est pas revendiqué.
+
+Le bouton de retrait bloque les doubles clics pendant l'attente et utilise le transport borné. Une réponse absente ou un échec rend le bouton disponible et affiche une suppression non confirmée, sans vider localement la collection. Une réponse tardive après expiration est ignorée par le transport. Une réponse réussie ne ferme pas la fiche d'une autre œuvre ouverte entre-temps. Le test de navigateur simule ces réponses : il ne retire aucune donnée utilisateur et ne démontre pas l'annulation d'une écriture côté worker après expiration. 19/60 inchangé ; G13 reste partiel. Aucune installation ni publication.
+
 ## Lecture des images et changement de sélection — 26 octobre 2026
 
 Commit da805d9e5dd102e1902fbc9531d2f0f9f08f32a8 : [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40280396176) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40280402932) réussies. 643 tests unitaires et parcours navigateur, recadrage, listes, affichage, capacité et récupérations passent.
