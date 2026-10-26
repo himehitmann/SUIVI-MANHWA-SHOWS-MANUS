@@ -1608,6 +1608,7 @@ function libraryCompare(a,b) {
     default:return (b.activityAt||b.updatedAt||0)-(a.activityAt||a.updatedAt||0)||title();
   }
 }
+let librarySortSaving=false;
 function renderGrid() {
   const grid = document.getElementById("grid");
   const normalize=value=>String(value||"").normalize("NFKD").replace(/\p{M}/gu,"").toLocaleLowerCase().trim();
@@ -1629,7 +1630,7 @@ function renderGrid() {
   const formats=[...new Set(items.filter(i=>i.type!=="game").map(i=>String(i.format||"").toUpperCase()).filter(Boolean))].sort();
   const controls='<div style="grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'+
     '<label style="flex:1;min-width:min(240px,100%)">'+(settings.lang==="fr"?"Rechercher dans ma bibliothèque":"Search my library")+' <input type="search" class="field" id="library-search" value="'+esc(libraryQuery)+'" placeholder="'+(settings.lang==="fr"?"Titre, auteur ou étiquette":"Title, author or tag")+'"></label>'+
-    '<label>'+ t("sortBy")+' <select class="field" id="library-sort">'+
+    '<label>'+ t("sortBy")+' <select class="field" id="library-sort"'+(librarySortSaving?' disabled aria-busy="true"':'')+'>'+
     [["recent",t("sortRecent")],["title",t("sortTitle")],["rating",t("sortRating")],["remaining",t("sortRemaining")],["added",t("sortAdded")]].map(([v,label])=>'<option value="'+v+'"'+((settings.librarySort||"recent")===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>'+
     '<label>'+ t("formatLabel")+' <select class="field" id="library-format"><option value="all">'+t("all")+'</option>'+formats.map(v=>'<option value="'+esc(v)+'"'+(libraryFormat===v?' selected':'')+'>'+esc(v)+'</option>').join("")+'</select></label>'+
     '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="library-unlisted"'+(libraryUnlisted?' checked':'')+'>'+ t("withoutList")+'</label></div>';
@@ -1643,7 +1644,16 @@ function renderGrid() {
     libraryQuery=input.value;renderGrid();
     const replacement=document.getElementById("library-search");replacement.focus();replacement.setSelectionRange(start,end);
   };
-  document.getElementById("library-sort").onchange=e=>{settings.librarySort=e.target.value;api.runtime.sendMessage({type:"SET_SETTINGS",patch:{librarySort:settings.librarySort}});renderGrid();document.getElementById("library-sort").focus();};
+  document.getElementById("library-sort").onchange=async e=>{
+    if(librarySortSaving)return;
+    const control=e.currentTarget,focused=document.activeElement===control;
+    librarySortSaving=true;control.setAttribute("aria-busy","true");
+    try{await saveSettingControl("librarySort",control.value,control,value=>{control.value=value||"recent";});}
+    finally{
+      librarySortSaving=false;
+      if(view==="library"){renderGrid();if(focused)document.getElementById("library-sort")?.focus({preventScroll:true});}
+    }
+  };
   document.getElementById("library-format").onchange=e=>{libraryFormat=e.target.value;renderGrid();document.getElementById("library-format").focus();};
   document.getElementById("library-unlisted").onchange=e=>{libraryUnlisted=e.target.checked;renderGrid();document.getElementById("library-unlisted").focus();};
   const reset=document.getElementById("reset-library-filters");if(reset)reset.onclick=()=>{libraryQuery="";filter="all";libraryFormat="all";libraryUnlisted=false;renderFilters();renderGrid();document.getElementById("library-search").focus();};
@@ -1877,6 +1887,7 @@ function openQuickAdd(itemId, anchor) {
   };
   wire();position();m.querySelector("button")?.focus({preventScroll:true});
 }
+let siteRemovalPending=false;
 function renderSites() {
   const block = document.getElementById("sites-block");
   const strip = document.getElementById("site-strip");
@@ -1893,15 +1904,19 @@ function renderSites() {
       '<button type="button" class="rm-site" data-rmsite="'+esc(s.id || s.url)+'" aria-label="'+esc(t("delete")+": "+name)+'">'+I.close.replace('class="ic"', 'class="ic" style="width:12px;height:12px"')+'</button></span>';
   }).join("");
   if(!sites.length)strip.innerHTML='<p class="sub">'+esc(t("sitesEmpty"))+'</p>';
+  strip.querySelectorAll("[data-rmsite]").forEach(button=>{button.disabled=siteRemovalPending;});
   strip.querySelectorAll("[data-rmsite]").forEach((x) => (x.onclick = (e) => {
     e.preventDefault(); e.stopPropagation();
+    if(siteRemovalPending)return;
     const id = x.dataset.rmsite;
-    x.disabled=true;
-    api.runtime.sendMessage({ type: "REMOVE_SITE", id }, (r) => {
+    siteRemovalPending=true;
+    strip.querySelectorAll("[data-rmsite]").forEach(button=>{button.disabled=true;});
+    requestMetadata({ type: "REMOVE_SITE", id }, (r) => {
+      siteRemovalPending=false;
       const error=api.runtime.lastError;
-      if(error || !Array.isArray(r?.sites)) {
-        x.disabled=false;
-        toast(settings.lang==="fr"?"Suppression impossible. Réessaie.":"Could not remove this site. Try again.");
+      if(error || r?.ok===false || !Array.isArray(r?.sites)) {
+        renderSites();
+        toast(settings.lang==="fr"?"Suppression du site non confirmée. Vérifie tes favoris avant de réessayer.":"Site removal not confirmed. Check your saved sites before retrying.");
         return;
       }
       sites = r.sites; renderSites();

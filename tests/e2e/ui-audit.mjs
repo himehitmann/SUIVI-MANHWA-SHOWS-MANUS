@@ -196,6 +196,44 @@ try {
  await page.locator("#dr-close").click();
  assert.equal(await page.locator("#drawer").evaluate(node=>node.inert),true);
 
+ const libraryPreferences=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,originalSites=sites,originalSettings=settings;
+  let mode="failure",late,calls=0;
+  requestMetadata=(message,callback)=>request(message,callback,25);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="REMOVE_SITE"||(message.type==="SET_SETTINGS"&&Object.hasOwn(message.patch,"librarySort"))){
+    calls++;
+    if(mode==="silent"){late=callback;return;}
+    if(mode==="failure"){callback({ok:false});return;}
+    callback(message.type==="REMOVE_SITE"?{ok:true,sites:sites.filter(site=>site.id!==message.id)}:{ok:true,settings:{librarySort:message.patch.librarySort}});return;
+   }
+   return original.call(api.runtime,message,callback);
+  };
+  const pause=()=>new Promise(resolve=>setTimeout(resolve,50));
+  try{
+   switchView("library");settings={...settings,librarySort:"recent"};
+   sites=[{id:"site-a",name:"Site A",url:"https://example.com/a"},{id:"site-b",name:"Site B",url:"https://example.com/b"}];renderSites();renderGrid();
+   document.querySelector('[data-rmsite="site-a"]').click();
+   const failedSite=sites.length===2&&![...document.querySelectorAll("[data-rmsite]")].some(button=>button.disabled);
+   mode="silent";document.querySelector('[data-rmsite="site-a"]').click();renderSites();
+   document.querySelector('[data-rmsite="site-b"]').click();
+   const guarded=calls===2&&[...document.querySelectorAll("[data-rmsite]")].every(button=>button.disabled);
+   await pause();late({ok:true,sites:[]});
+   const siteTimeout=sites.length===2&&!siteRemovalPending&&!document.querySelector("[data-rmsite]").disabled;
+   mode="success";document.querySelector('[data-rmsite="site-a"]').click();
+   const siteSaved=sites.length===1&&sites[0].id==="site-b";
+   mode="failure";let select=document.getElementById("library-sort");select.value="title";select.dispatchEvent(new Event("change"));await pause();
+   const sortFailed=settings.librarySort==="recent"&&document.getElementById("library-sort").value==="recent";
+   mode="silent";select=document.getElementById("library-sort");select.value="rating";select.dispatchEvent(new Event("change"));renderGrid();
+   const sortBusy=document.getElementById("library-sort").disabled;
+   await pause();late({ok:true,settings:{librarySort:"rating"}});
+   const sortTimeout=settings.librarySort==="recent"&&!librarySortSaving&&!document.getElementById("library-sort").disabled;
+   mode="success";select=document.getElementById("library-sort");select.value="title";select.dispatchEvent(new Event("change"));await pause();
+   const sortSaved=settings.librarySort==="title"&&document.getElementById("library-sort").value==="title";
+   return {failedSite,guarded,siteTimeout,siteSaved,sortFailed,sortBusy,sortTimeout,sortSaved};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;sites=originalSites;settings=originalSettings;renderSites();renderGrid();}
+ });
+ assert.deepEqual(libraryPreferences,{failedSite:true,guarded:true,siteTimeout:true,siteSaved:true,sortFailed:true,sortBusy:true,sortTimeout:true,sortSaved:true});
  const notificationFailures=await page.evaluate(async()=>{
   const original=api.runtime.sendMessage,request=requestMetadata,originalNotifications=notifications;
   let mode="failure",late;const pending=[],sent=[];
