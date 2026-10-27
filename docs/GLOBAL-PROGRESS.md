@@ -1,12 +1,20 @@
 # Suivi global Yomu
 
-Mise à jour : 26 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 27 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Sites favoris, tri et étiquettes — 27 octobre 2026
+
+Sites et tri, commit 9e47f427f547a0a74c4ac3b391a6a7ecde531ef0 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40369518636) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40369509658) réussies. Le retrait d'un site utilise un délai de réponse borné, libère les boutons après échec et bloque les demandes simultanées même si la section est reconstruite. Le tri attend la confirmation de SET_SETTINGS avant de modifier la préférence en mémoire ; après échec, le choix confirmé est réaffiché. Tests de réponses absentes, tardives, échecs et reprises. Aucun favori personnel modifié.
+
+Étiquettes, commit 7af5783fbff3d9575e18d15a0ec631249130bbab : [CI push réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40460152833), 643 tests unitaires et parcours navigateur, affichage, listes, capacité et récupérations. La CI PR 40460157763 est encore à l'installation de Chromium au relevé ; non revendiquée comme réussie. Les croix de suppression sont désormais des boutons nommés accessibles au clavier. Les commandes sont désactivées pendant la demande, puis le focus revient sur l'étiquette conservée après échec, sur la suivante après succès, ou sur Ajouter après retrait de la dernière. Test réel des touches Entrée/Espace avec réponses simulées.
+
+Une expiration n'annule pas une opération déjà lancée côté worker. Ce lot ne valide pas tous les critères de bibliothèque ou d'accessibilité : 19/60 inchangé. Aucun déploiement ni installation dans le navigateur utilisateur.
 
 ## Confirmation des actions de notification — 26 octobre 2026
 
