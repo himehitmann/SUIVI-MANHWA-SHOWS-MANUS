@@ -221,6 +221,50 @@ try {
  await page.waitForFunction(()=>document.activeElement?.id==="dr-addtag");
  assert.deepEqual(await page.evaluate(()=>items.find(item=>item.id==="audit-work").tags),[]);
  await page.evaluate(()=>{api.runtime.sendMessage=tagTestSend;items=tagTestItems;closeDrawer();renderAll();});
+ const languageChanges=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,originalSettings=settings;
+  let mode="failure",pending,calls=0;
+  requestMetadata=(message,callback)=>request(message,callback,30);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="SET_SETTINGS"&&Object.hasOwn(message.patch,"lang")){
+    calls++;
+    if(mode==="silent"||mode==="controlled"){pending=callback;return;}
+    if(mode==="failure"){callback({ok:false});return;}
+    callback({ok:true,settings:{lang:message.patch.lang,librarySort:"stale-value",profile:{name:"Stale profile"}}});return;
+   }
+   return original.call(api.runtime,message,callback);
+  };
+  try{
+   settings={...settings,lang:"en",librarySort:"title",profile:{...settings.profile,name:"Current profile"}};
+   document.documentElement.lang="en";switchView("settings");renderLangMenu();
+   const select=document.getElementById("set-uilang");select.value="fr";select.dispatchEvent(new Event("change"));
+   await new Promise(resolve=>setTimeout(resolve,10));
+   const failure=settings.lang==="en"&&document.documentElement.lang==="en"&&select.value==="en"&&!select.disabled;
+   mode="silent";const count=calls,save=applyLanguage("fr");
+   renderLangMenu();renderSettings();
+   const guarded=document.getElementById("set-uilang").disabled&&[...document.querySelectorAll("#lang-menu [data-lang]")].every(button=>button.disabled);
+   const duplicate=await applyLanguage("ja");
+   const timedOut=await save;
+   pending({ok:true,settings:{lang:"fr"}});
+   const timeout=timedOut===false&&duplicate===false&&calls===count+1&&settings.lang==="en"&&!document.getElementById("set-uilang").disabled;
+   mode="controlled";const next=applyLanguage("fr");switchView("library");openDrawer("audit-work");
+   pending({ok:true,settings:{lang:"fr",librarySort:"stale-value",profile:{name:"Stale profile"}}});await next;
+   const navigation=view==="library"&&document.getElementById("drawer").classList.contains("open")&&document.getElementById("drawer").dataset.itemId==="audit-work";
+   const preserved=settings.librarySort==="title"&&settings.profile.name==="Current profile";
+   closeDrawer();mode="success";const languages=[];
+   for(const code of Object.keys(LANGS)){
+    const saved=await applyLanguage(code);
+    languages.push({code,saved,applied:settings.lang===code&&document.documentElement.lang===code});
+   }
+   const before=calls;const invalid=await applyLanguage("unsupported");
+   return {failure,guarded,timeout,navigation,preserved,languages,invalidRejected:invalid===false&&calls===before};
+  }finally{
+   api.runtime.sendMessage=original;requestMetadata=request;settings=originalSettings;
+   document.documentElement.lang=settings.lang||"en";renderLangMenu();renderAll();switchView("library");
+  }
+ });
+ assert(languageChanges.failure&&languageChanges.guarded&&languageChanges.timeout&&languageChanges.navigation&&languageChanges.preserved&&languageChanges.invalidRejected,JSON.stringify(languageChanges));
+ assert(languageChanges.languages.every(result=>result.saved&&result.applied),JSON.stringify(languageChanges.languages));
  const drawerEdits=await page.evaluate(async()=>{
   const original=api.runtime.sendMessage,request=requestMetadata,savedItems=items;
   let mode="failure",pending,calls=0,lastPatch;

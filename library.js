@@ -2665,7 +2665,8 @@ function wireSettings() {
     saveSettingControl("autoTrack",input.checked,input,value=>{input.checked=value!==false;});
   };
   const uilang = document.getElementById("set-uilang");
-  uilang.onchange = () => applyLanguage(uilang.value);
+  uilang.onchange = () => {void applyLanguage(uilang.value);};
+  paintLanguageSaving();
   const trlang = document.getElementById("set-trlang");
   trlang.onchange = () => saveSettingControl("translateLang",trlang.value,trlang,value=>{trlang.value=value||"en";});
   renderAccountPanel();
@@ -2843,9 +2844,14 @@ function renderProfileMenu() {
     <button data-go="plans">${I.crown} ${t("plans")}</button>`;
   document.querySelectorAll("#profile-menu [data-go]").forEach((b) => (b.onclick = () => { closeMenus(); switchView(b.dataset.go); }));
 }
+let languageSaving=false;
+function paintLanguageSaving() {
+  document.querySelectorAll("#lang-menu [data-lang],#set-uilang").forEach(control=>{control.disabled=languageSaving;control.setAttribute("aria-busy",String(languageSaving));});
+}
 function renderLangMenu() {
   document.getElementById("lang-menu").innerHTML = Object.entries(LANGS).map(([code, L]) => `<button class="${settings.lang === code ? "on" : ""}" data-lang="${code}">${esc(L.name)} <span style="margin-left:auto;color:var(--muted);font-size:11px">${code.toUpperCase()}</span></button>`).join("");
-  document.querySelectorAll("#lang-menu [data-lang]").forEach((b) => (b.onclick = () => { closeMenus(); applyLanguage(b.dataset.lang); }));
+  paintLanguageSaving();
+  document.querySelectorAll("#lang-menu [data-lang]").forEach((b) => (b.onclick = () => { closeMenus(); void applyLanguage(b.dataset.lang); }));
 }
 function closeMenus() { document.getElementById("profile-menu").classList.remove("open"); document.getElementById("lang-menu").classList.remove("open"); document.getElementById("notif-menu").classList.remove("open"); }
 
@@ -2894,11 +2900,20 @@ function renderBell() {
   if (unread) { const b = document.createElement("span"); b.className = "badge-dot"; b.textContent = unread > 9 ? "9+" : unread; bell.appendChild(b); }
 }
 
-function applyLanguage(code) {
+async function applyLanguage(code) {
+  if(languageSaving||!Object.hasOwn(LANGS,code))return false;
+  if(settings.lang===code)return true;
+  languageSaving=true;paintLanguageSaving();
+  const response=await new Promise(resolve=>requestMetadata({type:"SET_SETTINGS",patch:{lang:code}},resolve));
+  languageSaving=false;paintLanguageSaving();
+  if(response?.ok===false||response?.settings?.lang!==code){
+    const select=document.getElementById("set-uilang");if(select)select.value=settings.lang||"en";
+    toast(settings.lang==="fr"?"Changement de langue non confirmé. Réessaie.":"Language change not confirmed. Try again.");
+    return false;
+  }
   const open=document.getElementById("drawer").classList.contains("open"),savedId=document.getElementById("drawer").dataset.itemId;
-  settings.lang = code;
+  settings={...settings,lang:code};
   document.documentElement.lang = code;
-  api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { lang: code } }, (r) => { if (r?.settings) settings = r.settings; });
   renderNav(); renderLangMenu(); renderProfileMenu(); renderAll();
   // Re-render whichever view is active so ALL text updates immediately.
   if (view === "games") renderGames();
@@ -2908,6 +2923,7 @@ function applyLanguage(code) {
   if((view==="library"||view==="games")&&query.trim().length>=2&&document.getElementById("search-results").children.length)renderSearchResults(query.trim());
   if(open){if(savedId)openDrawer(savedId);else if(activeCatalogPreview)openCatalogPreviewResolved(activeCatalogPreview);}
   scheduleCatalogLocalization();
+  return true;
 }
 function switchView(v) {
   ++previewRequest;
