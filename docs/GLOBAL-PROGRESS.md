@@ -8,6 +8,14 @@ Mise à jour : 27 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Enregistrement du changement de langue — 27 octobre 2026
+
+Commit 2c52be0c0e746479677d289f8708fa5024a803b7 : [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40544637134) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40544644288) réussies, dont 643 tests unitaires, parcours navigateur, affichage, capacité et récupérations.
+
+La langue n'est plus appliquée avant confirmation de SET_SETTINGS. Une réponse absente ou en échec garde la langue confirmée et remet le sélecteur dans cet état avec un message. Le menu et le sélecteur des réglages sont bloqués pendant la demande, même après reconstruction. Seul le champ langue de la réponse est appliqué : un ancien profil ou tri présent dans cette réponse ne remplace plus les autres préférences. La fiche/page à rafraîchir est déterminée après la réponse, pour respecter une navigation intervenue pendant l'attente.
+
+Le test simule échec, expiration, réponse tardive, demande concurrente, réponse contenant des réglages dépassés et navigation pendant l'attente ; il parcourt toutes les langues déclarées et rejette un code inconnu. Il vérifie l'application de la préférence et la langue du document, pas l'exhaustivité des traductions des textes ou métadonnées. Une expiration n'annule pas l'écriture worker. Score global inchangé : 19/60. Aucune installation ni publication.
+
 ## Lot de fiabilité des modifications de fiches — 27 octobre 2026
 
 Commit bf89921633dafe9d18c3970ecce4163315216267 : [CI PR réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40543060071), incluant 643 tests unitaires, parcours navigateur, affichage, listes, capacité et récupérations. La CI push 40543049317 est encore à l'installation de Chromium au relevé ; résultat non revendiqué.
