@@ -221,6 +221,59 @@ try {
  await page.waitForFunction(()=>document.activeElement?.id==="dr-addtag");
  assert.deepEqual(await page.evaluate(()=>items.find(item=>item.id==="audit-work").tags),[]);
  await page.evaluate(()=>{api.runtime.sendMessage=tagTestSend;items=tagTestItems;closeDrawer();renderAll();});
+ const drawerEdits=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,savedItems=items;
+  let mode="failure",pending,calls=0,lastPatch;
+  requestMetadata=(message,callback)=>request(message,callback,25);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="UPDATE_ITEM"){
+    calls++;lastPatch=message.patch;
+    if(mode==="silent"){pending=callback;return;}
+    if(mode==="failure"){callback({ok:false});return;}
+    callback({ok:true,items:items.map(item=>item.id===message.id?{...item,...message.patch}:item)});return;
+   }
+   return original.call(api.runtime,message,callback);
+  };
+  const pause=()=>new Promise(resolve=>setTimeout(resolve,45));
+  const results=[];
+  try{
+   for(const [type,field,key,value] of [["reading","dr-num","chapter",17],["reading","dr-total","total",50],["reading","dr-season","volume",4],["watching","dr-num","episode",6],["watching","dr-season","season",3]]){
+    items=[{id:"edit-work",title:"Edit work",type,chapter:2,episode:2,total:30,volume:2,season:1,identityVersion:1,enrichedAt:1}];openDrawer("edit-work");
+    const input=document.getElementById(field),before=items[0][key],initial=input.value;
+    mode="failure";input.value=String(value);input.dispatchEvent(new Event("change"));await pause();
+    const retained=input.isConnected&&input.value===String(value)&&items[0][key]===before&&!input.disabled&&!document.getElementById(field+"-retry").hidden;
+    mode="silent";const count=calls;document.getElementById(field+"-retry").click();input.dispatchEvent(new Event("change"));
+    const guarded=calls===count+1&&input.disabled;
+    await pause();pending({ok:true,items:[]});
+    const timeout=input.isConnected&&!input.disabled&&items.length===1;
+    mode="success";document.getElementById(field+"-retry").click();await pause();
+    results.push({field,type,retained,guarded,timeout,saved:items[0][key]===value,initial});
+   }
+   const toggles=[];
+   for(const [type,id,key] of [["reading","dr-notify","notifyUpdates"],["game","dr-notify-game-updates","notifyGameUpdates"],["game","dr-notify-game-events","notifyGameEvents"],["game","dr-notify-game-rewards","notifyGameRewards"],["reading","dr-home-toggle","homeHidden"]]){
+    items=[{id:"edit-work",title:"Edit work",type,gameEnrichedAt:1,[key]:key==="homeHidden"?false:true,identityVersion:1,enrichedAt:1}];openDrawer("edit-work");
+    mode="silent";const button=document.getElementById(id),before=items[0][key],count=calls;
+    button.focus();button.click();button.click();
+    const guarded=calls===count+1&&button.disabled;
+    await pause();pending({ok:true,items:[]});
+    const restored=items[0][key]===before&&!document.getElementById(id).disabled&&document.activeElement.id===id;
+    mode="success";document.getElementById(id).click();await pause();
+    toggles.push({id,guarded,restored,saved:items[0][key]===!before});
+   }
+   items=[{id:"edit-work",title:"Edit work",type:"reading",chapter:2,total:30,identityVersion:1,enrichedAt:1}];openDrawer("edit-work");
+   mode="silent";const status=document.querySelector('#dr-status [data-status="completed"]');status.focus();status.click();
+   const statusBusy=[...document.querySelectorAll("#dr-status button")].every(button=>button.disabled);
+   await pause();pending({ok:true,items:[]});
+   const statusRestored=!items[0].state&&document.activeElement.dataset.status==="completed";
+   mode="success";document.querySelector('#dr-status [data-status="completed"]').click();await pause();
+   const statusSaved=items[0].state==="completed"&&items[0].progress===100;
+   return {results,toggles,statusBusy,statusRestored,statusSaved,lastPatch};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;items=savedItems;closeDrawer();renderAll();}
+ });
+ for(const result of drawerEdits.results){assert(result.retained&&result.guarded&&result.timeout&&result.saved,JSON.stringify(result));}
+ assert.equal(drawerEdits.results.find(result=>result.key==="volume"||(result.field==="dr-season"&&result.type==="reading")).initial,"2");
+ for(const result of drawerEdits.toggles){assert(result.guarded&&result.restored&&result.saved,JSON.stringify(result));}
+ assert(drawerEdits.statusBusy&&drawerEdits.statusRestored&&drawerEdits.statusSaved,JSON.stringify(drawerEdits));
  const libraryPreferences=await page.evaluate(async()=>{
   const original=api.runtime.sendMessage,request=requestMetadata,originalSites=sites,originalSettings=settings;
   let mode="failure",late,calls=0;

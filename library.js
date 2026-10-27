@@ -2199,7 +2199,7 @@ function openDrawer(id) {
           <option value="watching" ${i.type === "watching" ? "selected" : ""}>${t("watching")}</option>
           <option value="game" ${i.type === "game" ? "selected" : ""}>${t("games")}</option>
         </select>
-        ${!isGame ? `<input class="field" id="dr-season" type="number" min="0" value="${i.season || ""}" placeholder="${isWatch ? "Season" : "Vol."}" />` : ""}
+        ${!isGame ? `<input class="field" id="dr-season" type="number" min="0" value="${(isWatch?i.season:i.volume) || ""}" placeholder="${isWatch ? "Season" : "Vol."}" />` : ""}
       </div>
       <div class="section-t">${t("manage")}</div><div class="notification-preferences"><label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input id="dr-notify" type="checkbox" ${i.notifyUpdates!==false?"checked":""}>${settings.lang==="fr"?"Notifications de nouvelles sorties":"New release notifications"}</label>${isGame?`<div class="panel" style="padding:10px 12px"><small>${settings.lang==="fr"?"Choisis précisément les alertes reçues pour ce jeu.":"Choose exactly which alerts you receive for this game."}</small><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-updates" type="checkbox" ${i.notifyGameUpdates!==false?"checked":""}>${settings.lang==="fr"?"Mises à jour et patch notes":"Updates and patch notes"}</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-events" type="checkbox" ${i.notifyGameEvents!==false?"checked":""}>${settings.lang==="fr"?"Événements et annonces":"Events and announcements"}</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-rewards" type="checkbox" ${i.notifyGameRewards!==false?"checked":""}>${settings.lang==="fr"?"Codes et récompenses":"Codes and rewards"}</label></div>`:""}</div><button class="btn danger" id="dr-remove">${I.trash} ${t("removeLib")}</button>
     </div>`;
@@ -2232,15 +2232,61 @@ function episodeGrid(i) {
   for (let n = 1; n <= total; n++) cells += `<button class="ep ${n <= cur ? "seen" : ""}" data-ep="${n}">${n}</button>`;
   return `<div class="ep-grid" id="dr-eps">${cells}</div>`;
 }
+async function saveDrawerAction(item,patch,control,selector) {
+  if(control.disabled)return false;
+  const focused=document.activeElement===control;
+  const controls=[...document.querySelectorAll(selector)];
+  controls.forEach(node=>{node.disabled=true;node.setAttribute("aria-busy","true");});
+  const saved=await update(item.id,patch);
+  controls.forEach(node=>{if(node.isConnected){node.disabled=false;node.removeAttribute("aria-busy");}});
+  const drawer=document.getElementById("drawer");
+  if(focused&&drawer.classList.contains("open")&&drawer.dataset.itemId===item.id){
+    const replacement=control.id?document.getElementById(control.id):
+      [...drawer.querySelectorAll(selector)].find(node=>node.dataset.status===control.dataset.status);
+    replacement?.focus({preventScroll:true});
+  }
+  return saved;
+}
+function bindDrawerNumber(item,input,makePatch,label,related=[]) {
+  if(!input)return;
+  input.setAttribute("aria-label",label);
+  const status=document.createElement("small");status.id=input.id+"-status";status.setAttribute("role","status");status.style.display="block";
+  input.setAttribute("aria-describedby",status.id);
+  const retry=document.createElement("button");retry.type="button";retry.className="btn";retry.id=input.id+"-retry";retry.hidden=true;retry.textContent=settings.lang==="fr"?"Réessayer":"Retry";
+  const container=input.closest(".stepper,.released-row");
+  (container||input).after(status,retry);
+  let saving=false;
+  const save=async raw=>{
+    if(saving)return;
+    input.value=String(raw);
+    const number=Number(raw);
+    if(!Number.isFinite(number)||input.validity.badInput){
+      input.setAttribute("aria-invalid","true");status.textContent=settings.lang==="fr"?"Saisis un nombre valide.":"Enter a valid number.";return;
+    }
+    const value=Math.max(0,Math.round(number)),patch=makePatch(value);
+    saving=true;const controls=[input,retry,...related].filter(Boolean);
+    controls.forEach(node=>{node.disabled=true;});
+    status.textContent=settings.lang==="fr"?"Enregistrement…":"Saving…";
+    const saved=await update(item.id,patch,{retainDraft:true});
+    saving=false;
+    if(!input.isConnected)return;
+    controls.forEach(node=>{node.disabled=false;});
+    if(!saved){input.setAttribute("aria-invalid","true");retry.hidden=false;status.textContent=settings.lang==="fr"?"Enregistrement non confirmé. Ta saisie est conservée ici.":"Save not confirmed. Your entry is kept here.";}
+  };
+  input.onchange=()=>save(input.value);
+  input.onkeydown=event=>{if(event.key==="Enter"){event.preventDefault();void save(input.value);}};
+  retry.onclick=()=>save(input.value);
+  return save;
+}
 function wireDrawer(i, isWatch, isGame) {
   document.getElementById("dr-close").onclick = closeDrawer;
-    document.getElementById("dr-notify").onchange=e=>update(i.id,{notifyUpdates:e.target.checked});
+    document.getElementById("dr-notify").onchange=e=>saveDrawerAction(i,{notifyUpdates:e.target.checked},e.currentTarget,"#dr-notify");
   if(isGame){
-    document.getElementById("dr-notify-game-updates").onchange=e=>update(i.id,{notifyGameUpdates:e.target.checked});
-    document.getElementById("dr-notify-game-events").onchange=e=>update(i.id,{notifyGameEvents:e.target.checked});
-    document.getElementById("dr-notify-game-rewards").onchange=e=>update(i.id,{notifyGameRewards:e.target.checked});
+    document.getElementById("dr-notify-game-updates").onchange=e=>saveDrawerAction(i,{notifyGameUpdates:e.target.checked},e.currentTarget,"#dr-notify-game-updates");
+    document.getElementById("dr-notify-game-events").onchange=e=>saveDrawerAction(i,{notifyGameEvents:e.target.checked},e.currentTarget,"#dr-notify-game-events");
+    document.getElementById("dr-notify-game-rewards").onchange=e=>saveDrawerAction(i,{notifyGameRewards:e.target.checked},e.currentTarget,"#dr-notify-game-rewards");
   }
-  document.getElementById("dr-home-toggle").onclick=()=>update(i.id,{homeHidden:!i.homeHidden});
+  document.getElementById("dr-home-toggle").onclick=e=>saveDrawerAction(i,{homeHidden:!i.homeHidden},e.currentTarget,"#dr-home-toggle");
   document.getElementById("dr-refresh-info").onclick=async e=>{
     const button=e.currentTarget,status=document.getElementById("dr-refresh-status");
     button.disabled=true;status.textContent=t("refreshLoading");
@@ -2263,16 +2309,18 @@ function wireDrawer(i, isWatch, isGame) {
     const num = document.getElementById("dr-num");
     const key = isWatch ? "episode" : "chapter", latestKey = isWatch ? "latestEpisode" : "latestChapter";
     if (i.total) num.max = i.total; // real limit — can't go past what exists
-    const setNum = (v) => { let n = Math.max(0, Math.round(Number(v) || 0)); if (i.total && n > i.total) n = i.total; num.value = n; const p = { [key]: n || undefined }; p[latestKey] = Math.max(i[latestKey] || 0, n) || undefined; update(i.id, p); };
-    document.getElementById("dr-minus").onclick = () => { setNum((Number(num.value) || 0) - 1); };
-    document.getElementById("dr-plus").onclick = () => { setNum((Number(num.value) || 0) + 1); };
-    num.onchange = () => { setNum(num.value); };
-    const total = document.getElementById("dr-total");
-    if (total) total.onchange = () => { update(i.id, { total: Math.max(0, Math.round(Number(total.value) || 0)) || undefined }); };
-    const eps = document.getElementById("dr-eps");
-    if (eps) eps.querySelectorAll("[data-ep]").forEach((c) => (c.onclick = () => { setNum(Number(c.dataset.ep)); }));
-    const markall = document.getElementById("dr-markall");
-    if (markall) markall.onclick = () => { setNum(i.total || currentNum(i)); };
+    const minus=document.getElementById("dr-minus"),plus=document.getElementById("dr-plus"),markall=document.getElementById("dr-markall");
+    const episodeButtons=[...document.querySelectorAll("#dr-eps [data-ep]")];
+    const setNum=bindDrawerNumber(i,num,value=>{
+      const n=i.total?Math.min(value,i.total):value;
+      return {[key]:n||undefined,[latestKey]:Math.max(i[latestKey]||0,n)||undefined};
+    },t("progress"),[minus,plus,markall,...episodeButtons]);
+    minus.onclick=()=>setNum((Number(num.value)||0)-1);
+    plus.onclick=()=>setNum((Number(num.value)||0)+1);
+    episodeButtons.forEach(button=>button.onclick=()=>setNum(Number(button.dataset.ep)));
+    if(markall)markall.onclick=()=>setNum(i.total||currentNum(i));
+    bindDrawerNumber(i,document.getElementById("dr-total"),value=>({total:value||undefined}),t("totalReleased"));
+
   } else {
     document.getElementById("dr-prereg").onclick = async e => {
       const button=e.currentTarget;if(button.disabled)return;const focused=document.activeElement===button;button.disabled=true;
@@ -2295,7 +2343,7 @@ function wireDrawer(i, isWatch, isGame) {
     if (s === "completed") { patch.progress = 100; patch.status = "completed"; }
     else if (s === "planned") { patch.progress = 0; patch.status = "in_progress"; }
     else patch.status = "in_progress";
-    update(i.id, patch);
+    void saveDrawerAction(i,patch,b,"#dr-status [data-status]");
   }));
   if(!i.cast?.length && (i.anilistId||i.externalIds?.anilist||i.externalIds?.tvmaze)) {
     requestMetadata({type:"CATALOG_DETAIL",item:i},response=>{
@@ -2335,9 +2383,9 @@ function wireDrawer(i, isWatch, isGame) {
     retry.onclick=saveTitle;
   }
   const typeEl = document.getElementById("dr-type");
-  if (typeEl) typeEl.onchange = () => { update(i.id, { type: typeEl.value }); };
+  if (typeEl) typeEl.onchange = () => saveDrawerAction(i,{type:typeEl.value},typeEl,"#dr-type");
   const seasonEl = document.getElementById("dr-season");
-  if (seasonEl) seasonEl.onchange = () => { const v = Math.max(0, Math.round(Number(seasonEl.value) || 0)); update(i.id, isWatch ? { season: v || undefined } : { volume: v || undefined }); };
+  bindDrawerNumber(i,seasonEl,value=>isWatch?{season:value||undefined}:{volume:value||undefined},isWatch?(settings.lang==="fr"?"Saison":"Season"):(settings.lang==="fr"?"Volume":"Volume"));
   const removeButton=document.getElementById("dr-remove");
   removeButton.onclick = () => {
     if(removeButton.disabled || !confirm(`${t("removeLib")}?`))return;
