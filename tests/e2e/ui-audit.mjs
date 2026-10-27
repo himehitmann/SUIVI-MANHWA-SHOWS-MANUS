@@ -196,6 +196,31 @@ try {
  await page.locator("#dr-close").click();
  assert.equal(await page.locator("#drawer").evaluate(node=>node.inert),true);
 
+ await page.evaluate(()=>{
+  globalThis.tagTestItems=items;globalThis.tagTestSend=api.runtime.sendMessage;globalThis.tagTestFailure=true;
+  items=items.map(item=>item.id==="audit-work"?{...item,tags:["Drama","Fantasy"]}:item);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="UPDATE_ITEM"&&message.patch.tags){
+    if(tagTestFailure){callback({ok:false});return;}
+    callback({ok:true,items:items.map(item=>item.id===message.id?{...item,...message.patch}:item)});return;
+   }
+   return tagTestSend.call(api.runtime,message,callback);
+  };
+  openDrawer("audit-work");
+ });
+ await page.locator('#dr-tags button[data-rm="Drama"]').focus();
+ await page.keyboard.press("Enter");
+ await page.waitForFunction(()=>document.activeElement?.dataset.rm==="Drama"&&!document.activeElement.disabled);
+ assert.deepEqual(await page.evaluate(()=>items.find(item=>item.id==="audit-work").tags),["Drama","Fantasy"]);
+ assert(await page.locator('#dr-tags button[data-rm="Drama"]').getAttribute("aria-label"));
+ await page.evaluate(()=>{tagTestFailure=false;});
+ await page.keyboard.press("Space");
+ await page.waitForFunction(()=>document.activeElement?.dataset.rm==="Fantasy");
+ assert.deepEqual(await page.evaluate(()=>items.find(item=>item.id==="audit-work").tags),["Fantasy"]);
+ await page.keyboard.press("Enter");
+ await page.waitForFunction(()=>document.activeElement?.id==="dr-addtag");
+ assert.deepEqual(await page.evaluate(()=>items.find(item=>item.id==="audit-work").tags),[]);
+ await page.evaluate(()=>{api.runtime.sendMessage=tagTestSend;items=tagTestItems;closeDrawer();renderAll();});
  const libraryPreferences=await page.evaluate(async()=>{
   const original=api.runtime.sendMessage,request=requestMetadata,originalSites=sites,originalSettings=settings;
   let mode="failure",late,calls=0;

@@ -2356,8 +2356,20 @@ function wireDrawer(i, isWatch, isGame) {
 }
 function renderDrawerTags(i) {
   const wrap = document.getElementById("dr-tags");
-  wrap.innerHTML = (i.tags || []).map((x) => `<span class="tag">${esc(x)} <span class="rm" data-rm="${esc(x)}">✕</span></span>`).join("") + `<button class="tag-add" id="dr-addtag">+ ${t("tags")}</button>`;
-  wrap.querySelectorAll("[data-rm]").forEach((s) => (s.onclick = () => update(i.id, { tags: (i.tags || []).filter((x) => x !== s.dataset.rm) })));
+  wrap.innerHTML = (i.tags || []).map((x) => `<span class="tag">${esc(x)} <button type="button" class="rm" data-rm="${esc(x)}" aria-label="${esc(t("delete")+": "+x)}" style="border:0;background:transparent;color:inherit;font:inherit;padding:0 2px;cursor:pointer">✕</button></span>`).join("") + `<button class="tag-add" id="dr-addtag">+ ${t("tags")}</button>`;
+  wrap.querySelectorAll("[data-rm]").forEach(button=>button.onclick=async()=>{
+    if(button.disabled)return;
+    const focused=document.activeElement===button,tag=button.dataset.rm;
+    const controls=[...wrap.querySelectorAll("button")],index=controls.indexOf(button);
+    controls.forEach(control=>control.disabled=true);
+    const saved=await update(i.id,{tags:(i.tags||[]).filter(value=>value!==tag)});
+    const drawer=document.getElementById("drawer");
+    if(focused&&drawer.classList.contains("open")&&drawer.dataset.itemId===i.id){
+      const remaining=[...document.querySelectorAll("#dr-tags [data-rm]")];
+      const target=saved?(remaining[index]||document.getElementById("dr-addtag")):remaining.find(control=>control.dataset.rm===tag);
+      target?.focus({preventScroll:true});
+    }
+  });
   document.getElementById("dr-addtag").onclick = () => { const tg = (prompt(t("tags")) || "").trim(); if (tg) update(i.id, { tags: [...new Set([...(i.tags || []), tg])] }); };
 }
 let drawerReturnFocus=null;
