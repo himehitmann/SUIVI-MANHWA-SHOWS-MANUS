@@ -761,8 +761,8 @@ try {
 
  // Locale display never overwrites provider content and reuses completed translations.
  await p.waitForFunction(()=>!catalogLocaleBusy);
- await p.evaluate(()=>{
-   closeDrawer();items=[];settings.homeCats=["manga","anime"];applyLanguage("ja");
+ await p.evaluate(async()=>{
+   closeDrawer();items=[];settings.homeCats=["manga","anime"];await applyLanguage("ja");
    discover={manga:[{title:"Original title",type:"reading",cover:"cover",synopsis:"Original synopsis",genres:["Adventure"]}],anime:[{title:"Second title",type:"watching",cover:"cover"}]};switchView("home");
  });
  assert.equal(await p.locator(".home-heading h1").innerText(),"今日のおすすめ");
@@ -845,8 +845,8 @@ try {
      return {supported:true,seasons,season:seasons.find(s=>s.id===seasonId)||seasons[0],episodes:seasonId==="ja-2"?[{number:1,name:"Original episode",runtime:20}]:Array.from({length:42},(_,n)=>({number:n+1,name:"Original episode "+(n+1),runtime:20}))};
    };
  });
- await p.evaluate(()=>{
-   applyLanguage("ja");
+ await p.evaluate(async()=>{
+   await applyLanguage("ja");
    openCatalogPreviewResolved({manual:true,title:"Original work",type:"watching",externalIds:{tvmaze:"123"},releaseStatus:"finished",releaseScope:"installment",alternativeTitles:["Original alias"]});
  });
  await p.locator("#guide-season").waitFor();
@@ -880,10 +880,10 @@ try {
    renderSearchResults(query);
  });
  const beforeLocaleSearch=await p.evaluate(()=>JSON.stringify({query,searchFacets,lastResults,searchPageState}));
- const providerCalls=await p.evaluate(()=>{
+ const providerCalls=await p.evaluate(async()=>{
    const original=api.runtime.sendMessage;let calls=0;
    api.runtime.sendMessage=(message,callback)=>{if(message.type==="CATALOG_SEARCH")calls++;return original.call(api.runtime,message,callback);};
-   try{applyLanguage("ja");return calls;}finally{api.runtime.sendMessage=original;}
+   try{await applyLanguage("ja");return calls;}finally{api.runtime.sendMessage=original;}
  });
  assert.equal(providerCalls,0,"Language changes must not restart catalog queries");
  assert.equal(await p.evaluate(()=>JSON.stringify({query,searchFacets,lastResults,searchPageState})),beforeLocaleSearch);
