@@ -8,6 +8,18 @@ Mise à jour : 27 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Lot de fiabilité des modifications de fiches — 27 octobre 2026
+
+Commit bf89921633dafe9d18c3970ecce4163315216267 : [CI PR réussie](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40543060071), incluant 643 tests unitaires, parcours navigateur, affichage, listes, capacité et récupérations. La CI push 40543049317 est encore à l'installation de Chromium au relevé ; résultat non revendiqué.
+
+Corrections regroupées :
+- Chapitre/épisode, total et saison/volume : contrôles nommés, saisie conservée dans la fiche après réponse absente ou échec, bouton Réessayer et protection contre les soumissions simultanées. Les commandes de progression liées sont bloquées pendant cette demande.
+- Le champ volume affiche le volume enregistré, au lieu de la saison.
+- Alertes d'œuvre, trois préférences d'alertes jeux, visibilité sur l'accueil, statut et type : commandes désactivées pendant l'écriture et retour du focus pour les actions concernées. Le type réutilise le même mécanisme ; il n'a pas de scénario spécialisé dans ce lot.
+- Nouveaux scénarios navigateur : cinq combinaisons de saisie numérique, cinq boutons/cases et changement de statut, avec échec/absence de réponse, réponse tardive ignorée et reprise réussie. Vérification du volume initial et du statut terminé/progression 100.
+
+Les réponses d'échec sont simulées dans le navigateur. Les brouillons ne sont pas garantis après fermeture/rechargement ou une autre reconstruction de fiche. Ce lot ne démontre pas la coordination de toutes les écritures concurrentes entre champs ou onglets ; une expiration n'annule pas une opération côté worker. G13 reste partiel ; 19/60 inchangé. Aucune installation ni publication.
+
 ## Sites favoris, tri et étiquettes — 27 octobre 2026
 
 Sites et tri, commit 9e47f427f547a0a74c4ac3b391a6a7ecde531ef0 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40369518636) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40369509658) réussies. Le retrait d'un site utilise un délai de réponse borné, libère les boutons après échec et bloque les demandes simultanées même si la section est reconstruite. Le tri attend la confirmation de SET_SETTINGS avant de modifier la préférence en mémoire ; après échec, le choix confirmé est réaffiché. Tests de réponses absentes, tardives, échecs et reprises. Aucun favori personnel modifié.
