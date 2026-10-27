@@ -3321,7 +3321,7 @@ function openCatalogPreviewResolved(m) {
   drawer.classList.add("open");focusDrawer();document.getElementById("scrim").classList.add("open");
   document.getElementById("preview-close").onclick=closeDrawer;
   const select=document.getElementById("preview-list"),name=document.getElementById("preview-list-name"),button=document.getElementById("preview-add");
-  const selection=()=>{name.hidden=select.value!=="__new";button.disabled=!select.value||(select.value==="__new"&&!name.value.trim());};
+  const selection=()=>{name.hidden=select.value!=="__new";button.disabled=!!catalogAddStates.get(button)?.pending||!select.value||(select.value==="__new"&&!name.value.trim());};
   select.onchange=selection;name.oninput=selection;
   button.onclick=()=>addFromCatalog({...m,listId:select.value==="__new"?undefined:select.value,listName:select.value==="__new"?name.value.trim():undefined},button);
   document.getElementById("preview-close").focus();
@@ -3337,7 +3337,14 @@ function openCatalogPreviewResolved(m) {
     if(status)status.textContent="";
   });
 }
-function addFromCatalog(m, btn) {
+const catalogAddStates=new WeakMap();
+async function addFromCatalog(m, btn) {
+  const previous=btn?catalogAddStates.get(btn):null;
+  if(previous?.pending)return false;
+  const navigationToken=previewRequest;
+  const destination=JSON.stringify([m.listId||"",m.listName||""]);
+  const state=previous?.destination===destination?previous:{destination,saved:null};
+  state.pending=true;if(btn)catalogAddStates.set(btn,state);
   const payload = {
     title: m.title, type: m.type || "reading", cover: m.cover || undefined, coverFallback: m.coverFallback || undefined, synopsis: m.synopsis || undefined,
     releaseStatus:m.releaseStatus,releaseScope:m.releaseScope,releaseSource:m.releaseSource,catalogTags:m.catalogTags||m.tags||[],
@@ -3347,21 +3354,46 @@ function addFromCatalog(m, btn) {
     format: m.format || undefined, price: m.price || undefined, priceStatus:m.priceStatus, priceCheckedAt:m.priceCheckedAt, platform: m.platform || undefined, releaseDate: m.releaseDate || undefined,
     url: m.url || "", domain: (m.url && m.url.replace(/^https?:\/\//, "").split("/")[0]) || "catalog", enrichedAt: Date.now(),
   };
-  if (btn) { btn.disabled = true; btn.innerHTML = I.check; }
-  api.runtime.sendMessage({ type: "SAVE_PROGRESS", payload, listId: m.listId || undefined, listName:m.listName || undefined }, (saved) => {
-    if (api.runtime.lastError || !saved || saved.ok === false) { if(btn){btn.disabled=false;btn.innerHTML=I.plus+" "+t("add");} const message=saved?.error==="ambiguous_identity"?(settings.lang==="fr"?"Plusieurs œuvres correspondent. Ouvrez la bonne fiche depuis votre bibliothèque pour enregistrer la progression.":"Several saved works match. Open the correct library entry to update its progress."):(settings.lang==="fr"?"Sauvegarde impossible. Réessaie.":"Could not save. Try again.");const status=document.getElementById("preview-status");if(status)status.textContent=message;toast(message); return; }
-    api.runtime.sendMessage({ type: "GET_STATE" }, (s) => {
-      query="";filter="all";document.getElementById("q").value="";clearSearchResults();
-      hydrate(s);
-      switchView(m.type==="game"?"games":"library");
-      toast(m.title + " ✓");
-      // Open the work's card so the user sees it was added and can set progress
-      // and pick a list right away (no "added into the void").
-      const key = normTitle(m.title);
-      const it = items.find((x) => x.id === saved.item?.id) || items.find((x) => normTitle(x.title) === key);
-      if (it) openDrawer(it.id);
-    });
-  });
+  const originalLabel=btn?.innerHTML;
+  const controls=btn?.id==="preview-add"?[document.getElementById("preview-list"),document.getElementById("preview-list-name")].filter(Boolean):[];
+  controls.forEach(control=>control.disabled=true);
+  if(btn){btn.disabled=true;btn.setAttribute("aria-busy","true");btn.textContent=settings.lang==="fr"?"Enregistrement…":"Saving…";}
+  const report=message=>{
+    const status=btn?.isConnected?document.getElementById("preview-status"):null;
+    if(status)status.textContent=message;
+    toast(message);
+  };
+  try{
+    if(!state.saved){
+      const saved=await new Promise(resolve=>requestMetadata({type:"SAVE_PROGRESS",payload,listId:m.listId||undefined,listName:m.listName||undefined},resolve));
+      if(!saved||saved.ok===false||!saved.item?.id){
+        if(saved?.item?.id&&saved.error==="list_save_failed"){
+          items=[...items.filter(item=>item.id!==saved.item.id),saved.item];renderGrid();renderStats();
+          report(settings.lang==="fr"?"Œuvre enregistrée, mais ajout à la liste non confirmé. Réessaie pour l’ajouter à la liste.":"Work saved, but adding it to the list was not confirmed. Retry to add it to the list.");
+        }else{
+          report(saved?.error==="ambiguous_identity"?(settings.lang==="fr"?"Plusieurs œuvres correspondent. Ouvre la bonne fiche dans ta bibliothèque.":"Several saved works match. Open the correct library entry."):(settings.lang==="fr"?"Enregistrement non confirmé. Vérifie ta bibliothèque avant de réessayer.":"Save not confirmed. Check your library before retrying."));
+        }
+        return false;
+      }
+      state.saved=saved.item;
+    }
+    const snapshot=await new Promise(resolve=>requestMetadata({type:"GET_STATE"},resolve));
+    if(snapshot?.ok===false||!Array.isArray(snapshot?.items)||!Array.isArray(snapshot?.lists)||!snapshot.items.some(item=>item.id===state.saved.id)){
+      items=[...items.filter(item=>item.id!==state.saved.id),state.saved];renderGrid();renderStats();
+      report(settings.lang==="fr"?"Œuvre enregistrée. L’affichage de la bibliothèque n’a pas pu être actualisé ; réessaie pour l’actualiser.":"Work saved. The library display could not be refreshed; retry to refresh it.");
+      return false;
+    }
+    items=snapshot.items;lists=snapshot.lists;
+    if(navigationToken!==previewRequest||(btn&&!btn.isConnected)){renderGrid();renderStats();return true;}
+    query="";filter="all";document.getElementById("q").value="";clearSearchResults();
+    renderAll();switchView(m.type==="game"?"games":"library");
+    toast(m.title+" ✓");openDrawer(state.saved.id);
+    return true;
+  }finally{
+    state.pending=false;
+    controls.forEach(control=>{if(control.isConnected)control.disabled=false;});
+    if(btn?.isConnected){btn.disabled=false;btn.removeAttribute("aria-busy");btn.innerHTML=originalLabel;}
+  }
 }
 document.getElementById("filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.f; renderFilters(); renderGrid(); document.querySelector("#filters .active")?.focus(); });
 document.getElementById("grid").addEventListener("click", async (e) => {

@@ -221,6 +221,49 @@ try {
  await page.waitForFunction(()=>document.activeElement?.id==="dr-addtag");
  assert.deepEqual(await page.evaluate(()=>items.find(item=>item.id==="audit-work").tags),[]);
  await page.evaluate(()=>{api.runtime.sendMessage=tagTestSend;items=tagTestItems;closeDrawer();renderAll();});
+ const catalogAddRecovery=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,originalItems=items,originalLists=lists;
+  let mode="failure",saveCalls=0,stateCalls=0,late;
+  const entry={id:"catalog-added",title:"Catalog addition",type:"reading",chapter:0,identityVersion:1,enrichedAt:1};
+  requestMetadata=(message,callback)=>request(message,callback,25);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="SAVE_PROGRESS"){
+    saveCalls++;
+    if(mode==="silent"){late=callback;return;}
+    if(mode==="failure"){callback({ok:false});return;}
+    if(mode==="list-failure"){callback({ok:false,error:"list_save_failed",item:entry});return;}
+    callback({ok:true,item:entry});return;
+   }
+   if(message.type==="GET_STATE"){
+    stateCalls++;
+    if(mode==="refresh-failure"){callback({ok:false});return;}
+    callback({items:[...originalItems,entry],lists:originalLists,settings:{lang:"stale"}});return;
+   }
+   return original.call(api.runtime,message,callback);
+  };
+  const button=document.createElement("button");button.textContent="Add";document.body.appendChild(button);
+  const work={title:entry.title,type:"reading",listId:"audit-list"};
+  try{
+   const failed=await addFromCatalog(work,button);
+   const failure=failed===false&&!button.disabled&&button.textContent==="Add"&&items===originalItems;
+   mode="silent";const pending=addFromCatalog(work,button);
+   const savingLabel=!button.textContent.includes("✓")&&button.disabled;
+   const repeated=await addFromCatalog(work,button);await pending;
+   late({ok:true,item:entry});
+   const timeout=repeated===false&&saveCalls===2&&!button.disabled&&items===originalItems;
+   mode="refresh-failure";const beforeSettings=settings;
+   const refresh=await addFromCatalog(work,button);
+   const retained=refresh===false&&items.some(item=>item.id==="audit-work")&&items.some(item=>item.id===entry.id)&&settings===beforeSettings;
+   const writes=saveCalls;mode="success";const recovered=await addFromCatalog(work,button);
+   const refreshOnly=recovered===true&&saveCalls===writes&&stateCalls===2&&document.getElementById("drawer").dataset.itemId===entry.id;
+   closeDrawer();catalogAddStates.delete(button);mode="list-failure";
+   const partial=await addFromCatalog(work,button);
+   const partialRetained=partial===false&&items.some(item=>item.id===entry.id)&&!button.disabled&&!catalogAddStates.get(button).saved;
+   mode="success";const repaired=await addFromCatalog(work,button);
+   return {failure,savingLabel,timeout,retained,refreshOnly,partialRetained,repaired};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;button.remove();items=originalItems;lists=originalLists;closeDrawer();renderAll();}
+ });
+ assert.deepEqual(catalogAddRecovery,{failure:true,savingLabel:true,timeout:true,retained:true,refreshOnly:true,partialRetained:true,repaired:true});
  const languageChanges=await page.evaluate(async()=>{
   const original=api.runtime.sendMessage,request=requestMetadata,originalSettings=settings;
   let mode="failure",pending,calls=0;
