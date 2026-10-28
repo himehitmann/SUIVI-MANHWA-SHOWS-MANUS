@@ -715,6 +715,43 @@ try {
   }finally{api.runtime.sendMessage=original;requestMetadata=request;items=savedItems;closeDrawer();renderAll();}
  });
  assert.deepEqual(gameDetails,{bounded:true,ignored:true,editPreserved:true,identity:true,draft:true,otherOpen:true});
+ // Manual metadata refresh preserves drafts/newer state and validates merge identities.
+ const manualDetails=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,savedItems=items,savedLists=lists;
+  let callback,calls=0;
+  requestMetadata=(message,done)=>request(message,done,20);
+  api.runtime.sendMessage=(message,done)=>{
+   if(message.type==="COMPLETE_ITEM_METADATA"){calls++;callback=done;return;}
+   return original.call(api.runtime,message,done);
+  };
+  const make=()=>({id:"manual-details",title:"Manual details",type:"reading",chapter:2,total:10,enrichedAt:1,identityVersion:1});
+  const begin=()=>{
+   const button=document.getElementById("dr-refresh-info");button.focus();
+   return {button,promise:button.onclick({currentTarget:button})};
+  };
+  const reply=item=>({ok:true,matched:true,status:"matched",item:{...item,synopsis:"Fresh information"}});
+  try{
+   let item=make();items=[item];openDrawer(item.id);
+   let request=begin();await request.button.onclick({currentTarget:request.button});await request.promise;
+   const timeout=calls===1&&!request.button.disabled&&items[0]===item;
+   callback(reply(item));const lateIgnored=items[0]===item;
+   request=begin();document.getElementById("dr-title").value="My unsaved title";
+   callback(reply(item));await request.promise;
+   const draft=document.getElementById("dr-title").value==="My unsaved title"&&items[0]===item&&document.getElementById("dr-refresh-status").textContent===t("refreshDeferred");
+   openDrawer(item.id);request=begin();items=[{...item,favorite:true}];
+   callback(reply(item));await request.promise;
+   const newer=items[0].favorite&&!items[0].synopsis;
+   item=make();items=[item];openDrawer(item.id);request=begin();
+   callback({...reply(item),item:{...item,id:"unrelated"}});await request.promise;
+   const identity=items[0]===item&&document.getElementById("dr-refresh-status").textContent===t("refreshFailed");
+   request=begin();callback({...reply(item),lists:{invalid:true}});await request.promise;
+   const invalidLists=items[0]===item&&lists===savedLists;
+   request=begin();callback(reply(item));await request.promise;
+   const success=items[0].synopsis==="Fresh information"&&document.activeElement.id==="dr-refresh-info";
+   return {timeout,lateIgnored,draft,newer,identity,invalidLists,success};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;items=savedItems;lists=savedLists;closeDrawer();renderAll();}
+ });
+ assert.deepEqual(manualDetails,{timeout:true,lateIgnored:true,draft:true,newer:true,identity:true,invalidLists:true,success:true});
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

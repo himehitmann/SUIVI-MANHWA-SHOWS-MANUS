@@ -245,6 +245,7 @@ const DETAIL_LOCALES={
 "libraryLoading":["Loading your library…","Chargement de ta bibliothèque…","ライブラリを読み込み中…","Cargando tu biblioteca…","Deine Bibliothek wird geladen…","라이브러리를 불러오는 중…","A carregar a tua biblioteca…","正在加载你的书库…"],
 "libraryLoadFailed":["Your library could not be loaded. Try refreshing.","Impossible de charger ta bibliothèque. Réessaie avec Actualiser.","ライブラリを読み込めませんでした。更新してください。","No se pudo cargar tu biblioteca. Intenta actualizar.","Deine Bibliothek konnte nicht geladen werden. Bitte aktualisieren.","라이브러리를 불러오지 못했습니다. 새로고침해 주세요.","Não foi possível carregar a tua biblioteca. Tenta atualizar.","无法加载书库，请尝试刷新。"],
 "refreshFailed":["Update failed. Try again.","Actualisation impossible. Réessaie.","更新できませんでした。もう一度お試しください。","No se pudo actualizar. Inténtalo de nuevo.","Aktualisierung fehlgeschlagen. Erneut versuchen.","업데이트하지 못했습니다. 다시 시도하세요.","Não foi possível atualizar. Tenta novamente.","更新失败，请重试。"],
+"refreshDeferred":["Details received. Finish your edits, then refresh this work again.","Informations reçues. Termine tes modifications, puis actualise à nouveau la fiche.","情報を受信しました。編集を終えてから、もう一度更新してください。","Información recibida. Termina tus cambios y vuelve a actualizar la ficha.","Details erhalten. Beende deine Änderungen und aktualisiere den Eintrag erneut.","정보를 받았습니다. 편집을 마친 뒤 다시 새로고침해 주세요.","Informações recebidas. Termina as alterações e atualiza novamente a ficha.","已收到信息。请完成编辑后再次刷新作品。"],
 "refreshNone":["No new details available.","Aucune nouvelle information disponible.","新しい情報はありません。","No hay información nueva.","Keine neuen Informationen verfügbar.","새로운 정보가 없습니다.","Não há informações novas.","暂无新信息。"],
 "refreshPartial":["Some details updated; other information is still missing.","Certaines informations ont été actualisées ; d’autres restent manquantes.","一部の情報を更新しました。未取得の情報があります。","Se actualizaron algunos datos; aún falta información.","Einige Details wurden aktualisiert; weitere Angaben fehlen noch.","일부 정보를 업데이트했습니다. 아직 없는 정보가 있습니다.","Alguns dados foram atualizados; ainda faltam informações.","已更新部分信息，仍有信息缺失。"],
 "refreshDone":["Details updated.","Fiche actualisée.","作品情報を更新しました。","Ficha actualizada.","Details aktualisiert.","작품 정보를 업데이트했습니다.","Ficha atualizada.","作品信息已更新。"],
@@ -2312,19 +2313,35 @@ function wireDrawer(i, isWatch, isGame) {
   document.getElementById("dr-home-toggle").onclick=e=>saveDrawerAction(i,{homeHidden:!i.homeHidden},e.currentTarget,"#dr-home-toggle");
   document.getElementById("dr-refresh-info").onclick=async e=>{
     const button=e.currentTarget,status=document.getElementById("dr-refresh-status");
+    if(button.disabled)return;
+    const beforeItems=[...items],beforeLists=lists;
     button.disabled=true;status.textContent=t("refreshLoading");
-    requestMetadata({type:isGame?"GAME_ENRICH":"COMPLETE_ITEM_METADATA",id:i.id,force:true},r=>{
-      const failed=api.runtime.lastError||!r?.ok;
-      if(document.getElementById("drawer").dataset.itemId!==i.id||!button.isConnected)return;
-      button.disabled=false;
-      if(failed){status.textContent=t("refreshFailed");return;}
-      if(!r.item||(!r.matched&&!["matched","partial"].includes(r.status))){status.textContent=t("refreshNone");return;}
-      const removed=new Set(r.mergedIds||[]);
-      items=items.filter(x=>!removed.has(x.id)).map(x=>x.id===r.item.id?r.item:x);
-      if(r.lists)lists=r.lists;
-      renderAll();openDrawer(r.item.id);
-      document.getElementById("dr-refresh-status").textContent=t(r.status==="partial"?"refreshPartial":"refreshDone");
+    const r=await new Promise(resolve=>requestMetadata({type:isGame?"GAME_ENRICH":"COMPLETE_ITEM_METADATA",id:i.id,force:true},resolve));
+    const drawer=document.getElementById("drawer");
+    if(!drawer.classList.contains("open")||drawer.dataset.itemId!==i.id||!button.isConnected)return;
+    button.disabled=false;
+    if(!r?.ok){status.textContent=t("refreshFailed");return;}
+    if(!r.item||(!r.matched&&!["matched","partial"].includes(r.status))){status.textContent=t("refreshNone");return;}
+    const merged=r.mergedIds??[];
+    const validMerge=Array.isArray(merged)&&merged.every(id=>typeof id==="string");
+    const target=items.find(item=>item.id===r.item.id);
+    if(!validMerge||r.item.type!==i.type||!target||(r.item.id!==i.id&&!merged.includes(i.id))||merged.includes(r.item.id)||(r.lists!==undefined&&!Array.isArray(r.lists))){
+      status.textContent=t("refreshFailed");return;
+    }
+    const changed=items.length!==beforeItems.length||items.some((item,index)=>item!==beforeItems[index])||lists!==beforeLists;
+    const editing=[...drawer.querySelectorAll("input,textarea,select")].some(control=>{
+      if(control===document.activeElement)return true;
+      if(control.tagName==="SELECT")return [...control.options].some(option=>option.selected!==option.defaultSelected);
+      if(control.type==="checkbox"||control.type==="radio")return control.checked!==control.defaultChecked;
+      return control.value!==control.defaultValue;
     });
+    if(changed||editing){status.textContent=t("refreshDeferred");return;}
+    const removed=new Set(merged);
+    items=items.filter(item=>!removed.has(item.id)).map(item=>item.id===r.item.id?r.item:item);
+    if(r.lists)lists=r.lists;
+    renderAll();openDrawer(r.item.id);
+    document.getElementById("dr-refresh-status").textContent=t(r.status==="partial"?"refreshPartial":"refreshDone");
+    document.getElementById("dr-refresh-info").focus({preventScroll:true});
   };
   const syn = document.getElementById("dr-syn"), synT = document.getElementById("dr-syn-toggle");
   if (synT) synT.onclick = () => { syn.classList.toggle("clamp"); synT.textContent = syn.classList.contains("clamp") ? t("showMore") : t("showLess"); };
