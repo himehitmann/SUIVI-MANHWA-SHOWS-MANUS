@@ -615,6 +615,30 @@ try {
   }
  });
  assert.deepEqual(importRecovery,{busy:true,timeout:true,ignored:true,retained:true,recovered:true,writes:3});
+ // Failed initial/retry reads must not clear a previously confirmed library.
+ const libraryLoading=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata;
+  const saved={items,sites,notifications,lists,settings};let mode="silent",late,calls=0;
+  requestMetadata=(message,callback)=>request(message,callback,20);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="GET_STATE"){calls++;if(mode==="silent"){late=callback;return;}callback(mode==="malformed"?{items:[]}:saved);return;}
+   return original.call(api.runtime,message,callback);
+  };
+  try{
+   const pending=loadLibraryState();await loadLibraryState();await pending;
+   const failed=!libraryLoadPending&&!document.getElementById("library-load-retry").hidden&&items===saved.items&&calls===1;
+   late({...saved,items:[]});await new Promise(resolve=>setTimeout(resolve,5));
+   const lateIgnored=items===saved.items;
+   mode="malformed";await loadLibraryState();
+   const retained=items===saved.items&&lists===saved.lists&&settings===saved.settings;
+   hydrate(undefined);const invalidHydrate=items===saved.items;
+   mode="success";await loadLibraryState();
+   const recovered=document.getElementById("library-load-status").hidden&&!libraryLoadPending;
+   mode="silent";const stale=loadLibraryState();hydrate(saved);late({...saved,items:[]});await stale;
+   return {failed,lateIgnored,retained,invalidHydrate,recovered,newerRetained:items===saved.items&&!libraryLoadPending};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;hydrate(saved);}
+ });
+ assert.deepEqual(libraryLoading,{failed:true,lateIgnored:true,retained:true,invalidHydrate:true,recovered:true,newerRetained:true});
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

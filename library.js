@@ -242,6 +242,8 @@ const DETAIL_LOCALES={
 "priceLastKnown":["Last known price — check the store","Dernier prix connu — à vérifier en boutique","前回の価格 — ストアで確認","Último precio conocido — consulta la tienda","Zuletzt bekannter Preis — im Store prüfen","마지막 확인 가격 — 스토어에서 확인","Último preço conhecido — confirmar na loja","上次已知价格 — 请到商店确认"],
 "refreshDetails":["Refresh details","Actualiser la fiche","作品情報を更新","Actualizar ficha","Details aktualisieren","작품 정보 새로고침","Atualizar ficha","刷新作品信息"],
 "refreshLoading":["Looking up details…","Recherche des informations…","作品情報を取得中…","Buscando información…","Details werden geladen…","정보를 불러오는 중…","A procurar informações…","正在获取信息…"],
+"libraryLoading":["Loading your library…","Chargement de ta bibliothèque…","ライブラリを読み込み中…","Cargando tu biblioteca…","Deine Bibliothek wird geladen…","라이브러리를 불러오는 중…","A carregar a tua biblioteca…","正在加载你的书库…"],
+"libraryLoadFailed":["Your library could not be loaded. Try refreshing.","Impossible de charger ta bibliothèque. Réessaie avec Actualiser.","ライブラリを読み込めませんでした。更新してください。","No se pudo cargar tu biblioteca. Intenta actualizar.","Deine Bibliothek konnte nicht geladen werden. Bitte aktualisieren.","라이브러리를 불러오지 못했습니다. 새로고침해 주세요.","Não foi possível carregar a tua biblioteca. Tenta atualizar.","无法加载书库，请尝试刷新。"],
 "refreshFailed":["Update failed. Try again.","Actualisation impossible. Réessaie.","更新できませんでした。もう一度お試しください。","No se pudo actualizar. Inténtalo de nuevo.","Aktualisierung fehlgeschlagen. Erneut versuchen.","업데이트하지 못했습니다. 다시 시도하세요.","Não foi possível atualizar. Tenta novamente.","更新失败，请重试。"],
 "refreshNone":["No new details available.","Aucune nouvelle information disponible.","新しい情報はありません。","No hay información nueva.","Keine neuen Informationen verfügbar.","새로운 정보가 없습니다.","Não há informações novas.","暂无新信息。"],
 "refreshPartial":["Some details updated; other information is still missing.","Certaines informations ont été actualisées ; d’autres restent manquantes.","一部の情報を更新しました。未取得の情報があります。","Se actualizaron algunos datos; aún falta información.","Einige Details wurden aktualisiert; weitere Angaben fehlen noch.","일부 정보를 업데이트했습니다. 아직 없는 정보가 있습니다.","Alguns dados foram atualizados; ainda faltam informações.","已更新部分信息，仍有信息缺失。"],
@@ -3442,7 +3444,29 @@ document.getElementById("crop-scrim").onclick = closeCropper;
 
 /* ---- boot ---- */
 let storageRefresh = 0, storageRefreshVersion = 0, storageRefreshDirty = false;
+let libraryLoadPending=false,libraryLoadVersion=0;
+function validLibraryState(state) {
+  return !!state&&state.ok!==false&&["items","sites","notifications","lists"].every(key=>Array.isArray(state[key]))&&!!state.settings&&typeof state.settings==="object"&&!Array.isArray(state.settings);
+}
+function paintLibraryLoad(error=false) {
+  const status=document.getElementById("library-load-status"),retry=document.getElementById("library-load-retry");
+  status.hidden=!libraryLoadPending&&!error;
+  status.setAttribute("aria-busy",String(libraryLoadPending));
+  document.getElementById("library-load-message").textContent=t(error?"libraryLoadFailed":"libraryLoading");
+  retry.textContent=t("refresh");retry.hidden=!error;retry.disabled=libraryLoadPending;
+}
+async function loadLibraryState() {
+  if(libraryLoadPending)return false;
+  libraryLoadPending=true;const version=++libraryLoadVersion;paintLibraryLoad();
+  const state=await new Promise(resolve=>requestMetadata({type:"GET_STATE"},resolve));
+  if(version!==libraryLoadVersion)return false;
+  libraryLoadPending=false;
+  if(!validLibraryState(state)){paintLibraryLoad(true);return false;}
+  hydrate(state);return true;
+}
 function hydrate(state) {
+  if(!validLibraryState(state)){if(!libraryLoadPending)paintLibraryLoad(true);return false;}
+  ++libraryLoadVersion;libraryLoadPending=false;paintLibraryLoad();
   ++storageRefreshVersion; clearTimeout(storageRefresh); storageRefreshDirty = false;
   items = state?.items || []; sites = state?.sites || []; notifications = state?.notifications || [];
   lists = state?.lists || []; settings = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" }, ...(state?.settings || {}) };
@@ -3450,7 +3474,8 @@ function hydrate(state) {
   renderNav(); renderAll(); renderLangMenu(); renderProfileMenu();
   if (!discoverTried) loadDiscover(false);
 }
-api.runtime.sendMessage({ type: "GET_STATE" }, hydrate);
+document.getElementById("library-load-retry").onclick=()=>{void loadLibraryState();};
+void loadLibraryState();
 // Background metadata lookups finish after an import. Refresh the open library
 // as storage changes so covers and episode totals appear without a page reload.
 api.storage.onChanged.addListener((changes, area) => {
