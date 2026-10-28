@@ -639,6 +639,45 @@ try {
   }finally{api.runtime.sendMessage=original;requestMetadata=request;hydrate(saved);}
  });
  assert.deepEqual(libraryLoading,{failed:true,lateIgnored:true,retained:true,invalidHydrate:true,recovered:true,newerRetained:true});
+ // Both category controls share confirmed state and the same "all" semantics.
+ const categories=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,savedSettings=settings;
+  let mode="silent",late,writes=0,lastPatch;
+  requestMetadata=(message,callback)=>request(message,callback,20);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="SET_SETTINGS"&&message.patch.homeCats){
+    writes++;lastPatch=message.patch.homeCats;
+    if(mode==="silent"){late=callback;return;}
+    if(mode==="failure"){callback({ok:false});return;}
+    callback({ok:true,settings:{...settings,profile:{name:"Obsolete profile"},homeCats:mode==="invalid"?null:message.patch.homeCats}});return;
+   }
+   return original.call(api.runtime,message,callback);
+  };
+  try{
+   settings={...settings,homeCats:["anime"],profile:{name:"Keep my profile"}};switchView("home");
+   openHomeCats(document.getElementById("brand"));
+   const pending=saveHomeCategories(["manga"]);await saveHomeCategories(["games"]);
+   renderHome();
+   const busy=homeCategorySaving&&[...document.querySelectorAll("[data-home-category],.cats-menu button")].every(button=>button.disabled);
+   await pending;
+   const timeout=!homeCategorySaving&&writes===1&&homeCatAllowed("anime")&&!homeCatAllowed("manga");
+   late({ok:true,settings:{homeCats:["manga"]}});await new Promise(resolve=>setTimeout(resolve,5));
+   const ignored=homeCatAllowed("anime")&&!homeCatAllowed("manga");
+   mode="failure";await saveHomeCategories(["games"]);
+   const failed=homeCatAllowed("anime");
+   mode="invalid";await saveHomeCategories(["games"]);
+   const invalid=homeCatAllowed("anime");
+   mode="success";await homeCatsMenuEl.querySelector("[data-cat-all]").onclick();
+   const all=HOME_CAT_KEYS.every(homeCatAllowed)&&lastPatch.length===HOME_CAT_KEYS.length&&homeCatsMenuEl===null;
+   await saveHomeCategories([]);
+   openHomeCats(document.getElementById("brand"));
+   const empty=[...homeCatsMenuEl.querySelectorAll("[data-cat-toggle]")].every(button=>button.getAttribute("aria-pressed")==="false");
+   await homeCatsMenuEl.querySelector('[data-cat-toggle="manga"]').onclick();
+   const one=HOME_CAT_KEYS.filter(homeCatAllowed).join(",")==="manga";
+   return {busy,timeout,ignored,failed,invalid,all,empty,one,profile:settings.profile.name};
+  }finally{closeHomeCats();api.runtime.sendMessage=original;requestMetadata=request;settings=savedSettings;homeCategorySaving=false;renderAll();}
+ });
+ assert.deepEqual(categories,{busy:true,timeout:true,ignored:true,failed:true,invalid:true,all:true,empty:true,one:true,profile:"Keep my profile"});
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

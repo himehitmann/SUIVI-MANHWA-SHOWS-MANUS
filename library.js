@@ -1348,24 +1348,10 @@ function bindDisco(root = "#view-home") {
   document.querySelectorAll(root+" .disco-game img.cov").forEach(image=>{if(image.complete)fitDiscoveryArtwork(image);});
   const more=document.querySelector(root+" #home-more");
   if(more)more.onclick=()=>{homeShowAll=!homeShowAll;renderHome();document.querySelector(root+" #home-more")?.focus();};
-  document.querySelectorAll(root+" [data-home-category]").forEach(button=>button.onclick=()=>{
-    if(homeCategorySaving)return;
-    const current=HOME_CAT_KEYS.filter(homeCatAllowed),key=button.dataset.homeCategory;
-    const homeCats=current.includes(key)?current.filter(x=>x!==key):[...current,key];
-    homeCategorySaving=true;
-    const controls=document.querySelector(root+" .home-category-chips");
-    controls?.setAttribute("aria-busy","true");
-    controls?.querySelectorAll("button").forEach(el=>{el.disabled=true;});
-    api.runtime.sendMessage({type:"SET_SETTINGS",patch:{homeCats}},r=>{
-      const failed=api.runtime.lastError||!r?.settings;
-      homeCategorySaving=false;
-      if(!failed)settings={...settings,homeCats:r.settings.homeCats};
-      if(view==="home"){
-        renderHome();
-        document.querySelector(root+' [data-home-category="'+key+'"]')?.focus();
-      }
-      if(failed)toast(settings.lang==="fr"?"Filtre non enregistré. Réessaie.":"Filter could not be saved. Try again.");
-    });
+  document.querySelectorAll(root+" [data-home-category]").forEach(button=>button.onclick=async()=>{
+    const key=button.dataset.homeCategory,current=HOME_CAT_KEYS.filter(homeCatAllowed);
+    await saveHomeCategories(current.includes(key)?current.filter(x=>x!==key):[...current,key]);
+    if(view==="home")document.querySelector(root+' [data-home-category="'+key+'"]')?.focus();
   });
   const rf = document.querySelector(`${root} [data-discover-refresh]`);
   if (rf) rf.onclick = () => loadDiscover(true);
@@ -1379,40 +1365,61 @@ function bindDisco(root = "#view-home") {
   document.querySelectorAll(`${root} [data-preview-disco]`).forEach(el=>{const item=discoItems[Number(el.dataset.previewDisco)];el.onclick=()=>openCatalogPreview(item);});
 
 }
-// Home category picker — check which categories appear on Home. Persisted to
-// settings.homeCats (empty/absent = all). Anchored to its button, closes on
-// outside click.
+// Home categories use the same explicit set in both controls; [] means none.
 let homeCatsMenuEl = null;
+function paintHomeCategorySaving() {
+  document.querySelectorAll(".home-category-chips,.cats-menu").forEach(group=>{
+    group.setAttribute("aria-busy",String(homeCategorySaving));
+    group.querySelectorAll("button").forEach(button=>{button.disabled=homeCategorySaving;});
+  });
+}
+async function saveHomeCategories(homeCats) {
+  if(homeCategorySaving)return false;
+  const wanted=HOME_CAT_KEYS.filter(key=>homeCats.includes(key));
+  homeCategorySaving=true;paintHomeCategorySaving();
+  try{
+    const response=await new Promise(resolve=>requestMetadata({type:"SET_SETTINGS",patch:{homeCats:wanted}},resolve));
+    const actual=response?.settings?.homeCats;
+    const saved=response?.ok!==false&&Array.isArray(actual)&&actual.length===wanted.length&&wanted.every(key=>actual.includes(key));
+    if(saved)settings={...settings,homeCats:[...wanted]};
+    else toast(settings.lang==="fr"?"Filtre non enregistré. Réessaie.":"Filter could not be saved. Try again.");
+    return saved;
+  }finally{
+    homeCategorySaving=false;
+    if(view==="home")renderHome();
+    if(homeCatsMenuEl)paintHomeCatsMenu();
+    paintHomeCategorySaving();
+  }
+}
 function closeHomeCats() { if (homeCatsMenuEl) { homeCatsMenuEl.remove(); homeCatsMenuEl = null; document.removeEventListener("click", closeHomeCats); } }
+function paintHomeCatsMenu() {
+  if(!homeCatsMenuEl)return;
+  homeCatsMenuEl.querySelectorAll("[data-cat-toggle]").forEach(button=>{
+    const key=button.dataset.catToggle,on=homeCatAllowed(key);
+    button.classList.toggle("qa-on",on);button.setAttribute("aria-pressed",String(on));
+    button.innerHTML=(on?I.check:I.plus)+" "+esc(t("cat"+key[0].toUpperCase()+key.slice(1)));
+  });
+  paintHomeCategorySaving();
+}
 function openHomeCats(anchor) {
   if (homeCatsMenuEl) { closeHomeCats(); return; }
   const m = document.createElement("div");
   m.className = "qa-menu cats-menu";
-  const row = (key) => {
-    const on = homeCatAllowed(key);
-    return `<button data-cat-toggle="${key}" class="${on ? "qa-on" : ""}">${on ? I.check : I.plus} ${esc(t("cat" + key[0].toUpperCase() + key.slice(1)))}</button>`;
+  m.innerHTML = `<div class="cats-menu-h">${esc(t("chooseCats"))}</div>${HOME_CAT_KEYS.map(key=>'<button type="button" data-cat-toggle="'+key+'"></button>').join("")}<button type="button" data-cat-all>${I.check} ${esc(t("catAll"))}</button>`;
+  document.body.appendChild(m);homeCatsMenuEl=m;paintHomeCatsMenu();
+  const r=anchor.getBoundingClientRect();
+  m.style.top = `${Math.max(8,Math.min(window.innerHeight-m.offsetHeight-8,r.bottom+6))}px`;
+  m.style.left = `${Math.max(8,Math.min(window.innerWidth-m.offsetWidth-8,r.right-m.offsetWidth))}px`;
+  m.addEventListener("click",e=>e.stopPropagation());
+  m.querySelectorAll("[data-cat-toggle]").forEach(button=>button.onclick=async()=>{
+    const key=button.dataset.catToggle,current=HOME_CAT_KEYS.filter(homeCatAllowed);
+    await saveHomeCategories(current.includes(key)?current.filter(x=>x!==key):[...current,key]);
+    if(button.isConnected)button.focus();
+  });
+  m.querySelector("[data-cat-all]").onclick=async()=>{
+    if(await saveHomeCategories(HOME_CAT_KEYS)){if(homeCatsMenuEl===m)closeHomeCats();}
   };
-  m.innerHTML = `<div class="cats-menu-h">${esc(t("chooseCats"))}</div>${HOME_CAT_KEYS.map(row).join("")}<div style="height:1px;background:var(--line);margin:5px 4px"></div><button data-cat-all>${I.check} ${esc(t("catAll"))}</button>`;
-  document.body.appendChild(m);
-  homeCatsMenuEl = m;
-  const r = anchor.getBoundingClientRect();
-  m.style.top = `${Math.min(window.innerHeight - m.offsetHeight - 8, r.bottom + 6)}px`;
-  m.style.left = `${Math.max(8, Math.min(window.innerWidth - m.offsetWidth - 8, r.right - m.offsetWidth))}px`;
-  const save = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { homeCats: settings.homeCats } }, (rr) => { if (rr?.settings) settings = rr.settings; if (view === "home") renderHome(); });
-  m.addEventListener("click", (e) => e.stopPropagation());
-  m.querySelectorAll("[data-cat-toggle]").forEach((b) => (b.onclick = () => {
-    const key = b.dataset.catToggle;
-    // Materialize the current effective set, then toggle this key.
-    let cur = Array.isArray(settings.homeCats) && settings.homeCats.length ? [...settings.homeCats] : [...HOME_CAT_KEYS];
-    cur = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
-    if (!cur.length) cur = [key]; // never allow an empty Home
-    settings.homeCats = cur.length === HOME_CAT_KEYS.length ? [] : cur;
-    b.classList.toggle("qa-on"); b.innerHTML = `${cur.includes(key) ? I.check : I.plus} ${b.textContent.trim()}`;
-    save();
-  }));
-  const allBtn = m.querySelector("[data-cat-all]");
-  if (allBtn) allBtn.onclick = () => { settings.homeCats = []; save(); closeHomeCats(); };
-  setTimeout(() => document.addEventListener("click", closeHomeCats), 0);
+  setTimeout(()=>{if(homeCatsMenuEl===m)document.addEventListener("click",closeHomeCats);},0);
 }
 function valueStrip() {
   const cards = [
