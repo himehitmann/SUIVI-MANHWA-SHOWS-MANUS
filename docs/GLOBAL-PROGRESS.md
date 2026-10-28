@@ -8,6 +8,18 @@ Mise à jour : 28 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Recherche bornée et correctif de dépendance — 28 octobre 2026
+
+Commit 835e7163dfc96f32495d20f140452234bd28ca69 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40644666424) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40644661227) réussies. 643 tests unitaires, parcours navigateur, affichage, capacité et récupérations ; pnpm audit indique « No known vulnerabilities found » à cette exécution.
+
+Recherche : chaque réponse est bornée à 15 secondes et un cycle de recherche progressive à environ 45 secondes, avant de proposer une reprise. Les temporisations de sondage sont annulées au changement/effacement de recherche. Une réponse invalide conserve les résultats précédents ; les réponses d'une ancienne requête sont ignorées. Le curseur de pagination est conservé pour réessayer la page en échec. Le contrôle préalable CHECK_EXISTING à l'ouverture d'une fiche est borné à 5 secondes et permet ensuite l'aperçu ; le moteur d'identité reste chargé de résoudre les doublons lors de l'enregistrement.
+
+Tests navigateur : silence, réponse invalide, reprise, réponse ancienne après nouvelle requête, délai global simulé avec résultats partiels, aperçu après silence et réponse tardive ignorée. Ces tests n'établissent ni exhaustivité du catalogue ni latence réelle garantie des fournisseurs. Les opérations du worker peuvent se poursuivre après expiration.
+
+Sécurité : les premières validations 40644185168 et 40644177574 étaient arrêtées par l'audit sur [GHSA-6pq8-jhm2-2vcw](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw). L'override qs et son verrouillage passent de 6.16.0 à 6.16.1, version corrigée selon l'avis et le tag fournisseur. L'intégrité du verrouillage est contrôlée à l'installation frozen-lockfile ; aucune règle d'audit désactivée. L'audit réussi ne démontre pas à lui seul l'absence de toute vulnérabilité du produit.
+
+G08 reste partiel, score global inchangé : 19/60. Aucune installation dans le navigateur utilisateur ni publication.
+
 ## Ajout depuis le catalogue et reprise après erreur — 28 octobre 2026
 
 État vérifié au commit 238e29f6d366ef0d41cfd397c86cfac92924b73e : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40547252531) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40547241201) réussies. Les deux validations comprennent 643 tests unitaires, parcours navigateur, bibliothèque, recadrage, affichage, capacité et récupérations.
