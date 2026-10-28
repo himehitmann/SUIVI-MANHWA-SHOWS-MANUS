@@ -609,17 +609,18 @@ try {
  await p.locator('#view-home [data-home-category="anime"]').click();
  await p.waitForFunction(()=>!homeCategorySaving&&settings.homeCats.includes("anime"));
  assert.deepEqual(await p.evaluate(()=>discoPools().map(pool=>pool.key)),["anime"]);
- const preferenceFailure=await p.evaluate(()=>{
+ const preferenceFailure=await p.evaluate(async()=>{
    const original=api.runtime.sendMessage;let pending,calls=0;
    try{
      api.runtime.sendMessage=(message,cb)=>{
        if(message.type==="SET_SETTINGS"){calls++;pending=cb;return;}
        return original.call(api.runtime,message,cb);
      };
-     document.querySelector('[data-home-category="anime"]').click();
+     const saving=document.querySelector('[data-home-category="anime"]').onclick();
      document.querySelector('[data-home-category="manga"]').click();
      const busy=document.querySelector(".home-category-chips").getAttribute("aria-busy");
      pending({ok:false});
+     await saving;
      return {calls,busy,categories:settings.homeCats,ready:!homeCategorySaving,enabled:!document.querySelector('[data-home-category="anime"]').disabled};
    }finally{api.runtime.sendMessage=original;}
  });
