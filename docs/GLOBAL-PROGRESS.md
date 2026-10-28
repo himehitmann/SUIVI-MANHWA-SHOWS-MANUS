@@ -8,6 +8,18 @@ Mise à jour : 28 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Informations automatiques des jeux : réponses tardives — 28 octobre 2026
+
+Commit f7f7ab6defce1b9a65b4a1b192e2c133d5577dac : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40743929008) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40743922494) réussies. 643 tests unitaires, audit des dépendances sans vulnérabilité connue à cette exécution, parcours navigateur, capacité et récupération.
+
+L’enrichissement automatique d’un jeu ouvert utilise requestMetadata avec délai borné et une seule demande en cours par identifiant dans cette page. Une réponse absente, sans confirmation, d’identité/type incorrects ou sans marqueur d’enrichissement ne remplace pas la fiche. Une erreur visible utilise le message d’actualisation existant ; le bouton manuel permet une reprise.
+
+Une réponse automatique ne remplace plus un objet local actualisé depuis le départ de la demande. La reconstruction du panneau exige le même identifiant et la même ouverture, et est évitée lorsqu’un champ est en cours d’édition. Le résultat peut enrichir l’objet encore inchangé sans déplacer l’utilisateur vers une autre fiche.
+
+Tests navigateur : demandes répétées, silence et réponse tardive, modification locale plus récente, réponse d’un autre identifiant, titre non enregistré dans le champ actif, navigation vers une autre fiche. Le correctif porte sur l’enrichissement automatique, pas sur tous les chemins de rafraîchissement ; il ne démontre ni exhaustivité des jeux/trailers ni absence de toute course entre onglets. Une expiration n’annule pas le travail du worker.
+
+G05/G10 restent partiels, score global inchangé : 19/60 (32 %). Aucun changement installé dans le navigateur utilisateur, aucune publication.
+
 ## Catégories de l’accueil cohérentes et confirmées — 28 octobre 2026
 
 Commit df469269f1ab2acb070504368703c5a3789ab09f : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40740983799) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40740972704) réussies. 643 tests unitaires, audit des dépendances sans vulnérabilité connue à cette exécution, parcours navigateur, capacité et récupération.
