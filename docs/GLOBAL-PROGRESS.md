@@ -8,6 +8,18 @@ Mise à jour : 28 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Catégories de l’accueil cohérentes et confirmées — 28 octobre 2026
+
+Commit df469269f1ab2acb070504368703c5a3789ab09f : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40740983799) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40740972704) réussies. 643 tests unitaires, audit des dépendances sans vulnérabilité connue à cette exécution, parcours navigateur, capacité et récupération.
+
+Les boutons de l’accueil et le menu des catégories partagent désormais saveHomeCategories. Le menu utilisait à tort [] pour Tout, alors que homeCatAllowed interprète [] comme aucune catégorie. Tout enregistre maintenant les neuf catégories explicitement ; la sélection vide reste vide dans les deux interfaces. Le réglage est appliqué uniquement après confirmation d’un tableau correspondant à la demande. Seul homeCats est fusionné, afin de préserver les autres préférences.
+
+Les commandes sont bloquées pendant l’attente, même après reconstruction de l’accueil ou ouverture du menu. Un délai borné libère les commandes et conserve la sélection confirmée en cas d’échec. Les réponses tardives sont ignorées. Le menu expose aria-pressed et ne ferme pas un nouveau menu lorsque la confirmation d’un ancien menu arrive.
+
+Tests : échec, silence, réponse tardive, réponse invalide, clic répété, reconstruction pendant l’attente, Tout, sélection vide, reprise d’une catégorie depuis le vide et préservation du profil. Le test historique bulk-lists attend maintenant la promesse d’enregistrement avant de vérifier la réactivation des commandes ; ses assertions sont conservées. Les premières validations avaient échoué sur cette attente manquante.
+
+G03 reste partiel, score inchangé : 19/60 (32 %). Ce lot ne valide pas toute la présentation de l’accueil et n’a pas été installé dans le navigateur utilisateur.
+
 ## Chargement de la bibliothèque et reprise — 28 octobre 2026
 
 Commit d6bb1f142fc435484f84638ec8047c94cc0bf6c3 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40733436781) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40733426328) réussies. 643 tests unitaires, audit des dépendances sans vulnérabilité connue à cette exécution, parcours navigateur, capacité et récupération.
