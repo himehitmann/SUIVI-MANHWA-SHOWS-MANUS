@@ -6,6 +6,10 @@ let items = [], sites = [], notifications = [], lists = [];
 let settings = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" } };
 let filter = "all", query = "", currentListId = null, view = "home";
 let listAddQuery = "";
+let listCreationPending=false;
+function paintListCreation() {
+  for(const id of ["new-list","add-list-inline"]){const button=document.getElementById(id);if(button){button.disabled=listCreationPending;button.setAttribute("aria-busy",String(listCreationPending));}}
+}
 let spotIdx = 0, spotItems = [], spotTimer = null;
 let discover = null, discoverTried = false, discoverLoading = false; // fresh recommendations pulled from the background
 let discoCat = "all"; // active Discover category tab (webtoon-style)
@@ -1797,6 +1801,7 @@ function renderLists() {
     </div>`; }).join("") + `<button class="strip-new" id="new-list" aria-label="${esc(t("newList"))}">${I.plus}</button><button class="btn" id="toggle-archived" aria-label="${fr?'Afficher les listes archivées':'Show archived lists'}" aria-pressed="${showArchivedLists}">${showArchivedLists?(fr?'Voir les listes actives':'Show active lists')+' ('+activeCount+')':(fr?'Voir les archives':'Show archives')+' ('+archivedCount+')'}</button>`;
   strip.querySelectorAll("[data-delete-list]").forEach(button=>button.onclick=e=>{e.stopPropagation();confirmListDelete(button.dataset.deleteList,button);});
   document.getElementById("toggle-archived").onclick=()=>{showArchivedLists=!showArchivedLists;renderLists();document.getElementById("toggle-archived").focus();};
+  paintListCreation();
 }
 function confirmListDelete(id,button) {
 document.getElementById("list-delete-confirm")?.remove();
@@ -3469,7 +3474,28 @@ document.getElementById("grid").addEventListener("click", async (e) => {
   }
   const card = e.target.closest("[data-open]"); if (card) openDrawer(card.dataset.open);
 });
-const newListFlow = () => listMsg("LIST_CREATE", { name: t("newList") }, response => { renderLists(); if (response.list?.id) { openList(response.list.id);const name=document.getElementById("list-name");name.focus();name.select(); } });
+const newListFlow = async () => {
+  if(listCreationPending)return false;
+  listCreationPending=true;paintListCreation();
+  const navigation=previewRequest,selectedList=currentListId;
+  try{
+    const response=await new Promise(resolve=>requestMetadata({type:"LIST_CREATE",name:t("newList")},resolve));
+    const created=response?.list;
+    if(response?.ok===false||!created||typeof created.id!=="string"||!created.id||!Array.isArray(response.lists)||!response.lists.some(list=>list.id===created.id)){
+      toast(settings.lang==="fr"?"Création non confirmée. Vérifie tes listes avant de réessayer.":"Creation not confirmed. Check your lists before retrying.");
+      return false;
+    }
+    // Creating a list must not replace other lists edited during the request.
+    if(!lists.some(list=>list.id===created.id))lists=[...lists,created];
+    renderLists();
+    if(view==="library"&&previewRequest===navigation&&currentListId===selectedList){
+      openList(created.id);
+      const name=document.getElementById("list-name");name?.focus();name?.select();
+    }
+    return true;
+  }finally{listCreationPending=false;paintListCreation();}
+};
+
 document.getElementById("list-strip").addEventListener("click", (e) => {
   if (e.target.closest("#new-list")) { newListFlow(); return; }
   const card = e.target.closest("[data-list]"); if (card) openList(card.dataset.list);

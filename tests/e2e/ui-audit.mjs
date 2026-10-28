@@ -752,6 +752,37 @@ try {
   }finally{api.runtime.sendMessage=original;requestMetadata=request;items=savedItems;lists=savedLists;closeDrawer();renderAll();}
  });
  assert.deepEqual(manualDetails,{timeout:true,lateIgnored:true,draft:true,newer:true,identity:true,invalidLists:true,success:true});
+ // The two create-list entry points share a lock and preserve later navigation.
+ const listCreation=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,savedLists=lists;
+  let pending,calls=0;
+  requestMetadata=(message,callback)=>request(message,callback,20);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="LIST_CREATE"){calls++;pending=callback;return;}
+   return original.call(api.runtime,message,callback);
+  };
+  try{
+   switchView("library");backToLists();
+   const first=newListFlow();await newListFlow();renderLists();
+   const busy=["new-list","add-list-inline"].every(id=>document.getElementById(id).disabled);
+   await first;
+   const timeout=!listCreationPending&&calls===1&&lists===savedLists;
+   const created={id:"creation-audit",name:"Created",itemIds:[]};
+   pending({ok:true,list:created,lists:[...lists,created]});
+   const lateIgnored=lists===savedLists;
+   let next=newListFlow();pending({ok:true,list:created,lists:[]});await next;
+   const malformed=lists===savedLists&&!listCreationPending;
+   next=newListFlow();const newer={id:"newer-list-audit",name:"Newer change",itemIds:[]};
+   lists=[...lists,newer];switchView("games");
+   pending({ok:true,list:created,lists:[...savedLists,created]});await next;
+   const navigation=view==="games"&&lists.some(list=>list.id===newer.id)&&lists.some(list=>list.id===created.id);
+   switchView("library");backToLists();
+   next=newListFlow();const final={id:"creation-final-audit",name:"Final",itemIds:[]};
+   pending({ok:true,list:final,lists:[...lists,final]});await next;
+   return {busy,timeout,lateIgnored,malformed,navigation,opened:currentListId===final.id&&document.activeElement.id==="list-name",released:!listCreationPending&&!document.getElementById("add-list-inline").disabled};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;lists=savedLists;listCreationPending=false;currentListId=null;backToLists();renderAll();}
+ });
+ assert.deepEqual(listCreation,{busy:true,timeout:true,lateIgnored:true,malformed:true,navigation:true,opened:true,released:true});
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{
