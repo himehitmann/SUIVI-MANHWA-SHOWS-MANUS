@@ -1,12 +1,26 @@
 # Suivi global Yomu
 
-Mise à jour : 27 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 28 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Ajout depuis le catalogue et reprise après erreur — 28 octobre 2026
+
+État vérifié au commit 238e29f6d366ef0d41cfd397c86cfac92924b73e : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40547252531) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40547241201) réussies. Les deux validations comprennent 643 tests unitaires, parcours navigateur, bibliothèque, recadrage, affichage, capacité et récupérations.
+
+Le parcours d'ajout n'affiche plus une coche avant la confirmation. Il bloque les demandes répétées sur le même bouton et utilise des délais de réponse bornés pour SAVE_PROGRESS et GET_STATE. Les sélecteurs de destination sont bloqués pendant la demande. Une réponse de rechargement invalide ne passe plus par hydrate et ne remplace plus la bibliothèque par un état vide, ni les réglages personnels par un ancien instantané.
+
+Trois cas sont distingués : enregistrement non confirmé ; œuvre enregistrée mais ajout à la liste non confirmé ; œuvre enregistrée mais affichage non actualisé. Dans le troisième cas, une nouvelle tentative sur le même bouton recharge l'état sans renvoyer SAVE_PROGRESS. Une navigation intervenue pendant l'attente est respectée, et la fiche finale est identifiée par l'identifiant confirmé plutôt que par une correspondance de titre.
+
+Le test de navigateur simule échec, réponse absente, clic répété, réponse tardive, échec de rechargement, reprise sans seconde écriture et échec partiel de liste. Il ne constitue pas un audit exhaustif des doublons entre fournisseurs, ni une garantie contre les répétitions entre onglets. Une expiration n'annule pas une écriture déjà engagée ; l'état de reprise n'est conservé que pour le bouton courant.
+
+La première CI PR 40546307397 avait échoué sur l'ancien test japonais de bulk-lists.mjs qui n'attendait pas applyLanguage devenu asynchrone. Les trois appels concernés attendent désormais la confirmation avant leurs assertions ; les deux validations ci-dessus passent après cette correction.
+
+G13 reste partiel, score inchangé : 19/60. Aucune installation dans le navigateur utilisateur, aucune publication.
 
 ## Enregistrement du changement de langue — 27 octobre 2026
 
