@@ -8,6 +8,18 @@ Mise à jour : 28 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Duplication, archivage et restauration des listes — 28 octobre 2026
+
+Commit ed6b9259b81a1fba163416bb850ebbc62bd2a633 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40781675326) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40781668171) réussies. Parcours navigateur, capacité et récupérations validés.
+
+Les boutons Dupliquer et Archiver/Restaurer utilisent un verrou commun par liste, conservé après reconstruction de son éditeur. Les réponses sont bornées, les réponses tardives ignorées et les confirmations vérifiées : nouvelle identité pour une copie, valeur archived attendue pour archivage/restauration, présence de la cible dans les listes retournées.
+
+Une duplication ajoute la copie confirmée sans remplacer les autres listes. L’archivage fusionne uniquement archived, préservant notamment un nom modifié pendant l’attente. L’ouverture de la copie ou le retour aux listes exige la même page, la même sélection et l’absence de navigation intervenue. Les boutons se réactivent après échec.
+
+Tests : demandes concurrentes, reconstruction pendant l’attente, silence/réponse tardive, copie invalide, navigation vers les jeux, conservation d’une autre liste récente, renommage pendant archivage et restauration. Le verrou est local à cette page ; aucune garantie d’idempotence entre onglets ou après expiration. Aucun changement du stockage des œuvres ni de la sauvegarde cloud.
+
+G13 reste partiel, score global inchangé : 19/60 (32 %). Aucun changement installé dans le navigateur utilisateur ni publication.
+
 ## Création des listes : répétitions et navigation — 28 octobre 2026
 
 Commit 075b3aed34a28d10f8fce31c18d3324306d3b010 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40780782638) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40780774792) réussies. 643 tests unitaires, audit des dépendances sans vulnérabilité connue à cette exécution, parcours navigateur, capacité et récupération.
