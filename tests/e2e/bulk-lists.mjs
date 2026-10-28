@@ -1045,7 +1045,7 @@ try {
  assert(trailerCases.html.every(html=>html.includes("https://www.youtube-nocookie.com/embed/AbCdEf123_-")&&html.includes("トレーラー")),"Supported YouTube forms render directly with the selected language");
  assert(trailerCases.rejected.every(html=>html===""),"Unsupported or unsafe trailer URLs must not embed");
 
- const refreshProbe=await p.evaluate(()=>{
+ const refreshProbe=await p.evaluate(async()=>{
    const savedItems=items,savedLang=settings.lang,original=api.runtime.sendMessage;
    let response;
    api.runtime.sendMessage=(message,callback)=>{if(["COMPLETE_ITEM_METADATA","GAME_ENRICH"].includes(message.type)){callback(response);return;}return original.call(api.runtime,message,callback);};
@@ -1054,17 +1054,17 @@ try {
      settings.lang="ja";items=[fixture];openDrawer(fixture.id);
      const label=document.getElementById("dr-refresh-info").textContent;
      response={ok:true,status:"partial",matched:false,item:{...fixture,synopsis:"Recovered summary"}};
-     document.getElementById("dr-refresh-info").click();
+     await document.getElementById("dr-refresh-info").onclick({currentTarget:document.getElementById("dr-refresh-info")});
      const partial={message:document.getElementById("dr-refresh-status").textContent,synopsis:items[0].synopsis,episode:items[0].episode};
      settings.lang="fr";openDrawer(fixture.id);response={ok:false,error:"offline"};
-     document.getElementById("dr-refresh-info").click();
+     await document.getElementById("dr-refresh-info").onclick({currentTarget:document.getElementById("dr-refresh-info")});
      const failed={message:document.getElementById("dr-refresh-status").textContent,enabled:!document.getElementById("dr-refresh-info").disabled,synopsis:items[0].synopsis};
      response={ok:true,status:"not_found",item:items[0]};
-     document.getElementById("dr-refresh-info").click();
+     await document.getElementById("dr-refresh-info").onclick({currentTarget:document.getElementById("dr-refresh-info")});
      const absent=document.getElementById("dr-refresh-status").textContent;
      settings.lang="en";response={ok:true,status:"matched",item:{...fixture,type:"game",synopsis:"Game",gameEnrichedAt:1}};
      items=[response.item];openDrawer(fixture.id);
-     document.getElementById("dr-refresh-info").click();
+     await document.getElementById("dr-refresh-info").onclick({currentTarget:document.getElementById("dr-refresh-info")});
      const success=document.getElementById("dr-refresh-status").textContent;
      return {label,partial,failed,absent,success};
    }finally{api.runtime.sendMessage=original;closeDrawer();items=savedItems;settings.lang=savedLang;}
