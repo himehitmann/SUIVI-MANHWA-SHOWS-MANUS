@@ -462,7 +462,7 @@ try {
     await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[{...item,enrichedAt:item.enrichedAt+1}]}),progressed);
     await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=1);
     await page.evaluate(({item,lists})=>{
-      hydrate({items:[item],lists,settings});
+      hydrate({items:[item],lists,sites,notifications,settings});
       for(const callback of globalThis.refreshRaceCallbacks.splice(0))callback({items:[],lists:[]});
     },{item:progressed,lists:refreshBaseline["dasi.lists"]});
     assert.equal(await page.locator('#grid article.card[data-open="alchemy-of-souls"]').count(),1,"A pending refresh overrode explicit hydration");
