@@ -8,6 +8,14 @@ Mise à jour : 28 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Import : confirmation et conservation de l’affichage — 28 octobre 2026
+
+Commit 4ef72dc954b5dc180440532f7ac892a0cea9a8d9 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40645700715) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40645693095) réussies, avec parcours navigateur, capacité et récupération.
+
+L’import bloque une seconde demande pendant la lecture, l’enregistrement et l’actualisation. Le bouton reste bloqué après reconstruction des réglages. IMPORT_MERGE attend une confirmation pendant au maximum 45 secondes ; GET_STATE utilise un délai borné. Une réponse tardive est ignorée. Après confirmation, une réponse d’état absente ou mal formée conserve la bibliothèque affichée et distingue « import enregistré, actualisation impossible » d’un import non confirmé. Le sélecteur est libéré dans tous les cas.
+
+Le test navigateur simule silence, double demande, reconstruction des réglages pendant l’attente, réponse tardive, état incomplet et reprise réussie. Il ne démontre pas une synchronisation TV Time continue, une sauvegarde cloud réelle ou une restauration après désinstallation. Une expiration n’annule pas une écriture déjà engagée ; vérifier la bibliothèque avant de relancer un import non confirmé. G13 reste partiel : 19/60 (32 %). Aucune installation ou publication.
+
 ## Recherche bornée et correctif de dépendance — 28 octobre 2026
 
 Commit 835e7163dfc96f32495d20f140452234bd28ca69 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40644666424) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40644661227) réussies. 643 tests unitaires, parcours navigateur, affichage, capacité et récupérations ; pnpm audit indique « No known vulnerabilities found » à cette exécution.
