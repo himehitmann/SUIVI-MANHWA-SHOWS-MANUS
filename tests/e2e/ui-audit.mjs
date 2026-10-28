@@ -221,6 +221,51 @@ try {
  await page.waitForFunction(()=>document.activeElement?.id==="dr-addtag");
  assert.deepEqual(await page.evaluate(()=>items.find(item=>item.id==="audit-work").tags),[]);
  await page.evaluate(()=>{api.runtime.sendMessage=tagTestSend;items=tagTestItems;closeDrawer();renderAll();});
+ const searchRecovery=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,originalNow=Date.now,previousFacets=searchFacets;
+  const waiting=[];let mode="silent",sent=0,previewLate;
+  requestMetadata=(message,callback)=>request(message,callback,25);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="CATALOG_SEARCH"){
+    sent++;
+    if(mode==="malformed"){callback({ok:true,results:null});return;}
+    if(mode==="success"){callback({ok:true,results:[{title:"Recovered result",type:"reading"}],pending:false});return;}
+    if(mode==="pending"){callback({ok:true,results:[{title:"Partial result",type:"reading"}],pending:true});return;}
+    waiting.push(callback);return;
+   }
+   if(message.type==="CHECK_EXISTING"){previewLate=callback;return;}
+   return original.call(api.runtime,message,callback);
+  };
+  const pause=()=>new Promise(resolve=>setTimeout(resolve,50));
+  try{
+   switchView("library");searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};
+   query="test";lastResults=[{title:"Retained result",type:"reading"}];
+   searchPageState={pending:false,hasMore:true,cursor:"page-2",error:false};renderSearchResults(query);
+   catalogSearch(query,"page-2");await pause();
+   const timeout=!searchPageState.pending&&searchPageState.error&&lastResults[0].title==="Retained result"&&!document.getElementById("search-more").disabled&&searchPageState.retryMore==="page-2";
+   waiting[0]({ok:true,results:[],pending:false});
+   const lateIgnored=lastResults[0].title==="Retained result";
+   mode="malformed";document.getElementById("search-more").click();await pause();
+   const malformed=searchPageState.error&&lastResults[0].title==="Retained result";
+   mode="success";document.getElementById("search-more").click();await pause();
+   const recovered=!searchPageState.error&&lastResults[0].title==="Recovered result";
+   mode="silent";query="old";catalogSearch(query);query="new";catalogSearch(query);
+   waiting[2]({ok:true,results:[{title:"Newest result",type:"reading"}],pending:false});
+   waiting[1]({ok:true,results:[{title:"Obsolete result",type:"reading"}],pending:false});
+   const newest=lastResults[0].title==="Newest result";
+   mode="pending";const now=originalNow();Date.now=()=>now;query="partial";catalogSearch(query);
+   Date.now=()=>now+46000;
+   await new Promise(resolve=>setTimeout(resolve,550));
+   const deadline=!searchPageState.pending&&searchPageState.error&&lastResults[0].title==="Partial result";
+   Date.now=originalNow;clearSearchResults();
+   openCatalogPreview({title:"Preview after timeout",manual:true,type:"reading"});await pause();
+   const preview=document.querySelector("#drawer .drawer-title")?.textContent==="Preview after timeout";
+   previewLate({existing:{id:"obsolete",title:"Obsolete",type:"reading"}});
+   const previewProtected=!items.some(item=>item.id==="obsolete");
+   return {timeout,lateIgnored,malformed,recovered,newest,deadline,preview,previewProtected,sent};
+  }finally{Date.now=originalNow;api.runtime.sendMessage=original;requestMetadata=request;searchFacets=previousFacets;query="";clearSearchResults();closeDrawer();renderAll();}
+ });
+ assert(searchRecovery.timeout&&searchRecovery.lateIgnored&&searchRecovery.malformed&&searchRecovery.recovered&&searchRecovery.newest&&searchRecovery.deadline&&searchRecovery.preview&&searchRecovery.previewProtected,JSON.stringify(searchRecovery));
  const catalogAddRecovery=await page.evaluate(async()=>{
   const original=api.runtime.sendMessage,request=requestMetadata,originalItems=items,originalLists=lists;
   let mode="failure",saveCalls=0,stateCalls=0,late;

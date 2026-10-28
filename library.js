@@ -2988,11 +2988,11 @@ document.getElementById("q").addEventListener("input", (e) => {
 });
 document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library" && view !== "games") switchView("library"); catalogSearch(query.trim()); } });
 
-let searchVersion = 0, searchTimer = null;
+let searchVersion = 0, searchTimer = null, searchPollTimer = null;
 let srCountry = "all";
 let searchPageState={pending:false,hasMore:false,cursor:null,partial:false,limited:false,error:false,retryMore:null};
 function clearSearchResults() {
-  searchVersion++;clearTimeout(searchTimer);lastResults=[];
+  searchVersion++;clearTimeout(searchTimer);clearTimeout(searchPollTimer);lastResults=[];
   searchPageState={pending:false,hasMore:false,cursor:null,partial:false,limited:false,error:false,retryMore:null};
   const el=document.getElementById("search-results");if(el)el.innerHTML="";
   const m=document.getElementById("lib-main");if(m)m.classList.remove("searching");
@@ -3013,18 +3013,18 @@ function renderSearchProgress(q) {
 }
 function catalogSearch(q,more=null) {
   if(more!==null&&searchPageState.pending)return;
-  clearTimeout(searchTimer);
-  const version=++searchVersion;
+  clearTimeout(searchTimer);clearTimeout(searchPollTimer);
+  const version=++searchVersion,deadline=Date.now()+45000;
   const el=document.getElementById("search-results"),main=document.getElementById("lib-main");
   if(main)main.classList.add("searching");
   if(more===null){lastResults=[];el.innerHTML='<div class="sr-wrap" role="status">'+t("searching")+' “'+esc(q)+'”…</div>';srFilter="all";srCountry="all";}
   searchPageState={...searchPageState,pending:true,error:false};
   renderSearchProgress(q);
   let previous=more===null?"":JSON.stringify(lastResults),attempts=0;
-  const poll=()=>{if(version!==searchVersion||(view!=="library"&&view!=="games")||query.trim()!==q)return;api.runtime.sendMessage({type:"CATALOG_SEARCH",query:q,progressive:true,retry:attempts===0&&more===null,more},r=>{
+  const poll=()=>{if(version!==searchVersion||(view!=="library"&&view!=="games")||query.trim()!==q)return;if(Date.now()>=deadline){searchPageState={...searchPageState,pending:false,error:true,retryMore:more};renderSearchProgress(q);return;}requestMetadata({type:"CATALOG_SEARCH",query:q,progressive:true,retry:attempts===0&&more===null,more},r=>{
     const error=api.runtime.lastError;
     if(version!==searchVersion||(view!=="library"&&view!=="games")||query.trim()!==q)return;
-    if(error||!r?.ok) {
+    if(error||!r?.ok||!Array.isArray(r.results)) {
       searchPageState={...searchPageState,pending:false,error:true,retryMore:r?.error==="search_expired"?null:more};
       if(!lastResults.length)el.innerHTML='<div class="sr-wrap">'+(t("searchUnavailable"))+'</div>';
       renderSearchProgress(q);return;
@@ -3035,9 +3035,9 @@ function catalogSearch(q,more=null) {
     if(signature!==previous&&(results.length||!r.pending)){previous=signature;lastResults=results;renderSearchResults(q);}
     else renderSearchProgress(q);
     if(focused?.startsWith("sf-")||focused==="search-more")document.getElementById(focused)?.focus();
-    if(r.pending&&++attempts<90){setTimeout(poll,500);return;}
+    if(r.pending&&++attempts<90){searchPollTimer=setTimeout(poll,500);return;}
     if(r.pending){searchPageState={...searchPageState,pending:false,error:true,retryMore:more};renderSearchProgress(q);}
-  });};
+  },Math.min(15000,Math.max(1,deadline-Date.now())));};
   poll();
 }
 
@@ -3302,7 +3302,7 @@ function openCatalogPreview(m) {
   const request=++previewRequest;
   // Ask the same engine that saves the work. Title-only UI shortcuts can open
   // a remake or adaptation that the storage engine would correctly separate.
-  api.runtime.sendMessage({type:"CHECK_EXISTING",payload:m},r=>{
+  requestMetadata({type:"CHECK_EXISTING",payload:m},r=>{
     if(request!==previewRequest)return;
     if(!api.runtime.lastError&&r?.existing) {
       const saved=r.existing;
@@ -3310,7 +3310,7 @@ function openCatalogPreview(m) {
       openDrawer(saved.id);return;
     }
     openCatalogPreviewResolved(m);
-  });
+  },5000);
 }
 function openCatalogPreviewResolved(m) {
   activeCatalogPreview=m;
