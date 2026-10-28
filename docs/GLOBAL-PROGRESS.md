@@ -8,6 +8,16 @@ Mise à jour : 28 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Chargement de la bibliothèque et reprise — 28 octobre 2026
+
+Commit d6bb1f142fc435484f84638ec8047c94cc0bf6c3 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40733436781) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40733426328) réussies. 643 tests unitaires, audit des dépendances sans vulnérabilité connue à cette exécution, parcours navigateur, capacité et récupération.
+
+Le chargement initial utilise maintenant une réponse bornée. Une réponse absente, en erreur ou incomplète n’est plus convertie en bibliothèque vide. hydrate valide les collections et réglages avant de modifier l’état. Un message persistant distingue chargement et échec, avec bouton Actualiser ; les libellés couvrent les huit langues. Les demandes simultanées de reprise sont bloquées et une réponse ancienne ne remplace pas une hydratation confirmée plus récente.
+
+Le test navigateur vérifie silence, reprise, réponse tardive, collections manquantes, appel hydrate invalide et priorité de l’état récent. Le scénario de course de tests/e2e/extension.mjs a été complété avec sites et notifications pour représenter GET_STATE ; sa vérification originale reste active. La première CI avait échoué sur cette fixture incomplète. Ces protections d’affichage ne constituent pas une sauvegarde en ligne ou une garantie de restauration après désinstallation.
+
+G13 reste partiel ; avancement global inchangé : 19/60 (32 %). Aucun changement installé dans le navigateur utilisateur, aucune publication.
+
 ## Import : confirmation et conservation de l’affichage — 28 octobre 2026
 
 Commit 4ef72dc954b5dc180440532f7ac892a0cea9a8d9 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40645700715) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40645693095) réussies, avec parcours navigateur, capacité et récupération.
