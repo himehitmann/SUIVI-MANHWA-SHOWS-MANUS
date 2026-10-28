@@ -2639,6 +2639,7 @@ async function saveSettingControl(key,value,control,paint) {
   return !!saved;
 }
 function wireSettings() {
+  paintImportPending();
   const nameEl = document.getElementById("set-name");
   const saveProfile = patch => saveProfilePatch(patch).then(saved=>{if(saved&&view==="settings")renderSettings();return saved;});
   const retryName=document.getElementById("set-name-retry"),nameStatus=document.getElementById("set-name-status");
@@ -2757,24 +2758,37 @@ function doExport() {
 // Universal import: accepts one or many files (JSON, CSV, XML, ZIP) from Yomu
 // or other trackers (Trakt, TV Time, IMDb, Letterboxd, MyAnimeList). Parses
 // them locally, then merges the works into the library without wiping it.
+let importPending=false;
+function paintImportPending() {
+  for(const id of ["import","file"]){const control=document.getElementById(id);if(control){control.disabled=importPending;control.setAttribute("aria-busy",String(importPending));}}
+}
 async function doImport(e) {
-  const files = e.target.files; if (!files || !files.length) return;
-  const input = e.target;
+  const input=e.target,files=Array.from(input.files||[]);
+  if(importPending||!files.length)return;
+  importPending=true;paintImportPending();
   try {
     if (!window.YomuImport) { toast(t("importFailed")); return; }
     toast(t("importing"));
     const res = await window.YomuImport.parseFiles(files);
-    if(res.warnings.length)toast(res.warnings.join(' — '));
+    const warnings=Array.isArray(res.warnings)?res.warnings:[];
     if (!res.count && !res.lists?.length && !res.sites?.length) { toast(t("importNothing")); return; }
-    api.runtime.sendMessage({type:"IMPORT_MERGE",payload:res}, r=>{
-      if(api.runtime.lastError || !r?.ok){toast(t("importFailed"));return;}
-      api.runtime.sendMessage({type:"GET_STATE"},hydrate);
-      toast(t("importedN",{n:r.added+r.updated})+(res.warnings.length?' — '+res.warnings.join(' — '):''));
-    });
-  } catch (err) {
+    const response=await new Promise(resolve=>requestMetadata({type:"IMPORT_MERGE",payload:res},resolve,45000));
+    if(!response?.ok){
+      toast(settings.lang==="fr"?"Import non confirmé. Vérifie la bibliothèque avant de réessayer.":"Import not confirmed. Check your library before retrying.");
+      return;
+    }
+    const state=await new Promise(resolve=>requestMetadata({type:"GET_STATE"},resolve));
+    if(!state||!["items","lists","sites","notifications"].every(key=>Array.isArray(state[key]))||!state.settings||typeof state.settings!=="object"||Array.isArray(state.settings)){
+      toast(settings.lang==="fr"?"Import enregistré. Actualisation impossible ; rouvre la bibliothèque.":"Import saved. Refresh failed; reopen the library.");
+      return;
+    }
+    hydrate(state);
+    const count=Number(response.added||0)+Number(response.updated||0);
+    toast(t("importedN",{n:count})+(warnings.length?' — '+warnings.join(' — '):''));
+  } catch {
     toast(t("importFailed"));
   } finally {
-    input.value = "";
+    importPending=false;input.value="";paintImportPending();
   }
 }
 

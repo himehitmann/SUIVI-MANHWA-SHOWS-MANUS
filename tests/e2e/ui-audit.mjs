@@ -583,6 +583,38 @@ try {
   }finally{api.runtime.sendMessage=original;requestMetadata=request;}
  });
  assert(discovery.released&&discovery.lateIgnored,JSON.stringify(discovery));
+ // Import confirmation must never hydrate an absent or malformed snapshot.
+ const importRecovery=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,parser=window.YomuImport;
+  const before={items,lists,sites,notifications,settings};
+  let mode="silent",late,writes=0,reads=0;
+  requestMetadata=(message,callback)=>request(message,callback,20);
+  window.YomuImport={parseFiles:async()=>({count:1,items:[],warnings:[]})};
+  const input={files:[{}],value:"backup.json"};
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="IMPORT_MERGE"){writes++;if(mode==="silent"){late=callback;return;}callback({ok:true,added:1,updated:0});return;}
+   if(message.type==="GET_STATE"){reads++;callback(mode==="malformed"?{items:[]}:before);return;}
+   return original.call(api.runtime,message,callback);
+  };
+  try{
+   switchView("settings");
+   const pending=doImport({target:input});await doImport({target:input});
+   renderSettings();
+   const busy=importPending&&document.getElementById("import").disabled;
+   await pending;
+   const timeout=!importPending&&writes===1&&items===before.items&&!document.getElementById("import").disabled;
+   late({ok:true,added:1,updated:0});await new Promise(resolve=>setTimeout(resolve,5));
+   const ignored=reads===0&&items===before.items;
+   mode="malformed";await doImport({target:input});
+   const retained=items===before.items&&lists===before.lists&&document.getElementById("toast").textContent.includes("Import");
+   mode="success";await doImport({target:input});
+   return {busy,timeout,ignored,retained,recovered:!importPending&&items.length===before.items.length&&input.value==="",writes};
+  }finally{
+   api.runtime.sendMessage=original;requestMetadata=request;window.YomuImport=parser;
+   ({items,lists,sites,notifications,settings}=before);importPending=false;renderAll();
+  }
+ });
+ assert.deepEqual(importRecovery,{busy:true,timeout:true,ignored:true,retained:true,recovered:true,writes:3});
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{
