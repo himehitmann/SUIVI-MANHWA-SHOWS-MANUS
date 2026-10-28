@@ -8,6 +8,18 @@ Mise à jour : 28 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Création des listes : répétitions et navigation — 28 octobre 2026
+
+Commit 075b3aed34a28d10f8fce31c18d3324306d3b010 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40780782638) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40780774792) réussies. 643 tests unitaires, audit des dépendances sans vulnérabilité connue à cette exécution, parcours navigateur, capacité et récupération.
+
+Les deux boutons Nouvelle liste partagent un verrou pendant la demande, conservé après reconstruction de la bande des listes. La réponse est bornée et doit confirmer une liste identifiée présente dans le tableau retourné. Une réponse invalide ou tardive ne crée pas de liste locale fictive.
+
+La confirmation ajoute uniquement la liste créée sans remplacer les autres listes modifiées pendant l’attente. L’ouverture automatique de l’éditeur exige que l’utilisateur soit toujours dans la bibliothèque, sur la même sélection et sans navigation intervenue. Les boutons sont réactivés après échec ; le succès place le focus sur le nom lorsqu’une ouverture reste pertinente.
+
+Tests : double demande, reconstruction pendant l’attente, silence et réponse tardive, réponse incohérente, préservation d’une autre liste récente, navigation vers les jeux et création réussie avec focus. Ce verrou s’applique à cette page et à cette demande ; il ne garantit pas l’idempotence entre onglets ou après expiration. L’écriture worker peut aboutir malgré l’absence de confirmation.
+
+G13 reste partiel ; score global inchangé : 19/60 (32 %). Aucun changement installé dans le navigateur utilisateur ni publication.
+
 ## Actualisation manuelle des fiches : conservation des modifications — 28 octobre 2026
 
 Commit 6c509b42031062ef598093cdd9a817c0a6d40eb3 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40779998423) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40779990260) réussies. Les parcours navigateur, la capacité et les récupérations passent.
