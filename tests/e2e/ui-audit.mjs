@@ -783,6 +783,41 @@ try {
   }finally{api.runtime.sendMessage=original;requestMetadata=request;lists=savedLists;listCreationPending=false;currentListId=null;backToLists();renderAll();}
  });
  assert.deepEqual(listCreation,{busy:true,timeout:true,lateIgnored:true,malformed:true,navigation:true,opened:true,released:true});
+ // Duplicate/archive share a per-list lock, preserving other lists and navigation.
+ const listActions=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,savedLists=lists;
+  let pending,calls=0;
+  requestMetadata=(message,callback)=>request(message,callback,20);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="LIST_DUPLICATE"||message.type==="LIST_UPDATE"){calls++;pending=callback;return;}
+   return original.call(api.runtime,message,callback);
+  };
+  const source={id:"action-source",name:"Source",itemIds:[],archived:false};
+  try{
+   lists=[source];switchView("library");openList(source.id);
+   const first=runListAction(source,true);await runListAction(source,false);renderListDetail();
+   const busy=document.getElementById("list-duplicate").disabled&&document.getElementById("list-archive").disabled;
+   await first;
+   const timeout=calls===1&&!pendingListActions.has(source.id)&&lists.length===1&&!document.getElementById("list-duplicate").disabled;
+   const copy={...source,id:"action-copy"};
+   pending({ok:true,list:copy,lists:[source,copy]});const ignored=lists.length===1;
+   let next=runListAction(source,true);pending({ok:true,list:source,lists:[source]});await next;
+   const invalid=lists.length===1;
+   next=runListAction(source,true);switchView("games");
+   const other={...source,id:"action-other",name:"New list"};lists=[source,other];
+   pending({ok:true,list:copy,lists:[source,copy]});await next;
+   const navigation=view==="games"&&lists.some(entry=>entry.id===other.id)&&lists.some(entry=>entry.id===copy.id);
+   switchView("library");openList(source.id);
+   next=runListAction(source,false);
+   lists=lists.map(entry=>entry.id===source.id?{...entry,name:"New name"}:entry);
+   pending({ok:true,lists:[{...source,archived:true}]});await next;
+   const archive=lists.find(entry=>entry.id===source.id).archived&&lists.find(entry=>entry.id===source.id).name==="New name"&&lists.length===3&&currentListId===null;
+   const archived=lists.find(entry=>entry.id===source.id);openList(archived.id);
+   next=runListAction(archived,false);pending({ok:true,lists:[{...archived,archived:false}]});await next;
+   return {busy,timeout,ignored,invalid,navigation,archive,restore:!lists.find(entry=>entry.id===source.id).archived&&!pendingListActions.size};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;lists=savedLists;currentListId=null;backToLists();renderAll();}
+ });
+ assert.deepEqual(listActions,{busy:true,timeout:true,ignored:true,invalid:true,navigation:true,archive:true,restore:true});
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

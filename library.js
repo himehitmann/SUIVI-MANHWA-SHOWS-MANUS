@@ -1996,11 +1996,40 @@ function renderListDetail() {
   }
   wireListDetail(l);
 }
+const pendingListActions=new Set();
+function paintListActionPending(id) {
+  for(const key of ["list-duplicate","list-archive"]){const button=document.getElementById(key);if(button){button.disabled=pendingListActions.has(id);button.setAttribute("aria-busy",String(button.disabled));}}
+}
+async function runListAction(list,duplicate) {
+  if(pendingListActions.has(list.id))return false;
+  pendingListActions.add(list.id);paintListActionPending(list.id);
+  const navigation=previewRequest;
+  try{
+    const response=await new Promise(resolve=>requestMetadata(duplicate?{type:"LIST_DUPLICATE",id:list.id}:{type:"LIST_UPDATE",id:list.id,patch:{archived:!list.archived}},resolve));
+    const result=duplicate?response?.list:response?.lists?.find?.(entry=>entry.id===list.id);
+    const valid=response?.ok!==false&&Array.isArray(response?.lists)&&result&&typeof result.id==="string"&&result.id&&response.lists.some(entry=>entry.id===result.id)&&(duplicate?result.id!==list.id:result.archived===!list.archived);
+    if(!valid){toast(settings.lang==="fr"?"Action non confirmée. Vérifie tes listes avant de réessayer.":"Action not confirmed. Check your lists before retrying.");return false;}
+    if(duplicate){
+      if(!lists.some(entry=>entry.id===result.id))lists=[...lists,result];
+    }else{
+      lists=lists.map(entry=>entry.id===list.id?{...entry,archived:result.archived}:entry);
+    }
+    renderLists();
+    if(view==="library"&&currentListId===list.id&&previewRequest===navigation){
+      if(duplicate)openList(result.id);else backToLists();
+    }
+    return true;
+  }finally{
+    pendingListActions.delete(list.id);
+    if(currentListId)paintListActionPending(currentListId);
+  }
+}
 function wireListDetail(l) {
   document.querySelectorAll("#list-items [data-open]").forEach(button=>button.onclick=()=>openDrawer(button.dataset.open));
   document.getElementById("back-lists").onclick = backToLists;
-  document.getElementById("list-duplicate").onclick=()=>listMsg("LIST_DUPLICATE",{id:l.id},response=>{renderLists();if(response.list?.id)openList(response.list.id);});
-  document.getElementById("list-archive").onclick=()=>listMsg("LIST_UPDATE",{id:l.id,patch:{archived:!l.archived}},()=>{renderLists();backToLists();});
+  paintListActionPending(l.id);
+  document.getElementById("list-duplicate").onclick=()=>runListAction(l,true);
+  document.getElementById("list-archive").onclick=()=>runListAction(l,false);
   const name = document.getElementById("list-name");
   const saveName=async()=>{
     if(name.disabled)return;
