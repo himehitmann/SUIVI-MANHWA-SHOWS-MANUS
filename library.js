@@ -1642,6 +1642,8 @@ function renderGrid() {
   const hasFilters=Boolean(libraryQuery)||filter!=="all"||libraryFormat!=="all"||libraryUnlisted;
   const count='<p class="sub library-result-count" style="grid-column:1/-1" role="status">'+list.length+' / '+total+' '+t("tracked")+(hasFilters?' <button class="link-btn" id="reset-library-filters">'+t("showAll")+'</button>':'')+'</p>';
   const formats=[...new Set(items.filter(i=>i.type!=="game").map(i=>String(i.format||"").toUpperCase()).filter(Boolean))].sort();
+  // Keep an active filter visible even when its final matching work was removed.
+  if(libraryFormat!=="all"&&!formats.includes(libraryFormat))formats.push(libraryFormat);
   const controls='<div style="grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'+
     '<label style="flex:1;min-width:min(240px,100%)">'+(settings.lang==="fr"?"Rechercher dans ma bibliothèque":"Search my library")+' <input type="search" class="field" id="library-search" value="'+esc(libraryQuery)+'" placeholder="'+(settings.lang==="fr"?"Titre, auteur ou étiquette":"Title, author or tag")+'"></label>'+
     '<label>'+ t("sortBy")+' <select class="field" id="library-sort"'+(librarySortSaving?' disabled aria-busy="true"':'')+'>'+

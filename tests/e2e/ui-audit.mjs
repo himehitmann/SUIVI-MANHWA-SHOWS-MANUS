@@ -818,6 +818,67 @@ try {
   }finally{api.runtime.sendMessage=original;requestMetadata=request;lists=savedLists;currentListId=null;backToLists();renderAll();}
  });
  assert.deepEqual(listActions,{busy:true,timeout:true,ignored:true,invalid:true,navigation:true,archive:true,restore:true});
+ // G13 acceptance: independent fixture expectations across the complete library filter matrix.
+ const libraryAcceptance=await page.evaluate(()=>{
+  const saved={items,lists,sites,settings,filter,libraryFormat,libraryUnlisted,libraryQuery,currentListId,showArchivedLists};
+  const check=(condition,message)=>{if(!condition)throw Error(message);};
+  const ids=()=>[...document.querySelectorAll("#grid article.card")].map(card=>card.dataset.open);
+  const eq=(actual,expected,label)=>check(JSON.stringify(actual)===JSON.stringify(expected),label+": "+JSON.stringify(actual));
+  const stats=()=>[...document.querySelectorAll("#stats b")].map(node=>Number(node.textContent));
+  const shortcuts=()=>[...document.querySelectorAll("#library-shortcuts strong")].map(node=>Number(node.textContent));
+  const rows=[
+   {id:"a",title:"Alpha 10",type:"reading",format:"MANGA",state:"current",favorite:true,chapter:1,total:10,rating:3,tags:["quux"]},
+   {id:"b",title:"Beta",type:"reading",format:"WEBTOON",state:"planned",chapter:0,total:5,rating:5,alternativeTitles:["Aliasneedle"]},
+   {id:"c",title:"Gamma",type:"watching",format:"ANIME",state:"completed",favorite:true,episode:12,total:12,rating:4},
+   {id:"d",title:"Delta",type:"watching",format:"SERIES",state:"on_hold",episode:2,total:10,rating:1,authors:["Authorneedle"]},
+   {id:"e",title:"Epsilon",type:"reading",format:"MANGA",state:"dropped",chapter:3,total:6,rating:2},
+   {id:"f",title:"Zeta",type:"watching",format:"SERIES",progress:100,favorite:true,episode:8,total:8,tags:["quux"]},
+   {id:"g",title:"Game excluded from collection",type:"game",favorite:true,state:"completed"}
+  ].map((item,index)=>({...item,createdAt:(index+1)*10,activityAt:(6-index)*10,enrichedAt:1,identityVersion:1}));
+  const filterSets={all:"abcdef",reading:"abe",watching:"cdf",favorites:"acf",current:"a",planned:"b",completed:"cf",on_hold:"d",dropped:"e"};
+  const formatSets={all:"abcdef",MANGA:"ae",SERIES:"df"};
+  const querySets={"":"abcdef",aliasneedle:"b",authorneedle:"d",quux:"af"};
+  let combinations=0;
+  try{
+   items=rows;lists=[{id:"active-audit",name:"Active list",itemIds:["a","c","g","a","missing"]},{id:"archive-audit",name:"Archived list",archived:true,itemIds:["b"]}];
+   sites=[{host:"one.example",name:"One",url:"https://one.example"},{host:"two.example",name:"Two",url:"https://two.example"}];
+   settings={...settings,lang:"en",librarySort:"title"};currentListId=null;showArchivedLists=false;switchView("library");
+   eq(stats(),[6,3,3,3,2],"global counts");eq(shortcuts(),[6,1,2],"section counts");
+   eq(listMembers(lists[0]).map(item=>item.id),["a","c","g"],"list excludes orphan and duplicate members");
+   for(const [f,fset] of Object.entries(filterSets))for(const [format,mset] of Object.entries(formatSets))for(const unlisted of [false,true])for(const [query,qset] of Object.entries(querySets)){
+    filter=f;libraryFormat=format;libraryUnlisted=unlisted;libraryQuery=query;renderFilters();renderGrid();
+    const expected=[...fset].filter(id=>mset.includes(id)&&qset.includes(id)&&(!unlisted||!"ac".includes(id))).sort();
+    eq(ids().sort(),expected,"combined filters "+[f,format,unlisted,query].join("/"));
+    check(document.querySelector(".library-result-count").textContent.startsWith(expected.length+" / 6 "),"result count");
+    check(document.querySelector('#filters [aria-pressed="true"]').dataset.f===f,"selected status");
+    check(document.getElementById("library-format").value===format,"selected format");
+    check(document.getElementById("library-unlisted").checked===unlisted,"unlisted control");
+    eq(stats(),[6,3,3,3,2],"global counts remain global");combinations++;
+   }
+   filter="all";libraryFormat="all";libraryUnlisted=false;libraryQuery="";
+   const sorts={title:["a","b","d","e","c","f"],rating:["b","c","a","e","d","f"],recent:["a","b","c","d","e","f"],added:["f","e","d","c","b","a"],remaining:["a","d","b","e","c","f"]};
+   for(const [sort,expected] of Object.entries(sorts)){settings.librarySort=sort;renderGrid();eq(ids(),expected,"sort "+sort);}
+   filter="favorites";libraryFormat="MANGA";libraryUnlisted=true;libraryQuery="no-match";renderFilters();renderGrid();
+   check(!ids().length&&document.querySelector("#grid .empty").textContent.includes("filters"),"filtered empty state");
+   document.getElementById("reset-library-filters").click();
+   check(ids().length===6&&filter==="all"&&libraryFormat==="all"&&!libraryUnlisted&&!libraryQuery,"reset all filters");
+   libraryFormat="ANIME";items=items.filter(item=>item.id!=="c");renderAll();
+   check(document.getElementById("library-format").value==="ANIME"&&!ids().length,"removed format stays visible");
+   eq(stats(),[5,3,2,2,1],"counts after removal");eq(listMembers(lists[0]).map(item=>item.id),["a","g"],"members after removal");
+   items=items.map(item=>item.id==="b"?{...item,type:"game"}:item);libraryFormat="all";renderAll();eq(stats(),[4,2,2,2,1],"counts after type change");
+   lists=lists.map(list=>({...list,archived:true}));libraryUnlisted=true;renderAll();
+   check(ids().length===4,"archive releases unlisted membership");eq(shortcuts(),[4,0,2],"archive counts");
+   items=[...items,{id:"h",title:"Imported reading",type:"reading",chapter:1,total:2}];renderAll();eq(stats(),[5,3,2,2,1],"counts after imported addition");
+   sites=sites.slice(0,1);renderAll();eq(shortcuts(),[5,0,1],"site removal count");
+   items=[rows[6]];renderAll();check(document.getElementById("library-open-games")&&document.getElementById("library-start-search"),"game-only library offers both paths");eq(stats(),[0,0,0,0,0],"game-only counts");
+   items=[];renderAll();check(!document.getElementById("library-open-games")&&document.getElementById("library-start-search"),"empty library action");
+   return {combinations,sorts:Object.keys(sorts).length,counts:true,emptyStates:true,formatRetention:true};
+  }finally{
+   ({items,lists,sites,settings,filter,libraryFormat,libraryUnlisted,libraryQuery,currentListId,showArchivedLists}=saved);renderAll();
+  }
+ });
+ assert.equal(libraryAcceptance.combinations,216);assert.equal(libraryAcceptance.sorts,5);
+ await fs.writeFile("test-results/library-acceptance.json",JSON.stringify(libraryAcceptance,null,2));
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{
