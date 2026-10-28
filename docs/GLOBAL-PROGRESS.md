@@ -8,6 +8,18 @@ Mise à jour : 28 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **19 / 60 = 31,7 % global vérifié (32 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 5 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Actualisation manuelle des fiches : conservation des modifications — 28 octobre 2026
+
+Commit 6c509b42031062ef598093cdd9a817c0a6d40eb3 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40779998423) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40779990260) réussies. Les parcours navigateur, la capacité et les récupérations passent.
+
+L’actualisation manuelle attend désormais une réponse bornée et bloque les demandes répétées sur le bouton. Elle refuse un résultat de type ou d’identité incohérents, un tableau de fusions invalide, une cible absente ou des listes mal formées. Elle ignore une réponse lorsque le panneau a été fermé ou remplacé.
+
+Si les objets de la bibliothèque/listes ont été remplacés pendant l’attente ou si des champs du panneau sont en cours d’édition, elle conserve l’affichage et demande de terminer les modifications puis de réactualiser. Le message existe dans les huit langues. Une actualisation appliquée rend le focus au bouton.
+
+Tests : silence, répétition, réponse tardive, titre non enregistré, modification récente, mauvaise identité, listes invalides et reprise réussie. Le test historique multilingue de bulk-lists attend maintenant la fin de la promesse avant ses assertions ; les premières exécutions avaient échoué sur cette attente manquante. La protection locale ne constitue pas une preuve générale d’absence de courses entre onglets et ne rend pas les brouillons durables après fermeture.
+
+G05 reste partiel ; score global inchangé : 19/60 (32 %). Aucun changement installé dans le navigateur utilisateur ni publication.
+
 ## Informations automatiques des jeux : réponses tardives — 28 octobre 2026
 
 Commit f7f7ab6defce1b9a65b4a1b192e2c133d5577dac : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40743929008) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40743922494) réussies. 643 tests unitaires, audit des dépendances sans vulnérabilité connue à cette exécution, parcours navigateur, capacité et récupération.
