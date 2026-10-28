@@ -678,6 +678,43 @@ try {
   }finally{closeHomeCats();api.runtime.sendMessage=original;requestMetadata=request;settings=savedSettings;homeCategorySaving=false;renderAll();}
  });
  assert.deepEqual(categories,{busy:true,timeout:true,ignored:true,failed:true,invalid:true,all:true,empty:true,one:true,profile:"Keep my profile"});
+ // Automatic game details cannot replace newer edits or another open fiche.
+ const gameDetails=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,savedItems=items;
+  let late,calls=0;
+  requestMetadata=(message,callback)=>request(message,callback,20);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="GAME_ENRICH"){calls++;late=callback;return;}
+   return original.call(api.runtime,message,callback);
+  };
+  const game=()=>({id:"audit-auto-game",title:"Game details",type:"game",url:"https://store.steampowered.com/app/123/",favorite:false});
+  const result=item=>({...item,gameEnrichedAt:1,synopsis:"Confirmed game details"});
+  try{
+   let item=game();items=[item];openDrawer(item.id);openDrawer(item.id);
+   await new Promise(resolve=>setTimeout(resolve,35));
+   const bounded=calls===1&&!pendingGameDetails.has(item.id);
+   late({ok:true,item:result(item)});
+   const ignored=items[0]===item;
+   openDrawer(item.id);const previous=late;
+   items=[{...item,favorite:true}];previous({ok:true,item:result(item)});
+   await new Promise(resolve=>setTimeout(resolve,5));
+   const editPreserved=items[0].favorite===true&&!items[0].gameEnrichedAt;
+   item=game();items=[item];openDrawer(item.id);
+   late({ok:true,item:{...result(item),id:"wrong-game"}});
+   await new Promise(resolve=>setTimeout(resolve,5));
+   const identity=items[0]===item&&document.getElementById("dr-refresh-status").textContent===t("refreshFailed");
+   openDrawer(item.id);
+   const title=document.getElementById("dr-title");title.focus();title.value="Unsaved title";
+   late({ok:true,item:result(item)});
+   await new Promise(resolve=>setTimeout(resolve,5));
+   const draft=title.isConnected&&title.value==="Unsaved title"&&items[0].synopsis==="Confirmed game details";
+   item=game();const other={id:"other-game-test",title:"Other work",type:"reading",chapter:1};
+   items=[item,other];openDrawer(item.id);const pending=late;openDrawer(other.id);
+   pending({ok:true,item:result(item)});await new Promise(resolve=>setTimeout(resolve,5));
+   return {bounded,ignored,editPreserved,identity,draft,otherOpen:document.getElementById("drawer").dataset.itemId===other.id};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;items=savedItems;closeDrawer();renderAll();}
+ });
+ assert.deepEqual(gameDetails,{bounded:true,ignored:true,editPreserved:true,identity:true,draft:true,otherOpen:true});
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

@@ -2217,19 +2217,33 @@ function openDrawer(id) {
   wireDrawer(i, isWatch, isGame);
   mountEpisodeGuide(i);
   enhanceCarousels("#drawer");
-  // Games arrive from Steam search/discovery without genres; pull them (and a
-  // description) the first time the fiche opens, then re-render in place.
+  // Do not let automatic metadata replace a newer edit or a different drawer.
   if (isGame && !i.gameEnrichedAt && (i.externalIds?.rawg || /store\.steampowered\.com\/app\//.test(i.url || ""))) {
-    api.runtime.sendMessage({ type: "GAME_ENRICH", id: i.id }, (r) => {
-      void api.runtime.lastError;
-      if (r && r.ok && r.item) {
-        const idx = items.findIndex((x) => x.id === i.id);
-        if (idx >= 0) items[idx] = r.item;
-        if (d.classList.contains("open") && d.dataset.itemId===i.id) openDrawer(i.id);
-      }
-    });
+    void enrichOpenGame(i,previewRequest);
   }
 }
+const pendingGameDetails=new Set();
+async function enrichOpenGame(item,requestVersion) {
+  if(pendingGameDetails.has(item.id))return;
+  pendingGameDetails.add(item.id);
+  try{
+    const response=await new Promise(resolve=>requestMetadata({type:"GAME_ENRICH",id:item.id},resolve));
+    const drawer=document.getElementById("drawer");
+    const current=()=>drawer.classList.contains("open")&&drawer.dataset.itemId===item.id&&previewRequest===requestVersion;
+    const result=response?.item;
+    if(!response?.ok||result?.id!==item.id||result.type!=="game"||!result.gameEnrichedAt){
+      if(current()){const status=document.getElementById("dr-refresh-status");if(status)status.textContent=t("refreshFailed");}
+      return;
+    }
+    const index=items.findIndex(value=>value.id===item.id);
+    // Storage refreshes and confirmed edits replace the object; keep that newer state.
+    if(index<0||items[index]!==item)return;
+    items[index]=result;
+    const editing=drawer.contains(document.activeElement)&&document.activeElement.matches("input,textarea,select,[contenteditable=true]");
+    if(current()&&!editing)openDrawer(item.id);
+  }finally{pendingGameDetails.delete(item.id);}
+}
+
 // A grid of episode/chapter cells: filled = seen (<= current), empty = unseen.
 // Clicking cell N sets your current position to N. Hidden when total is unknown
 // or too large to render as a grid (the stepper still covers those).
