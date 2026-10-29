@@ -250,6 +250,32 @@ const DETAIL_LOCALES={
 "libraryLoadFailed":["Your library could not be loaded. Try refreshing.","Impossible de charger ta bibliothèque. Réessaie avec Actualiser.","ライブラリを読み込めませんでした。更新してください。","No se pudo cargar tu biblioteca. Intenta actualizar.","Deine Bibliothek konnte nicht geladen werden. Bitte aktualisieren.","라이브러리를 불러오지 못했습니다. 새로고침해 주세요.","Não foi possível carregar a tua biblioteca. Tenta atualizar.","无法加载书库，请尝试刷新。"],
 "refreshFailed":["Update failed. Try again.","Actualisation impossible. Réessaie.","更新できませんでした。もう一度お試しください。","No se pudo actualizar. Inténtalo de nuevo.","Aktualisierung fehlgeschlagen. Erneut versuchen.","업데이트하지 못했습니다. 다시 시도하세요.","Não foi possível atualizar. Tenta novamente.","更新失败，请重试。"],
 "refreshDeferred":["Details received. Finish your edits, then refresh this work again.","Informations reçues. Termine tes modifications, puis actualise à nouveau la fiche.","情報を受信しました。編集を終えてから、もう一度更新してください。","Información recibida. Termina tus cambios y vuelve a actualizar la ficha.","Details erhalten. Beende deine Änderungen und aktualisiere den Eintrag erneut.","정보를 받았습니다. 편집을 마친 뒤 다시 새로고침해 주세요.","Informações recebidas. Termina as alterações e atualiza novamente a ficha.","已收到信息。请完成编辑后再次刷新作品。"],
+"listNameLabel":["List name","Nom de la liste","リスト名","Nombre de la lista","Listenname","리스트 이름","Nome da lista","清单名称"],
+"listDuplicate":["Duplicate","Dupliquer","複製","Duplicar","Duplizieren","복제","Duplicar","复制清单"],
+"listArchive":["Archive","Archiver","アーカイブ","Archivar","Archivieren","보관","Arquivar","归档"],
+"listRestore":["Restore","Restaurer","復元","Restaurar","Wiederherstellen","복원","Restaurar","恢复"],
+"listArchivedTitle":["Archived lists","Listes archivées","アーカイブ済みリスト","Listas archivadas","Archivierte Listen","보관된 리스트","Listas arquivadas","已归档清单"],
+"listShowActive":["Show active lists","Voir les listes actives","有効なリストを表示","Ver listas activas","Aktive Listen anzeigen","활성 리스트 보기","Ver listas ativas","查看活动清单"],
+"listShowArchives":["Show archives","Voir les archives","アーカイブを表示","Ver archivos","Archiv anzeigen","보관함 보기","Ver arquivo","查看归档"],
+"listArchiveEmpty":["No archived lists. Archiving a list moves it here without deleting its works.","Aucune liste archivée. Archiver une liste la range ici sans supprimer ses œuvres.","アーカイブ済みのリストはありません。作品を削除せずにリストをここへ移動できます。","No hay listas archivadas. Archivar una lista la mueve aquí sin borrar sus obras.","Keine archivierten Listen. Archivieren verschiebt eine Liste hierher, ohne ihre Werke zu löschen.","보관된 리스트가 없습니다. 보관하면 작품을 삭제하지 않고 리스트를 여기로 옮깁니다.","Não há listas arquivadas. Arquivar move a lista para aqui sem eliminar as obras.","没有已归档清单。归档会将清单移至此处，不会删除其中的作品。"],
+"listCreateHelp":["Create a list to group your works by mood, theme or collection.","Crée une liste pour regrouper tes œuvres par envie, thème ou collection.","気分やテーマ別に作品をまとめるリストを作成しましょう。","Crea una lista para agrupar tus obras por tema o colección.","Erstelle eine Liste, um Werke nach Stimmung, Thema oder Sammlung zu ordnen.","기분이나 주제별로 작품을 모을 리스트를 만들어 보세요.","Cria uma lista para agrupar obras por tema ou coleção.","创建清单，按心情、主题或收藏整理作品。"],
+"listEmptyHelp":["This list is empty. Add works below.","Cette liste est vide. Ajoute des œuvres ci-dessous.","このリストは空です。下から作品を追加してください。","Esta lista está vacía. Añade obras abajo.","Diese Liste ist leer. Füge unten Werke hinzu.","리스트가 비어 있습니다. 아래에서 작품을 추가하세요.","Esta lista está vazia. Adiciona obras abaixo.","此清单为空。请在下方添加作品。"],
+"librarySearchLabel":["Search my library","Rechercher dans ma bibliothèque","ライブラリ内を検索","Buscar en mi biblioteca","Meine Bibliothek durchsuchen","내 라이브러리 검색","Pesquisar na minha biblioteca","搜索我的书库"],
+"librarySearchHint":["Title, author or tag","Titre, auteur ou étiquette","タイトル、作者、タグ","Título, autor o etiqueta","Titel, Autor oder Tag","제목, 작가 또는 태그","Título, autor ou etiqueta","标题、作者或标签"],
+"listAddHelp":["Choose from works already saved in your library.","Choisis parmi les œuvres déjà enregistrées dans ta bibliothèque.","ライブラリに保存済みの作品から選んでください。","Elige obras ya guardadas en tu biblioteca.","Wähle aus den bereits gespeicherten Werken deiner Bibliothek.","라이브러리에 저장된 작품 중에서 선택하세요.","Escolhe obras já guardadas na tua biblioteca.","从已保存到书库的作品中选择。"],
+"listSelectAll":["Select all","Tout sélectionner","すべて選択","Seleccionar todo","Alle auswählen","모두 선택","Selecionar tudo","全选"],
+"listDestination":["Destination list","Liste de destination","移動先リスト","Lista de destino","Zielliste","대상 리스트","Lista de destino","目标清单"],
+"listChoose":["Choose a list…","Choisir une liste…","リストを選択…","Elegir una lista…","Liste auswählen…","리스트 선택…","Escolher uma lista…","选择清单…"],
+"listCopy":["Copy","Copier","コピー","Copiar","Kopieren","복사","Copiar","复制"],
+"listMove":["Move","Déplacer","移動","Mover","Verschieben","이동","Mover","移动"],
+"listRemoveMember":["Remove from list","Retirer de la liste","リストから外す","Quitar de la lista","Aus Liste entfernen","리스트에서 제거","Remover da lista","从清单移除"],
+"listMoveUp":["Move selection up","Monter la sélection","選択項目を上へ","Subir selección","Auswahl nach oben","선택 항목 위로","Subir seleção","上移所选项"],
+"listMoveDown":["Move selection down","Descendre la sélection","選択項目を下へ","Bajar selección","Auswahl nach unten","선택 항목 아래로","Descer seleção","下移所选项"],
+"listSelectedCount":["{n} selected","{n} sélectionnée(s)","{n} 件選択","{n} seleccionadas","{n} ausgewählt","{n}개 선택됨","{n} selecionadas","已选 {n} 项"],
+"listSelectWork":["Select {title}","Sélectionner {title}","{title} を選択","Seleccionar {title}","{title} auswählen","{title} 선택","Selecionar {title}","选择 {title}"],
+"listUpdated":["List updated","Liste mise à jour","リストを更新しました","Lista actualizada","Liste aktualisiert","리스트가 업데이트되었습니다","Lista atualizada","清单已更新"],
+"listDeleteLabel":["Delete list","Supprimer la liste","リストを削除","Eliminar lista","Liste löschen","리스트 삭제","Eliminar lista","删除清单"],
+"listDeleteHelp":["Delete this list? Its works stay in your library.","Supprimer cette liste ? Les œuvres restent dans ta bibliothèque.","このリストを削除しますか？作品はライブラリに残ります。","¿Eliminar esta lista? Sus obras seguirán en tu biblioteca.","Diese Liste löschen? Ihre Werke bleiben in deiner Bibliothek.","이 리스트를 삭제할까요? 작품은 라이브러리에 남습니다.","Eliminar esta lista? As obras ficam na tua biblioteca.","删除此清单？其中的作品仍会保留在书库中。"],
 "stoppedHere":["I stopped here","Je me suis arrêté ici","ここまで視聴しました","Me quedé aquí","Hier habe ich aufgehört","여기까지 봤어요","Parei aqui","我看到这里了"],
 "episodeSaveFailed":["Progress not confirmed. Try again.","Progression non confirmée. Réessaie.","進捗を確認できませんでした。再試行してください。","No se confirmó el progreso. Inténtalo de nuevo.","Fortschritt nicht bestätigt. Erneut versuchen.","진행 상황이 확인되지 않았습니다. 다시 시도하세요.","Progresso não confirmado. Tenta novamente.","进度未确认，请重试。"],
 "refreshNone":["No new details available.","Aucune nouvelle information disponible.","新しい情報はありません。","No hay información nueva.","Keine neuen Informationen verfügbar.","새로운 정보가 없습니다.","Não há informações novas.","暂无新信息。"],
@@ -1658,7 +1684,7 @@ function renderGrid() {
   // Keep an active filter visible even when its final matching work was removed.
   if(libraryFormat!=="all"&&!formats.includes(libraryFormat))formats.push(libraryFormat);
   const controls='<div style="grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'+
-    '<label style="flex:1;min-width:min(240px,100%)">'+(settings.lang==="fr"?"Rechercher dans ma bibliothèque":"Search my library")+' <input type="search" class="field" id="library-search" value="'+esc(libraryQuery)+'" placeholder="'+(settings.lang==="fr"?"Titre, auteur ou étiquette":"Title, author or tag")+'"></label>'+
+    '<label style="flex:1;min-width:min(240px,100%)">'+(t("librarySearchLabel"))+' <input type="search" class="field" id="library-search" value="'+esc(libraryQuery)+'" placeholder="'+(t("librarySearchHint"))+'"></label>'+
     '<label>'+ t("sortBy")+' <select class="field" id="library-sort"'+(librarySortSaving?' disabled aria-busy="true"':'')+'>'+
     [["recent",t("sortRecent")],["title",t("sortTitle")],["rating",t("sortRating")],["remaining",t("sortRemaining")],["added",t("sortAdded")]].map(([v,label])=>'<option value="'+v+'"'+((settings.librarySort||"recent")===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>'+
     '<label>'+ t("formatLabel")+' <select class="field" id="library-format"><option value="all">'+t("all")+'</option>'+formats.map(v=>'<option value="'+esc(v)+'"'+(libraryFormat===v?' selected':'')+'>'+esc(v)+'</option>').join("")+'</select></label>'+
@@ -1802,18 +1828,17 @@ function renderLists() {
   const strip = document.getElementById("list-strip");
   if (!strip) return;
   renderLibraryShortcuts();
-  const fr=settings.lang==="fr";
   const activeCount=lists.filter(l=>!l.archived).length, archivedCount=lists.length-activeCount;
   const visibleLists=lists.filter(l=>Boolean(l.archived)===showArchivedLists);
   const heading=document.getElementById("library-lists-title");
-  if(heading)heading.textContent=(showArchivedLists?(fr?"Listes archivées":"Archived lists"):t("lists"))+" ("+visibleLists.length+")";
+  if(heading)heading.textContent=(showArchivedLists?(t("listArchivedTitle")):t("lists"))+" ("+visibleLists.length+")";
   const emptyText=showArchivedLists
-    ?(fr?"Aucune liste archivée. Archiver une liste la range ici sans supprimer ses œuvres.":"No archived lists. Archiving a list moves it here without deleting its works.")
-    :(fr?"Crée une liste pour regrouper tes œuvres par envie, thème ou collection.":"Create a list to group your works by mood, theme or collection.");
+    ?(t("listArchiveEmpty"))
+    :(t("listCreateHelp"));
   strip.innerHTML = (!visibleLists.length?'<p class="sub list-empty-help" style="flex:1;min-width:160px">'+esc(emptyText)+'</p>':"")+visibleLists.map((l) => { const n = listMembers(l).length; return `<div class="strip-list" data-list="${esc(l.id)}">
       <div class="lc" style="position:relative;${listCover(l)}"><button class="icon-btn" data-delete-list="${esc(l.id)}" aria-label="${esc(t("delete")+" "+l.name)}" style="position:absolute;right:6px;top:6px;z-index:2;background:var(--card)">${I.trash}</button>${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}<span class="cnt">${n}</span></div>
       <button type="button" class="link-btn list-open" aria-label="${esc(t("open")+": "+l.name)}">${esc(l.name)}</button><small>${n} ${n === 1 ? t("work") : t("works")}</small>
-    </div>`; }).join("") + `<button class="strip-new" id="new-list" aria-label="${esc(t("newList"))}">${I.plus}</button><button class="btn" id="toggle-archived" aria-label="${fr?'Afficher les listes archivées':'Show archived lists'}" aria-pressed="${showArchivedLists}">${showArchivedLists?(fr?'Voir les listes actives':'Show active lists')+' ('+activeCount+')':(fr?'Voir les archives':'Show archives')+' ('+archivedCount+')'}</button>`;
+    </div>`; }).join("") + `<button class="strip-new" id="new-list" aria-label="${esc(t("newList"))}">${I.plus}</button><button class="btn" id="toggle-archived" aria-label="${t(showArchivedLists?"listShowActive":"listShowArchives")}" aria-pressed="${showArchivedLists}">${showArchivedLists?(t("listShowActive"))+' ('+activeCount+')':(t("listShowArchives"))+' ('+archivedCount+')'}</button>`;
   strip.querySelectorAll("[data-delete-list]").forEach(button=>button.onclick=e=>{e.stopPropagation();confirmListDelete(button.dataset.deleteList,button);});
   document.getElementById("toggle-archived").onclick=()=>{showArchivedLists=!showArchivedLists;renderLists();document.getElementById("toggle-archived").focus();};
   paintListCreation();
@@ -1822,9 +1847,9 @@ function confirmListDelete(id,button) {
 document.getElementById("list-delete-confirm")?.remove();
     const list=lists.find(l=>l.id===id);if(!list)return;
     const popup=document.createElement("dialog");popup.id="list-delete-confirm";popup.className="panel";popup.setAttribute("role","alertdialog");
-    popup.setAttribute("aria-label",settings.lang==="fr"?"Supprimer la liste":"Delete list");popup.setAttribute("aria-describedby","list-delete-description");
+    popup.setAttribute("aria-label",t("listDeleteLabel"));popup.setAttribute("aria-describedby","list-delete-description");
     popup.style.cssText="margin:0;border:0;position:fixed;z-index:1000;padding:18px;width:min(320px,calc(100vw - 32px));left:50%;top:35%;transform:translateX(-50%);box-shadow:0 12px 48px #25213940";
-    popup.innerHTML='<b>'+esc(list.name)+'</b><p id="list-delete-description">'+(settings.lang==="fr"?"Supprimer cette liste ? Les œuvres restent dans ta bibliothèque.":"Delete this list? Its works stay in your library.")+'</p><div style="display:flex;gap:8px"><button class="btn" id="list-delete-cancel">'+t("cancel")+'</button><button class="btn danger" id="list-delete-yes">'+t("delete")+'</button></div>';
+    popup.innerHTML='<b>'+esc(list.name)+'</b><p id="list-delete-description">'+(t("listDeleteHelp"))+'</p><div style="display:flex;gap:8px"><button class="btn" id="list-delete-cancel">'+t("cancel")+'</button><button class="btn danger" id="list-delete-yes">'+t("delete")+'</button></div>';
     const close=()=>{if(!popup.isConnected)return;popup.close();popup.remove();if(button.isConnected&&button.getClientRects().length)button.focus();else document.getElementById("new-list")?.focus();};
     popup.onclick=e=>e.stopPropagation();popup.onkeydown=e=>{
       if(e.key==="Escape"){e.preventDefault();close();return;}
@@ -1968,26 +1993,26 @@ function renderListDetail() {
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px">
       <div class="list-cover" style="width:64px;height:64px;border-radius:14px;font-size:24px;${listCover(l)}">${isImg(l.cover) ? "" : esc((l.name || "?")[0].toUpperCase())}</div>
       <div style="flex:1;min-width:180px">
-        <input id="list-name" aria-describedby="list-name-status" aria-label="${settings.lang==="fr"?"Nom de la liste":"List name"}" value="${esc(l.name)}" style="font-size:24px;font-weight:800;letter-spacing:-.03em;border:0;border-bottom:2px solid transparent;background:none;width:100%;outline:none;padding:2px 0" />
+        <input id="list-name" aria-describedby="list-name-status" aria-label="${t("listNameLabel")}" value="${esc(l.name)}" style="font-size:24px;font-weight:800;letter-spacing:-.03em;border:0;border-bottom:2px solid transparent;background:none;width:100%;outline:none;padding:2px 0" />
         <div><span id="list-name-status" class="sub" role="status"></span><button class="link-btn" id="list-name-retry" hidden>${settings.lang==="fr"?"Réessayer":"Retry"}</button></div>
         <small style="color:var(--muted)">${members.length} ${members.length === 1 ? t("work") : t("works")} — ${t("dragReorder")}</small>
       </div>
       <button class="btn" id="list-view-btn" title="${t("viewToggle")}">${grid ? I.rows : I.grid} ${grid ? t("viewRows") : t("viewGrid")}</button>
       <button class="btn" id="list-cover-btn">${I.image} ${t("cover")}</button>
-      <button class="btn" id="list-duplicate">${settings.lang==='fr'?'Dupliquer':'Duplicate'}</button><button class="btn" id="list-archive">${l.archived?(settings.lang==='fr'?'Restaurer':'Restore'):(settings.lang==='fr'?'Archiver':'Archive')}</button>
+      <button class="btn" id="list-duplicate">${t("listDuplicate")}</button><button class="btn" id="list-archive">${l.archived?(t("listRestore")):(t("listArchive"))}</button>
       <button class="btn danger" id="list-del">${I.trash} ${t("delete")}</button>
     </div>
     <div class="section-t">${t("inThisList")}</div>
     ${grid
       ? `<div id="list-items" class="li-grid">${members.length ? members.map((i) => `<div class="li-card" draggable="true" data-id="${esc(i.id)}">
-          <div class="li-card-cov" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}<button class="li-card-rm" data-remove="${esc(i.id)}" aria-label="${esc((settings.lang==="fr"?"Retirer de la liste : ":"Remove from list: ")+i.title)}">${I.close}</button></div>
-          <button class="link-btn list-work-title" data-open="${esc(i.id)}">${esc(i.title)}</button><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>`).join("") : `<p class="empty" style="padding:24px 0">${settings.lang==="fr"?"Cette liste est vide. Ajoute des œuvres ci-dessous.":"This list is empty. Add works below."}</p>`}</div>`
+          <div class="li-card-cov" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}<button class="li-card-rm" data-remove="${esc(i.id)}" aria-label="${esc(t("listRemoveMember")+": "+i.title)}">${I.close}</button></div>
+          <button class="link-btn list-work-title" data-open="${esc(i.id)}">${esc(i.title)}</button><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>`).join("") : `<p class="empty" style="padding:24px 0">${t("listEmptyHelp")}</p>`}</div>`
       : `<div id="list-items">${members.length ? members.map((i) => `<div class="li-row" draggable="true" data-id="${esc(i.id)}">
         <span class="grip">${I.grip}</span>
         <div class="li-cover" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}</div>
         <div style="flex:1;min-width:0"><button class="link-btn list-work-title" data-open="${esc(i.id)}">${esc(i.title)}</button><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>
-        <button class="btn" data-remove="${esc(i.id)}" aria-label="${esc((settings.lang==="fr"?"Retirer de la liste : ":"Remove from list: ")+i.title)}">${settings.lang==="fr"?"Retirer":"Remove"}</button></div>`).join("") : `<p class="empty" style="padding:24px 0">${settings.lang==="fr"?"Cette liste est vide. Ajoute des œuvres ci-dessous.":"This list is empty. Add works below."}</p>`}</div>`}
-    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><p class="sub">${settings.lang==="fr"?"Choisis parmi les œuvres déjà enregistrées dans ta bibliothèque.":"Choose from works already saved in your library."}</p><label for="list-add-search">${settings.lang==="fr"?"Rechercher dans ma bibliothèque":"Search my library"}</label><input class="field" type="search" id="list-add-search" value="${esc(listAddQuery)}" /><p class="sub" id="list-add-count" role="status"></p><div class="chips-wrap" id="list-add-options"></div>` : ""}`;
+        <button class="btn" data-remove="${esc(i.id)}" aria-label="${esc(t("listRemoveMember")+": "+i.title)}">${t("listRemoveMember")}</button></div>`).join("") : `<p class="empty" style="padding:24px 0">${t("listEmptyHelp")}</p>`}</div>`}
+    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><p class="sub">${t("listAddHelp")}</p><label for="list-add-search">${t("librarySearchLabel")}</label><input class="field" type="search" id="list-add-search" value="${esc(listAddQuery)}" /><p class="sub" id="list-add-count" role="status"></p><div class="chips-wrap" id="list-add-options"></div>` : ""}`;
   const search=document.getElementById("list-add-search");
   if(search) {
     const renderOptions=()=>{
@@ -2077,15 +2102,15 @@ function wireListDetail(l) {
 }
 function wireListBulk(list) {
   const container=document.getElementById("list-items"), selected=new Set();
-  const fr=settings.lang==="fr", destinations=lists.filter(l=>l.id!==list.id&&!l.archived);
+  const destinations=lists.filter(l=>l.id!==list.id&&!l.archived);
   const toolbar=document.createElement("div");toolbar.className="list-bulk";
-  toolbar.innerHTML=`<label><input type="checkbox" id="bulk-all"> ${fr?"Tout sélectionner":"Select all"}</label><span id="bulk-count" role="status"></span><select id="bulk-destination" aria-label="${fr?"Liste de destination":"Destination list"}"><option value="">${fr?"Choisir une liste…":"Choose a list…"}</option>${destinations.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("")}</select><button class="btn" id="bulk-copy">${fr?"Copier":"Copy"}</button><button class="btn" id="bulk-move">${fr?"Déplacer":"Move"}</button><button class="btn" id="bulk-remove">${fr?"Retirer de la liste":"Remove from list"}</button><button class="btn" id="bulk-up" aria-label="${fr?"Monter la sélection":"Move selection up"}">↑</button><button class="btn" id="bulk-down" aria-label="${fr?"Descendre la sélection":"Move selection down"}">↓</button>`;
+  toolbar.innerHTML=`<label><input type="checkbox" id="bulk-all"> ${t("listSelectAll")}</label><span id="bulk-count" role="status"></span><select id="bulk-destination" aria-label="${t("listDestination")}"><option value="">${t("listChoose")}</option>${destinations.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("")}</select><button class="btn" id="bulk-copy">${t("listCopy")}</button><button class="btn" id="bulk-move">${t("listMove")}</button><button class="btn" id="bulk-remove">${t("listRemoveMember")}</button><button class="btn" id="bulk-up" aria-label="${t("listMoveUp")}">↑</button><button class="btn" id="bulk-down" aria-label="${t("listMoveDown")}">↓</button>`;
   container.before(toolbar);
   const rows=[...container.querySelectorAll("[data-id]")];let busy=false;
   const refresh=()=>{
     container.inert=busy;
     const all=toolbar.querySelector("#bulk-all");all.checked=rows.length>0&&selected.size===rows.length;all.indeterminate=selected.size>0&&selected.size<rows.length;all.disabled=busy||!rows.length;
-    toolbar.querySelector("#bulk-count").textContent=fr?selected.size+" sélectionnée(s)":selected.size+" selected";
+    toolbar.querySelector("#bulk-count").textContent=t("listSelectedCount",{n:selected.size});
     for(const id of ["copy","move"])toolbar.querySelector("#bulk-"+id).disabled=busy||!selected.size||!toolbar.querySelector("#bulk-destination").value;
     toolbar.querySelector("#bulk-remove").disabled=busy||!selected.size;
     const visibleOrder=listMembers(list).map(item=>item.id),index=visibleOrder.indexOf([...selected][0]);
@@ -2097,7 +2122,7 @@ function wireListBulk(list) {
   rows.forEach(row=>{
     const input=document.createElement("input");input.type="checkbox";input.className="list-select";
     const title=items.find(i=>i.id===row.dataset.id)?.title||"";
-    input.setAttribute("aria-label",(fr?"Sélectionner ":"Select ")+title);
+    input.setAttribute("aria-label",t("listSelectWork",{title}));
     input.onclick=e=>e.stopPropagation();input.onchange=()=>{if(input.checked)selected.add(row.dataset.id);else selected.delete(row.dataset.id);refresh();};row.prepend(input);
   });
   toolbar.querySelector("#bulk-all").onchange=e=>{selected.clear();if(e.target.checked)rows.forEach(r=>selected.add(r.dataset.id));refresh();};
@@ -2114,7 +2139,7 @@ function wireListBulk(list) {
       if(!source){busy=false;refresh();return;}
       ok=await listMsg("LIST_REMOVE_MEMBERS",{id:source.id,itemIds:ids},()=>{});
     }
-    if(ok){renderListDetail();toast(fr?"Liste mise à jour":"List updated");}else{busy=false;refresh();}
+    if(ok){renderListDetail();toast(t("listUpdated"));}else{busy=false;refresh();}
   };
   for(const action of ["copy","move","remove"])toolbar.querySelector("#bulk-"+action).onclick=()=>act(action);
   const reorder=async direction=>{
