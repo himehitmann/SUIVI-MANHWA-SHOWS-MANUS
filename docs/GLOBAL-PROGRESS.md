@@ -8,6 +8,20 @@ Mise à jour : 29 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Progression depuis le guide des épisodes — 29 octobre 2026
+
+Commit 1f4b3af27c5cbf06ada254a4774207dc0e0b83d8 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40830796398) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40830791856) réussies. 643 tests unitaires, parcours navigateur, capacité et récupérations validés.
+
+Les séries enregistrées ayant un guide TVmaze proposent « Je me suis arrêté ici » sur les épisodes normaux numérotés, de saison positive, datés avant le jour UTC courant et compatibles avec le total annoncé. Les épisodes spéciaux, futurs, sans date ou du jour courant n’ont pas cette commande. Les libellés sont définis dans huit langues.
+
+La commande enregistre ensemble saison, épisode, total annoncé et pourcentage. Le statut reste en cours : finir une saison ne déclare pas toute la série terminée. Changer de saison remet latestEpisode au nouvel épisode et invalide les compteurs de diffusion de l’ancienne saison ; changer d’épisode/saison remet position et durée vidéo à zéro. Sans total annoncé, le total précédent est effacé et le pourcentage devient zéro plutôt qu’une estimation.
+
+Les commandes du guide sont bloquées pendant l’enregistrement. Un échec conserve la progression confirmée, affiche un message et permet de réessayer ; le transport borné ignore les réponses tardives. Une expiration n’annule pas l’écriture worker.
+
+Le test navigateur simule un guide et vérifie l’éligibilité des boutons, la demande répétée, le silence, la réponse tardive et la reprise : saison 1 épisode 10 / 12 vers saison 2 épisode 2 / 8, 25 %, reprise vidéo remise à zéro et compteurs de saison invalidés. La suite existante couvre séparément la persistance de UPDATE_ITEM ; ce nouveau scénario simule son transport.
+
+G07 reste partiel, notamment pour les autres catalogues et les épisodes spéciaux. Score global inchangé : 20/60 (33,3 %). Aucun changement installé dans le navigateur utilisateur ni publication.
+
 ## Réception de la bibliothèque : passage à 33 % — 29 octobre 2026
 
 G13 validé sur le commit 05fe657dea836321fa21e140718b7358a8cdb6de. [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40826822924) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40826817160) réussies. La matrice de 216 combinaisons et les cinq tris complètent les parcours d’ajout, import, listes, progression et récupération existants. Un filtre de format disparu reste désormais visible tant qu’il est actif. Les compteurs sont vérifiés avant/après les changements d’état.
