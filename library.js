@@ -250,6 +250,8 @@ const DETAIL_LOCALES={
 "libraryLoadFailed":["Your library could not be loaded. Try refreshing.","Impossible de charger ta bibliothèque. Réessaie avec Actualiser.","ライブラリを読み込めませんでした。更新してください。","No se pudo cargar tu biblioteca. Intenta actualizar.","Deine Bibliothek konnte nicht geladen werden. Bitte aktualisieren.","라이브러리를 불러오지 못했습니다. 새로고침해 주세요.","Não foi possível carregar a tua biblioteca. Tenta atualizar.","无法加载书库，请尝试刷新。"],
 "refreshFailed":["Update failed. Try again.","Actualisation impossible. Réessaie.","更新できませんでした。もう一度お試しください。","No se pudo actualizar. Inténtalo de nuevo.","Aktualisierung fehlgeschlagen. Erneut versuchen.","업데이트하지 못했습니다. 다시 시도하세요.","Não foi possível atualizar. Tenta novamente.","更新失败，请重试。"],
 "refreshDeferred":["Details received. Finish your edits, then refresh this work again.","Informations reçues. Termine tes modifications, puis actualise à nouveau la fiche.","情報を受信しました。編集を終えてから、もう一度更新してください。","Información recibida. Termina tus cambios y vuelve a actualizar la ficha.","Details erhalten. Beende deine Änderungen und aktualisiere den Eintrag erneut.","정보를 받았습니다. 편집을 마친 뒤 다시 새로고침해 주세요.","Informações recebidas. Termina as alterações e atualiza novamente a ficha.","已收到信息。请完成编辑后再次刷新作品。"],
+"stoppedHere":["I stopped here","Je me suis arrêté ici","ここまで視聴しました","Me quedé aquí","Hier habe ich aufgehört","여기까지 봤어요","Parei aqui","我看到这里了"],
+"episodeSaveFailed":["Progress not confirmed. Try again.","Progression non confirmée. Réessaie.","進捗を確認できませんでした。再試行してください。","No se confirmó el progreso. Inténtalo de nuevo.","Fortschritt nicht bestätigt. Erneut versuchen.","진행 상황이 확인되지 않았습니다. 다시 시도하세요.","Progresso não confirmado. Tenta novamente.","进度未确认，请重试。"],
 "refreshNone":["No new details available.","Aucune nouvelle information disponible.","新しい情報はありません。","No hay información nueva.","Keine neuen Informationen verfügbar.","새로운 정보가 없습니다.","Não há informações novas.","暂无新信息。"],
 "refreshPartial":["Some details updated; other information is still missing.","Certaines informations ont été actualisées ; d’autres restent manquantes.","一部の情報を更新しました。未取得の情報があります。","Se actualizaron algunos datos; aún falta información.","Einige Details wurden aktualisiert; weitere Angaben fehlen noch.","일부 정보를 업데이트했습니다. 아직 없는 정보가 있습니다.","Alguns dados foram atualizados; ainda faltam informações.","已更新部分信息，仍有信息缺失。"],
 "refreshDone":["Details updated.","Fiche actualisée.","作品情報を更新しました。","Ficha actualizada.","Details aktualisiert.","작품 정보를 업데이트했습니다.","Ficha atualizada.","作品信息已更新。"],
@@ -3338,10 +3340,34 @@ function mountEpisodeGuide(item) {
               const number=e.number===null?(t("specialLabel")):t("episodeNumber",{n:e.number});
               const upcoming=/^\d{4}-\d{2}-\d{2}$/.test(e.airdate)&&e.airdate>new Date().toISOString().slice(0,10);
               const meta=[e.airdate,e.runtime?e.runtime+" min":"",e.special?(t("specialLabel")):"",upcoming?(t("pubUpcoming")):""].filter(Boolean);
-              return '<li class="guide-episode"><span class="guide-number">'+esc(number)+'</span><div><b>'+esc(e.name||(t("titleUnannounced")))+'</b>'+(meta.length?'<small>'+meta.map(esc).join(" — ")+'</small>':"")+'</div></li>';
+              const eligible=items.some(saved=>saved.id===item.id)&&Number.isInteger(result.season.number)&&result.season.number>0&&Number.isInteger(e.number)&&e.number>0&&!e.special&&/^\d{4}-\d{2}-\d{2}$/.test(e.airdate)&&e.airdate<new Date().toISOString().slice(0,10)&&(known===null||known>=e.number);
+              const action=eligible?'<button type="button" class="link-btn" data-guide-progress="'+e.number+'" aria-label="'+esc(t("stoppedHere")+": "+label(result.season)+", "+number)+'">'+esc(t("stoppedHere"))+'</button>':"";
+              return '<li class="guide-episode"><span class="guide-number">'+esc(number)+'</span><div><b>'+esc(e.name||(t("titleUnannounced")))+'</b>'+(meta.length?'<small>'+meta.map(esc).join(" — ")+'</small>':"")+action+'</div></li>';
             }).join("");
             area.innerHTML='<p class="sub">'+esc(stats.join(" — "))+'</p>'+(rows?'<ol class="guide-list">'+rows+'</ol>':'<p class="sub">'+(t("noEpisodes"))+'</p>')+(episodes.length>visible?'<button type="button" class="btn guide-more">'+(t("moreEpisodes"))+'</button>':"");
             const more=area.querySelector(".guide-more");if(more)more.onclick=()=>{visible+=40;render();};
+            let saving=false;
+            area.querySelectorAll("[data-guide-progress]").forEach(button=>button.onclick=async()=>{
+              if(saving||!active())return;
+              const live=items.find(saved=>saved.id===item.id);if(!live)return;
+              saving=true;
+              const controls=[...root.querySelectorAll("button,select")];controls.forEach(control=>{control.disabled=true;});
+              const episode=Number(button.dataset.guideProgress),season=result.season.number;
+              const changedSeason=(Number(live.season)||1)!==season;
+              const patch={season,episode,total:known||0,progress:known?Math.min(100,100*episode/known):0,state:"current",
+                latestEpisode:changedSeason?episode:Math.max(Number(live.latestEpisode)||0,episode)};
+              if(changedSeason){patch.releaseSeason=0;patch.releasedTotal=null;}
+              if(changedSeason||Number(live.episode)!==episode){patch.position=0;patch.duration=0;}
+              const saved=await update(item.id,patch,{retainDraft:true});
+              if(!saved&&active()){
+                controls.forEach(control=>{if(control.isConnected)control.disabled=false;});
+                let message=area.querySelector(".guide-save-error");
+                if(!message){message=document.createElement("p");message.className="sub guide-save-error";message.setAttribute("role","status");area.append(message);}
+                message.textContent=t("episodeSaveFailed");button.focus();
+              }
+              saving=false;
+            });
+
           };render();
         }catch{if(active()&&version===request){area.setAttribute("aria-busy","false");fail(area,()=>choose(id));}}
       };

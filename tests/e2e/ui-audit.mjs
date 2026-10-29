@@ -879,6 +879,36 @@ try {
  });
  assert.equal(libraryAcceptance.combinations,216);assert.equal(libraryAcceptance.sorts,5);
  await fs.writeFile("test-results/library-acceptance.json",JSON.stringify(libraryAcceptance,null,2));
+ // Set a saved show's position from a dated normal episode, keeping season totals coherent.
+ const guideProgress=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,request=requestMetadata,savedItems=items;
+  const seasons=[{id:"s1",number:1,name:"First",episodeCount:12},{id:"s2",number:2,name:"Second",episodeCount:8}];
+  const episodes=[{number:1,name:"One",airdate:"2000-01-01"},{number:2,name:"Two",airdate:"2000-01-02"},{number:3,name:"Future",airdate:"2999-01-01"},{number:null,name:"Special",special:true,airdate:"2000-01-01"},{number:4,name:"Unknown",airdate:""}];
+  let pending,writes=0,lastPatch;
+  requestMetadata=(message,callback)=>request(message,callback,20);
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="CATALOG_EPISODE_GUIDE"){callback(message.seasonId?{ok:true,season:seasons.find(season=>season.id===message.seasonId),episodes}:{ok:true,seasons});return;}
+   if(message.type==="UPDATE_ITEM"){writes++;lastPatch=message.patch;pending=callback;return;}
+   return original.call(api.runtime,message,callback);
+  };
+  const tick=()=>new Promise(resolve=>setTimeout(resolve,5));
+  try{
+   items=[{id:"guide-saved",title:"Guide",type:"watching",externalIds:{tvmaze:"1"},season:1,episode:10,total:12,latestEpisode:12,releaseSeason:1,releasedTotal:12,position:500,duration:1000,enrichedAt:1,identityVersion:1}];
+   openDrawer("guide-saved");await tick();
+   let select=document.getElementById("guide-season");select.value="s2";select.onchange();await tick();
+   const eligible=[...document.querySelectorAll("[data-guide-progress]")].map(button=>button.dataset.guideProgress).join(",")==="1,2";
+   let button=document.querySelector('[data-guide-progress="2"]'),first=button.onclick();await button.onclick();
+   const busy=button.disabled&&document.getElementById("guide-season").disabled;
+   await first;
+   const timeout=writes===1&&!button.disabled&&items[0].episode===10&&!!document.querySelector(".guide-save-error");
+   pending({items:[{...items[0],...lastPatch}]});const lateIgnored=items[0].episode===10;
+   first=button.onclick();pending({items:[{...items[0],...lastPatch}]});await first;await tick();
+   const saved=items[0];
+   const coherent=saved.season===2&&saved.episode===2&&saved.total===8&&saved.latestEpisode===2&&saved.progress===25&&saved.position===0&&saved.duration===0&&saved.releaseSeason===0&&saved.releasedTotal===null&&saved.state==="current";
+   return {eligible,busy,timeout,lateIgnored,coherent,selected:document.getElementById("guide-season").value==="s2"};
+  }finally{api.runtime.sendMessage=original;requestMetadata=request;items=savedItems;closeDrawer();renderAll();}
+ });
+ assert.deepEqual(guideProgress,{eligible:true,busy:true,timeout:true,lateIgnored:true,coherent:true,selected:true});
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{
