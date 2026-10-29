@@ -1028,6 +1028,22 @@ try {
  assert(loadedArtwork.every(image=>!image.failed));
  assert.equal(imageRequests.filter(url=>url.includes("/999991/")).length,1,"Available high-resolution art needs no fallback requests");
  assert.equal(imageRequests.filter(url=>url.includes("/999992/")).length,3,"Missing larger art falls back through a bounded sequence");
+ const savedArtwork=await p.evaluate(()=>{
+   const small="https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/999991/hash/capsule_231x87.jpg?t=7";
+   const wrong="https://cdn.cloudflare.steamstatic.com/steam/apps/999992/header.jpg";
+   const mixed=steamArtworkSources({type:"game",cover:small,coverFallback:wrong});
+   const authoritative=steamArtworkSources({type:"game",externalIds:{steam:999993},cover:small,coverFallback:wrong});
+   const override="data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="120"></svg>');
+   const custom=document.createElement("div");custom.innerHTML=coverInner({type:"game",title:"Custom",cover:small,coverOverride:override});
+   const probe=document.getElementById("steam-art-probe");
+   const saved=document.createElement("div");saved.id="saved-game-art-probe";saved.innerHTML=coverInner({type:"game",title:"Saved",cover:small,coverFallback:wrong});probe.append(saved);
+   return {mixed,authoritative,custom:custom.querySelector("img").getAttribute("src")===override};
+ });
+ assert(savedArtwork.mixed.every(url=>!url.includes("/999992/")),"A fallback for another Steam game is excluded");
+ assert(savedArtwork.authoritative.every(url=>url.includes("/999993/")),"Known Steam identity wins over conflicting artwork IDs");
+ assert(savedArtwork.custom,"A custom cover remains the primary image");
+ await p.waitForFunction(()=>{const image=document.querySelector("#saved-game-art-probe img");return image.complete&&image.naturalWidth===462;});
+ assert((await p.locator("#saved-game-art-probe img").getAttribute("src")).includes("capsule_231x87_2x.jpg"),"Saved games also request the larger capsule");
  await p.evaluate(()=>document.getElementById("steam-art-probe").remove());
  await p.unroute(/https:\/\/[^/]+\/(?:store_item_assets\/)?steam\/apps\/99999[12]\//,artRoute);
 

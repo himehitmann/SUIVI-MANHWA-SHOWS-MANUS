@@ -1036,6 +1036,13 @@ document.addEventListener("error", (e) => {
 function coverInner(i, fs) {
   const u = coverUrl(i);
   const ph = `<span class="cover-ph"${fs ? ` style="font-size:${fs}px"` : ""}>${esc((i.title || "?")[0].toUpperCase())}</span>`;
+  if(i.type==="game"&&!i.coverOverride){
+    const sources=steamArtworkSources({...i,cover:u});
+    // Preserve normal portrait artwork; upgrade only the small Steam capsule.
+    if(/\/capsule_231x87\.jpg(?:\?|$)/.test(u))return ph+(sources.length?covImg(sources[0],sources.slice(1)):"");
+    const fallback=sources.filter(source=>source!==u);
+    return ph+covImg(u,fallback);
+  }
   return ph + covImg(u, i.coverFallback);
 }
 // Badge label: "+3" when there are unseen released entries, else NEW / Soon.
@@ -1126,25 +1133,29 @@ function discoBadges(m, opts) {
   return { soon, price };
 }
 function steamArtworkSources(m){
-  const supplied=[m.coverFallback,m.cover].filter(value=>typeof value==="string"&&value);
-  const candidates=[];
-  let app="";
-  for(const value of supplied){
+  const imageApp=value=>{
     try{
       const url=new URL(value);
-      if(url.protocol!=="https:"||url.username||url.password||url.port||!/(^|\.)(steamstatic\.com|steamcdn-a\.akamaihd\.net)$/.test(url.hostname))continue;
-      const id=url.pathname.match(/\/(?:steam|store_item_assets\/steam)\/apps\/([1-9]\d{0,14})\//)?.[1];
-      if(!id||app&&id!==app)continue;
-      app=id;
-      if(/\/capsule_231x87\.jpg$/.test(url.pathname)){
-        url.pathname=url.pathname.replace(/capsule_231x87\.jpg$/,"capsule_231x87_2x.jpg");
-        candidates.push(url.href);
-      }else if(/\/(?:header|capsule_616x353)(?:_2x)?\.jpg$/.test(url.pathname))candidates.push(url.href);
-    }catch{}
+      if(url.protocol!=="https:"||url.username||url.password||url.port||!/(^|\.)(steamstatic\.com|steamcdn-a\.akamaihd\.net)$/.test(url.hostname))return "";
+      return url.pathname.match(/\/(?:steam|store_item_assets\/steam)\/apps\/([1-9]\d{0,14})\//)?.[1]||"";
+    }catch{return "";}
+  };
+  let app=/^[1-9]\d{0,14}$/.test(String(m.externalIds?.steam||""))?String(m.externalIds.steam):"";
+  if(!app)try{const url=new URL(m.url);if(url.protocol==="https:"&&url.hostname==="store.steampowered.com"&&!url.username&&!url.password&&!url.port)app=url.pathname.match(/^\/app\/([1-9]\d{0,14})(?:\/|$)/)?.[1]||"";}catch{}
+  if(!app)app=imageApp(m.cover)||imageApp(m.coverFallback);
+  const supplied=[m.coverFallback,m.cover].filter(value=>typeof value==="string"&&value&&(!imageApp(value)||imageApp(value)===app));
+  const candidates=[];
+  for(const value of supplied){
+    if(!imageApp(value))continue;
+    const url=new URL(value);
+    if(/\/capsule_231x87\.jpg$/.test(url.pathname)){
+      url.pathname=url.pathname.replace(/capsule_231x87\.jpg$/,"capsule_231x87_2x.jpg");candidates.push(url.href);
+    }else if(/\/(?:header|capsule_616x353)(?:_2x)?\.jpg$/.test(url.pathname))candidates.push(url.href);
   }
   if(app)candidates.push("https://cdn.cloudflare.steamstatic.com/steam/apps/"+app+"/header.jpg");
   return app?[...new Set([...candidates,...supplied])].slice(0,4):[...new Set([m.cover,m.coverFallback].filter(Boolean))];
 }
+
 function discoveryArtwork(m){
   if(m.type!=="game")return covImg(m.cover,m.coverFallback);
   const sources=steamArtworkSources(m);
