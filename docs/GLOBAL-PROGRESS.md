@@ -8,6 +8,16 @@ Mise à jour : 29 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Images des jeux enregistrés et identité des replis — 29 octobre 2026
+
+Commit ce1d3ff43a3205de83388746d5dac1360c6c8bb5 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40917633158) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40917621664) réussies. 643 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Les petites capsules Steam des jeux enregistrés passent désormais par la même sélection d’images plus grandes que les découvertes. Les couvertures personnalisées restent prioritaires ; les portraits normaux conservent leur source principale. La chaîne de secours reste bornée. L’identité utilisée pour construire les candidats Steam vient d’abord de l’identifiant externe, puis de l’URL boutique reconnue, puis de l’image principale et enfin de l’image de secours. Les images Steam de secours portant un autre identifiant sont exclues.
+
+Tests navigateur : récupération simulée d’une capsule plus grande pour un jeu enregistré, image supérieure disponible/absente avec replis, exclusion d’un autre jeu, priorité de l’identité connue et conservation d’une couverture personnalisée. Les tests de proportions fixes, paysages et portraits existants passent également. Les réponses d’images sont simulées dans ce scénario : aucune garantie que tous les fournisseurs proposent une image de haute qualité, ni revue esthétique réelle de tous les catalogues.
+
+G03/G06 restent partiels. Score global inchangé : 20/60 (33,3 %). Aucun changement installé dans le navigateur utilisateur ni publication.
+
 ## Progression depuis le guide des épisodes — 29 octobre 2026
 
 Commit 1f4b3af27c5cbf06ada254a4774207dc0e0b83d8 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40830796398) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40830791856) réussies. 643 tests unitaires, parcours navigateur, capacité et récupérations validés.
