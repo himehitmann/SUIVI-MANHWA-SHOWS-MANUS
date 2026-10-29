@@ -842,7 +842,7 @@ try {
   try{
    items=rows;lists=[{id:"active-audit",name:"Active list",itemIds:["a","c","g","a","missing"]},{id:"archive-audit",name:"Archived list",archived:true,itemIds:["b"]}];
    sites=[{host:"one.example",name:"One",url:"https://one.example"},{host:"two.example",name:"Two",url:"https://two.example"}];
-   settings={...settings,lang:"en",librarySort:"title"};currentListId=null;showArchivedLists=false;switchView("library");
+   settings={...settings,lang:"en",librarySort:"title"};currentListId=null;showArchivedLists=false;switchView("library");renderAll();
    eq(stats(),[6,3,3,3,2],"global counts");eq(shortcuts(),[6,1,2],"section counts");
    eq(listMembers(lists[0]).map(item=>item.id),["a","c","g"],"list excludes orphan and duplicate members");
    for(const [f,fset] of Object.entries(filterSets))for(const [format,mset] of Object.entries(formatSets))for(const unlisted of [false,true])for(const [query,qset] of Object.entries(querySets)){
