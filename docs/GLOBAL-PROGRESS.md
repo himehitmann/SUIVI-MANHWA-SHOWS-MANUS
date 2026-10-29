@@ -8,6 +8,16 @@ Mise à jour : 29 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Commandes de bibliothèque dans huit langues — 29 octobre 2026
+
+Commit c4853d1e9b67d51c4c8323dd69ef73fd6c5a2598 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40919381564) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40919366605) réussies. 643 tests unitaires, parcours navigateur, capacité et récupérations passent ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Les commandes de recherche et de listes utilisent désormais 26 libellés localisés en anglais, français, japonais, espagnol, allemand, coréen, portugais et chinois simplifié : recherche, duplication, archivage/restauration, sélection, destination, copie/déplacement, retrait d’une liste, ordre et confirmation de suppression. Cela ajoute 25 clés et réutilise la clé existante du nom de liste. Un doublon de cette clé détecté par le premier contrôle lint a été supprimé avant la validation finale.
+
+Le parcours navigateur vérifie les huit langues, les textes des commandes, les libellés accessibles, le compteur après sélection, le titre des archives, la confirmation de suppression et la conservation des noms saisis par l’utilisateur. Il complète les tests existants de fonctionnement et de mise en page ; il ne constitue pas une inspection visuelle de toutes les traductions sur tous les écrans.
+
+G16 reste partiel : ces contrôles ne prouvent pas une traduction complète des synopsis, métadonnées et contenus des fournisseurs. Score global inchangé : 20/60 (33,3 %). Aucun changement installé dans le navigateur utilisateur ni publication.
+
 ## Images des jeux enregistrés et identité des replis — 29 octobre 2026
 
 Commit ce1d3ff43a3205de83388746d5dac1360c6c8bb5 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40917633158) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/40917621664) réussies. 643 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
