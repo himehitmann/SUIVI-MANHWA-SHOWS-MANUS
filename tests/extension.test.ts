@@ -1929,10 +1929,10 @@ describe("catalog search relevance",()=>{
 describe("Jikan search outage budget",()=>{
   it("aborts a stalled request and fails queued searches without a second network timeout",async()=>{
     const w=worker();
-    w.run('var expire,calls=0,signal;setTimeout=(fn,ms)=>{if(ms===6000)expire=fn;else fn();return 0};fetchRemote=async(url,options)=>{calls++;signal=options.signal;return new Promise(()=>{});};');
+    w.run('var expirations=[],calls=0,signal;setTimeout=(fn,ms)=>{if(ms===6000)expirations.push(fn);else fn();return 0};fetchRemote=async(url,options)=>{calls++;signal=options.signal;return new Promise(()=>{});};');
     const task=w.run('Promise.allSettled([jikanRequest("manga?q=test",6000),jikanRequest("anime?q=test",6000)])');
     await new Promise(resolve=>setTimeout(resolve,0));
-    w.run("expire()");
+    w.run("expirations[0]()");
     const results=await task;
     expect(results.every((x:any)=>x.status==="rejected")).toBe(true);
     expect(w.run("calls")).toBe(1);expect(w.run("signal.aborted")).toBe(true);
