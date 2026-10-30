@@ -8,6 +8,18 @@ Mise à jour : 30 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Recherche : titres sans espaces et saisie par composition — 30 octobre 2026
+
+Commit e6ec1223588cc088072158645318a31459d1f4c0 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41139232401) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41139226428) réussies. 654 tests unitaires, parcours navigateur, capacité et récupérations validés. Audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Le classement d’affichage reconnaît les correspondances contiguës dans les titres utilisant les écritures han, hiragana, katakana ou hangul. Un titre exact reste prioritaire, puis une correspondance de titre, puis son alternative, avant un résultat populaire sans rapport. Les index des résultats fournisseurs sont conservés pour que le clic ouvre toujours la bonne fiche.
+
+La composition au clavier suspend les requêtes et invalide les anciennes réponses. La validation d’un caractère avec Entrée ne lance pas de recherche intermédiaire ; la fin de composition relance le délai normal de saisie. Les recherches classiques restent disponibles.
+
+Le parcours navigateur couvre quatre titres japonais/chinois/coréens, titres alternatifs, ordre et conservation des résultats sources. Des événements de composition simulés vérifient zéro requête intermédiaire puis une seule requête pour le texte final. Ce test ne constitue pas une validation native de tous les claviers Windows ni une garantie d’exhaustivité des catalogues.
+
+G08 reste partiel. Score global inchangé : 20/60 (33,3 %). Aucun changement installé dans Chrome ni publication.
+
 ## Notifications récentes et navigation au clavier — 30 octobre 2026
 
 Commit b00df873f29f1b2620092dd46e26a5f6739f1030 : [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41137725881) réussie. 654 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
