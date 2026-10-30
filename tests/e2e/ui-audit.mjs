@@ -1103,6 +1103,46 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
  assert.deepEqual(boundedFeed,{bounded:{rows:40,badge:false,saved:45},empty:true});
  console.log("PASS: recent notification feed, deduplication, shared badge filtering and keyboard opening");
 
+  const asianSearch=await page.evaluate(()=>{
+   const samples=[
+     ["鬼滅","鬼滅の刃"],["薬屋","薬屋のひとりごと"],["进击","进击的巨人"],["진격","진격의 거인"]
+   ];
+   return samples.map(([term,title])=>{
+     const rows=[{title:"Unrelated popular title",type:"watching",popularity:999999},{title:"Alias work",alternativeTitles:[title],type:"watching",popularity:50},{title,type:"watching"},{title:term,type:"watching"}];
+     const ranked=rankCatalogResults(rows,term);
+     return {term,titles:ranked.map(row=>row.item.title),indices:ranked.map(row=>row.index),original:rows.map(row=>row.title)};
+   });
+ });
+ for(const result of asianSearch){
+   assert.equal(result.titles[0],result.term,"Exact title first");
+   assert.deepEqual(result.indices,[3,2,1,0],"No-space title and alias before unrelated popularity");
+   assert.equal(result.original[0],"Unrelated popular title","Ranking does not mutate provider results");
+ }
+ const composingSearch=await page.evaluate(async()=>{
+   const original=api.runtime.sendMessage,saved={query,view,lastResults,searchFacets},input=document.getElementById("q");
+   const calls=[];
+   api.runtime.sendMessage=(message,callback)=>{
+     if(message.type==="CATALOG_SEARCH"){calls.push(message.query);callback({ok:true,results:[],pending:false,hasMore:false});return;}
+     return original.call(api.runtime,message,callback);
+   };
+   try{
+     switchView("library");input.focus();
+     input.dispatchEvent(new CompositionEvent("compositionstart",{bubbles:true}));
+     input.value="やく";input.dispatchEvent(new InputEvent("input",{bubbles:true,isComposing:true}));
+     input.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}));
+     await new Promise(resolve=>setTimeout(resolve,380));
+     const during=calls.length;
+     input.value="薬屋";input.dispatchEvent(new CompositionEvent("compositionend",{bubbles:true,data:"薬屋"}));
+     await new Promise(resolve=>setTimeout(resolve,380));
+     return {during,calls:[...calls],query};
+   }finally{
+     clearSearchResults();searchComposing=false;api.runtime.sendMessage=original;
+     ({query,view,lastResults,searchFacets}=saved);input.value=query;switchView(view);renderAll();
+   }
+ });
+ assert.deepEqual(composingSearch,{during:0,calls:["薬屋"],query:"薬屋"});
+ console.log("PASS: no-space Asian title relevance, original result indices and composition-aware search");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

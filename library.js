@@ -3166,7 +3166,14 @@ document.getElementById("avatar").onclick = (e) => { e.stopPropagation(); closeM
 document.getElementById("lang-btn").onclick = (e) => { e.stopPropagation(); const m = document.getElementById("lang-menu"); const willOpen = !m.classList.contains("open"); closeMenus(); if (willOpen) m.classList.add("open"); };
 document.getElementById("go-pro").onclick = () => { clearSearchResults(); switchView("plans"); };
 document.addEventListener("click", (e) => { if (!e.target.closest(".top-right")) closeMenus(); if (!e.target.closest(".qa-menu") && !e.target.closest(".quick-add")) closeQuickAdd(); });
+let searchComposing=false;
+document.getElementById("q").addEventListener("compositionstart",()=>{searchComposing=true;clearSearchResults();});
+document.getElementById("q").addEventListener("compositionend",()=>{
+  searchComposing=false;
+  document.getElementById("q").dispatchEvent(new Event("input",{bubbles:true}));
+});
 document.getElementById("q").addEventListener("input", (e) => {
+  if(e.isComposing||searchComposing){clearSearchResults();query=e.target.value;return;}
   clearSearchResults(); query = e.target.value; currentListId = null;
   if (view !== "library" && view !== "games") switchView("library");
   document.getElementById("lib-main").hidden = false; document.getElementById("list-detail").hidden = true;
@@ -3177,7 +3184,7 @@ document.getElementById("q").addEventListener("input", (e) => {
     searchTimer = setTimeout(() => catalogSearch(q), 300);
   }
 });
-document.getElementById("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && query.trim().length >= 2) { if (view !== "library" && view !== "games") switchView("library"); catalogSearch(query.trim()); } });
+document.getElementById("q").addEventListener("keydown", (e) => { if (!e.isComposing&&!searchComposing&&e.keyCode!==229&&e.key === "Enter" && query.trim().length >= 2) { if (view !== "library" && view !== "games") switchView("library"); catalogSearch(query.trim()); } });
 
 let searchVersion = 0, searchTimer = null, searchPollTimer = null;
 let srCountry = "all";
@@ -3302,6 +3309,7 @@ function rankCatalogResults(results,query) {
     if(title===term)return 1000;
     if(title.startsWith(term+" "))return 800;
     if(phrase(title))return 600;
+    if(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(term)&&title.includes(term))return 550;
     const tokens=new Set(title.split(" ")),matches=words.filter(word=>tokens.has(word)).length;
     return matches===words.length?450:matches?200*matches/words.length:0;
   };
