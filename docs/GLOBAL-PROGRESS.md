@@ -8,6 +8,20 @@ Mise à jour : 30 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Notifications : respecter la pause, l’abandon et la désactivation globale — 30 octobre 2026
+
+Commit 4fd4de384fa33bbe85cb3ad571eda47d95a53aa0 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41114801311) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41114792990).
+
+Les deux exécutions sont réussies : 650 tests unitaires, parcours navigateur, paquet Chrome décompressé, capacité et récupérations validés. Audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Le moteur d’alertes consulte désormais le champ state utilisé par l’interface, avec repli sur l’ancien status. Une valeur actuelle explicite prend priorité sur un ancien statut contradictoire. Les œuvres abandonnées ne sont plus interrogées par les contrôles de sorties/actualités. Les œuvres en pause peuvent actualiser leurs données et leur point de référence sans créer d’alerte ; les annonces vues pendant cette pause ne sont pas renvoyées à la reprise.
+
+Les réponses d’épisodes, de sorties de jeux et d’actualités relisent l’œuvre actuelle avant toute notification. Un changement de pause/abandon pendant la requête est donc respecté. L’augmentation de total constatée lors de l’enregistrement d’une page respecte également la pause et la désactivation globale, pour les notifications internes comme système. Les titres de plusieurs annonces sont séparés par un tiret plutôt que le point médian.
+
+Sept tests supplémentaires couvrent priorité des champs, pause silencieuse, absence de requête pour les œuvres abandonnées, modifications pendant les requêtes, absence de répétition à la reprise et augmentation de total avec notifications désactivées. Les tests existants de catégories, ancienneté, dates futures, identité et changement de compte restent requis.
+
+G12 reste partiel : notamment, le clic sur une notification système ouvre encore la bibliothèque sans sélectionner directement l’œuvre ; ce lot ne corrige pas ce parcours. Aucune purge des anciennes notifications déjà enregistrées n’est effectuée. Score global inchangé : 20/60 (33,3 %). Aucun changement installé dans Chrome ni publication.
+
 ## Progression et dates d’activité multilingues — 30 octobre 2026
 
 Commit 0e986a12d4cedfe2146825a3b089d6da56320386 : [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41113421396) réussie. 643 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
