@@ -290,6 +290,28 @@ const DETAIL_LOCALES={
 "gameFind":["Find a game","Rechercher un jeu","ゲームを探す","Buscar un juego","Spiel suchen","게임 찾기","Procurar um jogo","查找游戏"],
 "gameMine":["My games","Mes jeux","マイゲーム","Mis juegos","Meine Spiele","내 게임","Os meus jogos","我的游戏"],
 "gameEmptyHelp":["Open a game below to save it to a list of your choice.","Ouvrez une fiche ci-dessous pour enregistrer un jeu dans la liste de votre choix.","下のゲームを開き、好きなリストに保存しましょう。","Abre un juego abajo para guardarlo en la lista que elijas.","Öffne unten ein Spiel, um es in einer Liste deiner Wahl zu speichern.","아래 게임을 열어 원하는 리스트에 저장하세요.","Abre um jogo abaixo para o guardar numa lista à tua escolha.","打开下方游戏，将其保存到你选择的清单中。"],
+"homeResume":["Pick up where you left off","Reprendre là où vous en étiez","続きから再開","Continúa donde lo dejaste","Dort weitermachen, wo du aufgehört hast","멈춘 곳부터 이어보기","Continua de onde paraste","从上次停下的地方继续"],
+"homeDiscoverPrefix":["Discover — ","À découvrir — ","見つける — ","Descubrir — ","Entdecken — ","발견 — ","Descobrir — ","发现 — "],
+"homeWelcomeHelp":["Explore the trends below or search for a title using the bar above.","Explorez les tendances ci-dessous ou recherchez une œuvre avec la barre en haut.","下のトレンドを探すか、上の検索バーで作品を検索しましょう。","Explora las tendencias o busca una obra en la barra superior.","Entdecke die Trends unten oder suche oben nach einem Titel.","아래 트렌드를 둘러보거나 위 검색창에서 작품을 검색하세요.","Explora as tendências abaixo ou procura uma obra na barra superior.","浏览下方热门内容，或使用顶部搜索栏查找作品。"],
+"homeActivityLabel":["Your activity","Votre suivi","あなたの記録","Tu seguimiento","Dein Fortschritt","내 감상 기록","O teu acompanhamento","你的进度"],
+"homeCatchUp":["Catch up","À rattraper","未読・未視聴","Ponte al día","Nachholen","밀린 작품","Põe-te em dia","待追更"],
+"homeCatchUpHelp":["Recent releases you have not watched or read yet","Sorties récentes que vous n’avez pas encore vues ou lues","まだ読んだり観たりしていない最近の更新","Novedades que aún no has visto o leído","Neue Folgen und Kapitel, die du noch nicht gesehen oder gelesen hast","아직 보거나 읽지 않은 최신 업데이트","Novidades que ainda não viste ou leste","尚未观看或阅读的最新内容"],
+"homeDetailsHelp":["Open the details to explore this title and choose where to save it.","Ouvrez la fiche pour en savoir plus et choisir où garder cette découverte.","詳細を開いて作品を確認し、保存先を選びましょう。","Abre la ficha para conocer la obra y elegir dónde guardarla.","Öffne die Details, um mehr zu erfahren und eine Liste auszuwählen.","상세 정보를 열어 작품을 살펴보고 저장할 곳을 선택하세요.","Abre a ficha para conhecer a obra e escolher onde a guardar.","打开详情了解作品，并选择保存位置。"],
+"carouselPrevious":["Previous","Précédent","前へ","Anterior","Zurück","이전","Anterior","上一个"],
+"carouselNext":["Next","Suivant","次へ","Siguiente","Weiter","다음","Seguinte","下一个"],
+"homeCategoriesLabel":["Home categories","Catégories de l’accueil","ホームのカテゴリー","Categorías de inicio","Startseiten-Kategorien","홈 카테고리","Categorias do início","首页分类"],
+"homeTrendsUnavailable":["Trends are temporarily unavailable. Retry or use search.","Les tendances sont momentanément indisponibles. Réessaie ou utilise la recherche.","トレンドを取得できません。再試行するか検索をご利用ください。","Las tendencias no están disponibles. Reintenta o usa la búsqueda.","Trends sind vorübergehend nicht verfügbar. Versuche es erneut oder nutze die Suche.","트렌드를 불러올 수 없습니다. 다시 시도하거나 검색하세요.","As tendências estão temporariamente indisponíveis. Tenta novamente ou usa a pesquisa.","暂时无法获取热门内容，请重试或使用搜索。"],
+"homeChooseCategory":["Choose at least one category above to see discoveries. Your activity remains available.","Choisissez au moins une catégorie ci-dessus pour afficher vos découvertes. Votre suivi reste accessible.","上からカテゴリーを選ぶと作品が表示されます。記録は引き続き利用できます。","Elige al menos una categoría para descubrir obras. Tu seguimiento sigue disponible.","Wähle oben mindestens eine Kategorie. Dein Fortschritt bleibt verfügbar.","위에서 카테고리를 하나 이상 선택하세요. 감상 기록은 계속 볼 수 있습니다.","Escolhe pelo menos uma categoria acima. O teu acompanhamento continua disponível.","请至少选择一个分类以发现作品。你的进度仍可查看。"],
+"homeNoTrends":["No trends available for this selection.","Aucune tendance disponible pour cette sélection.","選択したカテゴリーのトレンドはありません。","No hay tendencias para esta selección.","Für diese Auswahl sind keine Trends verfügbar.","선택한 카테고리에 트렌드가 없습니다.","Não há tendências para esta seleção.","所选分类暂无热门内容。"],
+"homeReadingForYou":["Reading for you","Lectures pour vous","おすすめの読み物","Lecturas para ti","Lesestoff für dich","추천 읽을거리","Leituras para ti","为你推荐的读物"],
+"homeShowsForYou":["Shows for you","À regarder pour vous","おすすめの映像作品","Para ver","Zum Anschauen für dich","추천 볼거리","Para veres","为你推荐的影视"],
+"homeGamesForYou":["Games for you","Jeux pour vous","おすすめのゲーム","Juegos para ti","Spiele für dich","추천 게임","Jogos para ti","为你推荐的游戏"],
+"homeTaste":["Based on your interests","D’après vos goûts","あなたの好みに基づくおすすめ","Según tus gustos","Nach deinen Interessen","취향에 맞는 추천","Com base nos teus gostos","根据你的喜好"],
+"homeAiring":["Recently airing","Diffusions récentes","最近放送された作品","Emisiones recientes","Kürzlich ausgestrahlt","최근 방영작","Emissões recentes","近期播出"],
+"homeTrending":["Trending now","Tendances du moment","今のトレンド","Tendencias actuales","Aktuell im Trend","지금 인기","Tendências atuais","当前热门"],
+"homeFewerCategories":["Show fewer categories","Réduire les catégories","カテゴリーを減らす","Ver menos categorías","Weniger Kategorien anzeigen","카테고리 접기","Ver menos categorias","收起分类"],
+"homeMoreCategories":["Show more categories","Voir les autres catégories","他のカテゴリーを見る","Ver más categorías","Weitere Kategorien anzeigen","카테고리 더 보기","Ver mais categorias","查看更多分类"],
+"discoverRefreshing":["Refreshing…","Actualisation…","更新中…","Actualizando…","Wird aktualisiert…","새로고침 중…","A atualizar…","正在刷新…"],
 "stoppedHere":["I stopped here","Je me suis arrêté ici","ここまで視聴しました","Me quedé aquí","Hier habe ich aufgehört","여기까지 봤어요","Parei aqui","我看到这里了"],
 "episodeSaveFailed":["Progress not confirmed. Try again.","Progression non confirmée. Réessaie.","進捗を確認できませんでした。再試行してください。","No se confirmó el progreso. Inténtalo de nuevo.","Fortschritt nicht bestätigt. Erneut versuchen.","진행 상황이 확인되지 않았습니다. 다시 시도하세요.","Progresso não confirmado. Tenta novamente.","进度未确认，请重试。"],
 "refreshNone":["No new details available.","Aucune nouvelle information disponible.","新しい情報はありません。","No hay información nueva.","Keine neuen Informationen verfügbar.","새로운 정보가 없습니다.","Não há informações novas.","暂无新信息。"],
@@ -1300,31 +1322,31 @@ function homeFeaturedPools(pools) {
 }
 let homeCategorySaving=false;
 function homeCategoryControls(){
-  return '<div class="home-category-chips" role="group" aria-label="'+(settings.lang==="fr"?"Catégories de l’accueil":"Home categories")+'" aria-busy="'+homeCategorySaving+'">'+HOME_CAT_KEYS.map(key=>'<button class="chip-toggle '+(homeCatAllowed(key)?'on':'')+'" data-home-category="'+key+'" aria-pressed="'+homeCatAllowed(key)+'"'+(homeCategorySaving?' disabled':'')+'>'+esc(t("cat"+key[0].toUpperCase()+key.slice(1)))+'</button>').join("")+'</div>';
+  return '<div class="home-category-chips" role="group" aria-label="'+(t("homeCategoriesLabel"))+'" aria-busy="'+homeCategorySaving+'">'+HOME_CAT_KEYS.map(key=>'<button class="chip-toggle '+(homeCatAllowed(key)?'on':'')+'" data-home-category="'+key+'" aria-pressed="'+homeCatAllowed(key)+'"'+(homeCategorySaving?' disabled':'')+'>'+esc(t("cat"+key[0].toUpperCase()+key.slice(1)))+'</button>').join("")+'</div>';
 }
 function renderDiscover() {
-  if(!discover)return `<div class="section-h"><h2>${settings.lang==="fr"?"Découvrir":"Discover"}</h2>${discoverRefreshButton()}</div>${homeCategoryControls()}<p class="sub" role="status">${discoverTried&&!discoverLoading?(settings.lang==="fr"?"Les tendances sont momentanément indisponibles. Réessaie ou utilise la recherche.":"Trends are temporarily unavailable. Retry or use search."):t("loadingReco")}</p>`;
+  if(!discover)return `<div class="section-h"><h2>${t("discoverNow")}</h2>${discoverRefreshButton()}</div>${homeCategoryControls()}<p class="sub" role="status">${discoverTried&&!discoverLoading?(t("homeTrendsUnavailable")):t("loadingReco")}</p>`;
   discoItems=[];
   const pools=discoPools();
   let out=`<div class="section-h discover-h"><h2>${t("discoverNow")}</h2><div class="disco-h-actions">${discoverRefreshButton()}</div></div>`;
   if(discover.stale)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Certains catalogues sont indisponibles. Les derniers résultats disponibles sont conservés temporairement.":"Some catalogs are unavailable. Recent cached results are temporarily retained.")+'</p>';
   out+=homeCategoryControls();
-  if(!HOME_CAT_KEYS.some(homeCatAllowed))return out+'<p class="sub" role="status">'+(settings.lang==="fr"?"Choisissez au moins une catégorie ci-dessus pour afficher vos découvertes. Votre suivi reste accessible.":"Choose at least one category above to see discoveries. Your activity remains available.")+'</p>';
-  if(!pools.length)out+='<p class="sub" role="status">'+(settings.lang==="fr"?"Aucune tendance disponible pour cette sélection.":"No trends available for this selection.")+'</p>';
+  if(!HOME_CAT_KEYS.some(homeCatAllowed))return out+'<p class="sub" role="status">'+(t("homeChooseCategory"))+'</p>';
+  if(!pools.length)out+='<p class="sub" role="status">'+(t("homeNoTrends"))+'</p>';
   const weights=tasteWeights(),recommended=new Set();
   if(Object.keys(weights).length) {
     const selection=homeRecommendations(pools,weights),picks=selection.items;
     for(const pick of picks)recommended.add(pick.type+":"+normTitle(pick.title));
-    const labels=settings.lang==="fr"?{reading:"Lectures pour vous",watching:"À regarder pour vous",game:"Jeux pour vous"}:{reading:"Reading for you",watching:"Shows for you",game:"Games for you"};
-    if(picks.length)out+=discoRow(labels[selection.type]||t("forYou"),picks,{forYou:true,sub:settings.lang==="fr"?"D’après vos goûts":"Based on your interests"});
+    const labels={reading:t("homeReadingForYou"),watching:t("homeShowsForYou"),game:t("homeGamesForYou")};
+    if(picks.length)out+=discoRow(labels[selection.type]||t("forYou"),picks,{forYou:true,sub:t("homeTaste")});
   }
-  for(const pool of (homeShowAll?pools:homeFeaturedPools(pools)))out+=discoRow(pool.label,pool.list.filter(m=>!recommended.has(m.type+":"+normTitle(m.title))).slice(0,12),{sub:pool.game?"Steam":pool.key==="series"||pool.key.endsWith("drama")?(settings.lang==="fr"?"Diffusions récentes":"Recently airing"):(settings.lang==="fr"?"Tendances du moment":"Trending now")});
-  if(pools.length>3)out+='<button class="btn" id="home-more">'+(settings.lang==="fr"?(homeShowAll?"Réduire les catégories":"Voir les autres catégories"):(homeShowAll?"Show fewer categories":"Show more categories"))+'</button>';
+  for(const pool of (homeShowAll?pools:homeFeaturedPools(pools)))out+=discoRow(pool.label,pool.list.filter(m=>!recommended.has(m.type+":"+normTitle(m.title))).slice(0,12),{sub:pool.game?"Steam":pool.key==="series"||pool.key.endsWith("drama")?(t("homeAiring")):(t("homeTrending"))});
+  if(pools.length>3)out+='<button class="btn" id="home-more">'+(homeShowAll?t("homeFewerCategories"):t("homeMoreCategories"))+'</button>';
   return out;
 }
 let homeShowAll=false;
 function discoverRefreshButton() {
-  return `<button class="refresh-btn" data-discover-refresh aria-busy="${discoverLoading}" ${discoverLoading?"disabled":""}>${I.refresh}${discoverLoading?(settings.lang==="fr"?"Actualisation…":"Refreshing…"):t("refresh")}</button>`;
+  return `<button class="refresh-btn" data-discover-refresh aria-busy="${discoverLoading}" ${discoverLoading?"disabled":""}>${I.refresh}${discoverLoading?(t("discoverRefreshing")):t("refresh")}</button>`;
 }
 function loadDiscover(force) {
   if(discoverLoading)return;
@@ -1332,7 +1354,7 @@ function loadDiscover(force) {
   document.querySelectorAll("[data-discover-refresh]").forEach(button=>{
     button.disabled=true;
     button.setAttribute("aria-busy","true");
-    button.innerHTML=I.refresh+(settings.lang==="fr"?"Actualisation…":"Refreshing…");
+    button.innerHTML=I.refresh+(t("discoverRefreshing"));
   });
   requestMetadata({ type: "DISCOVER", force: !!force }, (r) => {
     void api.runtime.lastError;
@@ -1389,7 +1411,7 @@ function enhanceCarousels(root) {
       const button=document.createElement("button");button.className="carousel-arrow "+(direction<0?"prev":"next");
       button.type="button";button.hidden=true;
       button.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(direction<0?'M15 5l-7 7 7 7':'M9 5l7 7-7 7')+'"/></svg>';
-      button.setAttribute("aria-label",settings.lang==="fr"?(direction<0?"Précédent":"Suivant"):(direction<0?"Previous":"Next"));
+      button.setAttribute("aria-label",t(direction<0?"carouselPrevious":"carouselNext"));
       button.onclick=()=>track.scrollBy({left:direction*Math.max(160,track.clientWidth*.85),behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
       shell.append(button);buttons.push(button);
     }
@@ -1489,33 +1511,33 @@ function valueStrip() {
 }
 function renderHome() {
   clearInterval(spotTimer);
-  const fr=settings.lang==="fr",homeItems=items.filter(i=>!i.homeHidden),el=document.getElementById("view-home");
+  const homeItems=items.filter(i=>!i.homeHidden),el=document.getElementById("view-home");
   const {resume,catchUp,continuing}=homeActivity(homeItems);
   const pools=discover?discoPools():[];
   const first=resume[0]||catchUp[0];
-  spotItems=first?[{item:first,catalog:false,label:fr?"Reprendre là où vous en étiez":"Pick up where you left off"}]:[];
+  spotItems=first?[{item:first,catalog:false,label:t("homeResume")}]:[];
   const seen=new Set(first?[first.type+":"+normTitle(first.title)]:[]);
   for(const pool of homeFeaturedPools(pools)){
     const candidate=pool.list.find(m=>!seen.has(m.type+":"+normTitle(m.title)));
     if(!candidate)continue;
     seen.add(candidate.type+":"+normTitle(candidate.title));
-    spotItems.push({item:candidate,catalog:true,label:(fr?"À découvrir — ":"Discover — ")+pool.label});
+    spotItems.push({item:candidate,catalog:true,label:(t("homeDiscoverPrefix"))+pool.label});
     if(spotItems.length>=5)break;
   }
   spotIdx=spotIdx%Math.max(1,spotItems.length);
   const personal=continuing.length||catchUp.length;
   el.innerHTML='<div class="home-heading"><div><h1>'+t("homeToday")+'</h1><p class="sub">'+t("homeIntro")+'</p></div><button class="btn" id="home-library">'+t("myLibrary")+'</button></div>'+
-    (spotItems.length?'<section id="spot-wrap" class="home-feature-wrap" aria-label="'+t("featured")+'">'+spotHtml(spotItems[spotIdx])+spotControls()+'</section>':(!items.length?'<div class="home-welcome"><h2>'+t("welcomeTitle")+'</h2><p class="sub">'+(fr?"Explorez les tendances ci-dessous ou recherchez une œuvre avec la barre en haut.":"Explore the trends below or search for a title using the bar above.")+'</p></div>':""))+
-    (personal?'<section class="home-personal" aria-label="'+(fr?"Votre suivi":"Your activity")+'">'+row(fr?"À rattraper":"Catch up",catchUp.slice(0,12),fr?"Sorties récentes que vous n’avez pas encore vues ou lues":"Recent releases you have not watched or read yet")+row(t("continue"),continuing)+'</section>':"")+renderDiscover();
+    (spotItems.length?'<section id="spot-wrap" class="home-feature-wrap" aria-label="'+t("featured")+'">'+spotHtml(spotItems[spotIdx])+spotControls()+'</section>':(!items.length?'<div class="home-welcome"><h2>'+t("welcomeTitle")+'</h2><p class="sub">'+(t("homeWelcomeHelp"))+'</p></div>':""))+
+    (personal?'<section class="home-personal" aria-label="'+(t("homeActivityLabel"))+'">'+row(t("homeCatchUp"),catchUp.slice(0,12),t("homeCatchUpHelp"))+row(t("continue"),continuing)+'</section>':"")+renderDiscover();
   bindHome();bindDisco();startSpot();
 }
 function spotHtml(entry) {
   if(!entry)return "";
-  const i=entry.item,fr=settings.lang==="fr",u=coverUrl(i),catalog=entry.catalog;
-  const synopsis=i.synopsis?i.synopsis:catalog?(fr?"Ouvrez la fiche pour en savoir plus et choisir où garder cette découverte.":"Open the details to explore this title and choose where to save it."):marker(i);
+  const i=entry.item,u=coverUrl(i),catalog=entry.catalog;
+  const synopsis=i.synopsis?i.synopsis:catalog?(t("homeDetailsHelp")):marker(i);
   const destination=!catalog&&safeNavigationUrl(i.url);
   return '<article class="home-feature">'+(u?'<div class="home-feature-backdrop" aria-hidden="true">'+covImg(u,i.coverFallback)+'</div>':"")+
-    '<div class="home-feature-copy"><span class="home-eyebrow">'+esc(entry.label)+'</span><h2>'+esc(i.title||"Untitled")+'</h2><p class="home-feature-meta">'+esc([catLabel(i),i.year||i.seasonYear,...(i.genres||i.tags||[]).slice(0,2)].filter(Boolean).join(" — "))+'</p><p class="home-feature-synopsis" tabindex="0">'+esc(synopsis)+'</p><div class="spot-cta">'+
+    '<div class="home-feature-copy"><span class="home-eyebrow" data-i18n-static>'+esc(entry.label)+'</span><h2>'+esc(i.title||"Untitled")+'</h2><p class="home-feature-meta">'+esc([catLabel(i),i.year||i.seasonYear,...(i.genres||i.tags||[]).slice(0,2)].filter(Boolean).join(" — "))+'</p><p class="home-feature-synopsis"'+(i.synopsis||!catalog?'':' data-i18n-static')+' tabindex="0">'+esc(synopsis)+'</p><div class="spot-cta">'+
     (destination?'<a class="btn-glass" href="'+esc(destination)+'" target="_blank" rel="noopener noreferrer">'+I.play+' '+t("resume")+'</a>':"")+
     '<button class="btn-glass '+(destination?'ghost':'')+'" data-feature-details>'+t("exploreTitle")+'</button></div></div>'+
     (u?'<button class="home-feature-art" data-feature-details aria-label="'+esc(t("details")+": "+i.title)+'">'+covImg(u,i.coverFallback)+'</button>':"")+'</article>';
@@ -1524,8 +1546,7 @@ function spotHtml(entry) {
 let spotPaused=false;
 function spotControls(){
   if(spotItems.length<2)return "";
-  const fr=settings.lang==="fr";
-  return '<div class="home-feature-controls"><button class="feature-arrow" data-feature-step="-1" aria-label="'+(fr?"Précédent":"Previous")+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="feature-dots">'+spotItems.map((entry,index)=>'<button data-dot="'+index+'" aria-label="'+esc(entry.item.title)+'" aria-pressed="'+(index===spotIdx)+'" class="'+(index===spotIdx?'on':'')+'"></button>').join("")+'</div><button class="feature-arrow" data-feature-step="1" aria-label="'+(fr?"Suivant":"Next")+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>';
+  return '<div class="home-feature-controls"><button class="feature-arrow" data-feature-step="-1" aria-label="'+(t("carouselPrevious"))+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="feature-dots">'+spotItems.map((entry,index)=>'<button data-dot="'+index+'" aria-label="'+esc(entry.item.title)+'" aria-pressed="'+(index===spotIdx)+'" class="'+(index===spotIdx?'on':'')+'"></button>').join("")+'</div><button class="feature-arrow" data-feature-step="1" aria-label="'+(t("carouselNext"))+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>';
 }
 function advanceSpot() {
   const wrap=document.getElementById("spot-wrap");

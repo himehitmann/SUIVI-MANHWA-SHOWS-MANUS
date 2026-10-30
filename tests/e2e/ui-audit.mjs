@@ -988,6 +988,47 @@ try {
  if(gameLocales.length!==8)throw Error("Game language coverage incomplete");
  console.log("PASS: game page, detail controls, recent-news dates and notification labels in eight languages");
  
+ const homeLocales=await page.evaluate(expected=>{
+ const saved={items,settings,discover,discoverTried,discoverLoading,view,spotIdx,homeShowAll};
+ const equal=(a,b,label)=>{if(a!==b)throw Error(label+": "+a+" != "+b);};
+ const codes=["en","fr","ja","es","de","ko","pt","zh-CN"],report=[];
+ const cover="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='150'%3E%3C/svg%3E";
+ const fixture={manhwa:[{title:"Untouched comic",type:"reading",cover}],anime:[{title:"Untouched show",type:"watching",cover}],gamesHot:[{title:"Untouched game",type:"game",cover}],manga:[{title:"Another comic",type:"reading",cover}]};
+ try{
+  items=[];discoverTried=true;discoverLoading=false;view="home";
+  for(const [index,code]of codes.entries()){
+   settings={...settings,lang:code,homeCats:undefined};discover=null;renderHome();clearInterval(spotTimer);
+   for(const [key,values]of Object.entries(expected))equal(t(key),values[index],code+" dictionary "+key);
+   equal(document.querySelector(".home-welcome .sub").textContent,expected.homeWelcomeHelp[index],code+" welcome");
+   equal(document.querySelector('#view-home [role="status"]').textContent,expected.homeTrendsUnavailable[index],code+" unavailable");
+   equal(document.querySelector(".home-category-chips").getAttribute("aria-label"),expected.homeCategoriesLabel[index],code+" categories");
+   discover=fixture;spotIdx=0;renderHome();clearInterval(spotTimer);
+   equal(document.querySelector('[data-feature-step="-1"]').getAttribute("aria-label"),expected.carouselPrevious[index],code+" previous");
+   equal(document.querySelector('[data-feature-step="1"]').getAttribute("aria-label"),expected.carouselNext[index],code+" next");
+   equal(document.querySelector(".home-feature-synopsis").textContent,expected.homeDetailsHelp[index],code+" fallback");
+   equal(document.querySelector(".home-feature-synopsis").hasAttribute("data-i18n-static"),true,code+" localized fallback");
+   equal(document.querySelector(".home-eyebrow").hasAttribute("data-i18n-static"),true,code+" localized eyebrow");
+   equal(document.querySelector(".home-feature h2").textContent,"Untouched comic",code+" original title");
+   const old=spotIdx;document.querySelector('[data-feature-step="1"]').click();
+   equal(spotIdx,(old+1)%spotItems.length,code+" next action");
+   const focused=spotIdx;advanceSpot();equal(spotIdx,focused,code+" keyboard focus pauses");
+   document.querySelector('[data-feature-step="-1"]').click();equal(spotIdx,old,code+" previous action");
+   equal(document.getElementById("home-more").textContent,expected.homeMoreCategories[index],code+" more");
+   document.getElementById("home-more").click();clearInterval(spotTimer);
+   equal(document.getElementById("home-more").textContent,expected.homeFewerCategories[index],code+" fewer");
+   homeShowAll=false;
+   settings={...settings,homeCats:[]};renderHome();clearInterval(spotTimer);
+   equal(document.querySelector('#view-home [role="status"]').textContent,expected.homeChooseCategory[index],code+" no categories");
+   settings={...settings,homeCats:["series"]};renderHome();clearInterval(spotTimer);
+   equal(document.querySelector('#view-home [role="status"]').textContent,expected.homeNoTrends[index],code+" no trends");
+   report.push(code);
+  }
+  return report;
+ }finally{({items,settings,discover,discoverTried,discoverLoading,view,spotIdx,homeShowAll}=saved);renderAll();}
+},{"homeResume":["Pick up where you left off","Reprendre là où vous en étiez","続きから再開","Continúa donde lo dejaste","Dort weitermachen, wo du aufgehört hast","멈춘 곳부터 이어보기","Continua de onde paraste","从上次停下的地方继续"],"homeDiscoverPrefix":["Discover — ","À découvrir — ","見つける — ","Descubrir — ","Entdecken — ","발견 — ","Descobrir — ","发现 — "],"homeWelcomeHelp":["Explore the trends below or search for a title using the bar above.","Explorez les tendances ci-dessous ou recherchez une œuvre avec la barre en haut.","下のトレンドを探すか、上の検索バーで作品を検索しましょう。","Explora las tendencias o busca una obra en la barra superior.","Entdecke die Trends unten oder suche oben nach einem Titel.","아래 트렌드를 둘러보거나 위 검색창에서 작품을 검색하세요.","Explora as tendências abaixo ou procura uma obra na barra superior.","浏览下方热门内容，或使用顶部搜索栏查找作品。"],"homeActivityLabel":["Your activity","Votre suivi","あなたの記録","Tu seguimiento","Dein Fortschritt","내 감상 기록","O teu acompanhamento","你的进度"],"homeCatchUp":["Catch up","À rattraper","未読・未視聴","Ponte al día","Nachholen","밀린 작품","Põe-te em dia","待追更"],"homeCatchUpHelp":["Recent releases you have not watched or read yet","Sorties récentes que vous n’avez pas encore vues ou lues","まだ読んだり観たりしていない最近の更新","Novedades que aún no has visto o leído","Neue Folgen und Kapitel, die du noch nicht gesehen oder gelesen hast","아직 보거나 읽지 않은 최신 업데이트","Novidades que ainda não viste ou leste","尚未观看或阅读的最新内容"],"homeDetailsHelp":["Open the details to explore this title and choose where to save it.","Ouvrez la fiche pour en savoir plus et choisir où garder cette découverte.","詳細を開いて作品を確認し、保存先を選びましょう。","Abre la ficha para conocer la obra y elegir dónde guardarla.","Öffne die Details, um mehr zu erfahren und eine Liste auszuwählen.","상세 정보를 열어 작품을 살펴보고 저장할 곳을 선택하세요.","Abre a ficha para conhecer a obra e escolher onde a guardar.","打开详情了解作品，并选择保存位置。"],"carouselPrevious":["Previous","Précédent","前へ","Anterior","Zurück","이전","Anterior","上一个"],"carouselNext":["Next","Suivant","次へ","Siguiente","Weiter","다음","Seguinte","下一个"],"homeCategoriesLabel":["Home categories","Catégories de l’accueil","ホームのカテゴリー","Categorías de inicio","Startseiten-Kategorien","홈 카테고리","Categorias do início","首页分类"],"homeTrendsUnavailable":["Trends are temporarily unavailable. Retry or use search.","Les tendances sont momentanément indisponibles. Réessaie ou utilise la recherche.","トレンドを取得できません。再試行するか検索をご利用ください。","Las tendencias no están disponibles. Reintenta o usa la búsqueda.","Trends sind vorübergehend nicht verfügbar. Versuche es erneut oder nutze die Suche.","트렌드를 불러올 수 없습니다. 다시 시도하거나 검색하세요.","As tendências estão temporariamente indisponíveis. Tenta novamente ou usa a pesquisa.","暂时无法获取热门内容，请重试或使用搜索。"],"homeChooseCategory":["Choose at least one category above to see discoveries. Your activity remains available.","Choisissez au moins une catégorie ci-dessus pour afficher vos découvertes. Votre suivi reste accessible.","上からカテゴリーを選ぶと作品が表示されます。記録は引き続き利用できます。","Elige al menos una categoría para descubrir obras. Tu seguimiento sigue disponible.","Wähle oben mindestens eine Kategorie. Dein Fortschritt bleibt verfügbar.","위에서 카테고리를 하나 이상 선택하세요. 감상 기록은 계속 볼 수 있습니다.","Escolhe pelo menos uma categoria acima. O teu acompanhamento continua disponível.","请至少选择一个分类以发现作品。你的进度仍可查看。"],"homeNoTrends":["No trends available for this selection.","Aucune tendance disponible pour cette sélection.","選択したカテゴリーのトレンドはありません。","No hay tendencias para esta selección.","Für diese Auswahl sind keine Trends verfügbar.","선택한 카테고리에 트렌드가 없습니다.","Não há tendências para esta seleção.","所选分类暂无热门内容。"],"homeReadingForYou":["Reading for you","Lectures pour vous","おすすめの読み物","Lecturas para ti","Lesestoff für dich","추천 읽을거리","Leituras para ti","为你推荐的读物"],"homeShowsForYou":["Shows for you","À regarder pour vous","おすすめの映像作品","Para ver","Zum Anschauen für dich","추천 볼거리","Para veres","为你推荐的影视"],"homeGamesForYou":["Games for you","Jeux pour vous","おすすめのゲーム","Juegos para ti","Spiele für dich","추천 게임","Jogos para ti","为你推荐的游戏"],"homeTaste":["Based on your interests","D’après vos goûts","あなたの好みに基づくおすすめ","Según tus gustos","Nach deinen Interessen","취향에 맞는 추천","Com base nos teus gostos","根据你的喜好"],"homeAiring":["Recently airing","Diffusions récentes","最近放送された作品","Emisiones recientes","Kürzlich ausgestrahlt","최근 방영작","Emissões recentes","近期播出"],"homeTrending":["Trending now","Tendances du moment","今のトレンド","Tendencias actuales","Aktuell im Trend","지금 인기","Tendências atuais","当前热门"],"homeFewerCategories":["Show fewer categories","Réduire les catégories","カテゴリーを減らす","Ver menos categorías","Weniger Kategorien anzeigen","카테고리 접기","Ver menos categorias","收起分类"],"homeMoreCategories":["Show more categories","Voir les autres catégories","他のカテゴリーを見る","Ver más categorías","Weitere Kategorien anzeigen","카테고리 더 보기","Ver mais categorias","查看更多分类"],"discoverRefreshing":["Refreshing…","Actualisation…","更新中…","Actualizando…","Wird aktualisiert…","새로고침 중…","A atualizar…","正在刷新…"]});
+if(homeLocales.length!==8)throw Error("Home languages incomplete");
+console.log("PASS: home labels, empty states, categories and keyboard carousel controls in eight languages");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{
