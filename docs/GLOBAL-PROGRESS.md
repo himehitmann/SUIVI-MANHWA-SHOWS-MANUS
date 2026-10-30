@@ -8,6 +8,20 @@ Mise à jour : 30 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Accueil multilingue et fiabilité du test de récupération — 30 octobre 2026
+
+Commit 4b7189ba9d621031b917baa3b423e95ffe4d1528 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41102902038) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41102892720).
+
+**Validation finale en attente** : les deux exécutions du commit ci-dessus sont encore en file d’attente au dernier contrôle. Les succès du commit précédent ne sont pas présentés comme une validation de ce correctif de test.
+
+L’accueil utilise 22 nouveaux libellés dans les huit langues : reprise, découvertes, catégories, recommandations, états vides, indisponibilité, actualisation et flèches. Les en-têtes localisés de la bannière et son texte d’aide sans synopsis sont exclus de la traduction automatique. Les synopsis fournisseurs restent éligibles ; les titres originaux ne sont pas modifiés.
+
+Le nouveau parcours contrôle les huit langues, les catégories désactivées ou sans résultat, les boutons plus/moins, les flèches et la pause lors du focus clavier. Le parcours existant vérifie séparément la rotation, la pause au survol et la réduction des animations. Cela ne clôture pas la revue esthétique de l’accueil ni la traduction exhaustive des données des fournisseurs.
+
+La première validation a passé les tests d’accueil mais l’autre exécution a révélé une course dans le test du paquet : le statut persistant « running » était visible avant l’appel au fournisseur simulé. Le test attend maintenant explicitement cet appel, avec un délai maximal de 10 secondes, avant de fournir sa réponse. Les assertions de récupération et de conservation de progression restent présentes.
+
+Score global inchangé : 20/60 (33,3 %). Aucun changement installé dans Chrome ni publication.
+
 ## Jeux : commandes, alertes et dates dans huit langues — 30 octobre 2026
 
 Commit 50a0dd67e5e7f06cde0841788143d8087b59a559 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41062027000) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41062015944).
