@@ -8,6 +8,18 @@ Mise à jour : 30 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Progression et dates d’activité multilingues — 30 octobre 2026
+
+Commit 0e986a12d4cedfe2146825a3b089d6da56320386 : [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41113421396) réussie. 643 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Les repères de progression utilisent la langue de l’interface : saison, épisode, chapitre, tome, page et progression avec total. Les cinq nouveaux modèles couvrent huit langues et réutilisent les modèles existants de saison/épisode. Les plateformes, domaines de reprise et titres restent inchangés. Le texte de progression affiché comme remplacement du synopsis sur l’accueil est exclu de la traduction automatique puisqu’il est déjà localisé.
+
+Les dates relatives utilisent Intl.RelativeTimeFormat dans la langue choisie, avec des formateurs réutilisés par langue. Les valeurs absentes, non numériques, infinies ou négatives n’affichent rien ; une date future est traitée comme une activité actuelle, conformément au comportement précédent. Les seuils d’arrondi minute/heure/jour sont conservés.
+
+Le parcours navigateur vérifie les huit langues, les repères de lecture et visionnage, leur présence sur une carte, les totaux inconnus, le zéro, les domaines/plateformes, les dates relatives, les valeurs invalides et la conservation des compteurs enregistrés. Exemple français vérifié : « Saison 2 — 3/12 épisodes » et « hier ».
+
+Aucun nouveau critère global clôturé : 20/60 (33,3 %). Les contenus des catalogues et les autres textes d’interface ne sont pas tous validés linguistiquement. Aucun changement installé dans Chrome ni publication.
+
 ## Traductions du catalogue : restauration et intégrité — 30 octobre 2026
 
 Commit ab8d439f163cbe30554650cf3be9726989b03e4b : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41104445562) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41104437266) réussies. 643 tests unitaires, parcours navigateur, paquet Chrome 0.4.24 décompressé, capacité et récupérations validés. Audit des dépendances sans vulnérabilité connue à cette exécution.
