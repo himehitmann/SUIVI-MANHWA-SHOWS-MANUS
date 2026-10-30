@@ -8,6 +8,18 @@ Mise à jour : 30 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Traductions du catalogue : restauration et intégrité — 30 octobre 2026
+
+Commit ab8d439f163cbe30554650cf3be9726989b03e4b : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41104445562) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41104437266) réussies. 643 tests unitaires, parcours navigateur, paquet Chrome 0.4.24 décompressé, capacité et récupérations validés. Audit des dépendances sans vulnérabilité connue à cette exécution.
+
+La traduction d’affichage sélectionne seulement les éléments de texte sans enfants et exclut les blocs d’interface, les informations statiques du guide, les noms d’auteurs et les étiquettes personnelles des cartes. Elle ne remplace plus le contenu de conteneurs comportant des liens ou commandes. Les données stockées des fournisseurs ne sont pas modifiées.
+
+Chaque élément garde sa source, son dernier affichage traduit et la langue de cet affichage. Changer de langue rétablit la source avant une nouvelle demande ; revenir à l’anglais restaure les sources même lorsqu’un autre appel est encore en cours ou que l’élément est caché. Une réponse tardive est appliquée seulement si le texte et la source de l’élément n’ont pas changé. Une actualisation du fournisseur sur le même élément devient la nouvelle source.
+
+Le parcours navigateur vérifie les allers-retours anglais/japonais, un changement vers le français en échec, le retour à l’anglais pendant une demande, la mise à jour d’un texte pendant une demande coréenne, la restauration d’un élément caché, le cache et la conservation de liens et de textes protégés. Les réponses de traduction sont simulées pour vérifier ces mécanismes ; leur qualité linguistique et leur disponibilité réelle ne sont pas démontrées par ce lot.
+
+G16 reste partiel. Score global inchangé : 20/60 (33,3 %). Aucun changement installé dans Chrome ni publication.
+
 ## Accueil multilingue et fiabilité du test de récupération — 30 octobre 2026
 
 Commit 4b7189ba9d621031b917baa3b423e95ffe4d1528 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41102902038) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41102892720).
