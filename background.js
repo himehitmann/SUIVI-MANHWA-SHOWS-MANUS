@@ -289,16 +289,38 @@ async function pushNotification(rec) {
   await writeData({ [NOTIF_KEY]: next });
   return next;
 }
-async function systemNotify(title, message, id) {
-  try {
-    const s = await read(SETTINGS_KEY, DEFAULT_SETTINGS);
-    if (s && s.notifyNew === false) return;
-    if (api.notifications && api.notifications.create) {
-      api.notifications.create(id || "dasi_" + Date.now(), { type: "basic", iconUrl: "icon.png", title, message });
-    }
-  } catch {
-    /* notifications unavailable */
-  }
+const NOTIFICATION_TARGETS_KEY="yomu.notificationTargets.v1";
+let notificationDeliveryQueue=Promise.resolve();
+function systemNotify(title,message,id,itemId) {
+  const epoch=accountEpoch;
+  const operation=notificationDeliveryQueue.then(async()=>{
+    try{
+      const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
+      if(epoch!==accountEpoch||settings.notifyNew===false||!api.notifications?.create)return;
+      const notificationId=(id||"yomu")+"_"+crypto.randomUUID();
+      if(itemId){
+        const scope=scopeOf(await getSyncConfig()),now=Date.now();
+        const stored=await read(NOTIFICATION_TARGETS_KEY,[]);
+        const targets=Array.isArray(stored)?stored.filter(entry=>entry&&Number.isFinite(entry.ts)&&entry.ts<=now&&now-entry.ts<30*86400000):[];
+        if(epoch!==accountEpoch)return;
+        await api.storage.local.set({[NOTIFICATION_TARGETS_KEY]:[{id:notificationId,itemId,scope,ts:now},...targets].slice(0,120)});
+      }
+      if(epoch!==accountEpoch)return;
+      await api.notifications.create(notificationId,{type:"basic",iconUrl:"icon.png",title,message});
+    }catch{/* Notification delivery is optional; saved library data is retained. */}
+  });
+  notificationDeliveryQueue=operation.catch(()=>{});
+  return operation;
+}
+function notificationTarget(id,targets,items,scope,now=Date.now()) {
+  if(typeof id!=="string"||id.length>512||!Array.isArray(targets))return "";
+  const target=targets.find(entry=>entry?.id===id&&entry.scope===scope&&Number.isFinite(entry.ts)&&entry.ts<=now&&now-entry.ts<30*86400000);
+  return target&&items.some(item=>item.id===target.itemId)?target.itemId:"";
+}
+function openSystemNotification(id) {
+  const url=new URL(api.runtime.getURL("library.html"));
+  if(typeof id==="string"&&id.length<=512)url.searchParams.set("notification",id);
+  return api.tabs.create({url:url.href});
 }
 
 /*
@@ -701,7 +723,7 @@ async function writeItemUnlocked(payload) {
       const unit = merged.type === "watching" ? "episode" : "chapter";
       const msg = `${n} new ${unit}${n > 1 ? "s" : ""} available`;
       await pushNotification({ itemId: key, title: merged.title, message: msg, url: merged.url });
-      systemNotify(merged.title, msg, "dasi_" + key);
+      systemNotify(merged.title, msg, "dasi_" + key,key);
     }
   }
   // First time we see this work → enrich it from AniList in the background so
@@ -2409,7 +2431,8 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       return true;
 
-    case "GET_STATE":
+    case "GET_STATE": {
+      const stateEpoch=accountEpoch;
       void checkTrackedReleases().catch(()=>{});
       Promise.all([
         read(ITEMS_KEY, []),
@@ -2418,7 +2441,9 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
         read(LISTS_KEY, []),
         read(SETTINGS_KEY, DEFAULT_SETTINGS),
         api.storage.local.get(["dasi.currentDetection", "dasi.lastConflict"]),
-      ]).then(([items, sites, notifications, lists, settings, state]) =>
+        message.notificationId?read(NOTIFICATION_TARGETS_KEY,[]):[],
+        message.notificationId?getSyncConfig():null,
+      ]).then(([items, sites, notifications, lists, settings, state, targets, config]) =>
         sendResponse({
           items,
           sites,
@@ -2427,9 +2452,11 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           settings: { ...DEFAULT_SETTINGS, ...(settings || {}) },
           currentDetection: state["dasi.currentDetection"],
           lastConflict: state["dasi.lastConflict"],
+          notificationItemId:stateEpoch===accountEpoch?notificationTarget(message.notificationId,targets,items,scopeOf(config)):"",
         }),
       );
       return true;
+    }
 
     case "NOTIF_READ_ALL":
     case "NOTIF_CLEAR":
@@ -2804,7 +2831,7 @@ async function checkTrackedReleasesOnce() {
         changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:live.id,title:live.title,message,url:live.url,read:false,ts:Date.now()},...await read(NOTIF_KEY,[])].slice(0,120);
       }
       await writeData(changes);
-      if(message)await systemNotify(live.title,message,"yomu_release_"+live.id);
+      if(message)await systemNotify(live.title,message,"yomu_release_"+live.id,live.id);
     });
   }
   if(epoch===accountEpoch&&candidates.length)autoSync();
@@ -2842,7 +2869,7 @@ async function checkGameReleasesOnce() {
         const changes={[ITEMS_KEY]:next};
         if(alert)changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:current.id,title:current.title,message,url:current.url,read:false,ts:Date.now()},...await read(NOTIF_KEY,[])].slice(0,120);
         await writeData(changes);
-        if(alert)await systemNotify(current.title,message,'dasi_game_'+current.id);
+        if(alert)await systemNotify(current.title,message,'dasi_game_'+current.id,current.id);
       });
     }catch{/* A failed source never turns an expected date into a confirmed release. */}
   }
@@ -2893,7 +2920,7 @@ async function checkGameNewsOnce() {
           changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:live.id,title:live.title,message,url:live.url,read:false,ts:now},...await read(NOTIF_KEY,[])].slice(0,120);
         }
         await writeData(changes);
-        if(fresh.length)await systemNotify(live.title,fresh.map(n=>n.title).join(" — "),"yomu_news_"+live.id);
+        if(fresh.length)await systemNotify(live.title,fresh.map(n=>n.title).join(" — "),"yomu_news_"+live.id,live.id);
       });
     } catch { /* Retry a failed source without advancing its baseline. */ }
   }
@@ -2911,7 +2938,7 @@ checkGameReleases();
 
 // Notification click → open the related page.
 try {
-  api.notifications?.onClicked.addListener(() => api.tabs.create({ url: api.runtime.getURL("library.html") }));
+  api.notifications?.onClicked.addListener(id=>{void openSystemNotification(id).catch(()=>{});});
 } catch {
   /* noop */
 }

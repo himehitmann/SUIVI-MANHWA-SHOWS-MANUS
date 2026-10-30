@@ -1029,6 +1029,36 @@ try {
 if(homeLocales.length!==8)throw Error("Home languages incomplete");
 console.log("PASS: home labels, empty states, categories and keyboard carousel controls in eight languages");
 
+  const notificationBackup=await worker.evaluate(async()=>{
+   const backup=await chrome.storage.local.get(["dasi.items","yomu.notificationTargets.v1"]);
+   const now=Date.now();
+   await chrome.storage.local.set({"dasi.items":[{id:"notification-work",title:"Notification destination",type:"reading",chapter:4,total:12,enrichedAt:1,identityVersion:1}],"yomu.notificationTargets.v1":[
+     {id:"valid-target",itemId:"notification-work",scope:"guest",ts:now},
+     {id:"foreign-target",itemId:"notification-work",scope:"other-account",ts:now},
+     {id:"expired-target",itemId:"notification-work",scope:"guest",ts:now-31*86400000},
+     {id:"removed-target",itemId:"removed-work",scope:"guest",ts:now}
+   ]});return backup;
+ });
+ try{
+   for(const id of ["valid-target","foreign-target","expired-target","removed-target","unknown-target"]){
+     const target=await context.newPage();target.on("pageerror",error=>errors.push(error.message));
+     await target.goto(base+"library.html?notification="+encodeURIComponent(id));
+     await target.waitForFunction(()=>!libraryLoadPending&&pendingNotificationId===null);
+     assert.equal(await target.locator("#view-library").isVisible(),true,id+" opens library");
+     assert.equal(await target.evaluate(()=>new URL(location.href).searchParams.has("notification")),false,"target consumed once");
+     if(id==="valid-target"){
+       assert.equal(await target.locator("#drawer").getAttribute("data-item-id"),"notification-work");
+       assert.equal(await target.locator("#drawer").evaluate(el=>el.classList.contains("open")),true);
+       await target.reload();await target.waitForFunction(()=>!libraryLoadPending&&items.length===1);
+       assert.equal(await target.locator("#drawer").evaluate(el=>el.classList.contains("open")),false,"reload does not reopen consumed target");
+     }else assert.equal(await target.locator("#drawer").evaluate(el=>el.classList.contains("open")),false,id+" cannot open a work");
+     await target.close();
+   }
+ }finally{
+   await worker.evaluate(async backup=>{await chrome.storage.local.set({"dasi.items":backup["dasi.items"]||[],"yomu.notificationTargets.v1":backup["yomu.notificationTargets.v1"]||[]});},notificationBackup);
+ }
+ console.log("PASS: system notification destinations, expired/foreign/removed targets and one-time navigation");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

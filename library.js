@@ -3647,6 +3647,7 @@ document.getElementById("crop-scrim").onclick = closeCropper;
 /* ---- boot ---- */
 let storageRefresh = 0, storageRefreshVersion = 0, storageRefreshDirty = false;
 let libraryLoadPending=false,libraryLoadVersion=0;
+let pendingNotificationId=new URL(location.href).searchParams.get("notification");
 function validLibraryState(state) {
   return !!state&&state.ok!==false&&["items","sites","notifications","lists"].every(key=>Array.isArray(state[key]))&&!!state.settings&&typeof state.settings==="object"&&!Array.isArray(state.settings);
 }
@@ -3659,12 +3660,21 @@ function paintLibraryLoad(error=false) {
 }
 async function loadLibraryState() {
   if(libraryLoadPending)return false;
-  libraryLoadPending=true;const version=++libraryLoadVersion;paintLibraryLoad();
-  const state=await new Promise(resolve=>requestMetadata({type:"GET_STATE"},resolve));
+  libraryLoadPending=true;const version=++libraryLoadVersion,navigation=previewRequest;paintLibraryLoad();
+  const state=await new Promise(resolve=>requestMetadata({type:"GET_STATE",notificationId:pendingNotificationId},resolve));
   if(version!==libraryLoadVersion)return false;
   libraryLoadPending=false;
   if(!validLibraryState(state)){paintLibraryLoad(true);return false;}
-  hydrate(state);return true;
+  hydrate(state);
+  if(pendingNotificationId!==null){
+    pendingNotificationId=null;
+    const url=new URL(location.href);url.searchParams.delete("notification");history.replaceState(null,"",url.href);
+    if(navigation===previewRequest){
+      switchView("library");
+      if(typeof state.notificationItemId==="string"&&items.some(item=>item.id===state.notificationItemId))openDrawer(state.notificationItemId);
+    }
+  }
+  return true;
 }
 function hydrate(state) {
   if(!validLibraryState(state)){if(!libraryLoadPending)paintLibraryLoad(true);return false;}

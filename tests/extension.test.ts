@@ -2629,3 +2629,49 @@ describe("notification preferences use the library state",()=>{
     }
   });
 });
+
+describe("system notification destinations",()=>{
+  it("stores bounded account-scoped destinations under unique system notification IDs",async()=>{
+    const w=worker({"dasi.items":[{id:"target",title:"Target",type:"reading"}]});
+    w.run("globalThis.delivered=[];chrome.notifications={create:async(id)=>{delivered.push(id)}};");
+    await Promise.all([w.run("systemNotify('Title','Message','same','target')"),w.run("systemNotify('Title','Message','same','target')")]);
+    const ids=w.run("delivered");
+    expect(ids).toHaveLength(2);expect(ids[0]).not.toBe(ids[1]);
+    expect(w.data["yomu.notificationTargets.v1"]).toHaveLength(2);
+    expect(w.data["yomu.notificationTargets.v1"][0]).toMatchObject({itemId:"target",scope:"guest"});
+    const state=await w.call({type:"GET_STATE",notificationId:ids[0]});
+    expect(state.notificationItemId).toBe("target");
+  });
+  it("rejects expired, future, unknown, removed and other-account targets",async()=>{
+    const now=Date.now(),w=worker({"dasi.items":[{id:"target",title:"Target",type:"reading"}],"yomu.notificationTargets.v1":[
+      {id:"valid",itemId:"target",scope:"guest",ts:now-1000},
+      {id:"expired",itemId:"target",scope:"guest",ts:now-31*86400000},
+      {id:"future",itemId:"target",scope:"guest",ts:now+86400000},
+      {id:"foreign",itemId:"target",scope:"https://example.org|another-user",ts:now},
+      {id:"removed",itemId:"missing",scope:"guest",ts:now}
+    ]});
+    for(const id of ["expired","future","foreign","removed","unknown"]){
+      const state=await w.call({type:"GET_STATE",notificationId:id});
+      expect(state.notificationItemId).toBe("");
+    }
+    expect((await w.call({type:"GET_STATE",notificationId:"valid"})).notificationItemId).toBe("target");
+  });
+  it("only opens the extension library and encodes notification identifiers",async()=>{
+    const w=worker();w.run("globalThis.opened=[];chrome.tabs.create=async info=>opened.push(info.url)");
+    await w.run("openSystemNotification('https://evil.example/?item=x#fragment')");
+    const url=new URL(w.run("opened[0]"));
+    expect(url.protocol).toBe("chrome-extension:");expect(url.pathname).toBe("/library.html");
+    expect(url.searchParams.get("notification")).toBe("https://evil.example/?item=x#fragment");
+    expect(url.hash).toBe("");
+  });
+  it("prunes destination records without changing saved notification history",async()=>{
+    const now=Date.now(),records=Array.from({length:130},(_,i)=>({id:"old"+i,itemId:"target",scope:"guest",ts:now-i}));
+    records.push({id:"expired",itemId:"target",scope:"guest",ts:now-31*86400000});
+    const w=worker({"yomu.notificationTargets.v1":records,"dasi.notifications":[{id:"history"}]});
+    w.run("chrome.notifications={create:async()=>{}}");
+    await w.run("systemNotify('Title','Message','notice','target')");
+    expect(w.data["yomu.notificationTargets.v1"]).toHaveLength(120);
+    expect(w.data["yomu.notificationTargets.v1"].some((x:any)=>x.id==="expired")).toBe(false);
+    expect(w.data["dasi.notifications"]).toEqual([{id:"history"}]);
+  });
+});
