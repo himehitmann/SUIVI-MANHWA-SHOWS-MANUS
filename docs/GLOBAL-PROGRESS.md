@@ -12,7 +12,7 @@ Mise à jour : 30 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 Commit 4b7189ba9d621031b917baa3b423e95ffe4d1528 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41102902038) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41102892720).
 
-**Validation finale en attente** : les deux exécutions du commit ci-dessus sont encore en file d’attente au dernier contrôle. Les succès du commit précédent ne sont pas présentés comme une validation de ce correctif de test.
+**Validation confirmée sur l’exécution push 41102892720 du commit ci-dessus** : 643 tests unitaires, parcours navigateur, capacité, récupération et récupération Firebase réussis. Le paquet Chrome 0.4.24 décompressé a été vérifié. L’audit des dépendances ne signale aucune vulnérabilité connue à cette exécution. Les nouveaux parcours Accueil et Jeux dans huit langues passent. La précédente attente de disponibilité GitHub est levée pour cette validation.
 
 L’accueil utilise 22 nouveaux libellés dans les huit langues : reprise, découvertes, catégories, recommandations, états vides, indisponibilité, actualisation et flèches. Les en-têtes localisés de la bannière et son texte d’aide sans synopsis sont exclus de la traduction automatique. Les synopsis fournisseurs restent éligibles ; les titres originaux ne sont pas modifiés.
 
