@@ -1059,6 +1059,50 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
  }
  console.log("PASS: system notification destinations, expired/foreign/removed targets and one-time navigation");
 
+  const notificationFeed=await page.evaluate(()=>{
+   globalThis.notificationFeedBefore={items,notifications,settings,view};
+   const now=Date.now();
+   items=[{id:"feed-work",title:"Current work",type:"reading",chapter:3,enrichedAt:1}];
+   settings={...settings,lang:"fr"};
+   notifications=[
+     {id:"older",itemId:"feed-work",title:"Older current alert",ts:now-1000,read:true},
+     {id:"latest",itemId:"feed-work",title:"Latest current alert",ts:now-100,read:false},
+     {id:"latest",itemId:"feed-work",title:"Duplicate older copy",ts:now-200,read:false},
+     {id:"expired",itemId:"feed-work",title:"Expired",ts:now-31*86400000,read:false},
+     {id:"future",itemId:"feed-work",title:"Future",ts:now+86400000,read:false},
+     {id:"deleted",itemId:"missing",title:"Deleted work",ts:now-50,read:false},
+     {id:"invalid",title:"Invalid date",ts:"bad",read:false},
+     {id:"generic",title:"General information",ts:now-500,read:true},
+     null
+   ];
+   const snapshot=JSON.stringify(notifications);
+   renderNotifMenu();renderBell();document.getElementById("notif-menu").classList.add("open");
+   return {ids:visibleNotifications().map(n=>n.id),count:document.querySelector("#bell .badge-dot")?.textContent,
+     preserved:JSON.stringify(notifications)===snapshot,period:document.getElementById("notifications-period").textContent,
+     staticRows:document.querySelectorAll(".notif-item:not([role])").length};
+ });
+ assert.deepEqual(notificationFeed,{ids:["latest","generic","older"],count:"1",preserved:true,period:"30 derniers jours",staticRows:1});
+ for(const key of ["Enter","Space"]){
+   const row=page.locator('.notif-item[role="button"]').first();
+   await row.focus();await row.press(key);
+   assert.equal(await page.locator("#drawer").getAttribute("data-item-id"),"feed-work");
+   assert.equal(await page.locator("#drawer").evaluate(el=>el.classList.contains("open")),true,key+" opens the work");
+   await page.evaluate(()=>{closeDrawer();document.getElementById("notif-menu").classList.add("open");});
+ }
+ const boundedFeed=await page.evaluate(()=>{
+   const now=Date.now();
+   notifications=Array.from({length:45},(_,index)=>({id:"n"+index,itemId:"feed-work",title:"Alert "+index,ts:now-index-1,read:index<40}));
+   renderNotifMenu();renderBell();
+   const bounded={rows:document.querySelectorAll(".notif-item").length,badge:!!document.querySelector("#bell .badge-dot"),saved:notifications.length};
+   notifications=[{id:"gone",itemId:"missing",title:"Removed",ts:now}];renderNotifMenu();renderBell();
+   const empty=!!document.querySelector(".notif-empty")&&!document.querySelector("#bell .badge-dot");
+   ({items,notifications,settings,view}=globalThis.notificationFeedBefore);delete globalThis.notificationFeedBefore;
+   closeMenus();renderAll();renderNotifMenu();
+   return {bounded,empty};
+ });
+ assert.deepEqual(boundedFeed,{bounded:{rows:40,badge:false,saved:45},empty:true});
+ console.log("PASS: recent notification feed, deduplication, shared badge filtering and keyboard opening");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

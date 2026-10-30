@@ -317,6 +317,7 @@ const DETAIL_LOCALES={
 "markerChapter":["Chapter {n}","Chapitre {n}","第{n}話","Capítulo {n}","Kapitel {n}","{n}화","Capítulo {n}","第{n}章"],
 "markerVolume":["Vol. {n}","Tome {n}","第{n}巻","Vol. {n}","Band {n}","{n}권","Vol. {n}","第{n}卷"],
 "markerPage":["Page {n}","Page {n}","{n}ページ","Página {n}","Seite {n}","{n}페이지","Página {n}","第{n}页"],
+"notificationsRecent":["Last 30 days","30 derniers jours","過去30日間","Últimos 30 días","Letzte 30 Tage","최근 30일","Últimos 30 dias","最近30天"],
 "stoppedHere":["I stopped here","Je me suis arrêté ici","ここまで視聴しました","Me quedé aquí","Hier habe ich aufgehört","여기까지 봤어요","Parei aqui","我看到这里了"],
 "episodeSaveFailed":["Progress not confirmed. Try again.","Progression non confirmée. Réessaie.","進捗を確認できませんでした。再試行してください。","No se confirmó el progreso. Inténtalo de nuevo.","Fortschritt nicht bestätigt. Erneut versuchen.","진행 상황이 확인되지 않았습니다. 다시 시도하세요.","Progresso não confirmado. Tenta novamente.","进度未确认，请重试。"],
 "refreshNone":["No new details available.","Aucune nouvelle information disponible.","新しい情報はありません。","No hay información nueva.","Keine neuen Informationen verfügbar.","새로운 정보가 없습니다.","Não há informações novas.","暂无新信息。"],
@@ -3044,11 +3045,22 @@ function changeNotifications(type) {
   notificationMutationQueue=operation.catch(()=>{});
   return operation;
 }
+function visibleNotifications(now=Date.now()) {
+  const known=new Set(items.map(item=>item.id)),seen=new Set();
+  return (Array.isArray(notifications)?notifications:[]).filter(notice=>{
+    if(!notice||typeof notice!=="object")return false;
+    const time=Number(notice.ts);
+    return Number.isFinite(time)&&time>0&&time<=now&&now-time<=30*86400000&&(!notice.itemId||known.has(notice.itemId));
+  }).sort((a,b)=>Number(b.ts)-Number(a.ts)).filter(notice=>{
+    if(!notice.id)return true;
+    if(seen.has(notice.id))return false;seen.add(notice.id);return true;
+  }).slice(0,40);
+}
 function renderNotifMenu() {
   const el = document.getElementById("notif-menu");
-  const list = (notifications || []).slice(0, 40);
-  el.innerHTML = `<div class="notif-head"><b>${t("updates") || "Updates"}</b>${list.length ? `<button id="notif-clear">${t("delete")}</button>` : ""}</div>` +
-    (list.length ? list.map((n) => `<div class="notif-item" data-nitem="${esc(n.itemId || "")}" data-nurl="${esc(n.url || "")}"><span class="dot2 ${n.read ? "read" : ""}"></span><div><b>${esc(n.title || "")}</b><small>${esc(n.message || "")} — ${relative(n.ts)}</small></div></div>`).join("")
+  const list = visibleNotifications();
+  el.innerHTML = `<div class="notif-head"><div><b>${t("updates") || "Updates"}</b><small id="notifications-period" style="display:block">${t("notificationsRecent")}</small></div>${list.length ? `<button id="notif-clear">${t("delete")}</button>` : ""}</div>` +
+    (list.length ? list.map((n) => `<div class="notif-item" ${(n.itemId||safeNavigationUrl(n.url))?'role="button" tabindex="0"':""} data-nitem="${esc(n.itemId || "")}" data-nurl="${esc(n.url || "")}"><span class="dot2 ${n.read ? "read" : ""}"></span><div><b>${esc(n.title || "")}</b><small>${esc(n.message || "")} — ${relative(n.ts)}</small></div></div>`).join("")
       : `<div class="notif-empty">${t("updatesNone")}</div>`);
   const clr = document.getElementById("notif-clear");
   if (clr) {
@@ -3060,15 +3072,20 @@ function renderNotifMenu() {
       finally{notificationClearPending=false;renderNotifMenu();}
     };
   }
-  el.querySelectorAll("[data-nitem]").forEach((row) => (row.onclick = () => {
-    closeMenus();
-    const id = row.dataset.nitem;
-    if (id && items.find((x) => x.id === id)) openDrawer(id);
-    else if (row.dataset.nurl) openUrl(row.dataset.nurl);
-  }));
+  el.querySelectorAll('[data-nitem][role="button"]').forEach(row=>{
+    row.onclick=()=>{
+      closeMenus();
+      const id=row.dataset.nitem;
+      if(id){if(items.some(item=>item.id===id))openDrawer(id);}
+      else if(row.dataset.nurl)openUrl(row.dataset.nurl);
+    };
+    row.onkeydown=event=>{
+      if(event.key==="Enter"||event.key===" "){event.preventDefault();row.click();}
+    };
+  });
 }
 function renderBell() {
-  const unread = (notifications || []).filter((n) => !n.read).length;
+  const unread = visibleNotifications().filter((n) => !n.read).length;
   const bell = document.getElementById("bell");
   bell.querySelector(".badge-dot")?.remove();
   if (unread) { const b = document.createElement("span"); b.className = "badge-dot"; b.textContent = unread > 9 ? "9+" : unread; bell.appendChild(b); }
