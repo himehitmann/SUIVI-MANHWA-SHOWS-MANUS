@@ -312,6 +312,11 @@ const DETAIL_LOCALES={
 "homeFewerCategories":["Show fewer categories","Réduire les catégories","カテゴリーを減らす","Ver menos categorías","Weniger Kategorien anzeigen","카테고리 접기","Ver menos categorias","收起分类"],
 "homeMoreCategories":["Show more categories","Voir les autres catégories","他のカテゴリーを見る","Ver más categorías","Weitere Kategorien anzeigen","카테고리 더 보기","Ver mais categorias","查看更多分类"],
 "discoverRefreshing":["Refreshing…","Actualisation…","更新中…","Actualizando…","Wird aktualisiert…","새로고침 중…","A atualizar…","正在刷新…"],
+"markerEpisodes":["{n}/{total} episodes","{n}/{total} épisodes","全{total}話中{n}話","{n}/{total} episodios","{n}/{total} Folgen","{total}화 중 {n}화","{n}/{total} episódios","{n}/{total}集"],
+"markerChapters":["{n}/{total} chapters","{n}/{total} chapitres","全{total}話中{n}話","{n}/{total} capítulos","{n}/{total} Kapitel","{total}화 중 {n}화","{n}/{total} capítulos","{n}/{total}章"],
+"markerChapter":["Chapter {n}","Chapitre {n}","第{n}話","Capítulo {n}","Kapitel {n}","{n}화","Capítulo {n}","第{n}章"],
+"markerVolume":["Vol. {n}","Tome {n}","第{n}巻","Vol. {n}","Band {n}","{n}권","Vol. {n}","第{n}卷"],
+"markerPage":["Page {n}","Page {n}","{n}ページ","Página {n}","Seite {n}","{n}페이지","Página {n}","第{n}页"],
 "stoppedHere":["I stopped here","Je me suis arrêté ici","ここまで視聴しました","Me quedé aquí","Hier habe ich aufgehört","여기까지 봤어요","Parei aqui","我看到这里了"],
 "episodeSaveFailed":["Progress not confirmed. Try again.","Progression non confirmée. Réessaie.","進捗を確認できませんでした。再試行してください。","No se confirmó el progreso. Inténtalo de nuevo.","Fortschritt nicht bestätigt. Erneut versuchen.","진행 상황이 확인되지 않았습니다. 다시 시도하세요.","Progresso não confirmado. Tenta novamente.","进度未确认，请重试。"],
 "refreshNone":["No new details available.","Aucune nouvelle information disponible.","新しい情報はありません。","No hay información nueva.","Keine neuen Informationen verfügbar.","새로운 정보가 없습니다.","Não há informações novas.","暂无新信息。"],
@@ -1052,22 +1057,29 @@ const isReleased = (i) => { const d = parseDate(i.releaseDate); return i.release
 const isUpcoming = (i) => { const d = parseDate(i.releaseDate); return d && d > Date.now() && d - Date.now() >= SOON_WINDOW; };
 
 function marker(i) {
-  if (i.type === "game") return i.platform || (i.releaseDate ? i.releaseDate : "Game");
+  if (i.type === "game") return i.platform || (i.releaseDate ? i.releaseDate : t("gameVideoLabel"));
   if (i.type === "watching") {
     const watched = Number(i.episode) || 0, total = Number(i.total) || 0;
-    const progress = total ? watched + "/" + total + " episodes" : watched ? "Episode " + watched : "";
-    return [i.season && "Season " + i.season, progress].filter(Boolean).join(" — ") || i.domain || "";
+    const progress = total ? t("markerEpisodes",{n:watched,total}) : watched ? t("episodeNumber",{n:watched}) : "";
+    return [i.season && t("seasonNumber",{n:i.season}), progress].filter(Boolean).join(" — ") || i.domain || "";
   }
   const read = Number(i.chapter) || 0, total = Number(i.total) || 0;
-  const progress = total ? read + "/" + total + " chapters" : read ? "Chapter " + read : "";
-  return [i.volume && "Vol. " + i.volume, progress, i.page && "Page " + i.page].filter(Boolean).join(" — ") || i.domain || "";
+  const progress = total ? t("markerChapters",{n:read,total}) : read ? t("markerChapter",{n:read}) : "";
+  return [i.volume && t("markerVolume",{n:i.volume}), progress, i.page && t("markerPage",{n:i.page})].filter(Boolean).join(" — ") || i.domain || "";
 }
+const relativeFormatters=new Map();
 function relative(ts) {
-  if (!ts) return "";
-  const m = Math.round((Date.now() - ts) / 60000);
-  if (m < 1) return "just now"; if (m < 60) return `${m} min ago`;
-  const h = Math.round(m / 60); if (h < 24) return `${h}h ago`;
-  const d = Math.round(h / 24); return d === 1 ? "yesterday" : `${d} days ago`;
+  const time=Number(ts);
+  if(!Number.isFinite(time)||time<=0)return "";
+  const language=Object.hasOwn(LANGS,settings.lang)?settings.lang:"en";
+  if(!relativeFormatters.has(language))relativeFormatters.set(language,new Intl.RelativeTimeFormat(language,{numeric:"auto"}));
+  const formatter=relativeFormatters.get(language);
+  const m=Math.max(0,Math.round((Date.now()-time)/60000));
+  if(m<1)return formatter.format(0,"second");
+  if(m<60)return formatter.format(-m,"minute");
+  const h=Math.round(m/60);
+  if(h<24)return formatter.format(-h,"hour");
+  return formatter.format(-Math.round(h/24),"day");
 }
 function esc(s) { return String(s == null ? "" : s).replace(/\s*·\s*/g," / ").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
 function initials(s) { return (s || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?"; }
@@ -1537,7 +1549,7 @@ function spotHtml(entry) {
   const synopsis=i.synopsis?i.synopsis:catalog?(t("homeDetailsHelp")):marker(i);
   const destination=!catalog&&safeNavigationUrl(i.url);
   return '<article class="home-feature">'+(u?'<div class="home-feature-backdrop" aria-hidden="true">'+covImg(u,i.coverFallback)+'</div>':"")+
-    '<div class="home-feature-copy"><span class="home-eyebrow" data-i18n-static>'+esc(entry.label)+'</span><h2>'+esc(i.title||"Untitled")+'</h2><p class="home-feature-meta">'+esc([catLabel(i),i.year||i.seasonYear,...(i.genres||i.tags||[]).slice(0,2)].filter(Boolean).join(" — "))+'</p><p class="home-feature-synopsis"'+(i.synopsis||!catalog?'':' data-i18n-static')+' tabindex="0">'+esc(synopsis)+'</p><div class="spot-cta">'+
+    '<div class="home-feature-copy"><span class="home-eyebrow" data-i18n-static>'+esc(entry.label)+'</span><h2>'+esc(i.title||"Untitled")+'</h2><p class="home-feature-meta">'+esc([catLabel(i),i.year||i.seasonYear,...(i.genres||i.tags||[]).slice(0,2)].filter(Boolean).join(" — "))+'</p><p class="home-feature-synopsis"'+(i.synopsis?'':' data-i18n-static')+' tabindex="0">'+esc(synopsis)+'</p><div class="spot-cta">'+
     (destination?'<a class="btn-glass" href="'+esc(destination)+'" target="_blank" rel="noopener noreferrer">'+I.play+' '+t("resume")+'</a>':"")+
     '<button class="btn-glass '+(destination?'ghost':'')+'" data-feature-details>'+t("exploreTitle")+'</button></div></div>'+
     (u?'<button class="home-feature-art" data-feature-details aria-label="'+esc(t("details")+": "+i.title)+'">'+covImg(u,i.coverFallback)+'</button>':"")+'</article>';

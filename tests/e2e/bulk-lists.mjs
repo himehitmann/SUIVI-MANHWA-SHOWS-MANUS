@@ -1046,6 +1046,46 @@ try {
  assert.deepEqual(localeIntegrity,{japanese:"ja translation Integrity original",english:"Integrity original",cached:true,failedSwitch:"Integrity original",immediate:"Integrity original",late:"Pending second field",preserved:"After provider refresh",updatedSource:"After provider refresh",updated:"ko translation After provider refresh",hiddenOriginal:"After provider refresh",links:true,sourceUrl:"https://www.tvmaze.com/shows/77",protectedTexts:true});
  console.log("PASS: catalog language restoration, pending responses, refreshed text and source-link preservation");
 
+ // Progress labels use the interface language without changing saved counters.
+ const progressLocales=await p.evaluate(expected=>{
+   const before=settings.lang,clock=Date.now,now=Date.UTC(2026,9,30,12),result=[];
+   const watched={id:"locale-progress",title:"Original title",type:"watching",season:2,episode:3,total:12,state:"current",activityAt:now-3600000};
+   const read={type:"reading",volume:4,chapter:7,total:20,page:9},snapshot=JSON.stringify([watched,read]);
+   const fill=(value,args)=>value.replace(/\{(\w+)\}/g,(_,key)=>String(args[key]));
+   const codes=["en","fr","ja","es","de","ko","pt","zh-CN"];
+   const equal=(a,b,label)=>{if(a!==b)throw Error(label+": "+a+" != "+b);};
+   try{
+     Date.now=()=>now;
+     for(const [index,code]of codes.entries()){
+       settings.lang=code;
+       const reading=[fill(expected.markerVolume[index],{n:4}),fill(expected.markerChapters[index],{n:7,total:20}),fill(expected.markerPage[index],{n:9})].join(" — ");
+       const watching=t("seasonNumber",{n:2})+" — "+fill(expected.markerEpisodes[index],{n:3,total:12});
+       equal(marker(read),reading,code+" reading");
+       equal(marker(watched),watching,code+" watching");
+       equal(marker({type:"reading",chapter:7}),fill(expected.markerChapter[index],{n:7}),code+" unknown total");
+       equal(marker({type:"watching",episode:3}),t("episodeNumber",{n:3}),code+" episode");
+       equal(marker({type:"reading",chapter:0,total:20}),fill(expected.markerChapters[index],{n:0,total:20}),code+" zero");
+       equal(marker({type:"reading",domain:"saved.example"}),"saved.example",code+" domain");
+       equal(marker({type:"game",platform:"Nintendo Switch"}),"Nintendo Switch",code+" platform");
+       const host=document.createElement("div");host.innerHTML=cardHtml(watched);
+       equal(host.querySelector("h3").textContent,"Original title",code+" title");
+       if(!host.textContent.includes(watching))throw Error(code+" card progress missing");
+       const formatter=new Intl.RelativeTimeFormat(code,{numeric:"auto"});
+       for(const [age,value,unit]of [[0,0,"second"],[5*60000,-5,"minute"],[3600000,-1,"hour"],[86400000,-1,"day"],[3*86400000,-3,"day"]])equal(relative(now-age),formatter.format(value,unit),code+" relative "+unit);
+       equal(relative(now+60000),formatter.format(0,"second"),code+" future");
+       for(const invalid of [undefined,null,0,-1,"bad",Infinity])equal(relative(invalid),"",code+" invalid");
+       result.push({code,reading,watching,yesterday:relative(now-86400000)});
+     }
+     equal(JSON.stringify([watched,read]),snapshot,"saved counters unchanged");
+     return result;
+   }finally{Date.now=clock;settings.lang=before;}
+ },{"markerEpisodes":["{n}/{total} episodes","{n}/{total} épisodes","全{total}話中{n}話","{n}/{total} episodios","{n}/{total} Folgen","{total}화 중 {n}화","{n}/{total} episódios","{n}/{total}集"],"markerChapters":["{n}/{total} chapters","{n}/{total} chapitres","全{total}話中{n}話","{n}/{total} capítulos","{n}/{total} Kapitel","{total}화 중 {n}화","{n}/{total} capítulos","{n}/{total}章"],"markerChapter":["Chapter {n}","Chapitre {n}","第{n}話","Capítulo {n}","Kapitel {n}","{n}화","Capítulo {n}","第{n}章"],"markerVolume":["Vol. {n}","Tome {n}","第{n}巻","Vol. {n}","Band {n}","{n}권","Vol. {n}","第{n}卷"],"markerPage":["Page {n}","Page {n}","{n}ページ","Página {n}","Seite {n}","{n}페이지","Página {n}","第{n}页"]});
+ assert.equal(progressLocales.length,8);
+ assert.equal(progressLocales.find(row=>row.code==="fr").watching,"Saison 2 — 3/12 épisodes");
+ assert.equal(progressLocales.find(row=>row.code==="fr").yesterday,"hier");
+ assert.equal(progressLocales.find(row=>row.code==="en").yesterday,"yesterday");
+ console.log("PASS: localized reading and watching progress, relative dates and unchanged saved counters");
+
  // Steam search miniatures use their larger sibling before legacy and original fallbacks.
  const artworkCandidates=await p.evaluate(()=>({
    steam:steamArtworkSources({type:"game",cover:"https://cdn.cloudflare.steamstatic.com/steam/apps/999991/library_600x900.jpg",coverFallback:"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/999991/hash/capsule_231x87.jpg?t=7"}),
