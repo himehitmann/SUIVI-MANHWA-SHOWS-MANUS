@@ -1670,7 +1670,7 @@ function renderFilters() {
 }
 function cardHtml(i) {
   const rating = i.rating || 0;
-  const tags = (i.tags || []).slice(0, 4).map((x) => `<span class="tag">${esc(x)}</span>`).join("");
+  const tags = (i.tags || []).slice(0, 4).map((x) => `<span class="tag" data-i18n-static>${esc(x)}</span>`).join("");
   return `<article class="card" data-open="${esc(i.id)}">
     <button class="fav ${i.favorite ? "on" : ""}" data-fav="${esc(i.id)}" aria-pressed="${!!i.favorite}" aria-label="${esc(t("favorites")+": "+i.title)}">${I.star}</button>
     <div class="cover" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}<span class="cat-badge">${esc(catLabel(i))}</span>${flagLabel(i) ? `<span class="new-flag" style="top:auto;bottom:5px">${esc(flagLabel(i))}</span>` : ""}</div>
@@ -2277,7 +2277,7 @@ function openDrawer(id) {
     <div class="drawer-body">
       ${publicationInformation(i)}
       ${!isGame&&(i.genres?.length||i.catalogTags?.length)?`<div class="section-t">${t("genresLabel")}</div><div class="tags">${[...new Set([...(i.genres||[]),...(i.catalogTags||[])])].filter(x=>typeof x==="string").map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
-      ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${t("creatorsLabel")}</div><p class="synopsis">${i.authors.filter(x=>typeof x==="string").map(esc).join(" — ")}</p>` : ""}
+      ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${t("creatorsLabel")}</div><p class="synopsis" data-i18n-static>${i.authors.filter(x=>typeof x==="string").map(esc).join(" — ")}</p>` : ""}
       ${distinctAlternativeTitles(i).length ? `<div class="section-t">${t("aliasesLabel")}</div><ul class="synopsis">${distinctAlternativeTitles(i).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="dr-refresh-info">${I.refresh} ${t("refreshDetails")}</button><button class="btn" id="dr-home-toggle" aria-pressed="${!!i.homeHidden}">${t(i.homeHidden?"showOnHome":"hideFromHome")}</button></div><p class="field-hint" id="dr-refresh-status" role="status"></p><div id="dr-extra-info"></div>
       ${episodeGuideSlot(i)}
@@ -3749,27 +3749,45 @@ function requestCatalogTranslation(texts,target,timeoutMs=15000){
   });
 }
 async function localizeVisibleCatalog(){
-  if(catalogLocaleBusy)return;
   const language=settings.lang||"en";
-  if(language==="en")return;
-  const selectors="[data-catalog-text],.home-feature-synopsis,.home-feature-meta,.home-eyebrow,p.synopsis,.tags > .tag,.disco > small,.section-t,#episode-guide h3,#episode-guide .sub";
-  const nodes=[...document.querySelectorAll(selectors)].filter(node=>{
+  // Translate provider text leaves only. Replacing a container's textContent
+  // would destroy source links, controls and already localized interface labels.
+  const selectors="[data-catalog-text],.home-feature-synopsis,.home-feature-meta,p.synopsis,.tags > .tag,.disco > small";
+  const candidates=[...document.querySelectorAll(selectors)].filter(node=>!node.children.length&&!node.closest("[data-i18n-static]"));
+  for(const node of candidates){
+    const source=node.dataset.catalogSource,rendered=node.dataset.catalogRendered;
+    // A refreshed provider value or local edit supersedes any in-flight display translation.
+    if(source!==undefined&&node.textContent!==(rendered??source)){
+      node.dataset.catalogSource=node.textContent.trim();
+      delete node.dataset.catalogRendered;delete node.dataset.catalogLanguage;
+      node.dataset.translationState="original";
+    }
+    if(node.dataset.catalogLanguage&&node.dataset.catalogLanguage!==language){
+      node.textContent=node.dataset.catalogSource;
+      delete node.dataset.catalogRendered;delete node.dataset.catalogLanguage;
+      node.dataset.translationState="original";
+    }
+  }
+  // Restore originals immediately, even while a request for another language is pending.
+  if(language==="en"||catalogLocaleBusy)return;
+  const nodes=candidates.filter(node=>{
     const visible=node.tagName==="OPTION"?node.closest("select"):node;
     if(!visible)return false;
     const rect=visible.getBoundingClientRect();
-    return rect.width&&rect.height&&rect.bottom>0&&rect.top<innerHeight+300&&!visible.closest("[hidden],[data-i18n-static]");
+    return rect.width&&rect.height&&rect.bottom>0&&rect.top<innerHeight+300&&!visible.closest("[hidden]");
   });
+  const apply=(node,text)=>{
+    if(node.textContent!==text)node.textContent=text;node.dataset.catalogRendered=text;
+    node.dataset.catalogLanguage=language;node.dataset.translationState="translated";
+  };
   const jobs=[];
   for(const node of nodes){
     const source=node.dataset.catalogSource||node.textContent.trim();if(!source||source.length>20000)continue;
     node.dataset.catalogSource=source;
     const key=language+"\n"+source;
-    if(catalogLocaleCache.has(key)){
-      const text=catalogLocaleCache.get(key);if(node.textContent!==text)node.textContent=text;
-      node.dataset.translationState="translated";continue;
-    }
+    if(catalogLocaleCache.has(key)){apply(node,catalogLocaleCache.get(key));continue;}
     if((catalogLocaleFailures.get(key)||0)>Date.now())continue;
-    jobs.push({node,source,key});if(jobs.length>=8)break;
+    jobs.push({node,source,key,display:node.textContent});if(jobs.length>=8)break;
   }
   if(!jobs.length)return;
   catalogLocaleBusy=true;
@@ -3788,9 +3806,12 @@ async function localizeVisibleCatalog(){
       while(catalogLocaleCache.size>=500)catalogLocaleCache.delete(catalogLocaleCache.keys().next().value);
       catalogLocaleCache.set(key,value);
     }
-    if(settings.lang===language)for(const job of jobs)if(job.node.isConnected&&job.node.dataset.catalogSource===job.source){job.node.textContent=catalogLocaleCache.get(job.key);job.node.dataset.translationState="translated";}
+    if(settings.lang===language)for(const job of jobs){
+      const node=job.node;
+      if(node.isConnected&&!node.children.length&&!node.closest("[data-i18n-static]")&&node.dataset.catalogSource===job.source&&node.textContent===job.display)apply(node,catalogLocaleCache.get(job.key));
+    }
   }catch{
-    for(const job of jobs){catalogLocaleFailures.set(job.key,Date.now()+60000);if(job.node.isConnected)job.node.dataset.translationState="original";}
+    for(const job of jobs){catalogLocaleFailures.set(job.key,Date.now()+60000);if(job.node.isConnected&&job.node.textContent===job.display)job.node.dataset.translationState="original";}
     while(catalogLocaleFailures.size>500)catalogLocaleFailures.delete(catalogLocaleFailures.keys().next().value);
   }finally{catalogLocaleBusy=false;scheduleCatalogLocalization();}
 }

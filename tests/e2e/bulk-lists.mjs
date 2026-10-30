@@ -998,6 +998,54 @@ try {
  assert.deepEqual(failureRecovery,{failure:{text:"Failure recovery fixture",state:"original",busy:false},throttled:true,text:"Recovered display",source:"Failure recovery fixture",busy:false});
 
 
+ // Language changes restore provider text and never flatten links or overwrite refreshed content.
+ const localeIntegrity=await p.evaluate(async()=>{
+   settings.lang="en";while(catalogLocaleBusy)await new Promise(resolve=>setTimeout(resolve,20));
+   clearTimeout(catalogLocaleTimer);
+   document.querySelectorAll(".view").forEach(node=>node.hidden=true);
+   const panel=document.createElement("div");panel.style.cssText="position:fixed;top:0;left:0;z-index:99999";
+   panel.innerHTML='<p data-catalog-text>Integrity original</p><div id="episode-guide"><p class="sub guide-source">Data: <a href="https://www.tvmaze.com/shows/77">TVmaze</a></p></div><div class="section-t">Localized interface label</div><p class="synopsis" data-i18n-static>Unchanged Author</p><p class="synopsis">Nested <a href="https://example.org/">source link</a></p>';
+   document.body.prepend(panel);
+   const probe=panel.firstElementChild,link=panel.querySelector(".guide-source a"),nested=panel.querySelector(".synopsis a");
+   const original=api.runtime.sendMessage;let calls=0,mode="success",pending=null;const requests=[];
+   api.runtime.sendMessage=(message,callback)=>{
+     if(message.type!=="DASI_MT")return original.call(api.runtime,message,callback);
+     calls++;requests.push(...message.texts);
+     const finish=()=>callback(mode==="failure"?{ok:false}:{ok:true,translations:message.texts.map(text=>message.target+" translation "+text)});
+     if(mode==="pending"){pending=finish;return;}finish();
+   };
+   try{
+     settings.lang="ja";await localizeVisibleCatalog();
+     const japanese=probe.textContent;
+     settings.lang="en";await localizeVisibleCatalog();
+     const english=probe.textContent;
+     const previous=calls;settings.lang="ja";await localizeVisibleCatalog();
+     const cached=calls===previous;
+     mode="failure";settings.lang="fr";await localizeVisibleCatalog();
+     const failedSwitch=probe.textContent;
+     settings.lang="ja";mode="success";await localizeVisibleCatalog();
+     const extra=document.createElement("p");extra.dataset.catalogText="";extra.textContent="Pending second field";panel.append(extra);
+     mode="pending";const task=localizeVisibleCatalog();
+     if(!pending)throw Error("Expected pending translation");
+     settings.lang="en";await localizeVisibleCatalog();
+     const immediate=probe.textContent;pending();await task;
+     const late=extra.textContent;
+     // The same element receives a newer provider value while its old request is pending.
+     extra.textContent="Before provider refresh";settings.lang="ko";const refreshTask=localizeVisibleCatalog();
+     if(!pending)throw Error("Expected refresh request");
+     extra.textContent="After provider refresh";pending();await refreshTask;
+     const preserved=extra.textContent;
+     mode="success";await localizeVisibleCatalog();
+     const updatedSource=extra.dataset.catalogSource,updated=extra.textContent;
+     panel.hidden=true;settings.lang="en";await localizeVisibleCatalog();
+     return {japanese,english,cached,failedSwitch,immediate,late,preserved,updatedSource,updated,hiddenOriginal:extra.textContent,
+       links:link.isConnected&&link===panel.querySelector(".guide-source a")&&nested===panel.querySelector(".synopsis a"),
+       sourceUrl:link.getAttribute("href"),protectedTexts:!requests.some(text=>/TVmaze|Unchanged Author|Localized interface label|Nested/.test(text))};
+   }finally{api.runtime.sendMessage=original;panel.remove();settings.lang="en";document.querySelectorAll(".view").forEach(node=>node.hidden=false);clearTimeout(catalogLocaleTimer);}
+ });
+ assert.deepEqual(localeIntegrity,{japanese:"ja translation Integrity original",english:"Integrity original",cached:true,failedSwitch:"Integrity original",immediate:"Integrity original",late:"Pending second field",preserved:"After provider refresh",updatedSource:"After provider refresh",updated:"ko translation After provider refresh",hiddenOriginal:"After provider refresh",links:true,sourceUrl:"https://www.tvmaze.com/shows/77",protectedTexts:true});
+ console.log("PASS: catalog language restoration, pending responses, refreshed text and source-link preservation");
+
  // Steam search miniatures use their larger sibling before legacy and original fallbacks.
  const artworkCandidates=await p.evaluate(()=>({
    steam:steamArtworkSources({type:"game",cover:"https://cdn.cloudflare.steamstatic.com/steam/apps/999991/library_600x900.jpg",coverFallback:"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/999991/hash/capsule_231x87.jpg?t=7"}),
