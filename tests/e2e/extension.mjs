@@ -310,7 +310,8 @@ try {
   await worker.evaluate(()=>{
     globalThis.metadataOriginalSearch=catalogSearchAll;
     globalThis.metadataSearchStarted=false;
-    catalogSearchAll=()=>{globalThis.metadataSearchStarted=true;return new Promise(resolve=>{globalThis.finishMetadataSearch=resolve;});};
+    globalThis.metadataSearchReady=new Promise(resolve=>{globalThis.metadataSearchReadyResolve=resolve;});
+    catalogSearchAll=()=>new Promise(resolve=>{globalThis.finishMetadataSearch=resolve;globalThis.metadataSearchStarted=true;globalThis.metadataSearchReadyResolve();});
     return chrome.storage.local.set({"dasi.items":[{id:"metadata-e2e",title:"Imported fixture",type:"reading",chapter:8,metadataStatus:{state:"failed"}}],"dasi.lists":[]});
   });
   await page.evaluate(async()=>{const state=await chrome.runtime.sendMessage({type:"GET_STATE"});items=state.items;lists=state.lists;switchView("settings");});
@@ -319,6 +320,11 @@ try {
   await page.evaluate(()=>switchView("library"));
   await page.locator("#library-metadata-status:not([hidden])").waitFor();
   assert.match(await page.locator("#library-metadata-status").innerText(),/being completed|en cours de recherche/);
+  // Persisting "running" precedes the provider call; await the actual mock request.
+  await worker.evaluate(()=>new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(new Error("Metadata provider request did not start within 10 seconds")),10000);
+    globalThis.metadataSearchReady.then(()=>{clearTimeout(timer);resolve();});
+  }));
   await worker.evaluate(()=>globalThis.finishMetadataSearch([{title:"Imported fixture",type:"reading",cover:"https://example.org/cover.jpg",synopsis:"Recovered description",externalIds:{mal:"77"}}]));
   await page.waitForFunction(async()=>{const state=await chrome.runtime.sendMessage({type:"GET_STATE"});return state.items[0]?.metadataStatus?.state==="matched";});
   const completedMetadata=await worker.evaluate(async()=>{await importEnrichmentQueue;return (await chrome.storage.local.get("dasi.items"))["dasi.items"][0];});
