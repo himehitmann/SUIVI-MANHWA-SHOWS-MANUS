@@ -8,6 +8,18 @@ Mise à jour : 30 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Notifications récentes et navigation au clavier — 30 octobre 2026
+
+Commit b00df873f29f1b2620092dd46e26a5f6739f1030 : [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41137725881) réussie. 654 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Le menu et son compteur partagent une sélection bornée aux 40 alertes les plus récentes des 30 derniers jours. Les dates invalides ou futures, les références à des œuvres supprimées et les doublons d’identifiant sont exclus ; la copie la plus récente d’un doublon est conservée. Les alertes générales sans œuvre liée restent visibles. Le compteur représente uniquement les alertes non lues de la sélection affichée. La période est indiquée dans huit langues.
+
+Les lignes ouvrables disposent d’un rôle bouton et d’un accès au clavier par Entrée/Espace. Les lignes purement informatives ne sont pas présentées comme des commandes. Une œuvre supprimée après le rendu ne déclenche plus un repli vers son ancien lien externe au clic.
+
+Le parcours navigateur vérifie tri, doublons, ancienneté, dates futures/invalides, œuvres supprimées, compteur, limite de 40 lignes et ouverture réelle au clavier. Les objets de notifications stockés restent inchangés ; ce lot filtre l’affichage et ne purge pas l’historique.
+
+G12 reste partiel pour la validation du parcours natif du centre de notifications Windows. Score global inchangé : 20/60 (33,3 %). Aucun changement installé dans Chrome ni publication.
+
 ## Ouverture des fiches depuis les notifications système — 30 octobre 2026
 
 Commit 68f5cc52cced34c4e2a4409a1e7d8c83cd973ff4 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41116470795) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41116461364) réussies. 654 tests unitaires, parcours navigateur, paquet Chrome décompressé, capacité et récupérations validés. Audit des dépendances sans vulnérabilité connue à cette exécution.
