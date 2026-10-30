@@ -1,12 +1,22 @@
 # Suivi global Yomu
 
-Mise à jour : 29 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 30 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Jeux : commandes, alertes et dates dans huit langues — 30 octobre 2026
+
+Commit 50a0dd67e5e7f06cde0841788143d8087b59a559 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41062027000) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41062015944).
+
+Quinze libellés sont localisés dans les huit langues de l’interface : page Jeux, recherche, état vide, jeux enregistrés, boutiques, attribution RAWG, actualités récentes, codes/récompenses et préférences de notifications. Les dates des actualités utilisent maintenant la langue sélectionnée au lieu du seul choix français/anglais.
+
+Le parcours navigateur couvre les huit langues sur la page vide et remplie, la fiche, les boutons/liens, les libellés accessibles et les quatre réglages de notifications. Il vérifie le format local des dates, le maintien de la limite des 30 jours et la conservation du titre original de l’actualité. Les réponses fournisseurs sont des fixtures : la traduction des articles/synopsis, la qualité linguistique exhaustive, la livraison réelle des notifications et la disponibilité réelle des codes ne sont pas validées par ce lot.
+
+643 tests unitaires et les parcours navigateur passent ; audit des dépendances sans vulnérabilité connue lors de cette exécution. Capacité et récupérations validées. Aucun nouveau critère global clôturé : 20/60 (33,3 %). Aucun changement installé dans Chrome ni publication.
 
 ## Commandes de bibliothèque dans huit langues — 29 octobre 2026
 
