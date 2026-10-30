@@ -894,10 +894,15 @@ function jikanRequest(path,timeoutMs=15000) {
   if(Date.now()<jikanRetryAt)return Promise.reject(Error("jikan_temporarily_unavailable"));
   if(jikanPending>=8)return Promise.reject(Error("jikan_queue_full"));
   jikanPending++;
-  const request=jikanQueue.then(async()=>{
+  let expired=false,controller,timer;
+  const deadline=new Promise((_,reject)=>{
+    timer=setTimeout(()=>{expired=true;if(controller)controller.abort();reject(Error("jikan_timeout"));},timeoutMs);
+  });
+  const task=jikanQueue.then(async()=>{
+    if(expired)throw Error("jikan_timeout");
     if(Date.now()<jikanRetryAt)throw Error("jikan_temporarily_unavailable");
-    const controller=new AbortController();
-    let timer,retryable=true;
+    controller=new AbortController();
+    let retryable=true;
     try {
       return await Promise.race([
         (async()=>{
@@ -905,15 +910,16 @@ function jikanRequest(path,timeoutMs=15000) {
           if(!response.ok){retryable=response.status===429||response.status>=500;throw Error("jikan_"+response.status);}
           return response.json();
         })(),
-        new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error("jikan_timeout"));},timeoutMs);})
+        deadline
       ]);
     }catch(error){
       if(retryable)jikanRetryAt=Date.now()+30000;
       throw error;
-    }finally{clearTimeout(timer);}
-  });
-  jikanQueue=request.catch(()=>{}).then(()=>new Promise(resolve=>setTimeout(resolve,400)));
-  return request.finally(()=>{jikanPending--;});
+    }
+  }).finally(()=>{jikanPending--;});
+  jikanQueue=task.catch(()=>{}).then(()=>new Promise(resolve=>setTimeout(resolve,400)));
+  // The budget includes queue time; expired queued work never reaches the provider.
+  return Promise.race([task,deadline]).finally(()=>{clearTimeout(timer);});
 }
 function jikanMedia(m,type) {
   if(!m||!Number.isInteger(m.mal_id)||m.mal_id<1)return null;

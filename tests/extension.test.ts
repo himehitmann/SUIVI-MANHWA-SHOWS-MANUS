@@ -1484,6 +1484,38 @@ describe("complementary search catalogs",()=>{
     expect(results.filter((r:any)=>r.status==="rejected")[0].reason.message).toBe("jikan_queue_full");
     await expect(w.run('jikanRequest("manga?q=again")')).resolves.toEqual({data:[]});
   });
+  it("expires queued work without fetching it or cooling down healthy requests",async()=>{
+    const w=worker();
+    w.run('var timers=[],calls=[],finishFirst;setTimeout=(fn,ms)=>{if(ms===400)fn();else timers.push({fn,ms});return 0};clearTimeout=()=>{};fetchRemote=path=>{calls.push(path);return new Promise(resolve=>{finishFirst=()=>resolve({ok:true,json:async()=>({data:[]})})})}');
+    const first=w.run('jikanRequest("manga?q=first",6000)');
+    await Promise.resolve();await Promise.resolve();
+    const queued=w.run('jikanRequest("manga?q=expired",20)');
+    const rejected=expect(queued).rejects.toThrow("jikan_timeout");
+    w.run('timers.find(t=>t.ms===20).fn()');
+    await rejected;
+    expect(w.run('calls.length')).toBe(1);
+    w.run('finishFirst()');
+    await first;
+    for(let n=0;n<20&&w.run('jikanPending');n++)await Promise.resolve();
+    expect(w.run('calls.length')).toBe(1);
+    expect(w.run('jikanPending')).toBe(0);
+    expect(w.run('jikanRetryAt')).toBe(0);
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>({data:[]})})');
+    await expect(w.run('jikanRequest("manga?q=fresh")')).resolves.toEqual({data:[]});
+  });
+  it("aborts active requests at their total deadline and releases the queue",async()=>{
+    const w=worker();
+    w.run('var expire,signal;setTimeout=(fn,ms)=>{if(ms===400)fn();else expire=fn;return 0};clearTimeout=()=>{};fetchRemote=(_path,options)=>{signal=options.signal;return new Promise(()=>{})}');
+    const pending=w.run('jikanRequest("anime?q=slow",25)');
+    const rejected=expect(pending).rejects.toThrow("jikan_timeout");
+    await Promise.resolve();await Promise.resolve();
+    w.run('expire()');
+    await rejected;
+    for(let n=0;n<20&&w.run('jikanPending');n++)await Promise.resolve();
+    expect(w.run('signal.aborted')).toBe(true);
+    expect(w.run('jikanPending')).toBe(0);
+    expect(w.run('jikanRetryAt>Date.now()')).toBe(true);
+  });
   it("retains provider results beyond the former six-item TV limit",async()=>{
     const w=worker();
     w.run('fetchRemote=async()=>({ok:true,json:async()=>Array.from({length:15},(_,i)=>({show:{id:i+1,name:"Show "+i}}))})');
