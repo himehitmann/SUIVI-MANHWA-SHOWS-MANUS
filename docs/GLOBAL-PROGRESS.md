@@ -8,6 +8,18 @@ Mise à jour : 30 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Ouverture des fiches depuis les notifications système — 30 octobre 2026
+
+Commit 68f5cc52cced34c4e2a4409a1e7d8c83cd973ff4 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41116470795) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41116461364) réussies. 654 tests unitaires, parcours navigateur, paquet Chrome décompressé, capacité et récupérations validés. Audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Les nouvelles notifications système reçoivent un identifiant unique. Leur destination est enregistrée localement avec le compte concerné, pour 30 jours maximum et 120 entrées maximum. Les écritures des destinations sont sérialisées. Un clic ouvre exclusivement la page interne library.html avec l’identifiant encodé ; aucune URL externe issue de la notification n’est exécutée.
+
+Le chargement initial résout la destination seulement pour le compte actif et une œuvre encore présente. Il ouvre la bibliothèque puis la fiche. Les identifiants inconnus, expirés, futurs, supprimés ou associés à un autre compte restent sur la bibliothèque. Le paramètre est retiré après un chargement réussi, pour éviter une réouverture lors du rafraîchissement. Une navigation effectuée pendant le chargement n’est pas remplacée par cette ouverture automatique. Les notifications anciennes dépourvues de correspondance restent compatibles via le retour à la bibliothèque.
+
+Les tests unitaires vérifient le stockage, les identifiants uniques, la portée du compte, l’expiration, les destinations supprimées, l’URL interne et la limite de conservation. Les parcours Chrome ouvrent les URL internes correspondantes et vérifient fiche attendue, replis et consommation unique après rafraîchissement. Le clic natif dans le centre de notifications Windows n’a pas été reproduit sur la machine utilisateur.
+
+Ce lot clôt le point d’ouverture directe identifié au compte rendu précédent. G12 reste partiel : l’historique des notifications déjà enregistrées n’est pas purgé par ce changement et le parcours natif Windows reste à vérifier. Score global inchangé : 20/60 (33,3 %). Aucun changement installé dans Chrome ni publication.
+
 ## Notifications : respecter la pause, l’abandon et la désactivation globale — 30 octobre 2026
 
 Commit 4fd4de384fa33bbe85cb3ad571eda47d95a53aa0 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41114801311) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41114792990).
