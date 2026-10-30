@@ -995,7 +995,7 @@ try {
  const cover="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='150'%3E%3C/svg%3E";
  const fixture={manhwa:[{title:"Untouched comic",type:"reading",cover}],anime:[{title:"Untouched show",type:"watching",cover}],gamesHot:[{title:"Untouched game",type:"game",cover}],manga:[{title:"Another comic",type:"reading",cover}]};
  try{
-  items=[];discoverTried=true;discoverLoading=false;view="home";
+  items=[];discoverTried=true;discoverLoading=false;switchView("home");
   for(const [index,code]of codes.entries()){
    settings={...settings,lang:code,homeCats:undefined};discover=null;renderHome();clearInterval(spotTimer);
    for(const [key,values]of Object.entries(expected))equal(t(key),values[index],code+" dictionary "+key);
