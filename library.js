@@ -275,6 +275,21 @@ const DETAIL_LOCALES={
 "listUpdated":["List updated","Liste mise à jour","リストを更新しました","Lista actualizada","Liste aktualisiert","리스트가 업데이트되었습니다","Lista atualizada","清单已更新"],
 "listDeleteLabel":["Delete list","Supprimer la liste","リストを削除","Eliminar lista","Liste löschen","리스트 삭제","Eliminar lista","删除清单"],
 "listDeleteHelp":["Delete this list? Its works stay in your library.","Supprimer cette liste ? Les œuvres restent dans ta bibliothèque.","このリストを削除しますか？作品はライブラリに残ります。","¿Eliminar esta lista? Sus obras seguirán en tu biblioteca.","Diese Liste löschen? Ihre Werke bleiben in deiner Bibliothek.","이 리스트를 삭제할까요? 작품은 라이브러리에 남습니다.","Eliminar esta lista? As obras ficam na tua biblioteca.","删除此清单？其中的作品仍会保留在书库中。"],
+"gameStores":["Stores","Boutiques","ストア","Tiendas","Shops","스토어","Lojas","商店"],
+"gameDataCredit":["Game data: ","Données jeux : ","ゲームデータ：","Datos del juego: ","Spieldaten: ","게임 데이터: ","Dados do jogo: ","游戏数据："],
+"gameNewsRecent":["Recent news — 30 days","Actualités récentes — 30 jours","最近30日間のニュース","Noticias recientes — 30 días","Aktuelle Nachrichten — 30 Tage","최근 30일 소식","Notícias recentes — 30 dias","最近30天的资讯"],
+"gameNewsRead":["Read on Steam","Lire sur Steam","Steamで読む","Leer en Steam","Auf Steam lesen","Steam에서 읽기","Ler no Steam","在Steam阅读"],
+"gameRewards":["Codes and rewards","Codes et récompenses","コードと報酬","Códigos y recompensas","Codes und Belohnungen","코드 및 보상","Códigos e recompensas","兑换码与奖励"],
+"gameRewardsEmpty":["No verified active codes are available for this game yet.","Aucun code actif vérifié disponible pour ce jeu pour le moment.","このゲームで確認済みの有効なコードはまだありません。","Todavía no hay códigos activos verificados para este juego.","Für dieses Spiel sind derzeit keine bestätigten aktiven Codes verfügbar.","이 게임에서 확인된 유효한 코드는 아직 없습니다.","Ainda não há códigos ativos verificados para este jogo.","此游戏暂无已验证的有效兑换码。"],
+"gameReleaseAlerts":["New release notifications","Notifications de nouvelles sorties","新作公開の通知","Avisos de nuevos lanzamientos","Benachrichtigungen zu Neuerscheinungen","새 출시 알림","Notificações de novos lançamentos","新发布通知"],
+"gameAlertHelp":["Choose exactly which alerts you receive for this game.","Choisis précisément les alertes reçues pour ce jeu.","このゲームで受け取る通知を選んでください。","Elige qué avisos recibes de este juego.","Wähle aus, welche Meldungen du zu diesem Spiel erhältst.","이 게임에서 받을 알림을 선택하세요.","Escolhe que alertas recebes deste jogo.","选择此游戏需要接收的通知。"],
+"gamePatchAlerts":["Updates and patch notes","Mises à jour et patch notes","アップデートとパッチノート","Actualizaciones y notas del parche","Updates und Patchnotes","업데이트 및 패치 노트","Atualizações e notas de atualização","更新与补丁说明"],
+"gameEventAlerts":["Events and announcements","Événements et annonces","イベントとお知らせ","Eventos y anuncios","Events und Ankündigungen","이벤트 및 공지","Eventos e anúncios","活动与公告"],
+"gameVideoLabel":["Video game","Jeu vidéo","ゲーム","Videojuego","Videospiel","비디오 게임","Videojogo","电子游戏"],
+"gamePageHelp":["Your games, upcoming releases and latest news.","Vos jeux, leurs sorties et leurs actualités.","あなたのゲーム、今後の発売予定、最新ニュース。","Tus juegos, próximos lanzamientos y últimas noticias.","Deine Spiele, kommende Veröffentlichungen und aktuelle Nachrichten.","내 게임, 출시 예정작 및 최신 소식.","Os teus jogos, próximos lançamentos e últimas notícias.","你的游戏、即将推出的新作与最新资讯。"],
+"gameFind":["Find a game","Rechercher un jeu","ゲームを探す","Buscar un juego","Spiel suchen","게임 찾기","Procurar um jogo","查找游戏"],
+"gameMine":["My games","Mes jeux","マイゲーム","Mis juegos","Meine Spiele","내 게임","Os meus jogos","我的游戏"],
+"gameEmptyHelp":["Open a game below to save it to a list of your choice.","Ouvrez une fiche ci-dessous pour enregistrer un jeu dans la liste de votre choix.","下のゲームを開き、好きなリストに保存しましょう。","Abre un juego abajo para guardarlo en la lista que elijas.","Öffne unten ein Spiel, um es in einer Liste deiner Wahl zu speichern.","아래 게임을 열어 원하는 리스트에 저장하세요.","Abre um jogo abaixo para o guardar numa lista à tua escolha.","打开下方游戏，将其保存到你选择的清单中。"],
 "stoppedHere":["I stopped here","Je me suis arrêté ici","ここまで視聴しました","Me quedé aquí","Hier habe ich aufgehört","여기까지 봤어요","Parei aqui","我看到这里了"],
 "episodeSaveFailed":["Progress not confirmed. Try again.","Progression non confirmée. Réessaie.","進捗を確認できませんでした。再試行してください。","No se confirmó el progreso. Inténtalo de nuevo.","Fortschritt nicht bestätigt. Erneut versuchen.","진행 상황이 확인되지 않았습니다. 다시 시도하세요.","Progresso não confirmado. Tenta novamente.","进度未确认，请重试。"],
 "refreshNone":["No new details available.","Aucune nouvelle information disponible.","新しい情報はありません。","No hay información nueva.","Keine neuen Informationen verfügbar.","새로운 정보가 없습니다.","Não há informações novas.","暂无新信息。"],
@@ -1719,13 +1734,13 @@ function renderGrid() {
 function gameStoreButtons(item) {
   const canonical=value=>{const safe=safeStoreLink(value);if(!safe)return "";const url=new URL(safe);const steam=url.pathname.match(/^\/app\/(\d+)/);if(url.hostname==="store.steampowered.com"&&steam)return "https://store.steampowered.com/app/"+steam[1]+"/";url.hash="";return url.href;};
   const links=[...new Set([item.url,...(Array.isArray(item.storeLinks)?item.storeLinks:[])].map(canonical).filter(Boolean))].slice(0,24);
-  return links.length?'<div class="game-store-links" style="display:flex;gap:8px;flex-wrap:wrap" aria-label="'+(settings.lang==="fr"?"Boutiques":"Stores")+'">'+links.map(url=>'<a class="btn" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(gameLinkLabel({url}))+' '+I.open+'</a>').join("")+'</div>':"";
+  return links.length?'<div class="game-store-links" style="display:flex;gap:8px;flex-wrap:wrap" aria-label="'+(t("gameStores"))+'">'+links.map(url=>'<a class="btn" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(gameLinkLabel({url}))+' '+I.open+'</a>').join("")+'</div>':"";
 }
 function gameSourceCredit(item) {
   const id=String(item.externalIds?.rawg||"");
   let source="https://rawg.io/";
   try {const url=new URL(item.url);if(url.origin==="https://rawg.io"&&!url.username&&!url.password&&url.pathname.startsWith("/games/"))source=url.origin+url.pathname;}catch{}
-  return /^[1-9]\d{0,14}$/.test(id)?'<p class="field-hint">'+(settings.lang==="fr"?"Données jeux : ":"Game data: ")+'<a href="'+esc(source)+'" target="_blank" rel="noopener noreferrer">RAWG</a></p>':"";
+  return /^[1-9]\d{0,14}$/.test(id)?'<p class="field-hint">'+(t("gameDataCredit"))+'<a href="'+esc(source)+'" target="_blank" rel="noopener noreferrer">RAWG</a></p>':"";
 }
 function gameLinkLabel(i) {
   if (!i.url) return "Steam";
@@ -1741,14 +1756,13 @@ function gameLinkLabel(i) {
   return t("open");
 }
 function gameCardHtml(i) {
-  const fr=settings.lang==="fr";
   const genres=[...new Set([...(i.genres||[]),...(i.tags||[])].filter(x=>typeof x==="string"))].slice(0,3);
-  return '<article class="game-card"><button class="game-cover" data-open="'+esc(i.id)+'" aria-label="'+esc(t("details")+": "+i.title)+'">'+coverInner(i,24)+'</button><div class="game-body"><h3><button class="link-btn" data-open="'+esc(i.id)+'">'+esc(i.title)+'</button></h3><p class="game-platform">'+esc(i.platform|| (fr?"Jeu vidéo":"Video game"))+'</p><div class="game-genres">'+genres.map(g=>'<span>'+esc(g)+'</span>').join("")+'</div>'+(i.releaseDate?'<p class="game-release">'+esc(i.releaseDate)+(isSoon(i)?" — "+t("comingSoon"):isReleased(i)?" — "+t("released"):"")+'</p>':"")+'</div></article>';
+  return '<article class="game-card"><button class="game-cover" data-open="'+esc(i.id)+'" aria-label="'+esc(t("details")+": "+i.title)+'">'+coverInner(i,24)+'</button><div class="game-body"><h3><button class="link-btn" data-open="'+esc(i.id)+'">'+esc(i.title)+'</button></h3><p class="game-platform">'+esc(i.platform|| (t("gameVideoLabel")))+'</p><div class="game-genres">'+genres.map(g=>'<span>'+esc(g)+'</span>').join("")+'</div>'+(i.releaseDate?'<p class="game-release">'+esc(i.releaseDate)+(isSoon(i)?" — "+t("comingSoon"):isReleased(i)?" — "+t("released"):"")+'</p>':"")+'</div></article>';
 }
 function renderGames() {
-  const el=document.getElementById("view-games"),fr=settings.lang==="fr",searchResults=document.getElementById("search-results");
+  const el=document.getElementById("view-games"),searchResults=document.getElementById("search-results");
   const games=items.filter(i=>i.type==="game").sort((a,b)=>(parseDate(a.releaseDate)||9e15)-(parseDate(b.releaseDate)||9e15));
-  el.innerHTML='<div class="section-h" style="margin-top:0"><div><h1 style="margin:0">'+t("games")+'</h1><p class="sub">'+(fr?"Vos jeux, leurs sorties et leurs actualités.":"Your games, upcoming releases and latest news.")+'</p></div><button class="btn" id="search-games">'+I.search+' '+(fr?"Rechercher un jeu":"Find a game")+'</button></div>'+(games.length?'<section aria-label="'+(fr?"Mes jeux":"My games")+'"><h2 class="games-section-title">'+(fr?"Mes jeux":"My games")+' <span>'+games.length+'</span></h2><div class="games-grid">'+games.map(gameCardHtml).join("")+'</div></section>':'<p class="games-empty">'+(fr?"Ouvrez une fiche ci-dessous pour enregistrer un jeu dans la liste de votre choix.":"Open a game below to save it to a list of your choice.")+'</p>')+renderGamesDiscover();
+  el.innerHTML='<div class="section-h" style="margin-top:0"><div><h1 style="margin:0">'+t("games")+'</h1><p class="sub">'+(t("gamePageHelp"))+'</p></div><button class="btn" id="search-games">'+I.search+' '+(t("gameFind"))+'</button></div>'+(games.length?'<section aria-label="'+(t("gameMine"))+'"><h2 class="games-section-title">'+(t("gameMine"))+' <span>'+games.length+'</span></h2><div class="games-grid">'+games.map(gameCardHtml).join("")+'</div></section>':'<p class="games-empty">'+(t("gameEmptyHelp"))+'</p>')+renderGamesDiscover();
   el.querySelector(".section-h").after(searchResults);
   document.getElementById("search-games").onclick=()=>{searchFacets={kind:"GAME",genre:"all",year:"",release:"all",price:200};document.getElementById("q").focus();};
   bindDisco("#view-games");
@@ -2284,7 +2298,7 @@ function openDrawer(id) {
         </select>
         ${!isGame ? `<input class="field" id="dr-season" type="number" min="0" value="${(isWatch?i.season:i.volume) || ""}" placeholder="${isWatch ? "Season" : "Vol."}" />` : ""}
       </div>
-      <div class="section-t">${t("manage")}</div><div class="notification-preferences"><label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input id="dr-notify" type="checkbox" ${i.notifyUpdates!==false?"checked":""}>${settings.lang==="fr"?"Notifications de nouvelles sorties":"New release notifications"}</label>${isGame?`<div class="panel" style="padding:10px 12px"><small>${settings.lang==="fr"?"Choisis précisément les alertes reçues pour ce jeu.":"Choose exactly which alerts you receive for this game."}</small><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-updates" type="checkbox" ${i.notifyGameUpdates!==false?"checked":""}>${settings.lang==="fr"?"Mises à jour et patch notes":"Updates and patch notes"}</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-events" type="checkbox" ${i.notifyGameEvents!==false?"checked":""}>${settings.lang==="fr"?"Événements et annonces":"Events and announcements"}</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-rewards" type="checkbox" ${i.notifyGameRewards!==false?"checked":""}>${settings.lang==="fr"?"Codes et récompenses":"Codes and rewards"}</label></div>`:""}</div><button class="btn danger" id="dr-remove">${I.trash} ${t("removeLib")}</button>
+      <div class="section-t">${t("manage")}</div><div class="notification-preferences"><label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input id="dr-notify" type="checkbox" ${i.notifyUpdates!==false?"checked":""}>${t("gameReleaseAlerts")}</label>${isGame?`<div class="panel" style="padding:10px 12px"><small>${t("gameAlertHelp")}</small><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-updates" type="checkbox" ${i.notifyGameUpdates!==false?"checked":""}>${t("gamePatchAlerts")}</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-events" type="checkbox" ${i.notifyGameEvents!==false?"checked":""}>${t("gameEventAlerts")}</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="dr-notify-game-rewards" type="checkbox" ${i.notifyGameRewards!==false?"checked":""}>${t("gameRewards")}</label></div>`:""}</div><button class="btn danger" id="dr-remove">${I.trash} ${t("removeLib")}</button>
     </div>`;
   document.getElementById("scrim").classList.add("open");
   d.classList.add("open");focusDrawer();
@@ -3413,7 +3427,7 @@ function mountEpisodeGuide(item) {
 }
 
 function gameNewsHtml(item) {
-  const fr=settings.lang==="fr",now=Date.now(),seen=new Set();
+  const now=Date.now(),seen=new Set();
   const news=(Array.isArray(item.news)?item.news:[]).filter(entry=>{
     const time=Number(entry?.publishedAt);
     return entry&&typeof entry.title==="string"&&entry.title.trim()&&Number.isFinite(time)&&time<=now&&time>=now-30*86400000;
@@ -3422,15 +3436,14 @@ function gameNewsHtml(item) {
   }).slice(0,6);
   if(!news.length)return "";
   const source=value=>{try{const u=new URL(value);return u.protocol==="https:"&&!u.username&&!u.password&&!u.port&&["steamcommunity.com","store.steampowered.com"].includes(u.hostname)?u.href:"";}catch{return "";}};
-  return '<section class="game-news"><div class="section-t">'+(fr?"Actualités récentes — 30 jours":"Recent news — 30 days")+'</div>'+news.map(entry=>{
-    const date=new Date(Number(entry.publishedAt)).toLocaleDateString(fr?"fr-FR":"en-US",{day:"numeric",month:"short",year:"numeric"});
+  return '<section class="game-news"><div class="section-t">'+(t("gameNewsRecent"))+'</div>'+news.map(entry=>{
+    const date=new Date(Number(entry.publishedAt)).toLocaleDateString(settings.lang||"en",{day:"numeric",month:"short",year:"numeric"});
     const url=source(entry.url);
-    return '<article class="game-news-card"><div class="game-news-meta">'+[entry.category,date].filter(Boolean).map(esc).join(" — ")+'</div><h4>'+esc(entry.title)+'</h4>'+(entry.summary?'<p class="synopsis">'+esc(entry.summary)+'</p>':"")+(url?'<a class="link-btn" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+(fr?"Lire sur Steam":"Read on Steam")+'</a>':"")+'</article>';
+    return '<article class="game-news-card"><div class="game-news-meta">'+[entry.category,date].filter(Boolean).map(esc).join(" — ")+'</div><h4>'+esc(entry.title)+'</h4>'+(entry.summary?'<p class="synopsis">'+esc(entry.summary)+'</p>':"")+(url?'<a class="link-btn" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+(t("gameNewsRead"))+'</a>':"")+'</article>';
   }).join("")+'</section>';
 }
 function gameRewardsHtml() {
-  const fr=settings.lang==="fr";
-  return '<section class="game-rewards"><div class="section-t">'+(fr?"Codes et récompenses":"Codes and rewards")+'</div><p class="sub">'+(fr?"Aucun code actif vérifié disponible pour ce jeu pour le moment.":"No verified active codes are available for this game yet.")+'</p></section>';
+  return '<section class="game-rewards"><div class="section-t">'+(t("gameRewards"))+'</div><p class="sub">'+(t("gameRewardsEmpty"))+'</p></section>';
 }
 function distinctAlternativeTitles(item){const keyOf=value=>String(value||"").normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,"");const seen=new Set([keyOf(item.title)]);return (Array.isArray(item.alternativeTitles)?item.alternativeTitles:[]).filter(value=>{if(typeof value!=="string"||!value.trim())return false;const key=keyOf(value);if(!key||seen.has(key))return false;seen.add(key);return true;});}
 function catalogInformation(m) {
