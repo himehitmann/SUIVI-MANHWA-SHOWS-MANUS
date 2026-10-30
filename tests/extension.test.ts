@@ -2553,3 +2553,79 @@ describe("Firebase password recovery from extension",()=>{
   expect(await w.call({type:"SYNC_PASSWORD_RESET",payload:{firebase,email:"reader@example.com"}})).toMatchObject({ok:false,error:"network_error"});
  });
 });
+
+describe("notification preferences use the library state",()=>{
+  it("prefers the current library state while retaining legacy status support",()=>{
+    const w=worker();
+    expect(w.run("itemAlertsPaused({state:'current',status:'dropped'})")).toBe(false);
+    expect(w.run("itemAlertsPaused({state:'on_hold',status:'in_progress'})")).toBe(true);
+    expect(w.run("itemAlertsPaused({state:'dropped',status:'in_progress'})")).toBe(true);
+    expect(w.run("itemAlertsPaused({status:'on_hold'})")).toBe(true);
+  });
+  it("updates a paused show's baseline silently",async()=>{
+    const now=Date.now(),w=worker({"dasi.items":[{id:"s",title:"Show",type:"watching",state:"on_hold",season:1,episode:1,externalIds:{tvmaze:"42"},releaseCheckedAt:now-86400000}]});
+    w.ctx.releaseAt=now-1000;
+    w.run("fetchTrackedReleases=async()=>[{season:1,episode:2,at:releaseAt}]");
+    await w.run("checkTrackedReleasesOnce()");
+    expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+    expect(w.data["dasi.items"][0].releasedTotal).toBe(2);
+    expect(w.data["dasi.items"][0].state).toBe("on_hold");
+    expect(w.data["dasi.items"][0].releaseCheckedAt).toBeGreaterThan(now-1000);
+  });
+  it("does not fetch releases or news for abandoned works",async()=>{
+    const w=worker({"dasi.items":[{id:"s",title:"Show",type:"watching",state:"dropped",externalIds:{tvmaze:"42"}},{id:"g",title:"Game",type:"game",state:"dropped",externalIds:{steam:"123"}}]});
+    w.run("globalThis.alertFetches=0;fetchTrackedReleases=steamAppDetails=steamNews=async()=>{alertFetches++;throw Error('must not fetch');}");
+    await Promise.all([w.run("checkTrackedReleasesOnce()"),w.run("checkGameNewsOnce()"),w.run("checkGameReleases()")]);
+    expect(w.run("alertFetches")).toBe(0);
+    expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+  });
+  it("rechecks paused or abandoned state after an episode request",async()=>{
+    for(const state of ["on_hold","dropped"]){
+      const w=worker({"dasi.items":[{id:"s",title:"Show",type:"watching",state:"current",season:1,episode:1,externalIds:{tvmaze:"42"},releaseCheckedAt:Date.now()-86400000}]});
+      w.ctx.newState=state;
+      w.run("fetchTrackedReleases=async()=>{const items=(await chrome.storage.local.get('dasi.items'))['dasi.items'];items[0].state=newState;await chrome.storage.local.set({'dasi.items':items});return [{season:1,episode:2,at:Date.now()-1000}];}");
+      await w.run("checkTrackedReleasesOnce()");
+      expect(w.data["dasi.items"][0].state).toBe(state);
+      expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+    }
+  });
+  it("silently records news seen during a pause and does not replay it on resume",async()=>{
+    const w=worker({"dasi.items":[{id:"g",title:"Game",type:"game",released:true,state:"on_hold",externalIds:{steam:"123"},gameNewsCheckedAt:Date.now()-86400000}]});
+    w.ctx.post={id:"post",title:"Patch 2",publishedAt:Date.now()-1000};
+    w.run("steamNews=async()=>[post]");
+    await w.run("checkGameNewsOnce()");
+    expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+    expect(w.data["dasi.items"][0].gameNewsSeenIds).toContain("post");
+    w.data["dasi.items"][0].state="current";w.data["dasi.items"][0].gameNewsCheckedAt=Date.now()-7*3600000;
+    await w.run("checkGameNewsOnce()");
+    expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+  });
+  it("uses a pause selected during game release and news requests",async()=>{
+    for(const kind of ["release","news"]){
+      const w=worker({"dasi.items":[{id:"g",title:"Game",type:"game",released:true,state:"current",externalIds:{steam:"123"},gameNewsCheckedAt:Date.now()-86400000}]});
+      await w.run("checkGameReleases()");
+      if(kind==="release")w.data["dasi.items"][0].released=false;
+      w.run("globalThis.pauseGame=async()=>{const items=(await chrome.storage.local.get('dasi.items'))['dasi.items'];items[0].state='on_hold';await chrome.storage.local.set({'dasi.items':items});}");
+      if(kind==="release")w.run("steamAppDetails=async()=>{await pauseGame();return {comingSoon:false};}");
+      else w.run("steamNews=async()=>{await pauseGame();return [{id:'post',title:'Patch',publishedAt:Date.now()-1000}];}");
+      await w.run(kind==="release"?"checkGameReleases()":"checkGameNewsOnce()");
+      expect(w.data["dasi.items"][0].state).toBe("on_hold");
+      expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+      if(kind==="release")expect(w.data["dasi.items"][0].released).toBe(true);
+    }
+  });
+  it("honors global mute and paused states when a saved page reports a higher total",async()=>{
+    for(const mode of ["global","on_hold","dropped","enabled"]){
+      const w=worker({"dasi.settings":{notifyNew:mode!=="global"}});
+      w.run("globalThis.systemAlerts=[];chrome.notifications={create:(...args)=>systemAlerts.push(args)};");
+      await w.save(book("Tracked book",{chapter:1,total:2}));
+      if(mode==="on_hold"||mode==="dropped")w.data["dasi.items"][0].state=mode;
+      await w.save(book("Tracked book",{chapter:1,total:4}));
+      expect(w.data["dasi.items"][0].total).toBe(4);
+      expect(w.data["dasi.notifications"]||[]).toHaveLength(mode==="enabled"?1:0);
+      // Await the asynchronous system-notification settings read.
+      await new Promise(resolve=>setTimeout(resolve,20));
+      expect(w.run("systemAlerts.length")).toBe(mode==="enabled"?1:0);
+    }
+  });
+});

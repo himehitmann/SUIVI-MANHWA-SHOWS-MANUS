@@ -277,6 +277,12 @@ const writeData = async (obj, downloaded=false) => {
  * user hasn't turned them off — raise a system notification. Local and
  * best-effort: no network, no polling of sites we aren't already on.
  */
+function notificationItemState(item) {
+  return ["current","planned","completed","on_hold","dropped"].includes(item.state)?item.state:item.status;
+}
+function itemAlertsPaused(item) {
+  return ["on_hold","dropped"].includes(notificationItemState(item));
+}
 async function pushNotification(rec) {
   const list = await read(NOTIF_KEY, []);
   const next = [{ id: "n_" + Math.random().toString(36).slice(2, 10), read: false, ts: Date.now(), ...rec }, ...list].slice(0, 120);
@@ -690,7 +696,7 @@ async function writeItemUnlocked(payload) {
   if (existing && merged.type !== "game") {
     const cur = merged.type === "watching" ? merged.episode || 0 : merged.chapter || 0;
     const newTotal = merged.total || 0;
-    if (merged.notifyUpdates!==false && newTotal > (existing.total || 0) && newTotal > cur) {
+    if (merged.notifyUpdates!==false && !itemAlertsPaused(merged) && (await read(SETTINGS_KEY,DEFAULT_SETTINGS)).notifyNew!==false && newTotal > (existing.total || 0) && newTotal > cur) {
       const n = newTotal - cur;
       const unit = merged.type === "watching" ? "episode" : "chapter";
       const msg = `${n} new ${unit}${n > 1 ? "s" : ""} available`;
@@ -2759,7 +2765,7 @@ function checkTrackedReleases() {
 function freshTrackedReleases(item, episodes, settings, now=Date.now()) {
   if (!Number.isFinite(item.releaseCheckedAt) || item.releaseCheckedAt<=0 ||
       item.notifyUpdates===false || settings.notifyNew===false ||
-      ["dropped","on_hold"].includes(item.status)) return [];
+      itemAlertsPaused(item)) return [];
   const season=Number(item.season)||1, episode=Number(item.episode)||0;
   const seen=new Set();
   return episodes.filter(ep=>{
@@ -2771,7 +2777,7 @@ function freshTrackedReleases(item, episodes, settings, now=Date.now()) {
 }
 async function checkTrackedReleasesOnce() {
   const epoch=accountEpoch;
-  const candidates=(await read(ITEMS_KEY,[])).filter(i=>releaseIdentity(i)&&i.status!=="dropped"&&Date.now()-(i.releaseCheckedAt||0)>=TRACKED_RELEASE_INTERVAL).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,6);
+  const candidates=(await read(ITEMS_KEY,[])).filter(i=>releaseIdentity(i)&&notificationItemState(i)!=="dropped"&&Date.now()-(i.releaseCheckedAt||0)>=TRACKED_RELEASE_INTERVAL).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,6);
   for(const candidate of candidates) {
     if(epoch!==accountEpoch)return;
     let episodes;
@@ -2780,7 +2786,7 @@ async function checkTrackedReleasesOnce() {
     await serializeLibrary(async()=>{
       if(epoch!==accountEpoch)return;
       const current=await read(ITEMS_KEY,[]),live=current.find(i=>i.id===candidate.id);
-      if(!live||releaseIdentity(live)!==releaseIdentity(candidate))return;
+      if(!live||notificationItemState(live)==="dropped"||releaseIdentity(live)!==releaseIdentity(candidate))return;
       const season=Number(live.season)||1;
       const confirmed=normalizeReleaseEpisodes(episodes);
       const recentEpisodes=confirmed.filter(ep=>Date.now()-ep.at<7*86400000);
@@ -2820,18 +2826,18 @@ function trackedSteamId(item) {
 }
 async function checkGameReleasesOnce() {
   const epoch=accountEpoch;
-  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==='game' && i.status!=='dropped' && !i.released && trackedSteamId(i)).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,8);
+  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==='game' && notificationItemState(i)!=='dropped' && !i.released && trackedSteamId(i)).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,8);
   for(const candidate of candidates){
     if(epoch!==accountEpoch)return;
     try{
       const details=await steamAppDetails(trackedSteamId(candidate));if(!details)continue;
       await serializeLibrary(async()=>{
         if(epoch!==accountEpoch)return;
-        const items=await read(ITEMS_KEY,[]), current=items.find(i=>i.id===candidate.id);if(!current||current.status==='dropped'||trackedSteamId(current)!==trackedSteamId(candidate))return;
+        const items=await read(ITEMS_KEY,[]), current=items.find(i=>i.id===candidate.id);if(!current||notificationItemState(current)==='dropped'||trackedSteamId(current)!==trackedSteamId(candidate))return;
         const released=details.comingSoon===false?true:details.comingSoon===true?false:current.released;
         const next=items.map(i=>i.id===current.id?{...i,released,releaseDate:details.releaseDate||i.releaseDate,releaseCheckedAt:Date.now(),updatedAt:Date.now()}:i);
         const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
-        const alert=released&&!current.released&&current.notifyUpdates!==false&&settings.notifyNew!==false;
+        const alert=released&&!current.released&&!itemAlertsPaused(current)&&current.notifyUpdates!==false&&settings.notifyNew!==false;
         const message=settings.lang==="fr"?"est disponible":"is out now";
         const changes={[ITEMS_KEY]:next};
         if(alert)changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:current.id,title:current.title,message,url:current.url,read:false,ts:Date.now()},...await read(NOTIF_KEY,[])].slice(0,120);
@@ -2851,7 +2857,7 @@ function gameNewsCategory(entry) {
   return "events";
 }
 function freshGameNews(item,news,settings,now=Date.now()) {
-  if (!item.gameNewsCheckedAt || item.notifyUpdates===false || settings.notifyNew===false) return [];
+  if (!item.gameNewsCheckedAt || itemAlertsPaused(item) || item.notifyUpdates===false || settings.notifyNew===false) return [];
   const seen=new Set(item.gameNewsSeenIds||[]);
   const fields={updates:"notifyGameUpdates",events:"notifyGameEvents",rewards:"notifyGameRewards"};
   return news.filter(entry=>{
@@ -2869,7 +2875,7 @@ function checkGameNews() {
 }
 async function checkGameNewsOnce() {
   const epoch=accountEpoch;
-  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==="game"&&i.status!=="dropped"&&trackedSteamId(i)&&Date.now()-(i.gameNewsCheckedAt||0)>=6*3600000).sort((a,b)=>(a.gameNewsCheckedAt||0)-(b.gameNewsCheckedAt||0)).slice(0,8);
+  const candidates=(await read(ITEMS_KEY,[])).filter(i=>i.type==="game"&&notificationItemState(i)!=="dropped"&&trackedSteamId(i)&&Date.now()-(i.gameNewsCheckedAt||0)>=6*3600000).sort((a,b)=>(a.gameNewsCheckedAt||0)-(b.gameNewsCheckedAt||0)).slice(0,8);
   for(const candidate of candidates) {
     if(epoch!==accountEpoch)return;
     try {
@@ -2877,17 +2883,17 @@ async function checkGameNewsOnce() {
       await serializeLibrary(async()=>{
         if(epoch!==accountEpoch)return;
         const items=await read(ITEMS_KEY,[]),live=items.find(i=>i.id===candidate.id);
-        if(!live||live.status==="dropped"||trackedSteamId(live)!==trackedSteamId(candidate))return;
+        if(!live||notificationItemState(live)==="dropped"||trackedSteamId(live)!==trackedSteamId(candidate))return;
         const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS),now=Date.now();
         const fresh=freshGameNews(live,news,settings,now);
         const updated={...live,news,gameNewsCheckedAt:now,gameNewsSeenIds:[...new Set([...news.map(n=>n.id),...(live.gameNewsSeenIds||[])])].slice(0,100)};
         const changes={[ITEMS_KEY]:items.map(i=>i.id===live.id?updated:i)};
         if(fresh.length) {
-          const message=fresh.map(n=>n.title).join(" · ");
+          const message=fresh.map(n=>n.title).join(" — ");
           changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:live.id,title:live.title,message,url:live.url,read:false,ts:now},...await read(NOTIF_KEY,[])].slice(0,120);
         }
         await writeData(changes);
-        if(fresh.length)await systemNotify(live.title,fresh.map(n=>n.title).join(" · "),"yomu_news_"+live.id);
+        if(fresh.length)await systemNotify(live.title,fresh.map(n=>n.title).join(" — "),"yomu_news_"+live.id);
       });
     } catch { /* Retry a failed source without advancing its baseline. */ }
   }
