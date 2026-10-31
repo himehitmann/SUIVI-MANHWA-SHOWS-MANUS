@@ -8,6 +8,18 @@ Mise à jour : 31 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## TMDB : conserver l’identité et le titre original — 31 octobre 2026
+
+Commit b8caafb3562764b8c92bef283d6fe00cd155f41f : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41211636280) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41211632573) réussies. 664 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Les résultats TMDB conservent maintenant leur source, leur identifiant qualifié (tv:ID ou movie:ID) et leurs titres originaux/affichés. Deux séries homonymes avec des identifiants distincts ne sont plus fusionnées par leur seul titre ; films et séries restent distincts même si leurs numéros fournisseurs coïncident. Les répétitions d’une même identité sont dédoublonnées.
+
+Les personnes, identifiants absents/invalides et noms vides sont écartés. L’année de sortie est rangée dans year, avec validation calendaire, plutôt que dans season. Les descriptions ou titres originaux mal formés ne font pas échouer toute la recherche. Deux tests supplémentaires couvrent ces cas.
+
+Ces tests utilisent des réponses simulées ; aucun compte TMDB ni clé n’a été ajouté. Les fiches enregistrées ne sont pas réécrites par une migration. Ce préalable ne fournit pas encore le guide de saisons TMDB : G07 reste partiel. La recherche multi de TMDB inclut des personnes selon sa [documentation officielle](https://developer.themoviedb.org/reference/search-multi), d’où le maintien du filtrage explicite des œuvres.
+
+Avancement inchangé : 21/60 (35 %). Aucun déploiement ni installation dans Chrome.
+
 ## Fiches : ordre des épisodes et dates fiables — 31 octobre 2026
 
 Commit 2670741ac3132b2b4e8ac55cc1c2637bb6f98cd7 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41211172693) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41211169286) réussies. 662 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
