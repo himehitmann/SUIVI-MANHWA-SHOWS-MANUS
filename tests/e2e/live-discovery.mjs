@@ -98,7 +98,7 @@ try{
           await new Promise(resolve=>setTimeout(resolve,500));
         }while(true);
         const rows=response.results||[];
-        const job=catalogJobs.get(accountEpoch+":"+query);
+        const job=catalogJobs.get(accountEpoch+":"+query.toLowerCase());
         result.rounds.push({
           round:round+1,milliseconds:Date.now()-started,ok:response.ok,pending:response.pending,
           count:rows.length,hasMore:response.hasMore,partial:response.partial,limited:response.limited,

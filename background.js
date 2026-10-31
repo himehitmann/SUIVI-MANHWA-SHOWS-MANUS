@@ -1235,8 +1235,13 @@ async function steamSearch(query,page=1,onPage) {
   const res=await fetchRemote(url); if(!res.ok) throw new Error('steam_'+res.status);
   const data=await res.json();
   if(typeof data.results_html!=="string")throw Error("steam_response_invalid");
-  if(data.start!==undefined&&Number(data.start)!==(page-1)*25)throw Error("steam_page_mismatch");
   const rows=parseSteamSearch(data.results_html);
+  // Steam uses -1 for an empty search, not a repeated or invalid result page.
+  if(Number(data.start)===-1&&(data.total_count===0||data.total_count==="0")&&rows.length===0){
+    if(onPage)onPage("steam",page,false);
+    return [];
+  }
+  if(data.start!==undefined&&Number(data.start)!==(page-1)*25)throw Error("steam_page_mismatch");
   if(onPage)onPage("steam",page,Number.isFinite(Number(data.total_count))?page*25<Number(data.total_count):rows.length===25);
   return steamGames(rows,false,25).map(g=>({...g,released:undefined,externalIds:{steam:steamAppId(g.url)}}));
 }

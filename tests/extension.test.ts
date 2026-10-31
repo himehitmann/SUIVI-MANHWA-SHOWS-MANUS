@@ -1964,6 +1964,24 @@ describe("Steam page integrity",()=>{
     await expect(w.run('steamSearch("game",2,(...args)=>reports.push(args))')).rejects.toThrow("steam_page_mismatch");
     expect(w.run("reports")).toEqual([]);
   });
+  it("accepts Steam's explicit empty-search sentinel without offering a retry page",async()=>{
+    const w=worker();
+    w.run('var reports=[];fetchRemote=async()=>({ok:true,json:async()=>({start:-1,total_count:0,results_html:""})});');
+    expect(await w.run('steamSearch("鬼滅の刃",1,(...args)=>reports.push(args))')).toEqual([]);
+    expect(w.run("reports")).toEqual([["steam",1,false]]);
+  });
+  it("does not accept an empty sentinel with missing totals or actual game rows",async()=>{
+    const w=worker();
+    for(const payload of [
+      {start:-1,results_html:""},
+      {start:-1,total_count:2,results_html:""},
+      {start:-1,total_count:0,results_html:'<a data-ds-appid="400"><span class="title">Portal</span></a>'}
+    ]){
+      w.ctx.payload=payload;
+      w.run('fetchRemote=async()=>({ok:true,json:async()=>payload})');
+      await expect(w.run('steamSearch("test")')).rejects.toThrow("steam_page_mismatch");
+    }
+  });
   it("keeps all 25 games returned by the store page",async()=>{
     const w=worker();w.ctx.html=Array.from({length:25},(_,i)=>'<a data-ds-appid="'+(100+i)+'"><span class="title">Game '+i+'</span></a>').join("");
     w.run('fetchRemote=async()=>({ok:true,json:async()=>({start:25,total_count:50,results_html:html})});var reports=[];');
