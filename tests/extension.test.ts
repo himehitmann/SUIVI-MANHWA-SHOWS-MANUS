@@ -1990,6 +1990,23 @@ describe("catalog theme discovery",()=>{
     expect(w.run("requests[2].variables.type")).toBe("ANIME");
     expect(results[1].tags).toEqual(["Yandere"]);
   });
+  it("publishes known themes before a slow title endpoint and survives its failure",async()=>{
+    const w=worker();
+    w.run('anilistSearchThemes=new Map([["yandere",{kind:"tag",name:"Yandere"}]]);var failTitle,batches=[],pages=[],themeCalls=[];anilistSearch=()=>new Promise((_,reject)=>{failTitle=reject});jikanSearch=async()=>{throw Error("offline")};anilistThemeSearch=async(q,page,report,type)=>{themeCalls.push(type);report("anilist-theme-"+type.toLowerCase(),page,false);return [{title:type+" result",type:type==="MANGA"?"reading":"watching"}]};');
+    const task=w.run('mangaSearchResilient("yandere",rows=>batches.push(...rows),1,(...args)=>pages.push(args))');
+    for(let n=0;n<20&&w.run("batches.length")<2;n++)await Promise.resolve();
+    expect(w.run("batches.map(row=>row.title)")).toEqual(["MANGA result","ANIME result"]);
+    w.run('failTitle(Error("offline"))');
+    expect(await task).toHaveLength(2);
+    expect(w.run("themeCalls")).toEqual(["MANGA","ANIME"]);
+    expect(w.run("pages")).toContainEqual(["anilist",1,null]);
+  });
+  it("reports a total outage when known theme and title sources all fail",async()=>{
+    const w=worker();
+    w.run('anilistSearchThemes=new Map([["yandere",{kind:"tag",name:"Yandere"}]]);var pages=[];anilistSearch=jikanSearch=anilistThemeSearch=async()=>{throw Error("offline")};');
+    await expect(w.run('mangaSearchResilient("yandere",null,1,(...args)=>pages.push(args))')).rejects.toThrow("manga_catalogs_unavailable");
+    expect(w.run("pages")).toEqual(expect.arrayContaining([["anilist",1,null],["anilist-theme-manga",1,null],["anilist-theme-anime",1,null]]));
+  });
   it("does not broaden ordinary titles or partial tag words and supports French genres",async()=>{
     const w=worker();
     w.run('anilistSearchThemes=new Map([["yandere",{kind:"tag",name:"Yandere"}],["comedy",{kind:"genre",name:"Comedy"}]]);var calls=0;fetchRemote=async()=>{calls++;return {ok:true,json:async()=>({data:{Page:{media:[],pageInfo:{hasNextPage:false}}}})}}');

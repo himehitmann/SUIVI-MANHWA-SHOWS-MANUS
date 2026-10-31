@@ -955,18 +955,24 @@ async function jikanSearch(query,onProgress,page=1,onPage) {
 async function mangaSearchResilient(query,onProgress,page=1,onPage) {
   const out=[];
   const publish=results=>{out.push(...results);if(onProgress)onProgress(results);};
+  const knownTheme=Boolean(anilistThemeFor(query));
+  const themes=async()=>{
+    if(!anilistThemeFor(query))return [];
+    const settled=await Promise.allSettled(["MANGA","ANIME"].map(async type=>{
+      try{const results=await anilistThemeSearch(query,page,onPage,type);publish(results);return results;}
+      catch(error){if(onPage)onPage("anilist-theme-"+type.toLowerCase(),page,null);throw error;}
+    }));
+    if(settled.every(result=>result.status==="rejected"))throw Error("theme_catalogs_unavailable");
+    return settled.flatMap(result=>result.status==="fulfilled"?result.value:[]);
+  };
+  const primary=anilistSearch(query,page,onPage).then(results=>{
+    publish(results);return results;
+  },error=>{if(onPage)onPage("anilist",page,null);throw error;});
   let jikanPublished=false;
   const settled=await Promise.allSettled([
-    anilistSearch(query,page,onPage).then(async results=>{
-      publish(results);
-      if(anilistThemeFor(query)) {
-        await Promise.allSettled(["MANGA","ANIME"].map(async type=>{
-          try{publish(await anilistThemeSearch(query,page,onPage,type));}
-          catch{if(onPage)onPage("anilist-theme-"+type.toLowerCase(),page,null);}
-        }));
-      }
-      return results;
-    },error=>{if(onPage)onPage("anilist",page,null);throw error;}),
+    primary,
+    // Known themes can publish without waiting for the title endpoint.
+    knownTheme?themes():primary.then(themes),
     jikanSearch(query,results=>{jikanPublished=true;publish(results);},page,onPage).then(results=>{
       if(!jikanPublished)publish(results);
       return results;
