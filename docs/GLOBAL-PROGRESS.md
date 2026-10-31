@@ -1,12 +1,22 @@
 # Suivi global Yomu
 
-Mise à jour : 30 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 31 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Recherche : délai maximal dès la mise en file — 31 octobre 2026
+
+Commit 141f2f1b6c4ea313e95e8c6574ee056fe661ac34 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41140755631) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41140750501) réussies. 656 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Le délai de Jikan inclut désormais l’attente dans la file, au lieu de commencer seulement à l’appel réseau. Une recherche dispose de six secondes au total pour cette source ; une demande expirée avant son tour n’est pas envoyée. Une expiration en attente ne déclenche pas le délai de suspension réservé aux échecs réseau. Les requêtes actives sont interrompues à leur échéance ; la limite de huit entrées et l’espacement des appels restent en place.
+
+Deux nouveaux tests vérifient l’expiration en attente sans appel fournisseur, la reprise suivante, l’interruption active et la libération de la file. Un ancien test de délai a été adapté pour viser le minuteur de la requête active parmi les minuteurs désormais indépendants ; ses assertions de non-envoi et de récupération sont conservées.
+
+La revue du parcours confirme la présence des tests existants de classement, filtres, pagination, dédoublonnage, réponses tardives et reprise. G08 reste partiel : ce lot borne une source lente mais ne mesure pas la latence réelle de tous les fournisseurs ni leur couverture thématique. Score global inchangé : 20/60 (33,3 %). Aucune installation dans Chrome ni publication.
 
 ## Recherche : titres sans espaces et saisie par composition — 30 octobre 2026
 
