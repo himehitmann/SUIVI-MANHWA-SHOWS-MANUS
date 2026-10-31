@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Check, Cloud, Star } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
@@ -24,8 +25,8 @@ const tiers: Tier[] = [
     icon: Star,
     price: { monthly: "$0", yearly: "$0" },
     features: [
-      "Unlimited library — manga, webtoons, anime, series, films & games",
-      "One-click save & resume on any site",
+      "Library for manga, webtoons, anime, series, films & games",
+      "Save and resume on supported pages",
       "Import from Trakt, TV Time, IMDb, Letterboxd & MyAnimeList",
       "Custom lists, tags, ratings & drag-and-drop",
       "Built-in page & image translation",
@@ -40,39 +41,41 @@ const tiers: Tier[] = [
     featured: true,
     features: [
       "Everything in Free",
-      "Encrypted cloud sync across unlimited devices",
+      "Optional account synchronization across devices",
       "New chapter, episode & release alerts",
-      "Full stats — streaks, trends, calendar & forecasts",
-      "Unlimited translation, every language",
+      "Library statistics and learning history",
+      "Translation tools, subject to provider availability and limits",
       "Custom list covers & profile",
-      "Priority support & early features",
+      "Profile and library preferences",
     ],
   },
 ];
 
 export default function Pricing() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const [, navigate] = useLocation();
+  const fr = lang === "fr";
   const store = useStore();
   const [yearly, setYearly] = useState(true);
 
-  const ctaLabel = (plan: Plan) => (plan === "free" ? t("pricing.cta.free") : t("pricing.cta.pro"));
+  const ctaLabel = (plan: Plan) => (plan === "free" ? (fr ? "Ouvrir ma bibliothèque" : "Open my library") : t("pricing.cta.pro"));
 
   const subscribe = (plan: Plan) => {
     if (plan === "free") {
-      store.setPlan("free");
+      navigate("/collections");
       return;
     }
     // Real payment path: redirect to the configured hosted checkout, tagging the
     // account so the backend webhook can grant the plan.
     const session = syncProvider.getSession();
-    const url = checkoutUrl(plan, yearly, { userId: session?.userId, email: session?.email });
+    if (!session?.userId) { toast.info(fr ? "Connecte-toi pour associer ton achat à ton compte." : "Sign in to link your purchase to your account."); navigate("/settings"); return; }
+    const url = checkoutUrl(plan, yearly, { userId: session.userId, email: session.email });
     if (url) {
       window.location.href = url;
       return;
     }
-    // No checkout configured (dev / unlocked owner build): local plan toggle.
-    store.setPlan(plan);
-    toast.success(ctaLabel(plan));
+    if(UNLOCK_ALL){store.setPlan(plan);toast.success(ctaLabel(plan));return;}
+    toast.error(t("pricing.unavailable"));
   };
 
   return (
@@ -89,7 +92,7 @@ export default function Pricing() {
               {t("pricing.billing.monthly")}
             </button>
             <button className={yearly ? "active" : ""} onClick={() => setYearly(true)} role="tab" aria-selected={yearly}>
-              {t("pricing.billing.yearly")} <em>{t("pricing.yearlyNote")}</em>
+              {t("pricing.billing.yearly")} 
             </button>
           </div>
         </div>
@@ -131,6 +134,7 @@ export default function Pricing() {
           })}
         </div>
 
+        <p role="note">{fr ? "Ouvrir la bibliothèque gratuite ne résilie aucun abonnement payant. Les droits offerts ou administrateur sont accordés par le serveur. Aucun paiement ne peut être effectué tant que la boutique n’est pas configurée." : "Opening the free library does not cancel a paid subscription. Gifted and administrator access is granted by the server. Purchases remain unavailable until checkout is configured."}</p>
         <div className="account-note">
           <div>
             <span className="eyebrow">{t("account.eyebrow")}</span>

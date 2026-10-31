@@ -13,7 +13,7 @@ function KindIcon({ kind }: { kind: NotificationKind }) {
 
 /** Bell + dropdown. The bell rings (CSS) and shows a live pulse dot when unread. */
 export function Notifications() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { notifications, markAllRead } = useStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -60,7 +60,7 @@ export function Notifications() {
                   <div>
                     <strong>{n.title}</strong>
                     <p>{n.body}</p>
-                    <small>{relativeTime(n.createdAt, t)}</small>
+                    <small>{relativeTime(n.createdAt, t, lang)}</small>
                   </div>
                   {!n.read && <i className="notif-unread-dot" />}
                 </li>
