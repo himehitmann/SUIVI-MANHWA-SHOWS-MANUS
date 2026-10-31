@@ -3409,14 +3409,31 @@ function safeStoreLink(value) {
   }catch{return "";}
 }
 
+function episodeGuideTmdbId(item) {
+  const id=String(item?.externalIds?.tmdb||"").trim();
+  let linked="";
+  try {
+    const url=new URL(item?.url);
+    if(url.protocol==="https:"&&url.hostname==="www.themoviedb.org"&&!url.port&&!url.username&&!url.password){
+      const match=/^\/(tv|movie)\/([1-9]\d*)(?:-[^/]*)?\/?$/.exec(url.pathname);
+      if(match)linked=match[1]+":"+match[2];
+    }
+  }catch{}
+  if(id){
+    if(/^tv:[1-9]\d*$/.test(id))return !linked||linked===id?id.slice(3):"";
+    if(/^[1-9]\d*$/.test(id)&&linked==="tv:"+id)return id;
+    return "";
+  }
+  return linked.startsWith("tv:")?linked.slice(3):"";
+}
 function episodeGuideSlot(item) {
-  return item.type==="watching"&&(/^[1-9]\d*$/.test(String(item.externalIds?.tvmaze||""))||/^tv:[1-9]\d*$/.test(String(item.externalIds?.tmdb||"")))?'<section id="episode-guide" data-i18n-static class="episode-guide" aria-label="'+(t("seasonsEpisodes"))+'"></section>':"";
+  return item.type==="watching"&&(/^[1-9]\d*$/.test(String(item.externalIds?.tvmaze||""))||Boolean(episodeGuideTmdbId(item)))?'<section id="episode-guide" data-i18n-static class="episode-guide" aria-label="'+(t("seasonsEpisodes"))+'"></section>':"";
 }
 function mountEpisodeGuide(item) {
   const root=document.getElementById("episode-guide");if(!root)return;
   let request=0;
   const active=()=>root.isConnected&&document.getElementById("drawer").classList.contains("open");
-  const send=(seasonId)=>new Promise((resolve,reject)=>requestMetadata({type:"CATALOG_EPISODE_GUIDE",item:{type:item.type,externalIds:item.externalIds},seasonId},r=>{if(api.runtime.lastError||!r?.ok)reject(Error("unavailable"));else resolve(r);}));
+  const send=(seasonId)=>new Promise((resolve,reject)=>requestMetadata({type:"CATALOG_EPISODE_GUIDE",item:{type:item.type,externalIds:item.externalIds,url:item.url},seasonId},r=>{if(api.runtime.lastError||!r?.ok)reject(Error("unavailable"));else resolve(r);}));
   const label=s=>(s.number===0?(t("specialsLabel")):t("seasonNumber",{n:s.number}))+(s.name?" — "+s.name:"");
   const fail=(target,retry)=>{
     target.innerHTML='<p class="sub" role="status">'+(t("episodesUnavailable"))+'</p><button class="btn" type="button">'+(t("retryLabel"))+'</button>';

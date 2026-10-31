@@ -2826,3 +2826,36 @@ describe("TMDB season and episode guide",()=>{
     await expect(w.run('catalogEpisodeGuide({type:"watching",externalIds:{tmdb:"tv:7"}},"99")')).rejects.toThrow("season_not_in_show");
   });
 });
+
+describe("legacy TMDB guide identity",()=>{
+  it("resolves only official TV links and rejects conflicting or misleading identities",()=>{
+    const w=worker();
+    const cases=[
+      [{url:"https://www.themoviedb.org/tv/7"}, "7"],
+      [{url:"https://www.themoviedb.org/tv/7-series-name?language=fr"}, "7"],
+      [{url:"https://www.themoviedb.org/tv/7",externalIds:{tmdb:"7"}}, "7"],
+      [{externalIds:{tmdb:"tv:7"}}, "7"],
+      [{url:"https://www.themoviedb.org/tv/8",externalIds:{tmdb:"tv:7"}}, ""],
+      [{url:"https://www.themoviedb.org/tv/7",externalIds:{tmdb:"movie:7"}}, ""],
+      [{url:"https://www.themoviedb.org/movie/7"}, ""],
+      [{url:"https://www.themoviedb.org/tv/7",externalIds:{tmdb:"8"}}, ""],
+      [{url:"https://www.themoviedb.org.evil.test/tv/7"}, ""],
+      [{url:"https://user@www.themoviedb.org/tv/7"}, ""],
+      [{url:"http://www.themoviedb.org/tv/7"}, ""],
+      [{url:"https://www.themoviedb.org:8443/tv/7"}, ""],
+      [{url:"https://www.themoviedb.org/tv/7/season/2"}, ""],
+      [{externalIds:{tmdb:"7"}}, ""]
+    ];
+    for(const [item,expected] of cases){w.ctx.item=item;expect(w.run("episodeGuideTmdbId(item)")).toBe(expected);}
+  });
+  it("opens an old saved series without changing its personal progress or stored identity",async()=>{
+    const item={id:"saved",type:"watching",url:"https://www.themoviedb.org/tv/7",season:2,episode:4,notes:"Keep",tags:["Favorite"]};
+    const w=worker({"dasi.items":[item],"dasi.settings":{tmdbKey:"fixture",lang:"fr"}});
+    w.ctx.item=item;
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>({id:7,seasons:[{id:20,season_number:2,name:"Season two",episode_count:10}]})})');
+    const result=await w.call({type:"CATALOG_EPISODE_GUIDE",item});
+    expect(result.ok).toBe(true);expect(result.seasons[0].number).toBe(2);
+    expect(w.data["dasi.items"]).toEqual([item]);
+    expect(item).not.toHaveProperty("externalIds");
+  });
+});

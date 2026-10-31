@@ -1011,6 +1011,23 @@ function episodeGuideDate(value) {
   const time=Date.parse(value);
   return Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===value?value:"";
 }
+function episodeGuideTmdbId(item) {
+  const id=String(item?.externalIds?.tmdb||"").trim();
+  let linked="";
+  try {
+    const url=new URL(item?.url);
+    if(url.protocol==="https:"&&url.hostname==="www.themoviedb.org"&&!url.port&&!url.username&&!url.password){
+      const match=/^\/(tv|movie)\/([1-9]\d*)(?:-[^/]*)?\/?$/.exec(url.pathname);
+      if(match)linked=match[1]+":"+match[2];
+    }
+  }catch{}
+  if(id){
+    if(/^tv:[1-9]\d*$/.test(id))return !linked||linked===id?id.slice(3):"";
+    if(/^[1-9]\d*$/.test(id)&&linked==="tv:"+id)return id;
+    return "";
+  }
+  return linked.startsWith("tv:")?linked.slice(3):"";
+}
 const tmdbGuideCache=new Map();
 async function tmdbGuideResource(path,key,language) {
   const cacheKey=key+"|"+language+"|"+path,cached=tmdbGuideCache.get(cacheKey);
@@ -1027,7 +1044,7 @@ async function tmdbGuideResource(path,key,language) {
   return entry.task;
 }
 async function catalogEpisodeGuide(item,seasonId) {
-  const ids=identityIds(item),showId=ids.tvmaze,tmdbId=/^tv:([1-9]\d*)$/.exec(ids.tmdb||"")?.[1];
+  const ids=identityIds(item),showId=ids.tvmaze,tmdbId=episodeGuideTmdbId(item);
   if(item.type!=="watching")return {supported:false,seasons:[]};
   let raw,loadEpisodes,source,sourceUrl;
   if(/^[1-9]\d*$/.test(showId||"")) {
