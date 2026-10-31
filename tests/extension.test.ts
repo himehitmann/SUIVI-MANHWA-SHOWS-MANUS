@@ -2797,3 +2797,32 @@ describe("TMDB search identity",()=>{
     expect(result[0].synopsis).toBe("");expect(result[0].alternativeTitles).toEqual(["Valid"]);
   });
 });
+
+describe("TMDB season and episode guide",()=>{
+  it("loads the selected season by verified identity, in the selected language, with caching",async()=>{
+    const w=worker({"dasi.settings":{tmdbKey:"fixture",lang:"fr"}});
+    w.run('var paths=[];fetchRemote=async url=>{paths.push(url);return {ok:true,json:async()=>url.includes("/season/")?{id:20,season_number:1,episodes:[{id:102,show_id:7,season_number:1,episode_number:2,name:"Deux",air_date:"2024-01-02"},{id:101,show_id:7,season_number:1,episode_number:1,name:"Un",air_date:"2024-01-01"},{id:999,show_id:8,season_number:1,episode_number:3}]}:{id:7,seasons:[{id:10,season_number:0,name:"Specials",episode_count:1},{id:20,season_number:1,name:"Chapitre",episode_count:2}]}}}');
+    const item={type:"watching",externalIds:{tmdb:"tv:7"}};
+    w.ctx.item=item;
+    const guide=await w.run('catalogEpisodeGuide(item,"20")');
+    expect(guide.source).toBe("TMDB");expect(guide.sourceUrl).toBe("https://www.themoviedb.org/tv/7");
+    expect(guide.season.name).toBe("Chapitre");expect(guide.episodes.map((e:any)=>e.name)).toEqual(["Un","Deux"]);
+    expect(w.run('paths.every(url=>url.includes("language=fr"))')).toBe(true);
+    await w.run('catalogEpisodeGuide(item,"20")');expect(w.run("paths.length")).toBe(2);
+    w.data["dasi.settings"].lang="ja";
+    await w.run('catalogEpisodeGuide(item,"20")');expect(w.run("paths.length")).toBe(4);
+  });
+  it("requires a configured key and never treats a movie or unqualified ID as a TV series",async()=>{
+    const w=worker();w.run('fetchRemote=async()=>{throw Error("must not fetch")}');
+    await expect(w.run('catalogEpisodeGuide({type:"watching",externalIds:{tmdb:"tv:7"}})')).rejects.toThrow("tmdb_key_required");
+    for(const id of ["movie:7","7","tv:../7"]){w.ctx.id=id;expect((await w.run('catalogEpisodeGuide({type:"watching",externalIds:{tmdb:id}})')).supported).toBe(false);}
+  });
+  it("rejects another series or season rather than attaching its episodes",async()=>{
+    const w=worker({"dasi.settings":{tmdbKey:"fixture"}});
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>({id:8,seasons:[]})})');
+    await expect(w.run('catalogEpisodeGuide({type:"watching",externalIds:{tmdb:"tv:7"}})')).rejects.toThrow("catalog_identity_mismatch");
+    w.run('tmdbGuideCache.clear();fetchRemote=async url=>({ok:true,json:async()=>url.includes("/season/")?{id:99,season_number:1,episodes:[]}:{id:7,seasons:[{id:20,season_number:1}]}})');
+    await expect(w.run('catalogEpisodeGuide({type:"watching",externalIds:{tmdb:"tv:7"}},"20")')).rejects.toThrow("catalog_identity_mismatch");
+    await expect(w.run('catalogEpisodeGuide({type:"watching",externalIds:{tmdb:"tv:7"}},"99")')).rejects.toThrow("season_not_in_show");
+  });
+});

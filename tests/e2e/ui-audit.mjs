@@ -1143,6 +1143,35 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
  assert.deepEqual(composingSearch,{during:0,calls:["薬屋"],query:"薬屋"});
  console.log("PASS: no-space Asian title relevance, original result indices and composition-aware search");
 
+ const tmdbGuide=await page.evaluate(async()=>{
+   const original=requestMetadata,drawer=document.getElementById("drawer");
+   closeDrawer();drawer.classList.add("open");
+   const item={id:"tmdb-guide-fixture",type:"watching",externalIds:{tmdb:"tv:7"}};
+   const root=document.createElement("section");root.id="episode-guide";drawer.append(root);
+   const calls=[],seasons=[{id:"10",number:0,name:"Specials",episodeCount:1},{id:"20",number:1,name:"Chapter one",episodeCount:1},{id:"30",number:2,name:"Chapter two",episodeCount:1}];
+   requestMetadata=(message,callback)=>{
+     if(message.type!=="CATALOG_EPISODE_GUIDE")return original(message,callback);
+     calls.push(message.seasonId||null);
+     const season=seasons.find(s=>s.id===message.seasonId);
+     callback({ok:true,supported:true,seasons,source:"TMDB",sourceUrl:"https://www.themoviedb.org/tv/7",...(season?{season,episodes:[{id:"100",number:1,name:season.name+" episode",airdate:"2024-01-01",special:false}]}:{})});
+   };
+   try{
+     const supported=Boolean(episodeGuideSlot(item)),movie=Boolean(episodeGuideSlot({type:"watching",externalIds:{tmdb:"movie:7"}}));
+     mountEpisodeGuide(item);
+     await new Promise(resolve=>setTimeout(resolve,20));
+     const select=root.querySelector("select"),first=select.value,source=root.querySelector(".guide-source a");
+     const attribution={label:source.textContent,url:source.href};
+     select.value="30";select.dispatchEvent(new Event("change"));
+     await new Promise(resolve=>setTimeout(resolve,20));
+     return {supported,movie,first,attribution,calls,title:root.querySelector(".guide-episode b").textContent,progressButtons:root.querySelectorAll("[data-guide-progress]").length};
+   }finally{requestMetadata=original;root.remove();closeDrawer();}
+ });
+ assert.equal(tmdbGuide.supported,true);assert.equal(tmdbGuide.movie,false);
+ assert.equal(tmdbGuide.first,"20");assert.deepEqual(tmdbGuide.calls,[null,"20","30"]);
+ assert.deepEqual(tmdbGuide.attribution,{label:"TMDB",url:"https://www.themoviedb.org/tv/7"});
+ assert.equal(tmdbGuide.title,"Chapter two episode");assert.equal(tmdbGuide.progressButtons,0);
+ console.log("PASS: TMDB guide eligibility, source attribution, regular-season default and season switching");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

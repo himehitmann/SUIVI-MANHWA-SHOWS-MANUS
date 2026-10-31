@@ -1011,10 +1011,44 @@ function episodeGuideDate(value) {
   const time=Date.parse(value);
   return Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===value?value:"";
 }
+const tmdbGuideCache=new Map();
+async function tmdbGuideResource(path,key,language) {
+  const cacheKey=key+"|"+language+"|"+path,cached=tmdbGuideCache.get(cacheKey);
+  if(cached&&Date.now()-cached.at<600000)return cached.task;
+  const entry={at:Date.now(),task:null};
+  entry.task=fetchRemote("https://api.themoviedb.org/3"+path+"?api_key="+encodeURIComponent(key)+"&language="+encodeURIComponent(language),{credentials:"omit",redirect:"error"}).then(async response=>{
+    if(!response.ok)throw Error("episode_guide_unavailable");
+    const data=await response.json();
+    if(!data||typeof data!=="object"||Array.isArray(data))throw Error("invalid_episode_guide");
+    return data;
+  }).catch(error=>{if(tmdbGuideCache.get(cacheKey)===entry)tmdbGuideCache.delete(cacheKey);throw error;});
+  tmdbGuideCache.set(cacheKey,entry);
+  if(tmdbGuideCache.size>40)tmdbGuideCache.delete(tmdbGuideCache.keys().next().value);
+  return entry.task;
+}
 async function catalogEpisodeGuide(item,seasonId) {
-  const showId=identityIds(item).tvmaze;
-  if(item.type!=="watching"||! /^[1-9]\d*$/.test(showId||""))return {supported:false,seasons:[]};
-  const raw=await guideResource("/shows/"+showId+"/seasons");
+  const ids=identityIds(item),showId=ids.tvmaze,tmdbId=/^tv:([1-9]\d*)$/.exec(ids.tmdb||"")?.[1];
+  if(item.type!=="watching")return {supported:false,seasons:[]};
+  let raw,loadEpisodes,source,sourceUrl;
+  if(/^[1-9]\d*$/.test(showId||"")) {
+    raw=await guideResource("/shows/"+showId+"/seasons");
+    loadEpisodes=season=>guideResource("/seasons/"+season.id+"/episodes");
+    source="TVmaze";sourceUrl="https://www.tvmaze.com/shows/"+showId;
+  } else if(tmdbId) {
+    const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
+    const key=typeof settings.tmdbKey==="string"?settings.tmdbKey.trim():"";
+    if(!key)throw Error("tmdb_key_required");
+    const language=["en","fr","ja","es","de","ko","pt","zh-CN"].includes(settings.lang)?settings.lang:"en";
+    const show=await tmdbGuideResource("/tv/"+tmdbId,key,language);
+    if(String(show.id)!==tmdbId||!Array.isArray(show.seasons))throw Error("catalog_identity_mismatch");
+    raw=show.seasons.filter(s=>s&&typeof s==="object").map(s=>({id:s.id,number:s.season_number,name:s.name,episodeOrder:s.episode_count,premiereDate:s.air_date}));
+    loadEpisodes=async season=>{
+      const data=await tmdbGuideResource("/tv/"+tmdbId+"/season/"+season.number,key,language);
+      if(String(data.id)!==season.id||data.season_number!==season.number||!Array.isArray(data.episodes))throw Error("catalog_identity_mismatch");
+      return data.episodes.filter(e=>e&&typeof e==="object"&&(e.show_id===undefined||String(e.show_id)===tmdbId)).map(e=>({id:e.id,season:e.season_number,number:e.episode_number,name:e.name,airdate:e.air_date,runtime:e.runtime,type:season.number===0?"significant_special":"regular"}));
+    };
+    source="TMDB";sourceUrl="https://www.themoviedb.org/tv/"+tmdbId;
+  } else return {supported:false,seasons:[]};
   const seenSeasons=new Set(),seenEpisodes=new Set();
   const seasons=raw.filter(s=>s&&Number.isSafeInteger(s.id)&&s.id>0&&Number.isSafeInteger(s.number)&&s.number>=0).filter(s=>{
     if(seenSeasons.has(s.id))return false;seenSeasons.add(s.id);return true;
@@ -1023,10 +1057,10 @@ async function catalogEpisodeGuide(item,seasonId) {
     episodeCount:Number.isInteger(s.episodeOrder)&&s.episodeOrder>=0?s.episodeOrder:null,
     premiereDate:episodeGuideDate(s.premiereDate)
   })).sort((a,b)=>a.number-b.number);
-  if(seasonId===undefined||seasonId===null)return {supported:true,seasons};
+  if(seasonId===undefined||seasonId===null)return {supported:true,seasons,source,sourceUrl};
   const season=seasons.find(s=>s.id===String(seasonId));
   if(!season)throw Error("season_not_in_show");
-  const episodes=(await guideResource("/seasons/"+season.id+"/episodes")).filter(e=>e&&e.season===season.number&&Number.isSafeInteger(e.id)&&e.id>0).filter(e=>{
+  const episodes=(await loadEpisodes(season)).filter(e=>e&&e.season===season.number&&Number.isSafeInteger(e.id)&&e.id>0).filter(e=>{
     if(seenEpisodes.has(e.id))return false;seenEpisodes.add(e.id);return true;
   }).map(e=>({
     id:String(e.id),number:Number.isSafeInteger(e.number)&&e.number>0?e.number:null,
@@ -1040,7 +1074,7 @@ async function catalogEpisodeGuide(item,seasonId) {
     if(aRegular)return a.number-b.number||Number(a.id)-Number(b.id);
     return (a.airdate||"9999").localeCompare(b.airdate||"9999")||Number(a.id)-Number(b.id);
   });
-  return {supported:true,seasons,season,episodes};
+  return {supported:true,seasons,season,episodes,source,sourceUrl};
 }
 
 

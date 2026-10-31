@@ -3410,7 +3410,7 @@ function safeStoreLink(value) {
 }
 
 function episodeGuideSlot(item) {
-  return item.type==="watching"&&/^[1-9]\d*$/.test(String(item.externalIds?.tvmaze||""))?'<section id="episode-guide" data-i18n-static class="episode-guide" aria-label="'+(t("seasonsEpisodes"))+'"></section>':"";
+  return item.type==="watching"&&(/^[1-9]\d*$/.test(String(item.externalIds?.tvmaze||""))||/^tv:[1-9]\d*$/.test(String(item.externalIds?.tmdb||"")))?'<section id="episode-guide" data-i18n-static class="episode-guide" aria-label="'+(t("seasonsEpisodes"))+'"></section>':"";
 }
 function mountEpisodeGuide(item) {
   const root=document.getElementById("episode-guide");if(!root)return;
@@ -3429,8 +3429,8 @@ function mountEpisodeGuide(item) {
       const data=await send();if(!active()||token!==request)return;
       const seasons=data.seasons||[];
       if(!seasons.length){root.innerHTML='<p class="sub">'+(t("noSeasons"))+'</p>';return;}
-      const selected=seasons.find(s=>s.number===Number(item.season))||seasons[0];
-      root.innerHTML='<div class="section-t">'+(t("seasonsEpisodes"))+'</div>'+(seasons.length>1?'<label class="guide-season-label">'+(t("seasonLabel"))+'<select class="field" id="guide-season">'+seasons.map(s=>'<option value="'+esc(s.id)+'"'+(s.id===selected.id?' selected':'')+'>'+esc(label(s))+'</option>').join("")+'</select></label>':'<h3>'+esc(label(selected))+'</h3>')+'<div class="guide-episodes" aria-live="polite"></div><p class="sub guide-source">'+(t("dataLabel"))+'<a href="https://www.tvmaze.com/shows/'+encodeURIComponent(item.externalIds.tvmaze)+'" target="_blank" rel="noopener noreferrer">TVmaze</a></p>';
+      const selected=seasons.find(s=>s.number===Number(item.season)&&s.number>0)||seasons.find(s=>s.number>0)||seasons[0];
+      root.innerHTML='<div class="section-t">'+(t("seasonsEpisodes"))+'</div>'+(seasons.length>1?'<label class="guide-season-label">'+(t("seasonLabel"))+'<select class="field" id="guide-season">'+seasons.map(s=>'<option value="'+esc(s.id)+'"'+(s.id===selected.id?' selected':'')+'>'+esc(label(s))+'</option>').join("")+'</select></label>':'<h3>'+esc(label(selected))+'</h3>')+'<div class="guide-episodes" aria-live="polite"></div><p class="sub guide-source">'+(t("dataLabel"))+'<a href="'+esc(safeNavigationUrl(data.sourceUrl)||"https://www.tvmaze.com/shows/"+encodeURIComponent(item.externalIds.tvmaze))+'" target="_blank" rel="noopener noreferrer">'+esc(data.source||"TVmaze")+'</a></p>';
       const area=root.querySelector(".guide-episodes"),select=root.querySelector("select");
       const choose=async id=>{
         const version=++request;area.setAttribute("aria-busy","true");
