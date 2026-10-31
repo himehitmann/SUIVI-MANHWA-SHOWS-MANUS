@@ -8,6 +8,20 @@ Mise à jour : 31 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Guide des saisons et épisodes TMDB — 31 octobre 2026
+
+Commit d8fb17fe141ff1a1d2a7c21675b26714ebe31540 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41212325338) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41212321131) réussies. 667 tests unitaires, parcours navigateur, capacité et récupérations passent ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Le guide des fiches prend désormais en charge les séries ayant un identifiant TMDB tv:ID, avec la clé configurée dans les réglages. Les films et identifiants non qualifiés ne déclenchent pas de recherche de saisons. Si un identifiant TVmaze est présent, son guide reste prioritaire.
+
+Les noms de saisons, leur nombre d’épisodes, les noms/dates/durées des épisodes sont demandés dans la langue choisie. Seule la saison sélectionnée est chargée. La réponse série, la saison et les références de série des épisodes sont contrôlées avant affichage. Le cache est limité à 40 ressources pendant dix minutes et distingue clé/langue/ressource ; les échecs réseau ne sont pas conservés. La normalisation existante des doublons, de l’ordre et des dates est réutilisée.
+
+La fiche présente l’attribution du fournisseur. Par défaut, elle sélectionne une saison normale, ou la saison normale enregistrée, avant les spéciaux. Les mécanismes existants de progression, d’éligibilité et de protection contre les réponses tardives sont réutilisés.
+
+Trois tests unitaires ajoutés couvrent sélection, identité, langue/cache, absence de clé et exclusion des films. Un nouveau parcours navigateur vérifie disponibilité de la section, attribution, première saison normale, changement de saison et absence de boutons de progression pour une œuvre non enregistrée. TMDB est simulé pour ces tests : aucun contrôle avec clé réelle n’a été exécuté. Les anciennes œuvres TMDB sans identifiant qualifié ne sont pas migrées par ce lot.
+
+Documentation des endpoints : [série](https://developer.themoviedb.org/reference/tv-series-details), [saison](https://developer.themoviedb.org/reference/tv-season-details). G07 reste partiel, notamment pour validation réelle TMDB et couverture des autres fournisseurs. Avancement inchangé : 21/60 (35 %). Aucun déploiement ni installation dans Chrome.
+
 ## TMDB : conserver l’identité et le titre original — 31 octobre 2026
 
 Commit b8caafb3562764b8c92bef283d6fe00cd155f41f : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41211636280) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41211632573) réussies. 664 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
