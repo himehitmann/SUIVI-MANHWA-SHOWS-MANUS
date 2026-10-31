@@ -8,6 +8,18 @@ Mise à jour : 31 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Fiches : ordre des épisodes et dates fiables — 31 octobre 2026
+
+Commit 2670741ac3132b2b4e8ac55cc1c2637bb6f98cd7 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41211172693) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41211169286) réussies. 662 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Les saisons et épisodes TVmaze sont dédoublonnés par identifiant fournisseur. Les épisodes réguliers sont triés par numéro, avec identifiant comme départage stable ; les spéciaux/non numérotés suivent, par date connue puis identifiant. Les saisons et numéros d’épisode doivent être des entiers sûrs. Aucun numéro ni nom n’est inventé.
+
+Les dates de début de saison et de diffusion doivent correspondre à une vraie date calendaire au format AAAA-MM-JJ. Une date impossible ou non canonique devient inconnue ; elle ne peut donc plus rendre un épisode admissible au bouton de progression. Les dates bissextiles valides sont conservées. Les tableaux reçus et conservés en cache ne sont pas mutés.
+
+Deux tests ajoutés vérifient tri, doublons, spéciaux, données source intactes, intégration des dates invalides et cas calendaires. Les parcours existants d’ouverture, changement de saison et sauvegarde de progression restent réussis.
+
+G07 reste partiel : ce lot fiabilise le guide TVmaze, sans ajouter les saisons des autres fournisseurs. Avancement inchangé : 21/60 (35 %). Aucun déploiement ni installation dans Chrome.
+
 ## Réception de la recherche G08 — 31 octobre 2026
 
 G08 passe de P à V sur la base de [la réception détaillée](SEARCH-ACCEPTANCE-2026-10-31.md) et des CI PR 41190184934 / push 41190181910 réussies. 660 tests unitaires et parcours navigateur validés.
