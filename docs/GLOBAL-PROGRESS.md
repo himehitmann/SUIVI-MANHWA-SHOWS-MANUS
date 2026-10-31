@@ -6,7 +6,15 @@ Mise à jour : 31 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
-**20 / 60 = 33,3 % global vérifié (33 % arrondi).** Les contrôles historiques comptent 14 V et les critères supplémentaires 6 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+**21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Réception de la recherche G08 — 31 octobre 2026
+
+G08 passe de P à V sur la base de [la réception détaillée](SEARCH-ACCEPTANCE-2026-10-31.md) et des CI PR 41190184934 / push 41190181910 réussies. 660 tests unitaires et parcours navigateur validés.
+
+Cinq recherches réelles ont fourni des résultats au premier relevé (~0,5 seconde), avec les titres exacts en tête du classement d’interface et une pagination conservant les résultats. L’observation a révélé puis confirmé la correction du cas Steam vide (start=-1, total_count=0), auparavant considéré comme une erreur à relancer. Les pannes Jikan restent signalées ; elles n’empêchent pas les autres sources de répondre.
+
+**Avancement : 21/60 = 35 %.** La couverture exhaustive G02 et la publication restent à traiter. Aucun changement installé dans Chrome.
 
 ## Recherche thématique indépendante et dépendance corrigée — 31 octobre 2026
 
@@ -769,7 +777,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G05 | Fiches internes complètes avec tags, personnages, acteurs et titres lisibles | P | Fiches internes présentes ; complétude des fournisseurs et présentation à élargir. |
 | G06 | Images et bandes-annonces robustes, sans recadrage gênant | P | Replis, proportions et activation volontaire présents ; vidéos indisponibles et portrait réel à vérifier. |
 | G07 | Saisons et épisodes nommés avec progression cohérente | P | Guide TVmaze disponible ; autres catalogues et saisons particulières à compléter. |
-| G08 | Recherche progressive rapide, pertinente et paginée au-delà des petits résultats | P | Pagination à la demande AniList/Jikan/Steam/Open Library, puis TMDB/RAWG avec clés configurées (CI #572). Filtres conservés, dédoublonnage, reprise et courses entre recherches testés. Continuation Wikipedia par langue validée (CI #576). Classement titres/alias/thèmes/synopsis et deux recherches réelles contrôlés (CI #584). Pagination Steam (25 résultats, rejet de page répétée) et thèmes manga/anime indépendants testés ; attente Jikan bornée dès la mise en file. Restent la mesure de latence réelle et la couverture thématique inter-fournisseurs. |
+| G08 | Recherche progressive rapide, pertinente et paginée au-delà des petits résultats | V | Réception du 31 octobre : voir docs/SEARCH-ACCEPTANCE-2026-10-31.md. Classement, filtres, pagination, reprises, composition et sources lentes testés ; cinq recherches réelles, titres exacts en tête, premiers résultats au premier relevé (~0,5 s). Steam vide corrigé. Couverture exhaustive et disponibilité permanente exclues de ce critère. |
 | G09 | Filtres type, genre, diffusion, dates futures et prix correctement combinés | V | CI #606 et #614 : combinaisons année 2028/gratuit, changement de type, genres conservés pendant chargement, états séparés et portée œuvre/série vs saison/partie. Mapping AniList/Jikan/TVmaze, ajout, actualisation et rechargement Chrome vérifiés. Les métadonnées manquantes restent inconnues ; couverture des fournisseurs distincte de ce critère. |
 | G10 | Jeux au-delà de Steam, boutiques officielles, prix et tags détaillés | P | Steam et RAWG avec clé personnelle : repli sur identifiant connu, plateformes/boutiques fusionnées, genres conservés et refresh sans perte des modifications personnelles testés. Prix multi-boutiques, droits et couverture réelle restent partiels. |
 | G11 | Actualités récentes, codes et récompenses structurés avec expiration | NV | Ne pas confondre annonces génériques et codes actifs vérifiés. Flux officiels et expiration à réaliser. |
