@@ -1,0 +1,21 @@
+name: Resolve security lockfile
+on:
+  push:
+    branches: ["fix/yomu-p0-reliability"]
+    paths: [".github/workflows/refresh-lock.yml"]
+permissions:
+  contents: read
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile
+      - run: git diff -- pnpm-lock.yaml
