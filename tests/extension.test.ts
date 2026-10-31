@@ -868,6 +868,34 @@ describe("series episode guide",()=>{
     await w.call({type:"CATALOG_EPISODE_GUIDE",item,seasonId:"20"});
     expect(w.run("guidePaths.length")).toBe(2);
   });
+  it("orders regular episodes, separates specials and removes duplicate provider IDs",async()=>{
+    const w=worker();
+    w.ctx.seasons=[{id:20,number:2,premiereDate:"2025-02-29"},{id:10,number:1},{id:20,number:2}];
+    w.ctx.episodes=[
+      {id:105,season:2,number:null,type:"significant_special",airdate:"2024-02-03"},
+      {id:103,season:2,number:3,type:"regular",airdate:"2026-02-30"},
+      {id:101,season:2,number:1,type:"regular"},
+      {id:101,season:2,number:1,type:"regular"},
+      {id:102,season:2,number:2,type:"regular"},
+      {id:104,season:2,number:null,type:"significant_special",airdate:"2024-01-01"}
+    ];
+    const original=JSON.stringify(w.ctx.episodes);
+    w.run('fetchRemote=async url=>({ok:true,json:async()=>url.endsWith("/seasons")?seasons:episodes})');
+    const result=await w.run('catalogEpisodeGuide({type:"watching",externalIds:{tvmaze:"7"}},"20")');
+    expect(result.seasons.map((s:any)=>s.id)).toEqual(["10","20"]);
+    expect(result.episodes.map((e:any)=>e.id)).toEqual(["101","102","103","104","105"]);
+    expect(result.season.premiereDate).toBe("");expect(result.episodes[2].airdate).toBe("");
+    expect(JSON.stringify(w.ctx.episodes)).toBe(original);
+  });
+  it("rejects impossible and noncanonical dates while preserving leap days",()=>{
+    const w=worker();
+    for(const date of ["2024-02-29","2026-10-31"]) {
+      w.ctx.date=date;expect(w.run("episodeGuideDate(date)")).toBe(date);
+    }
+    for(const date of ["2025-02-29","2026-02-30","2026-13-01","2026-00-01","2026-1-01","2026-01-01T00:00:00Z","",null,123]){
+      w.ctx.date=date;expect(w.run("episodeGuideDate(date)")).toBe("");
+    }
+  });
   it("rejects seasons belonging to another show before requesting episodes",async()=>{
     const w=worker();w.run('var guidePaths=[];fetchRemote=async url=>{guidePaths.push(url);return {ok:true,json:async()=>[{id:10,number:1}]};}');
     const result=await w.call({type:"CATALOG_EPISODE_GUIDE",item:{type:"watching",externalIds:{tvmaze:"7"}},seasonId:"999"});

@@ -1006,25 +1006,40 @@ async function guideResource(path) {
   if(episodeGuideCache.size>40)episodeGuideCache.delete(episodeGuideCache.keys().next().value);
   return entry.task;
 }
+function episodeGuideDate(value) {
+  if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(value))return "";
+  const time=Date.parse(value);
+  return Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===value?value:"";
+}
 async function catalogEpisodeGuide(item,seasonId) {
   const showId=identityIds(item).tvmaze;
   if(item.type!=="watching"||! /^[1-9]\d*$/.test(showId||""))return {supported:false,seasons:[]};
   const raw=await guideResource("/shows/"+showId+"/seasons");
-  const seasons=raw.filter(s=>s&&Number.isSafeInteger(s.id)&&s.id>0&&Number.isInteger(s.number)&&s.number>=0).map(s=>({
+  const seenSeasons=new Set(),seenEpisodes=new Set();
+  const seasons=raw.filter(s=>s&&Number.isSafeInteger(s.id)&&s.id>0&&Number.isSafeInteger(s.number)&&s.number>=0).filter(s=>{
+    if(seenSeasons.has(s.id))return false;seenSeasons.add(s.id);return true;
+  }).map(s=>({
     id:String(s.id),number:s.number,name:typeof s.name==="string"?s.name.slice(0,300):"",
     episodeCount:Number.isInteger(s.episodeOrder)&&s.episodeOrder>=0?s.episodeOrder:null,
-    premiereDate:typeof s.premiereDate==="string"?s.premiereDate:""
+    premiereDate:episodeGuideDate(s.premiereDate)
   })).sort((a,b)=>a.number-b.number);
   if(seasonId===undefined||seasonId===null)return {supported:true,seasons};
   const season=seasons.find(s=>s.id===String(seasonId));
   if(!season)throw Error("season_not_in_show");
-  const episodes=(await guideResource("/seasons/"+season.id+"/episodes")).filter(e=>e&&e.season===season.number&&Number.isSafeInteger(e.id)&&e.id>0).map(e=>({
-    id:String(e.id),number:Number.isInteger(e.number)&&e.number>0?e.number:null,
+  const episodes=(await guideResource("/seasons/"+season.id+"/episodes")).filter(e=>e&&e.season===season.number&&Number.isSafeInteger(e.id)&&e.id>0).filter(e=>{
+    if(seenEpisodes.has(e.id))return false;seenEpisodes.add(e.id);return true;
+  }).map(e=>({
+    id:String(e.id),number:Number.isSafeInteger(e.number)&&e.number>0?e.number:null,
     name:typeof e.name==="string"?e.name.slice(0,300):"",
-    airdate:typeof e.airdate==="string"?e.airdate:"",
+    airdate:episodeGuideDate(e.airdate),
     runtime:Number.isFinite(e.runtime)&&e.runtime>0?e.runtime:null,
     special:e.type!=="regular"&&e.type!==undefined
-  }));
+  })).sort((a,b)=>{
+    const aRegular=a.number!==null&&!a.special,bRegular=b.number!==null&&!b.special;
+    if(aRegular!==bRegular)return aRegular?-1:1;
+    if(aRegular)return a.number-b.number||Number(a.id)-Number(b.id);
+    return (a.airdate||"9999").localeCompare(b.airdate||"9999")||Number(a.id)-Number(b.id);
+  });
   return {supported:true,seasons,season,episodes};
 }
 
