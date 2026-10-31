@@ -2770,3 +2770,30 @@ describe("system notification destinations",()=>{
     expect(w.data["dasi.notifications"]).toEqual([{id:"history"}]);
   });
 });
+
+describe("TMDB search identity",()=>{
+  it("keeps homonymous series distinct and preserves original titles",async()=>{
+    const w=worker();
+    w.ctx.rows=[
+      {id:1,media_type:"tv",name:"Same title",original_name:"原題",first_air_date:"2024-01-01"},
+      {id:2,media_type:"tv",name:"Same title",original_name:"Other original",first_air_date:"2024-01-01"},
+      {id:1,media_type:"movie",title:"Same title",original_title:"Original film",release_date:"2024-02-29"}
+    ];
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>({results:rows,total_pages:1})})');
+    const results=await w.run('tmdbSearch("Same title","fixture")');
+    expect(results.map((r:any)=>r.externalIds.tmdb)).toEqual(["tv:1","tv:2","movie:1"]);
+    expect(results[0].alternativeTitles).toEqual(["Same title","原題"]);
+    expect(results[0].year).toBe(2024);expect(results[0].season).toBeUndefined();
+    w.ctx.results=results;
+    expect(w.run("mergeCatalogResults(results)")).toHaveLength(3);
+    expect(w.run("mergeCatalogResults([...results,...results])")).toHaveLength(3);
+  });
+  it("rejects people and unusable identities without inventing dates",async()=>{
+    const w=worker();
+    w.ctx.rows=[null,{id:1,media_type:"person",name:"Actor"},{media_type:"tv",name:"Missing ID"},{id:-1,media_type:"tv",name:"Invalid"},{id:3,media_type:"tv",name:" "},{id:4,media_type:"tv",name:"Valid",first_air_date:"2025-02-29",overview:123,original_name:123}];
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>({results:rows,total_pages:1})})');
+    const result=await w.run('tmdbSearch("Valid","fixture")');
+    expect(result).toHaveLength(1);expect(result[0].year).toBeUndefined();
+    expect(result[0].synopsis).toBe("");expect(result[0].alternativeTitles).toEqual(["Valid"]);
+  });
+});

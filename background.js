@@ -1348,15 +1348,18 @@ async function tmdbSearch(query, key, page=1, onPage) {
   if(!Array.isArray(data.results))throw Error("tmdb_response_invalid");
   if(onPage)onPage("tmdb",page,page<Number(data.total_pages));
   return data.results
-    .filter((r) => (r.media_type === "movie" || r.media_type === "tv") && (r.title || r.name))
+    .filter((r) => r && (r.media_type === "movie" || r.media_type === "tv") && Number.isSafeInteger(r.id) && r.id>0 && [r.title,r.name].some(value=>typeof value==="string"&&value.trim()))
     .slice(0, 20)
     .map((r) => ({
-      title: r.title || r.name,
+      title: (typeof r.title==="string"&&r.title.trim()?r.title:r.name).trim().slice(0,300),
+      source: "tmdb",
+      externalIds: {tmdb:r.media_type+":"+r.id},
+      alternativeTitles: [...new Set([r.title,r.name,r.original_title,r.original_name].filter(value=>typeof value==="string"&&value.trim()).map(value=>value.trim().slice(0,300)))],
       type: "watching",
       cover: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : "",
-      synopsis: (r.overview || "").slice(0, 20000),
+      synopsis: typeof r.overview==="string"?r.overview.slice(0,20000):"",
       genres: [],
-      season: (r.release_date || r.first_air_date || "").slice(0, 4) || undefined,
+      year: Number(episodeGuideDate(r.release_date || r.first_air_date).slice(0,4)) || undefined,
       format: r.media_type === "tv" ? "TV" : "Movie",
       url: `https://www.themoviedb.org/${r.media_type}/${r.id}`,
     }));
