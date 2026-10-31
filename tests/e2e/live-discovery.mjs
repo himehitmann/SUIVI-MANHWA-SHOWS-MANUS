@@ -66,12 +66,16 @@ try{
   }
 
   report.searches=[];
-  for(const query of ["yandere","portal"]){
+  for(const query of ["yandere","portal","鬼滅の刃","Breaking Bad","Stardew Valley"]){
     const observation=await worker.evaluate(async query=>{
       const began=Date.now(),result={query,firstResultsMilliseconds:null,rounds:[]};
-      const originalRemote=fetchRemote;result.steamResponses=[];
+      const originalRemote=fetchRemote;result.steamResponses=[];result.requests=[];
       fetchRemote=async(input,options)=>{
-        const response=await originalRemote(input,options);
+        const requestedAt=Date.now(),host=new URL(input).hostname;
+        let response;
+        try{response=await originalRemote(input,options);}
+        catch(error){result.requests.push({host,milliseconds:Date.now()-requestedAt,error:String(error.message).slice(0,100)});throw error;}
+        result.requests.push({host,milliseconds:Date.now()-requestedAt,status:response.status});
         try{
           const url=new URL(input);
           if(url.hostname==="store.steampowered.com"&&url.pathname==="/search/results/"&&url.searchParams.get("term")===query){
@@ -104,10 +108,21 @@ try{
           matchingTitleCount:rows.filter(row=>String(row.title||"").toLowerCase().includes(query)).length
         });
       }
+      result.displayCandidates=(response?.results||[]).map(row=>({title:row.title,alternativeTitles:row.alternativeTitles,genres:row.genres,tags:row.tags,catalogTags:row.catalogTags,synopsis:row.synopsis,popularity:row.popularity,type:row.type}));
       return result;
       }finally{fetchRemote=originalRemote;}
     },query);
+    const display=await page.evaluate(({query,rows})=>{
+      const ranked=rankCatalogResults(rows,query);
+      const key=value=>String(value||"").normalize("NFKC").trim().toLowerCase();
+      const exact=ranked.filter(row=>key(row.item.title)===key(query));
+      return {count:ranked.length,exactTitleCount:exact.length,exactTitleFirst:!exact.length||key(ranked[0]?.item.title)===key(query),sample:ranked.slice(0,8).map(row=>({title:row.item.title,type:row.item.type,score:row.score}))};
+    },{query,rows:observation.displayCandidates});
+    delete observation.displayCandidates;
+    observation.display=display;
+    assert(display.exactTitleFirst,"An available exact title must precede less relevant matches");
     report.searches.push(observation);
+    console.log("LIVE_SEARCH_OBSERVATION",JSON.stringify(observation));
     const [first,second]=observation.rounds;
     if(second)assert(second.count>=first.count,"Loading more must retain previously received results");
     for(const round of observation.rounds)for(const item of round.sample)assert(["reading","watching","game"].includes(item.type),"Search must contain works");
