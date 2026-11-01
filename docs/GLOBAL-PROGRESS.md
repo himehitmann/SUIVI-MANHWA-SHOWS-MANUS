@@ -8,6 +8,16 @@ Mise à jour : 1er novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi re
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Guide TMDB : nouvelle tentative après réponse incorrecte — 1er novembre 2026
+
+Commit e28d8222ee6fc794c13fbef07190a7025e7a1f32 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41305310643) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41305307039) réussies. 671 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+La validation de l’identité et de la structure TMDB est maintenant effectuée avant qu’une ressource soit considérée comme un résultat réutilisable du cache. Une réponse présentant une autre série/saison, un numéro de saison incompatible ou une liste absente est évincée ; une nouvelle tentative contacte à nouveau le fournisseur immédiatement. Auparavant, la validation intervenait après le chargement du cache, ce qui pouvait conserver la mauvaise réponse pendant dix minutes.
+
+La clé de cache comprend aussi l’identifiant attendu de la ressource. Une série déjà validée reste en cache lorsqu’un chargement de saison échoue. Les contrôles de cohérence au niveau du guide sont conservés.
+
+Deux tests supplémentaires couvrent cinq variantes invalides, leur récupération immédiate et la conservation du cache valide. Les tests navigateur existants de sélection de saison et de fiche ancienne restent réussis. Réponses TMDB simulées ; aucun compte ou service réel ajouté. G07 reste partiel et avancement inchangé : 21/60 (35 %). Aucun déploiement ni installation dans Chrome.
+
 ## Anciennes fiches TMDB : guide sans migration — 1er novembre 2026
 
 Commit 618000757c3c16386b26d12f68f924b7f9362b64 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41212870503) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41212866401) réussies. 669 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
