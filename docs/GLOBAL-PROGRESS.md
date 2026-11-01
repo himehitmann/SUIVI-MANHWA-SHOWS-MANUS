@@ -8,6 +8,16 @@ Mise à jour : 1er novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi re
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Recherche TMDB dans la langue choisie — 1er novembre 2026
+
+Commit 50367779e43793eddabd4024db41c277186ed0e9 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41343221098) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41343216015) réussies. 679 tests unitaires, paquet, contrôles navigateur, charge et récupération réussis. Audit des dépendances sans vulnérabilité connue signalée.
+
+La recherche TMDB transmet désormais la langue des réglages sur la première page et les pages suivantes. Les huit langues de Yomu sont acceptées ; une valeur non prise en charge utilise en. Les titres originaux restent dans les titres alternatifs. Deux tests vérifient les huit langues, le repli, le titre et synopsis retournés par le fournisseur et la pagination réelle du moteur fédéré avec réponses simulées.
+
+Référence : [paramètre language de la recherche TMDB](https://developer.themoviedb.org/reference/search-multi). L'API utilise en-US par défaut lorsque ce paramètre manque, ce qui expliquait une partie des résultats anglais malgré le choix d'une autre langue.
+
+Limites : les traductions dépendent de leur disponibilité chez TMDB ; aucune clé réelle ajoutée ni traduction complète du catalogue affirmée. G16 demeure partiel. **21/60 = 35 % global vérifié**, inchangé. Aucun déploiement ou mise à jour de l'extension installée.
+
 ## Recherche : prise en compte immédiate des réglages — 1er novembre 2026
 
 Commit a5d0f695138e58364a856479af4a136321a8c35e : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41342655966) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41342651071) réussies.
