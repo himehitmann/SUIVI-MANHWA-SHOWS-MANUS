@@ -2885,3 +2885,32 @@ describe("TMDB guide recovery after invalid provider responses",()=>{
     }
   });
 });
+
+describe("episode guide whole-response deadline",()=>{
+  it("expires stalled TVmaze JSON, evicts it and ignores a late response after recovery",async()=>{
+    const w=worker();
+    w.run('var expire,signal,finishBody;setTimeout=(fn,ms)=>{if(ms===12000)expire=fn;return 0};clearTimeout=()=>{};fetchRemote=async(_url,options)=>{signal=options.signal;return {ok:true,json:()=>new Promise(resolve=>{finishBody=resolve})}}');
+    const pending=w.run('guideResource("/shows/7/seasons")');
+    const rejected=expect(pending).rejects.toThrow("episode_guide_timeout");
+    for(let n=0;n<20&&!w.run("typeof finishBody===\'function\'");n++)await Promise.resolve();
+    w.run("expire()");await rejected;
+    expect(w.run("signal.aborted")).toBe(true);
+    expect(w.run("episodeGuideCache.size")).toBe(0);
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>[{id:20,number:1}]})');
+    expect(await w.run('guideResource("/shows/7/seasons")')).toEqual([{id:20,number:1}]);
+    w.run('finishBody([{id:99,number:99}])');
+    await Promise.resolve();
+    expect(await w.run('guideResource("/shows/7/seasons")')).toEqual([{id:20,number:1}]);
+  });
+  it("bounds TMDB JSON and permits retry without retaining the timed-out cache entry",async()=>{
+    const w=worker();
+    w.run('var expire;setTimeout=(fn,ms)=>{if(ms===12000)expire=fn;return 0};clearTimeout=()=>{};fetchRemote=async()=>({ok:true,json:()=>new Promise(()=>{})})');
+    const pending=w.run('tmdbGuideResource("/tv/7","fixture","fr","7")');
+    const rejected=expect(pending).rejects.toThrow("episode_guide_timeout");
+    await Promise.resolve();await Promise.resolve();
+    w.run("expire()");await rejected;
+    expect(w.run("tmdbGuideCache.size")).toBe(0);
+    w.run('fetchRemote=async()=>({ok:true,json:async()=>({id:7,seasons:[]})})');
+    expect(await w.run('tmdbGuideResource("/tv/7","fixture","fr","7")')).toEqual({id:7,seasons:[]});
+  });
+});

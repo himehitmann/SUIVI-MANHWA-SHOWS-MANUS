@@ -991,14 +991,26 @@ async function jikanDetail(item) {
 
 
 // Public episode metadata is fetched only when a detail panel requests it.
+async function episodeGuideJson(url) {
+  const controller=new AbortController();
+  let timer;
+  try{
+    return await Promise.race([
+      (async()=>{
+        const response=await fetchRemote(url,{signal:controller.signal,credentials:"omit",redirect:"error"});
+        if(!response.ok)throw Error("episode_guide_unavailable");
+        return response.json();
+      })(),
+      new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error("episode_guide_timeout"));},12000);})
+    ]);
+  }finally{clearTimeout(timer);}
+}
 const episodeGuideCache=new Map();
 async function guideResource(path) {
   const cached=episodeGuideCache.get(path);
   if(cached&&Date.now()-cached.at<600000)return cached.task;
   const entry={at:Date.now(),task:null};
-  entry.task=fetchRemote("https://api.tvmaze.com"+path).then(async response=>{
-    if(!response.ok)throw Error("episode_guide_unavailable");
-    const data=await response.json();
+  entry.task=episodeGuideJson("https://api.tvmaze.com"+path).then(data=>{
     if(!Array.isArray(data))throw Error("invalid_episode_guide");
     return data;
   }).catch(error=>{if(episodeGuideCache.get(path)===entry)episodeGuideCache.delete(path);throw error;});
@@ -1033,9 +1045,7 @@ async function tmdbGuideResource(path,key,language,expectedId) {
   const cacheKey=key+"|"+language+"|"+path+"|"+expectedId,cached=tmdbGuideCache.get(cacheKey);
   if(cached&&Date.now()-cached.at<600000)return cached.task;
   const entry={at:Date.now(),task:null};
-  entry.task=fetchRemote("https://api.themoviedb.org/3"+path+"?api_key="+encodeURIComponent(key)+"&language="+encodeURIComponent(language),{credentials:"omit",redirect:"error"}).then(async response=>{
-    if(!response.ok)throw Error("episode_guide_unavailable");
-    const data=await response.json();
+  entry.task=episodeGuideJson("https://api.themoviedb.org/3"+path+"?api_key="+encodeURIComponent(key)+"&language="+encodeURIComponent(language)).then(data=>{
     if(!data||typeof data!=="object"||Array.isArray(data))throw Error("invalid_episode_guide");
     const seasonNumber=/\/season\/(\d+)$/.exec(path)?.[1];
     if(String(data.id)!==String(expectedId))throw Error("catalog_identity_mismatch");
