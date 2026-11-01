@@ -1406,8 +1406,9 @@ async function wikipediaSearch(query, lang, page=1, onPage, offset=0) {
 }
 
 /** Films & TV via TMDB (needs the user's free API key from settings). */
-async function tmdbSearch(query, key, page=1, onPage) {
-  const url = `https://api.themoviedb.org/3/search/multi?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(query)}&include_adult=false&page=${page}`;
+async function tmdbSearch(query, key, page=1, onPage, language="en") {
+  const locale=["en","fr","ja","es","de","ko","pt","zh-CN"].includes(language)?language:"en";
+  const url = `https://api.themoviedb.org/3/search/multi?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(query)}&include_adult=false&page=${page}&language=${encodeURIComponent(locale)}`;
   const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`tmdb_${res.status}`);
   const data = await res.json();
@@ -1516,7 +1517,7 @@ async function catalogSearchProgress(query,retry=false,more=null) {
             const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
             const apiKey=source==="tmdb"?settings.tmdbKey:settings.rawgKey;
             if(!apiKey){report(source,state.page,false);return;}
-            results=await (source==="tmdb"?tmdbSearch:rawgSearch)(text,apiKey,state.page,report);
+            results=await (source==="tmdb"?tmdbSearch:rawgSearch)(text,apiKey,state.page,report,settings.lang);
           }
           else return;
           job.results=mergeCatalogResults([...job.results,...results],CATALOG_RESULT_LIMIT);
@@ -1542,7 +1543,7 @@ async function catalogSearchAll(query,onProgress,onPage) {
   // or Korean film) surface even if the English page is thin.
   const wl = (s && s.lang || "en").slice(0, 2);
   if (wl && wl !== "en") tasks.push(tracked("wiki-"+wl,wikipediaSearch(query, wl,1,onPage)));
-  if (s && s.tmdbKey) tasks.push(tracked("tmdb",tmdbSearch(query, s.tmdbKey,1,onPage)));
+  if (s && s.tmdbKey) tasks.push(tracked("tmdb",tmdbSearch(query, s.tmdbKey,1,onPage,s.lang)));
   if (s && s.rawgKey) tasks.push(tracked("rawg",rawgSearch(query, s.rawgKey,1,onPage)));
   const settled=await Promise.allSettled(tasks.map(task=>Promise.resolve(task).then(results=>{publish(results);return results;})));
   if(settled.every(r=>r.status==="rejected"))throw new Error("catalog_unavailable");

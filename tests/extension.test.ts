@@ -2967,3 +2967,31 @@ describe("search cache after catalog settings changes",()=>{
    expect((await w.run('catalogSearchProgress("Series")')).cursor).toBe(initial.cursor);
  });
 });
+
+describe("TMDB localized search",()=>{
+ it("sends all eight supported languages and preserves original titles while rejecting an unsupported locale",async()=>{
+  const w=worker();
+  w.run('var requested=[];fetchRemote=async url=>{requested.push(new URL(url));return {ok:true,json:async()=>({results:[{id:7,media_type:"tv",name:"Titre localisé",original_name:"Original title",overview:"Résumé localisé"}],total_pages:1})}}');
+  for(const language of ["en","fr","ja","es","de","ko","pt","zh-CN","unsupported"]){
+    w.ctx.language=language;
+    const result=await w.run('tmdbSearch("Title","fixture",1,null,language)');
+    expect(w.run('requested.at(-1).searchParams.get("language")')).toBe(language==="unsupported"?"en":language);
+    expect(result[0].title).toBe("Titre localisé");
+    expect(result[0].synopsis).toBe("Résumé localisé");
+    expect(result[0].alternativeTitles).toEqual(["Titre localisé","Original title"]);
+  }
+ });
+ it("uses the saved language for both initial federated search and subsequent TMDB pages",async()=>{
+  const w=worker({"dasi.settings":{tmdbKey:"fixture",lang:"ja"}});
+  w.run('mangaSearchResilient=async()=>[];steamSearch=async()=>[];openLibrarySearch=async()=>[];tvmazeSearch=async()=>[];wikipediaSearch=async()=>[];var requested=[];fetchRemote=async url=>{const u=new URL(url);requested.push({page:u.searchParams.get("page"),language:u.searchParams.get("language")});return {ok:true,json:async()=>({results:[{id:Number(u.searchParams.get("page")),media_type:"tv",name:"Title "+u.searchParams.get("page")}],total_pages:2})}}');
+  await w.run('catalogSearchProgress("Title")');
+  await w.run('Promise.all([...catalogJobs.values()].map(job=>job.task))');
+  const first=await w.run('catalogSearchProgress("Title")');expect(first.hasMore).toBe(true);
+  w.ctx.cursor=first.cursor;
+  await w.run('catalogSearchProgress("Title",false,cursor)');
+  await w.run('Promise.all([...catalogJobs.values()].map(job=>job.task))');
+  const second=await w.run('catalogSearchProgress("Title")');
+  expect(w.run("requested")).toEqual([{page:"1",language:"ja"},{page:"2",language:"ja"}]);
+  expect(second.results).toHaveLength(2);expect(second.hasMore).toBe(false);
+ });
+});
