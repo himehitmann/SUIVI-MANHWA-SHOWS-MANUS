@@ -1,12 +1,22 @@
 # Suivi global Yomu
 
-Mise à jour : 31 octobre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 1er novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Anciennes fiches TMDB : guide sans migration — 1er novembre 2026
+
+Commit 618000757c3c16386b26d12f68f924b7f9362b64 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41212870503) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41212866401) réussies. 669 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Le guide reconnaît maintenant une ancienne série à partir de son URL HTTPS officielle www.themoviedb.org/tv/ID (avec slug éventuel), même sans identifiant externe qualifié. Un ancien identifiant numérique doit correspondre au lien. Les identifiants explicites contradictoires, liens de films, sous-domaines trompeurs, identifiants de connexion dans l’URL, ports non standards et chemins de sous-pages sont refusés. Aucune recherche approximative par titre ne sert à résoudre la série.
+
+La résolution est utilisée à la demande dans l’interface et le moteur du guide ; aucune migration ni écriture des œuvres enregistrées. Le test de stockage confirme la conservation de saison, épisode, notes et tags. Le parcours navigateur transmet le lien officiel, sélectionne la saison enregistrée, change de saison et conserve l’attribution TMDB.
+
+La clé TMDB reste nécessaire. Les contrôles TMDB utilisent des réponses simulées ; la disponibilité réelle et les langues fournies par ce service restent à vérifier avec une clé configurée. G07 reste partiel. Avancement inchangé : 21/60 (35 %). Aucun déploiement ni installation dans Chrome.
 
 ## Guide des saisons et épisodes TMDB — 31 octobre 2026
 
