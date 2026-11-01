@@ -1237,6 +1237,35 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
  assert.deepEqual(guideRaces,{newest:true,replaced:true,closed:true,retried:true});
  console.log("PASS: episode guide latest-season wins, replaced drawer isolation, closed drawer and retry");
 
+
+ const catalogKeys=await page.evaluate(async()=>{
+   const original=requestMetadata,previous=settings,pending=[];
+   const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+   requestMetadata=(message,callback)=>{if(message.type==="SET_SETTINGS"){pending.push({message,callback});return;}return original(message,callback);};
+   try{
+     settings={...settings,lang:"fr",tmdbKey:"existing-fixture",rawgKey:"other-fixture"};switchView("settings");
+     const input=document.getElementById("key-tmdbKey"),save=document.getElementById("key-save-tmdbKey"),remove=document.getElementById("key-remove-tmdbKey");
+     const concealed=input.type==="password"&&input.value===""&&!document.getElementById("catalog-settings").innerHTML.includes("existing-fixture");
+     input.value="invalid key";save.click();await tick();const invalid=pending.length===0&&input.getAttribute("aria-invalid")==="true";
+     input.value="replacement-fixture";save.click();save.click();const guarded=pending.length===1&&input.disabled&&remove.disabled;
+     pending.shift().callback({ok:false});await tick();
+     const retained=input.value==="replacement-fixture"&&settings.tmdbKey==="existing-fixture"&&!save.disabled;
+     save.click();pending.shift().callback({ok:true,settings:{tmdbKey:"replacement-fixture"}});await tick();
+     const saved=input.value===""&&settings.tmdbKey==="replacement-fixture"&&settings.rawgKey==="other-fixture"&&!remove.disabled;
+     remove.click();const clear=pending.shift();const explicit=clear.message.patch.tmdbKey==="";clear.callback({ok:true,settings:{tmdbKey:""}});await tick();
+     const removed=explicit&&settings.tmdbKey===""&&remove.disabled;
+     const drawer=document.getElementById("drawer");drawer.classList.add("open");
+     const root=document.createElement("section");root.id="episode-guide";drawer.append(root);
+     requestMetadata=(message,callback)=>message.type==="CATALOG_EPISODE_GUIDE"?callback({ok:false,error:"tmdb_key_required"}):original(message,callback);
+     mountEpisodeGuide({type:"watching",externalIds:{tmdb:"tv:7"}});await tick();
+     const actionable=root.textContent.includes("TMDB")&&root.querySelector("button").textContent===t("settings");
+     root.querySelector("button").click();const routed=view==="settings"&&document.activeElement.id==="key-tmdbKey";root.remove();
+     return {concealed,invalid,guarded,retained,saved,removed,actionable,routed};
+   }finally{requestMetadata=original;settings=previous;closeDrawer();switchView("home");}
+ });
+ assert.deepEqual(catalogKeys,{concealed:true,invalid:true,guarded:true,retained:true,saved:true,removed:true,actionable:true,routed:true});
+ console.log("PASS: optional catalog keys remain concealed, validate, save, recover from failure, remove and route from guide");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

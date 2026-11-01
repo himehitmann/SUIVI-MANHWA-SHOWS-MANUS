@@ -2667,7 +2667,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Online search-to-add (AniList): returns catalog results for a title.
     case "CATALOG_EPISODE_GUIDE":
-      catalogEpisodeGuide(message.item||{},message.seasonId).then(data=>sendResponse({ok:true,...data}),()=>sendResponse({ok:false,error:"episode_guide_unavailable"}));return true;
+      catalogEpisodeGuide(message.item||{},message.seasonId).then(data=>sendResponse({ok:true,...data}),error=>sendResponse({ok:false,error:error?.message==="tmdb_key_required"?"tmdb_key_required":"episode_guide_unavailable"}));return true;
     case "CATALOG_DETAIL":
       catalogDetail(message.item||{}).then(item=>sendResponse({ok:true,item}),()=>sendResponse({ok:false,error:"details_unavailable"}));return true;
     case "CATALOG_SEARCH":

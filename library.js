@@ -606,6 +606,14 @@ const DETAIL_LOCALES={
     "Temporada {n}",
     "第 {n} 季"
   ],
+  "catalogSettings": ["Optional catalogs","Catalogues optionnels","追加カタログ","Catálogos opcionales","Optionale Kataloge","선택적 카탈로그","Catálogos opcionais","可选目录"],
+  "catalogKeyHelp": ["Your own API keys enable TMDB and RAWG. Keys stay on this device and are excluded from library exports.","Tes propres clés API activent TMDB et RAWG. Elles restent sur cet appareil et sont exclues des exports de bibliothèque.","自分のAPIキーでTMDBとRAWGを有効にできます。キーはこの端末に保存され、ライブラリのエクスポートには含まれません。","Tus claves API activan TMDB y RAWG. Se guardan en este dispositivo y no se exportan con la biblioteca.","Eigene API-Schlüssel aktivieren TMDB und RAWG. Sie bleiben auf diesem Gerät und werden nicht mit der Bibliothek exportiert.","본인의 API 키로 TMDB와 RAWG를 활성화합니다. 키는 이 기기에만 저장되며 라이브러리 내보내기에 포함되지 않습니다.","As tuas chaves API ativam TMDB e RAWG. Ficam neste dispositivo e não são exportadas com a biblioteca.","使用自己的 API 密钥启用 TMDB 和 RAWG。密钥保存在此设备上，不包含在书库导出中。"],
+  "catalogConfigured": ["Key saved on this device","Clé enregistrée sur cet appareil","この端末にキーを保存済み","Clave guardada en este dispositivo","Schlüssel auf diesem Gerät gespeichert","이 기기에 키가 저장됨","Chave guardada neste dispositivo","密钥已保存在此设备"],
+  "catalogNotConfigured": ["No key saved","Aucune clé enregistrée","キー未設定","Sin clave guardada","Kein Schlüssel gespeichert","저장된 키 없음","Sem chave guardada","未保存密钥"],
+  "catalogNewKey": ["New API key","Nouvelle clé API","新しいAPIキー","Nueva clave API","Neuer API-Schlüssel","새 API 키","Nova chave API","新 API 密钥"],
+  "catalogRemoveKey": ["Remove key","Supprimer la clé","キーを削除","Eliminar clave","Schlüssel entfernen","키 삭제","Remover chave","删除密钥"],
+  "catalogInvalidKey": ["Enter a key without spaces (maximum 256 characters).","Saisis une clé sans espaces (256 caractères maximum).","空白なしで256文字以内のキーを入力してください。","Introduce una clave sin espacios (máximo 256 caracteres).","Schlüssel ohne Leerzeichen eingeben (höchstens 256 Zeichen).","공백 없이 256자 이하의 키를 입력하세요.","Introduz uma chave sem espaços (máximo de 256 caracteres).","请输入不含空格的密钥（最多256个字符）。"],
+  "tmdbGuideKeyNeeded": ["Add your TMDB API key in Settings to load these seasons.","Ajoute ta clé API TMDB dans les réglages pour charger ces saisons.","このシーズンを読み込むには設定でTMDB APIキーを追加してください。","Añade tu clave API de TMDB en los ajustes para cargar estas temporadas.","Füge in den Einstellungen deinen TMDB-API-Schlüssel hinzu, um diese Staffeln zu laden.","시즌을 불러오려면 설정에서 TMDB API 키를 추가하세요.","Adiciona a tua chave API TMDB nas definições para carregar estas temporadas.","请在设置中添加 TMDB API 密钥以加载这些季。"],
   "episodesUnavailable": [
     "Episodes are unavailable at the moment.",
     "Les épisodes sont indisponibles pour le moment.",
@@ -2770,6 +2778,11 @@ function renderSettings() {
     <div class="section-t">${t("newAlerts")}</div>
     <div class="panel"><div class="row"><div class="grow"><b>${t("newAlerts")}</b><small>${t("newAlertsSub")}</small></div><button class="switch ${settings.notifyNew ? "on" : ""}" id="sw-notify" role="switch" aria-label="${esc(t("newAlerts"))}" aria-checked="${!!settings.notifyNew}"></button></div></div>
     <div class="panel"><div class="row"><div class="grow"><b>${settings.lang==='fr'?'Suivi automatique des vidéos enregistrées':'Automatically track saved videos'}</b><small>${settings.lang==='fr'?'Après ouverture de Yomu sur le lecteur, conserve la progression pendant la lecture.':'After opening Yomu on the player, keep progress updated while watching.'}</small></div><input id="set-autotrack" type="checkbox" aria-label="${settings.lang==='fr'?'Suivi automatique':'Automatic tracking'}" ${settings.autoTrack!==false?'checked':''}></div></div>
+    <div class="section-t" id="catalog-settings-title">${t("catalogSettings")}</div>
+    <div class="panel" id="catalog-settings">
+      <p class="sub">${t("catalogKeyHelp")}</p>
+      ${[["tmdbKey","TMDB"],["rawgKey","RAWG"]].map(([key,name])=>`<div class="row" style="flex-wrap:wrap"><div class="grow"><label for="key-${key}"><b>${name}</b></label><small role="status" id="key-status-${key}">${settings[key]?t("catalogConfigured"):t("catalogNotConfigured")}</small></div><input class="field" id="key-${key}" type="password" autocomplete="off" spellcheck="false" maxlength="256" placeholder="${esc(t("catalogNewKey"))}" style="max-width:280px" /><button type="button" class="btn" id="key-save-${key}">${t("save")}</button><button type="button" class="link-btn" id="key-remove-${key}" ${settings[key]?"":"disabled"}>${t("catalogRemoveKey")}</button></div>`).join("")}
+    </div>
     <div class="section-t">${t("backup")}</div>
     <div class="panel">
       <div class="row"><div class="grow"><b>${t("yourLibrary")}</b><small>${t("exportRestore")} ${settings.lang==="fr"?"Les clés API restent sur cet appareil.":"API keys stay on this device."}</small></div><button class="btn" id="export">${I.image} ${t("export")}</button><button class="btn" id="import">${t("import")}</button><input id="file" type="file" accept=".json,.csv,.xml,.zip,.tsv,application/json,application/zip" multiple hidden aria-label="${t("import")}" /></div>
@@ -2801,6 +2814,23 @@ async function saveSettingControl(key,value,control,paint) {
 }
 function wireSettings() {
   paintImportPending();
+  for(const key of ["tmdbKey","rawgKey"]){
+    const input=document.getElementById("key-"+key),save=document.getElementById("key-save-"+key),remove=document.getElementById("key-remove-"+key),status=document.getElementById("key-status-"+key);
+    let busy=false;
+    const persist=async(value,control)=>{
+      if(busy)return;
+      if(value&&(/\s/.test(value)||value.length>256)){status.textContent=t("catalogInvalidKey");input.setAttribute("aria-invalid","true");return;}
+      busy=true;input.disabled=true;const other=control===save?remove:save;other.disabled=true;
+      const saved=await saveSettingControl(key,value,control,()=>{});
+      if(input.isConnected){
+        input.disabled=false;save.disabled=false;remove.disabled=!settings[key];
+        if(saved){input.value="";input.removeAttribute("aria-invalid");status.textContent=settings[key]?t("catalogConfigured"):t("catalogNotConfigured");}
+      }
+      busy=false;
+    };
+    save.onclick=()=>{const value=input.value.trim();if(!value){status.textContent=t("catalogInvalidKey");input.setAttribute("aria-invalid","true");return;}void persist(value,save);};
+    remove.onclick=()=>{void persist("",remove);};
+  }
   const nameEl = document.getElementById("set-name");
   const saveProfile = patch => saveProfilePatch(patch).then(saved=>{if(saved&&view==="settings")renderSettings();return saved;});
   const retryName=document.getElementById("set-name-retry"),nameStatus=document.getElementById("set-name-status");
@@ -3442,9 +3472,14 @@ function mountEpisodeGuide(item) {
   const root=document.getElementById("episode-guide");if(!root)return;
   let request=0;
   const active=()=>root.isConnected&&document.getElementById("drawer").classList.contains("open");
-  const send=(seasonId)=>new Promise((resolve,reject)=>requestMetadata({type:"CATALOG_EPISODE_GUIDE",item:{type:item.type,externalIds:item.externalIds,url:item.url},seasonId},r=>{if(api.runtime.lastError||!r?.ok)reject(Error("unavailable"));else resolve(r);}));
+  const send=(seasonId)=>new Promise((resolve,reject)=>requestMetadata({type:"CATALOG_EPISODE_GUIDE",item:{type:item.type,externalIds:item.externalIds,url:item.url},seasonId},r=>{if(api.runtime.lastError||!r?.ok)reject(Error(r?.error||"unavailable"));else resolve(r);}));
   const label=s=>(s.number===0?(t("specialsLabel")):t("seasonNumber",{n:s.number}))+(s.name?" — "+s.name:"");
-  const fail=(target,retry)=>{
+  const fail=(target,retry,error)=>{
+    if(error?.message==="tmdb_key_required"){
+      target.innerHTML='<p class="sub" role="status">'+esc(t("tmdbGuideKeyNeeded"))+'</p><button type="button" class="btn">'+esc(t("settings"))+'</button>';
+      target.querySelector("button").onclick=()=>{closeDrawer();switchView("settings");document.getElementById("key-tmdbKey")?.focus();};
+      return;
+    }
     target.innerHTML='<p class="sub" role="status">'+(t("episodesUnavailable"))+'</p><button class="btn" type="button">'+(t("retryLabel"))+'</button>';
     target.querySelector("button").onclick=retry;
   };
@@ -3500,11 +3535,11 @@ function mountEpisodeGuide(item) {
             });
 
           };render();
-        }catch{if(active()&&version===request){area.setAttribute("aria-busy","false");fail(area,()=>choose(id));}}
+        }catch(error){if(active()&&version===request){area.setAttribute("aria-busy","false");fail(area,()=>choose(id),error);}}
       };
       if(select)select.onchange=()=>choose(select.value);
       choose(selected.id);
-    }catch{if(active()&&token===request)fail(root,load);}
+    }catch(error){if(active()&&token===request)fail(root,load,error);}
   };load();
 }
 

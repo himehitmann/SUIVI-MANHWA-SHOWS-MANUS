@@ -2914,3 +2914,13 @@ describe("episode guide whole-response deadline",()=>{
     expect(await w.run('tmdbGuideResource("/tv/7","fixture","fr","7")')).toEqual({id:7,seasons:[]});
   });
 });
+
+describe("episode guide public error messages",()=>{
+ it("identifies a missing TMDB key and hides arbitrary provider errors",async()=>{
+  const w=worker();
+  const message={type:"CATALOG_EPISODE_GUIDE",item:{type:"watching",externalIds:{tmdb:"tv:7"}}};
+  expect(await w.call(message)).toEqual({ok:false,error:"tmdb_key_required"});
+  w.run('catalogEpisodeGuide=async()=>{throw Error("private-provider-detail")}');
+  expect(await w.call(message)).toEqual({ok:false,error:"episode_guide_unavailable"});
+ });
+});
