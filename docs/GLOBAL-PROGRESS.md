@@ -8,6 +8,16 @@ Mise à jour : 1er novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi re
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Recherche : prise en compte immédiate des réglages — 1er novembre 2026
+
+Commit a5d0f695138e58364a856479af4a136321a8c35e : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41342655966) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41342651071) réussies.
+
+Après l'enregistrement effectif d'une modification de langue, de clé TMDB ou de clé RAWG, les anciennes recherches mises en mémoire sont invalidées. La prochaine recherche consulte les fournisseurs selon la nouvelle configuration, sans attendre l'expiration de dix minutes. Les modifications identiques ou sans rapport avec les catalogues conservent les résultats en mémoire.
+
+Trois tests de régression couvrent ajout, remplacement et suppression des clés, changement de langue, réglages inchangés ou profil, échec de sauvegarde, ancien curseur de pagination et arrivée tardive d'une réponse antérieure. Une sauvegarde échouée n'invalide pas la recherche en cours. Les réponses des anciens travaux ne réinjectent pas leurs résultats dans les nouveaux travaux.
+
+677 tests unitaires réussis, contrôles navigateur, paquet, charge et récupération réussis. Aucun service réel ni clé de production ajouté. **21/60 = 35 % global vérifié**, inchangé : ce lot renforce la recherche déjà validée, sans clore un nouveau critère produit.
+
 ## Catalogues optionnels : réglages accessibles et erreurs utiles — 1er novembre 2026
 
 Commit 466d792e29f60e78c14a38cd215501f53f5793ce : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41330597194) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41330592024) réussies. 674 tests unitaires, contrôles navigateur et paquet, charge et récupération réussis ; audit des dépendances sans vulnérabilité connue signalée.
