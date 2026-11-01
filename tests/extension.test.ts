@@ -2924,3 +2924,46 @@ describe("episode guide public error messages",()=>{
   expect(await w.call(message)).toEqual({ok:false,error:"episode_guide_unavailable"});
  });
 });
+
+describe("search cache after catalog settings changes",()=>{
+ it("refreshes after each provider key or language changes, preserving cache for unrelated or identical settings",async()=>{
+   const w=worker();
+   w.run('var calls=0;catalogSearchAll=async()=>{calls++;return [{title:"Result",type:"watching",url:"https://example.test/show"}]}');
+   await w.run('catalogSearchProgress("Result")');await w.run('catalogSearchProgress("Result")');
+   expect(w.run("calls")).toBe(1);
+   for(const patch of [{tmdbKey:"first"},{tmdbKey:"replacement"},{tmdbKey:""},{rawgKey:"first"},{rawgKey:""},{lang:"fr"}]){
+     const before=w.run("calls");expect((await w.call({type:"SET_SETTINGS",patch})).settings).toMatchObject(patch);
+     await w.run('catalogSearchProgress("Result")');
+     expect(w.run("calls")).toBe(before+1);
+   }
+   const before=w.run("calls");
+   for(const patch of [{lang:"fr"},{notifyNew:false},{profile:{name:"Updated"}}]){
+     await w.call({type:"SET_SETTINGS",patch});await w.run('catalogSearchProgress("Result")');
+     expect(w.run("calls")).toBe(before);
+   }
+ });
+ it("rejects an old pagination cursor and ignores the old in-flight results after configuration changes",async()=>{
+   const w=worker();
+   w.run('var finishes=[];catalogSearchAll=()=>new Promise(resolve=>finishes.push(resolve))');
+   const old=await w.run('catalogSearchProgress("Series")');expect(old.pending).toBe(true);
+   await w.call({type:"SET_SETTINGS",patch:{lang:"ja"}});
+   w.ctx.cursor=old.cursor;
+   expect(await w.run('catalogSearchProgress("Series",false,cursor)')).toEqual({ok:false,error:"search_expired"});
+   const fresh=await w.run('catalogSearchProgress("Series")');expect(fresh.cursor).not.toBe(old.cursor);
+   w.run('finishes[1]([{title:"New language",type:"watching",url:"https://example.test/new"}])');
+   await Promise.resolve();await Promise.resolve();
+   w.run('finishes[0]([{title:"Obsolete language",type:"watching",url:"https://example.test/old"}])');
+   await Promise.resolve();await Promise.resolve();
+   const result=await w.run('catalogSearchProgress("Series")');
+   expect(result.results.map((item:any)=>item.title)).toEqual(["New language"]);
+   expect(result.pending).toBe(false);
+ });
+ it("keeps existing searches when settings cannot be persisted",async()=>{
+   const w=worker();
+   w.run('catalogSearchAll=async()=>[]');
+   const initial=await w.run('catalogSearchProgress("Series")');
+   w.run('chrome.storage.local.set=async()=>{throw Error("storage unavailable")}');
+   expect((await w.call({type:"SET_SETTINGS",patch:{lang:"ja"}})).ok).toBe(false);
+   expect((await w.run('catalogSearchProgress("Series")')).cursor).toBe(initial.cursor);
+ });
+});
