@@ -2515,7 +2515,7 @@ function wireDrawer(i, isWatch, isGame) {
     void saveDrawerAction(i,patch,b,"#dr-status [data-status]");
   }));
   if((!i.cast?.length && (i.anilistId||i.externalIds?.anilist||i.externalIds?.tvmaze)) || (i.type==="watching"&&(i.externalIds?.tmdb||/^https:\/\/www\.themoviedb\.org\/(tv|movie)\//.test(i.url||"")))) {
-    const detailToken=previewRequest;
+    const detailToken=previewRequest,d=document.getElementById("drawer");
     requestMetadata({type:"CATALOG_DETAIL",item:i},response=>{
       if(api.runtime.lastError||!response?.ok||detailToken!==previewRequest||!d.classList.contains("open")||d.dataset.itemId!==i.id)return;
       const extra=document.getElementById("dr-extra-info");
