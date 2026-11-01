@@ -8,6 +8,16 @@ Mise à jour : 1er novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi re
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Guide : changements rapides de fiche et de saison — 1er novembre 2026
+
+Commit 8edbe271bcd0b4f644b4eff1981133af1fa3a577 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41314407517) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41314403844) réussies. 673 tests unitaires et parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Nouveau scénario navigateur sur les protections existantes, sans modification du code produit : une saison 1 répond après la saison 2 sélectionnée et ne la remplace pas ; une réponse d’une ancienne fiche ne modifie pas son remplacement ; fermer le panneau pendant la demande initiale ne déclenche pas de chargement de saison ; une demande initiale en erreur peut être relancée et afficher ses épisodes.
+
+Le scénario complète les contrôles existants de sauvegarde de progression (double clic, échec, réponse tardive et cohérence des totaux lors d’un changement de saison). Les réponses de ces scénarios sont simulées pour contrôler leur ordre. Aucune nouvelle couverture fournisseur ni validation avec clé TMDB réelle n’est revendiquée.
+
+G07 reste partiel. Avancement inchangé : 21/60 (35 %). Aucun déploiement ni installation dans Chrome.
+
 ## Guides : délai incluant la lecture de la réponse — 1er novembre 2026
 
 Commit 2e2581ed739badfa93ec534f3364bc7e7d5c895b : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41313700071) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41313696777) réussies. 673 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
