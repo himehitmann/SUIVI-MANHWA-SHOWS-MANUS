@@ -1173,6 +1173,34 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
  assert.equal(tmdbGuide.title,"Chapter one episode");assert.equal(tmdbGuide.progressButtons,0);
  console.log("PASS: legacy TMDB guide link, saved-season selection, attribution and season switching");
 
+ const guideCounts=await page.evaluate(()=>{
+   const lang=settings.lang,out=[];
+   try{
+     for(const code of ["en","fr","ja","es","de","ko","pt","zh-CN"]){
+       settings.lang=code;
+       const regular={number:1,special:false},special={number:null,special:true};
+       const actual=[
+         episodeGuideStats([regular,regular,special],2,1),
+         episodeGuideStats([special,special],2,0),
+         episodeGuideStats([special],null,0),
+         episodeGuideStats([],null,1),
+         episodeGuideStats([regular,special],3,1)
+       ];
+       const expected=[
+         [t("episodesCount",{n:2}),t("specialsLabel")+": 1"],
+         [t("specialsLabel")+": 2"],
+         [t("specialsLabel")+": 1"],
+         [t("episodesCount",{n:0})],
+         [t("episodesCount",{n:1}),t("specialsLabel")+": 1",t("episodesExpected",{n:3})]
+       ];
+       out.push({code,actual,expected});
+     }
+     return out;
+   }finally{settings.lang=lang;}
+ });
+ for(const row of guideCounts)assert.deepEqual(row.actual,row.expected,row.code+" guide counts");
+ console.log("PASS: regular and special episode counts in eight languages, empty and partial seasons");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

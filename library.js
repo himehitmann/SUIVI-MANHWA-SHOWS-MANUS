@@ -3429,6 +3429,15 @@ function episodeGuideTmdbId(item) {
 function episodeGuideSlot(item) {
   return item.type==="watching"&&(/^[1-9]\d*$/.test(String(item.externalIds?.tvmaze||""))||Boolean(episodeGuideTmdbId(item)))?'<section id="episode-guide" data-i18n-static class="episode-guide" aria-label="'+(t("seasonsEpisodes"))+'"></section>':"";
 }
+function episodeGuideStats(episodes,known,seasonNumber) {
+  const regular=episodes.filter(episode=>episode.number!==null&&!episode.special).length;
+  const specials=episodes.length-regular,stats=[];
+  if(regular||!specials)stats.push(t("episodesCount",{n:regular}));
+  if(specials)stats.push(t("specialsLabel")+": "+specials);
+  const counted=seasonNumber===0?episodes.length:regular;
+  if(known!==null&&known!==counted)stats.push(t("episodesExpected",{n:known}));
+  return stats;
+}
 function mountEpisodeGuide(item) {
   const root=document.getElementById("episode-guide");if(!root)return;
   let request=0;
@@ -3457,9 +3466,7 @@ function mountEpisodeGuide(item) {
           area.setAttribute("aria-busy","false");const episodes=result.episodes||[];let visible=40;
           const render=()=>{
             const known=Number.isInteger(result.season.episodeCount)?result.season.episodeCount:null;
-            const count=episodes.filter(e=>e.number!==null&&!e.special).length;
-            const stats=[t("episodesCount",{n:count})];
-            if(known!==null&&known!==count)stats.push(t("episodesExpected",{n:known}));
+            const stats=episodeGuideStats(episodes,known,result.season.number);
             const rows=episodes.slice(0,visible).map(e=>{
               const number=e.number===null?(t("specialLabel")):t("episodeNumber",{n:e.number});
               const upcoming=/^\d{4}-\d{2}-\d{2}$/.test(e.airdate)&&e.airdate>new Date().toISOString().slice(0,10);
