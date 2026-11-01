@@ -8,6 +8,20 @@ Mise à jour : 1er novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi re
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Fiches TMDB : détails localisés et lecteur de bande-annonce — 1er novembre 2026
+
+État final 23063f616b268ae56143ce7c8eb3e0f4e3746725 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41351363962) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41351358824) réussies. 683 tests unitaires, contrôles navigateur, paquet, charge et récupération réussis ; audit des dépendances sans vulnérabilité connue signalée.
+
+Les œuvres TMDB films et séries sont enrichies à l'ouverture avec synopsis, genres, distribution, titres alternatifs, statut de publication et bande-annonce. La requête utilise la langue sélectionnée et regroupe vidéos, crédits et titres alternatifs ; seules les identités cohérentes sont acceptées, y compris les anciennes URL officielles. Les données personnelles (titre choisi, notes, progression, saison, épisode, total) ne sont pas modifiées ni écrites lors de la consultation.
+
+Le lecteur YouTube est intégré dans la fiche de découverte et dans la fiche d'une œuvre enregistrée. Les vidéos Trailer/Teaser avec identifiant valide sont seules acceptées ; les vidéos officielles et la langue choisie sont prioritaires. Aucune lecture automatique ajoutée. Les données absentes ne suppriment pas le synopsis ou la vidéo déjà disponibles.
+
+Mémoire limitée à 40 fiches et dix minutes, isolée par clé/langue/identité ; demandes simultanées identiques regroupées, au plus quatre nouvelles demandes actives. Délai de réponse borné incluant le corps de réponse, échec évincé pour permettre une nouvelle tentative. Le test navigateur vérifie également fermeture/réouverture et rejet de la réponse périmée. Une erreur de portée de variable détectée par ce test a été corrigée avant les deux CI finales vertes.
+
+Références fournisseur : [films](https://developer.themoviedb.org/reference/movie-details), [séries](https://developer.themoviedb.org/reference/tv-series-details), [vidéos](https://developer.themoviedb.org/reference/tv-series-videos).
+
+Limites : réponses fournisseur simulées pour les tests authentifiés, aucune clé réelle ajoutée. Disponibilité des traductions et vidéos dépendante du catalogue, pas de promesse de bande-annonce pour chaque œuvre. Les autres fournisseurs et l'acceptation globale des fiches restent à compléter. G05/G06/G16 restent partiels ; **21/60 = 35 % global vérifié**, inchangé. Pas d'installation utilisateur ou de mise en ligne.
+
 ## Recherche TMDB dans la langue choisie — 1er novembre 2026
 
 Commit 50367779e43793eddabd4024db41c277186ed0e9 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41343221098) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41343216015) réussies. 679 tests unitaires, paquet, contrôles navigateur, charge et récupération réussis. Audit des dépendances sans vulnérabilité connue signalée.
