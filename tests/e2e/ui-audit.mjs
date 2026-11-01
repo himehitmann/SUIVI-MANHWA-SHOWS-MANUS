@@ -1266,6 +1266,36 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
  assert.deepEqual(catalogKeys,{concealed:true,invalid:true,guarded:true,retained:true,saved:true,removed:true,actionable:true,routed:true});
  console.log("PASS: optional catalog keys remain concealed, validate, save, recover from failure, remove and route from guide");
 
+
+ const tmdbPanels=await page.evaluate(async()=>{
+  const original=requestMetadata,previous=items;
+  const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+  const result={type:"watching",title:"TMDB fixture",externalIds:{tmdb:"tv:7"},synopsis:"Localized synopsis",trailerUrl:"https://www.youtube.com/watch?v=abcdefghijk"};
+  const pending=[];
+  requestMetadata=(message,callback)=>{
+    if(message.type==="CATALOG_DETAIL"){pending.push(callback);return;}
+    if(message.type==="CATALOG_EPISODE_GUIDE"){callback({ok:true,seasons:[]});return;}
+    return original(message,callback);
+  };
+  try{
+    openCatalogPreviewResolved({...result,trailerUrl:undefined,synopsis:""});
+    pending.shift()({ok:true,item:result});await tick();
+    const preview=!!document.querySelector('#drawer iframe[src="https://www.youtube-nocookie.com/embed/abcdefghijk"]')&&document.getElementById("drawer").textContent.includes("Localized synopsis");
+    closeDrawer();
+    const saved={...result,id:"tmdb-panel-fixture",synopsis:"",trailerUrl:undefined,episode:4,season:2,notes:"Keep"};
+    items=[saved,...items];openDrawer(saved.id);const obsolete=pending.shift();
+    closeDrawer();openDrawer(saved.id);const fresh=pending.shift();
+    fresh({ok:true,item:{...result,cast:[{name:"Actor"}]}});await tick();
+    obsolete({ok:true,item:{...result,trailerUrl:"https://www.youtube.com/watch?v=zzzzzzzzzzz"}});await tick();
+    const drawer=document.getElementById("drawer");
+    const savedPanel=!!drawer.querySelector('iframe[src="https://www.youtube-nocookie.com/embed/abcdefghijk"]')&&!drawer.querySelector('iframe[src$="zzzzzzzzzzz"]')&&drawer.textContent.includes("Localized synopsis");
+    const untouched=saved.episode===4&&saved.notes==="Keep"&&saved.synopsis===""&&saved.trailerUrl===undefined;
+    return {preview,savedPanel,untouched};
+  }finally{requestMetadata=original;items=previous;closeDrawer();switchView("home");}
+ });
+ assert.deepEqual(tmdbPanels,{preview:true,savedPanel:true,untouched:true});
+ console.log("PASS: TMDB trailers embedded in preview and saved panels with stale-response isolation and personal progress retained");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

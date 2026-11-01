@@ -1023,7 +1023,7 @@ function episodeGuideDate(value) {
   const time=Date.parse(value);
   return Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===value?value:"";
 }
-function episodeGuideTmdbId(item) {
+function tmdbWorkIdentity(item) {
   const id=String(item?.externalIds?.tmdb||"").trim();
   let linked="";
   try {
@@ -1034,12 +1034,13 @@ function episodeGuideTmdbId(item) {
     }
   }catch{}
   if(id){
-    if(/^tv:[1-9]\d*$/.test(id))return !linked||linked===id?id.slice(3):"";
-    if(/^[1-9]\d*$/.test(id)&&linked==="tv:"+id)return id;
+    if(/^(tv|movie):[1-9]\d*$/.test(id))return !linked||linked===id?id:"";
+    if(/^[1-9]\d*$/.test(id)&&linked.endsWith(":"+id))return linked;
     return "";
   }
-  return linked.startsWith("tv:")?linked.slice(3):"";
+  return linked;
 }
+function episodeGuideTmdbId(item) {const id=tmdbWorkIdentity(item);return id.startsWith("tv:")?id.slice(3):"";}
 const tmdbGuideCache=new Map();
 async function tmdbGuideResource(path,key,language,expectedId) {
   const cacheKey=key+"|"+language+"|"+path+"|"+expectedId,cached=tmdbGuideCache.get(cacheKey);
@@ -1219,6 +1220,49 @@ async function completeAnimeTrailer(item,detail,timeoutMs=1500) {
   }finally{clearTimeout(timer);}
 }
 
+
+const tmdbDetailCache=new Map();
+function tmdbDetailTrailer(rows,language) {
+  const locale=language.split("-")[0];
+  const candidates=(Array.isArray(rows)?rows:[]).filter(row=>row?.site==="YouTube"&&typeof row.key==="string"&&/^[A-Za-z0-9_-]{11}$/.test(row.key)&&["Trailer","Teaser"].includes(row.type));
+  const score=row=>(row.official===true?100:0)+(row.iso_639_1===locale?20:0)+(row.type==="Trailer"?10:0);
+  candidates.sort((a,b)=>score(b)-score(a));
+  return candidates.length?"https://www.youtube.com/watch?v="+candidates[0].key:"";
+}
+async function tmdbDetail(item) {
+  const identity=tmdbWorkIdentity(item);
+  if(item.type!=="watching"||!identity)throw Error("missing_catalog_identity");
+  const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS),key=settings.tmdbKey;
+  if(!key)throw Error("tmdb_key_required");
+  const language=["en","fr","ja","es","de","ko","pt","zh-CN"].includes(settings.lang)?settings.lang:"en";
+  const [kind,id]=identity.split(":"),cacheKey=key+"|"+language+"|"+identity;
+  let entry=tmdbDetailCache.get(cacheKey);
+  if(!entry||Date.now()-entry.at>=600000){
+    if([...tmdbDetailCache.values()].filter(value=>value.pending).length>=4)throw Error("catalog_busy");
+    entry={at:Date.now(),pending:true,task:null};
+    const current=entry;
+    entry.task=(async()=>{
+      const data=await episodeGuideJson("https://api.themoviedb.org/3/"+kind+"/"+id+"?api_key="+encodeURIComponent(key)+"&language="+encodeURIComponent(language)+"&append_to_response=videos,credits,alternative_titles&include_video_language="+encodeURIComponent(language.split("-")[0]+",en,null"));
+      if(String(data?.id)!==id||typeof data[kind==="tv"?"name":"title"]!=="string"||!data[kind==="tv"?"name":"title"].trim())throw Error("catalog_identity_mismatch");
+      const text=value=>typeof value==="string"?value.trim():"";
+      const image=value=>typeof value==="string"&&/^\/[A-Za-z0-9_.-]+$/.test(value)?"https://image.tmdb.org/t/p/w500"+value:"";
+      const aliases=data.alternative_titles?.results||data.alternative_titles?.titles;
+      const detail={source:"tmdb",externalIds:{tmdb:identity},
+        alternativeTitles:[...new Set([data.name,data.title,data.original_name,data.original_title,...(Array.isArray(aliases)?aliases:[]).map(row=>row?.title)].map(text).filter(Boolean))].slice(0,60),
+        genres:[...new Set((Array.isArray(data.genres)?data.genres:[]).map(row=>text(row?.name)).filter(Boolean))].slice(0,80),
+        cast:(Array.isArray(data.credits?.cast)?data.credits.cast:[]).slice(0,20).map(row=>({name:text(row?.name),character:text(row?.character),image:image(row?.profile_path)})).filter(row=>row.name),
+        ...publicationMetadata({releaseStatus:text(data.status),releaseScope:kind==="tv"?"series":"work",releaseSource:"tmdb"})};
+      const synopsis=text(data.overview).slice(0,20000),cover=image(data.poster_path),trailer=tmdbDetailTrailer(data.videos?.results,language);
+      if(synopsis)detail.synopsis=synopsis;if(cover)detail.cover=cover;if(trailer)detail.trailerUrl=trailer;
+      return detail;
+    })().catch(error=>{if(tmdbDetailCache.get(cacheKey)===current)tmdbDetailCache.delete(cacheKey);throw error;}).finally(()=>{current.pending=false;});
+    tmdbDetailCache.set(cacheKey,entry);
+    while(tmdbDetailCache.size>40)tmdbDetailCache.delete(tmdbDetailCache.keys().next().value);
+  }
+  const detail=structuredClone(await entry.task);
+  return {...item,...detail,title:item.title,alternativeTitles:[...new Set([...identityTitles(item),...detail.alternativeTitles])],externalIds:{...item.externalIds,...detail.externalIds}};
+}
+
 async function catalogDetail(item) {
   const ids=identityIds(item);
   if(/^\d+$/.test(ids.anilist||"")) {
@@ -1240,6 +1284,7 @@ async function catalogDetail(item) {
       cast:(show._embedded?.cast||[]).slice(0,20).map(c=>({name:c.person?.name,character:c.character?.name,image:c.person?.image?.medium||c.character?.image?.medium||""})).filter(c=>c.name)
     };
   }
+  if(item.type==="watching"&&tmdbWorkIdentity(item))return tmdbDetail(item);
   if(item.type==="game"&&(ids.rawg||ids.steam||steamAppId(item.url)))return knownGameDetails(item);
   return item;
 }

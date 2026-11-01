@@ -2995,3 +2995,52 @@ describe("TMDB localized search",()=>{
   expect(second.results).toHaveLength(2);expect(second.hasMore).toBe(false);
  });
 });
+
+describe("TMDB detail enrichment",()=>{
+ it("loads localized metadata and an embedded-compatible trailer without altering personal fields or storage",async()=>{
+  const item={id:"saved",type:"watching",title:"My title",externalIds:{tmdb:"tv:7"},season:2,episode:4,notes:"Keep",total:12};
+  const w=worker({"dasi.settings":{tmdbKey:"fixture",lang:"fr"},"dasi.items":[item]});
+  w.ctx.item=item;
+  w.run('var urls=[];fetchRemote=async url=>{urls.push(url);return {ok:true,json:async()=>({id:7,name:"Titre",original_name:"Original",overview:"Résumé",status:"Returning Series",poster_path:"/poster.jpg",genres:[{name:"Drame"}],alternative_titles:{results:[{title:"Autre"}]},credits:{cast:[{name:"Actor",character:"Role",profile_path:"/actor.jpg"}]},videos:{results:[{site:"YouTube",key:"abcdefghijk",type:"Trailer",official:true,iso_639_1:"fr"}]}})}}');
+  const response=await w.call({type:"CATALOG_DETAIL",item});expect(response.ok).toBe(true);
+  expect(response.item).toMatchObject({title:"My title",synopsis:"Résumé",genres:["Drame"],trailerUrl:"https://www.youtube.com/watch?v=abcdefghijk",season:2,episode:4,total:12,notes:"Keep",releaseScope:"series"});
+  expect(response.item.alternativeTitles).toEqual(["My title","Titre","Original","Autre"]);
+  expect(response.item.cast[0]).toMatchObject({name:"Actor",character:"Role"});
+  expect(w.run('urls[0].includes("language=fr")&&urls[0].includes("append_to_response=videos,credits,alternative_titles")')).toBe(true);
+  expect(w.data["dasi.items"]).toEqual([item]);
+  response.item.genres.push("Mutated");
+  expect((await w.run("catalogDetail(item)")).genres).toEqual(["Drame"]);expect(w.run("urls.length")).toBe(1);
+  w.data["dasi.settings"].lang="ja";await w.run("catalogDetail(item)");expect(w.run("urls.length")).toBe(2);
+ });
+ it("supports movie links, rejects mismatched identity and retries failed responses without poisoning its cache",async()=>{
+  const w=worker({"dasi.settings":{tmdbKey:"fixture"}});
+  w.run('var calls=0;fetchRemote=async()=>({ok:true,json:async()=>++calls===1?{id:8,title:"Wrong"}:{id:7,title:"Film",original_title:"Original film",alternative_titles:{titles:[{title:"Alias"}]},videos:{results:[]}}})');
+  const item={type:"watching",title:"Saved film",url:"https://www.themoviedb.org/movie/7-film",synopsis:"Existing",trailerUrl:"https://www.youtube.com/watch?v=abcdefghijk"};
+  w.ctx.item=item;
+  await expect(w.run("catalogDetail(item)")).rejects.toThrow("catalog_identity_mismatch");
+  const result=await w.run("catalogDetail(item)");
+  expect(result.externalIds.tmdb).toBe("movie:7");expect(result.alternativeTitles).toContain("Alias");
+  expect(result.synopsis).toBe("Existing");expect(result.trailerUrl).toBe(item.trailerUrl);
+  expect(w.run("calls")).toBe(2);
+  expect(w.run('tmdbWorkIdentity({externalIds:{tmdb:"movie:7"},url:"https://www.themoviedb.org/tv/7"})')).toBe("");
+ });
+ it("selects only safe YouTube trailers or teasers, preferring official localized videos",()=>{
+  const w=worker();w.ctx.rows=[
+   {site:"YouTube",key:"bad?token=x",type:"Trailer",official:true},
+   {site:"Other",key:"abcdefghijk",type:"Trailer",official:true},
+   {site:"YouTube",key:"aaaaaaaaaaa",type:"Clip",official:true},
+   {site:"YouTube",key:"bbbbbbbbbbb",type:"Trailer",official:false,iso_639_1:"fr"},
+   {site:"YouTube",key:"ccccccccccc",type:"Trailer",official:true,iso_639_1:"en"},
+   {site:"YouTube",key:"ddddddddddd",type:"Trailer",official:true,iso_639_1:"fr"}];
+  expect(w.run('tmdbDetailTrailer(rows,"fr")')).toBe("https://www.youtube.com/watch?v=ddddddddddd");
+  expect(w.run('tmdbDetailTrailer(rows.slice(0,3),"fr")')).toBe("");
+ });
+ it("shares concurrent requests and requires a configured key",async()=>{
+  const empty=worker();await expect(empty.run('tmdbDetail({type:"watching",externalIds:{tmdb:"tv:7"}})')).rejects.toThrow("tmdb_key_required");
+  const w=worker({"dasi.settings":{tmdbKey:"fixture"}});
+  w.run('var calls=0,finish;fetchRemote=async()=>{calls++;return {ok:true,json:()=>new Promise(resolve=>{finish=resolve})}};var item={type:"watching",title:"Title",externalIds:{tmdb:"tv:7"}}');
+  const pending=[w.run("tmdbDetail(item)"),w.run("tmdbDetail(item)")];
+  for(let n=0;n<50&&!w.run("typeof finish==='function'");n++)await new Promise(resolve=>setTimeout(resolve,2));
+  w.run('finish({id:7,name:"Title"})');await Promise.all(pending);expect(w.run("calls")).toBe(1);
+ });
+});

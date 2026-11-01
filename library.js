@@ -2514,11 +2514,12 @@ function wireDrawer(i, isWatch, isGame) {
     else patch.status = "in_progress";
     void saveDrawerAction(i,patch,b,"#dr-status [data-status]");
   }));
-  if(!i.cast?.length && (i.anilistId||i.externalIds?.anilist||i.externalIds?.tvmaze)) {
+  if((!i.cast?.length && (i.anilistId||i.externalIds?.anilist||i.externalIds?.tvmaze)) || (i.type==="watching"&&(i.externalIds?.tmdb||/^https:\/\/www\.themoviedb\.org\/(tv|movie)\//.test(i.url||"")))) {
+    const detailToken=previewRequest;
     requestMetadata({type:"CATALOG_DETAIL",item:i},response=>{
-      if(api.runtime.lastError||!response?.ok||document.getElementById("drawer").dataset.itemId!==i.id)return;
+      if(api.runtime.lastError||!response?.ok||detailToken!==previewRequest||!d.classList.contains("open")||d.dataset.itemId!==i.id)return;
       const extra=document.getElementById("dr-extra-info");
-      if(extra)extra.innerHTML=catalogInformation({...response.item,releaseStatus:undefined,synopsis:undefined,authors:[],alternativeTitles:[]});
+      if(extra)extra.innerHTML=catalogInformation({...response.item,releaseStatus:undefined,synopsis:i.synopsis?undefined:response.item.synopsis,cast:i.cast?.length?[]:response.item.cast,authors:[],alternativeTitles:[]});
     });
   }
   renderDrawerTags(i);
