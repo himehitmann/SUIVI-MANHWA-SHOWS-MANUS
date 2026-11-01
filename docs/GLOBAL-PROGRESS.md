@@ -8,6 +8,16 @@ Mise à jour : 1er novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi re
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Catalogues optionnels : réglages accessibles et erreurs utiles — 1er novembre 2026
+
+Commit 466d792e29f60e78c14a38cd215501f53f5793ce : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41330597194) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41330592024) réussies. 674 tests unitaires, contrôles navigateur et paquet, charge et récupération réussis ; audit des dépendances sans vulnérabilité connue signalée.
+
+Les réglages proposent désormais les clés personnelles TMDB et RAWG dans une section localisée en huit langues. Les champs sont masqués et jamais préremplis ; le statut indique seulement la présence d'une clé. Validation des espaces et de la longueur, sauvegarde confirmée avant mise à jour, brouillon conservé en cas d'échec, protection contre le double clic et suppression explicite. Les clés restent dans les réglages locaux et sont exclues des exports partagés existants.
+
+Un guide TMDB sans clé affiche une explication et ouvre directement les réglages avec le champ concerné sélectionné. Les autres erreurs restent génériques, sans exposer le détail du fournisseur. Le scénario navigateur vérifie masquage, validation, échec puis nouvelle tentative, conservation de l'autre clé, suppression et navigation. Le test du moteur vérifie les deux catégories d'erreurs.
+
+Limites : aucune clé réelle ajoutée ni connexion TMDB/RAWG authentifiée validée dans ce lot. Pas de déploiement ou d'installation utilisateur. G07 demeure partiel ; **21/60 = 35 % global vérifié**, inchangé.
+
 ## Guide : changements rapides de fiche et de saison — 1er novembre 2026
 
 Commit 8edbe271bcd0b4f644b4eff1981133af1fa3a577 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41314407517) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41314403844) réussies. 673 tests unitaires et parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
