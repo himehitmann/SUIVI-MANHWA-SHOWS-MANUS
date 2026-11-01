@@ -1201,6 +1201,42 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
  for(const row of guideCounts)assert.deepEqual(row.actual,row.expected,row.code+" guide counts");
  console.log("PASS: regular and special episode counts in eight languages, empty and partial seasons");
 
+ const guideRaces=await page.evaluate(async()=>{
+   const original=requestMetadata,drawer=document.getElementById("drawer"),pending=[];
+   const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+   const item={id:"race-guide",type:"watching",externalIds:{tvmaze:"7"}};
+   const seasons=[{id:"s1",number:1,name:"One",episodeCount:1},{id:"s2",number:2,name:"Two",episodeCount:1}];
+   const seasonReply=id=>({ok:true,seasons,season:seasons.find(s=>s.id===id),episodes:[{id:"e"+id,number:1,name:"Episode "+id,airdate:"2024-01-01",special:false}]});
+   const roots=[];
+   const create=()=>{const root=document.createElement("section");root.id="episode-guide";drawer.append(root);roots.push(root);return root;};
+   requestMetadata=(message,callback)=>{if(message.type==="CATALOG_EPISODE_GUIDE"){pending.push({message,callback});return;}return original(message,callback);};
+   try{
+     closeDrawer();drawer.classList.add("open");
+     let root=create();mountEpisodeGuide(item);
+     pending.shift().callback({ok:true,seasons});await tick();
+     const first=pending.shift();
+     root.querySelector("select").value="s2";root.querySelector("select").dispatchEvent(new Event("change"));await tick();
+     const second=pending.shift();second.callback(seasonReply("s2"));await tick();
+     first.callback(seasonReply("s1"));await tick();
+     const newest=root.querySelector(".guide-episode b").textContent==="Episode s2"&&root.querySelector("select").value==="s2";
+     root.querySelector("select").value="s1";root.querySelector("select").dispatchEvent(new Event("change"));await tick();
+     const obsolete=pending.shift();root.remove();
+     root=create();root.textContent="Different work";obsolete.callback(seasonReply("s1"));await tick();
+     const replaced=root.textContent==="Different work";root.remove();
+     root=create();mountEpisodeGuide(item);const initial=pending.shift();
+     drawer.classList.remove("open");initial.callback({ok:true,seasons});await tick();
+     const closed=!root.querySelector("select")&&pending.length===0;root.remove();
+     drawer.classList.add("open");root=create();mountEpisodeGuide(item);
+     pending.shift().callback({ok:false});await tick();
+     root.querySelector("button").click();await tick();pending.shift().callback({ok:true,seasons});await tick();
+     pending.shift().callback(seasonReply("s1"));await tick();
+     const retried=root.querySelector(".guide-episode b").textContent==="Episode s1";
+     return {newest,replaced,closed,retried};
+   }finally{requestMetadata=original;for(const root of roots)root.remove();closeDrawer();}
+ });
+ assert.deepEqual(guideRaces,{newest:true,replaced:true,closed:true,retried:true});
+ console.log("PASS: episode guide latest-season wins, replaced drawer isolation, closed drawer and retry");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{
