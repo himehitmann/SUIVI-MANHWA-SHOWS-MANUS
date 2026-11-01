@@ -2859,3 +2859,29 @@ describe("legacy TMDB guide identity",()=>{
     expect(item).not.toHaveProperty("externalIds");
   });
 });
+
+describe("TMDB guide recovery after invalid provider responses",()=>{
+  it("retries wrong-series and malformed-series responses immediately instead of caching them",async()=>{
+    for(const invalid of [{id:8,seasons:[]},{id:7,seasons:null}]){
+      const w=worker({"dasi.settings":{tmdbKey:"fixture",lang:"en"}});
+      w.ctx.invalid=invalid;
+      w.run('var calls=0;fetchRemote=async()=>({ok:true,json:async()=>++calls===1?invalid:{id:7,seasons:[{id:20,season_number:1}]}})');
+      await expect(w.run('catalogEpisodeGuide({type:"watching",externalIds:{tmdb:"tv:7"}})')).rejects.toThrow();
+      const recovered=await w.run('catalogEpisodeGuide({type:"watching",externalIds:{tmdb:"tv:7"}})');
+      expect(recovered.seasons[0].id).toBe("20");expect(w.run("calls")).toBe(2);
+      await w.run('catalogEpisodeGuide({type:"watching",externalIds:{tmdb:"tv:7"}})');
+      expect(w.run("calls")).toBe(2);
+    }
+  });
+  it("retries a bad season while retaining the validated series cache",async()=>{
+    for(const invalid of [{id:99,season_number:1,episodes:[]},{id:20,season_number:2,episodes:[]},{id:20,season_number:1,episodes:null}]){
+      const w=worker({"dasi.settings":{tmdbKey:"fixture",lang:"en"}});
+      w.ctx.invalid=invalid;
+      w.run('var shows=0,seasons=0;fetchRemote=async url=>({ok:true,json:async()=>{if(!url.includes("/season/")){shows++;return {id:7,seasons:[{id:20,season_number:1}]};}return ++seasons===1?invalid:{id:20,season_number:1,episodes:[{id:100,show_id:7,season_number:1,episode_number:1,name:"Recovered"}]};}})');
+      await expect(w.run('catalogEpisodeGuide({type:"watching",externalIds:{tmdb:"tv:7"}},"20")')).rejects.toThrow();
+      const recovered=await w.run('catalogEpisodeGuide({type:"watching",externalIds:{tmdb:"tv:7"}},"20")');
+      expect(recovered.episodes[0].name).toBe("Recovered");
+      expect(w.run("shows")).toBe(1);expect(w.run("seasons")).toBe(2);
+    }
+  });
+});

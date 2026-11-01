@@ -1029,14 +1029,19 @@ function episodeGuideTmdbId(item) {
   return linked.startsWith("tv:")?linked.slice(3):"";
 }
 const tmdbGuideCache=new Map();
-async function tmdbGuideResource(path,key,language) {
-  const cacheKey=key+"|"+language+"|"+path,cached=tmdbGuideCache.get(cacheKey);
+async function tmdbGuideResource(path,key,language,expectedId) {
+  const cacheKey=key+"|"+language+"|"+path+"|"+expectedId,cached=tmdbGuideCache.get(cacheKey);
   if(cached&&Date.now()-cached.at<600000)return cached.task;
   const entry={at:Date.now(),task:null};
   entry.task=fetchRemote("https://api.themoviedb.org/3"+path+"?api_key="+encodeURIComponent(key)+"&language="+encodeURIComponent(language),{credentials:"omit",redirect:"error"}).then(async response=>{
     if(!response.ok)throw Error("episode_guide_unavailable");
     const data=await response.json();
     if(!data||typeof data!=="object"||Array.isArray(data))throw Error("invalid_episode_guide");
+    const seasonNumber=/\/season\/(\d+)$/.exec(path)?.[1];
+    if(String(data.id)!==String(expectedId))throw Error("catalog_identity_mismatch");
+    if(seasonNumber!==undefined){
+      if(data.season_number!==Number(seasonNumber)||!Array.isArray(data.episodes))throw Error("catalog_identity_mismatch");
+    }else if(!Array.isArray(data.seasons))throw Error("invalid_episode_guide");
     return data;
   }).catch(error=>{if(tmdbGuideCache.get(cacheKey)===entry)tmdbGuideCache.delete(cacheKey);throw error;});
   tmdbGuideCache.set(cacheKey,entry);
@@ -1056,11 +1061,11 @@ async function catalogEpisodeGuide(item,seasonId) {
     const key=typeof settings.tmdbKey==="string"?settings.tmdbKey.trim():"";
     if(!key)throw Error("tmdb_key_required");
     const language=["en","fr","ja","es","de","ko","pt","zh-CN"].includes(settings.lang)?settings.lang:"en";
-    const show=await tmdbGuideResource("/tv/"+tmdbId,key,language);
+    const show=await tmdbGuideResource("/tv/"+tmdbId,key,language,tmdbId);
     if(String(show.id)!==tmdbId||!Array.isArray(show.seasons))throw Error("catalog_identity_mismatch");
     raw=show.seasons.filter(s=>s&&typeof s==="object").map(s=>({id:s.id,number:s.season_number,name:s.name,episodeOrder:s.episode_count,premiereDate:s.air_date}));
     loadEpisodes=async season=>{
-      const data=await tmdbGuideResource("/tv/"+tmdbId+"/season/"+season.number,key,language);
+      const data=await tmdbGuideResource("/tv/"+tmdbId+"/season/"+season.number,key,language,season.id);
       if(String(data.id)!==season.id||data.season_number!==season.number||!Array.isArray(data.episodes))throw Error("catalog_identity_mismatch");
       return data.episodes.filter(e=>e&&typeof e==="object"&&(e.show_id===undefined||String(e.show_id)===tmdbId)).map(e=>({id:e.id,season:e.season_number,number:e.episode_number,name:e.name,airdate:e.air_date,runtime:e.runtime,type:season.number===0?"significant_special":"regular"}));
     };
