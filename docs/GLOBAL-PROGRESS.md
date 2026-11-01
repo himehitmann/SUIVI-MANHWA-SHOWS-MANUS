@@ -8,6 +8,16 @@ Mise à jour : 1er novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi re
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Guide : compteur distinct des épisodes spéciaux — 1er novembre 2026
+
+Commit ae189f9ffbf95a6f00b72d1b57a8cc01e09d63cc : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41305915038) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41305911496) réussies. 671 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
+
+Le résumé du guide distingue épisodes réguliers numérotés et spéciaux/non numérotés. Une saison contenant exclusivement des spéciaux n’annonce plus zéro épisode régulier ; elle affiche le nombre de spéciaux. Pour une saison 0, le total annoncé par le fournisseur est comparé à l’ensemble des épisodes de cette saison ; pour les saisons normales, il reste comparé aux seuls épisodes réguliers. Les saisons vides et les totaux inconnus sont conservés comme tels.
+
+Le test navigateur vérifie cinq configurations dans chacune des huit langues : mélange régulier/spécial, spéciaux seuls avec ou sans total, saison vide, saison partielle. Le comportement des boutons de progression et les données enregistrées ne changent pas.
+
+La [documentation TVmaze](https://www.tvmaze.com/api#season-episode-list) confirme que l’endpoint de saison utilisé inclut déjà les spéciaux : aucun appel supplémentaire n’a été ajouté. G07 reste partiel pour la couverture et la validation réelle des autres fournisseurs. Avancement inchangé : 21/60 (35 %). Aucun déploiement ni installation dans Chrome.
+
 ## Guide TMDB : nouvelle tentative après réponse incorrecte — 1er novembre 2026
 
 Commit e28d8222ee6fc794c13fbef07190a7025e7a1f32 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41305310643) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41305307039) réussies. 671 tests unitaires, parcours navigateur, capacité et récupérations validés ; audit des dépendances sans vulnérabilité connue à cette exécution.
