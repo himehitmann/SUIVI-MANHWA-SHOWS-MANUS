@@ -2478,7 +2478,8 @@ function wireDrawer(i, isWatch, isGame) {
     const drawer=document.getElementById("drawer");
     if(!drawer.classList.contains("open")||drawer.dataset.itemId!==i.id||!button.isConnected)return;
     button.disabled=false;
-    if(!r?.ok){status.textContent=t("refreshFailed");return;}
+    if(!r?.ok||r.status==="retryable_error"){status.textContent=t("refreshFailed");return;}
+    if(r.status==="stale"){status.textContent=t("refreshDeferred");return;}
     if(!r.item||(!r.matched&&!["matched","partial"].includes(r.status))){status.textContent=t("refreshNone");return;}
     const merged=r.mergedIds??[];
     const validMerge=Array.isArray(merged)&&merged.every(id=>typeof id==="string");

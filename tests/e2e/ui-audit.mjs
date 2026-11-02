@@ -746,12 +746,16 @@ try {
    const identity=items[0]===item&&document.getElementById("dr-refresh-status").textContent===t("refreshFailed");
    request=begin();callback({...reply(item),lists:{invalid:true}});await request.promise;
    const invalidLists=items[0]===item&&lists===savedLists;
+   request=begin();callback({ok:true,status:"retryable_error",item});await request.promise;
+   const sourceFailed=items[0]===item&&document.getElementById("dr-refresh-status").textContent===t("refreshFailed")&&!request.button.disabled;
+   request=begin();callback({ok:true,status:"stale",item});await request.promise;
+   const stale=items[0]===item&&document.getElementById("dr-refresh-status").textContent===t("refreshDeferred");
    request=begin();callback(reply(item));await request.promise;
    const success=items[0].synopsis==="Fresh information"&&document.activeElement.id==="dr-refresh-info";
-   return {timeout,lateIgnored,draft,newer,identity,invalidLists,success};
+   return {timeout,lateIgnored,draft,newer,identity,invalidLists,sourceFailed,stale,success};
   }finally{api.runtime.sendMessage=original;requestMetadata=request;items=savedItems;lists=savedLists;closeDrawer();renderAll();}
  });
- assert.deepEqual(manualDetails,{timeout:true,lateIgnored:true,draft:true,newer:true,identity:true,invalidLists:true,success:true});
+ assert.deepEqual(manualDetails,{timeout:true,lateIgnored:true,draft:true,newer:true,identity:true,invalidLists:true,sourceFailed:true,stale:true,success:true});
  // The two create-list entry points share a lock and preserve later navigation.
  const listCreation=await page.evaluate(async()=>{
   const original=api.runtime.sendMessage,request=requestMetadata,savedLists=lists;
