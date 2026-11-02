@@ -1328,6 +1328,38 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
  assert.deepEqual(savedMetadata,{immediate:true,offline:true,localized:true,stateRetained:true,fallback:true,noDuplicateCast:true,untouched:true});
  console.log("PASS: saved trailer survives provider failures; translated synopsis updates safely without changing stored progress or expansion");
 
+
+ const detailRecovery=await page.evaluate(async()=>{
+  const original=requestMetadata,previous=items,pending=[];
+  const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+  requestMetadata=(message,callback)=>{
+    if(message.type==="CATALOG_DETAIL"){pending.push(callback);return;}
+    if(message.type==="CATALOG_EPISODE_GUIDE"){callback({ok:true,seasons:[]});return;}
+    return original(message,callback);
+  };
+  const results=[];
+  try{
+    for(const savedMode of [false,true]){
+      const item={id:"retry-detail-fixture",type:"watching",title:"Retry title",externalIds:{tmdb:"tv:7"},synopsis:"Retained content",episode:3,notes:"Keep"};
+      if(savedMode){items=[item,...previous];openDrawer(item.id);}else openCatalogPreviewResolved(item);
+      const status=document.getElementById(savedMode?"dr-detail-status":"preview-status");
+      pending.shift()({ok:false,error:"metadata_timeout"});await tick();
+      const retained=document.getElementById("drawer").textContent.includes("Retained content")&&status.textContent.includes(t("detailsUnavailable"));
+      const retry=status.querySelector("button");
+      retry.click();retry.click();
+      const guarded=pending.length===1&&status.getAttribute("aria-busy")==="true";
+      pending.shift()({ok:true,item:{...item,synopsis:"Recovered content"}});await tick();
+      const recovered=status.textContent===""&&!status.hasAttribute("aria-busy")&&document.getElementById("drawer").textContent.includes("Recovered content");
+      // A retained retry handler must not operate after this panel has closed.
+      closeDrawer();retry.click();const closed=pending.length===0;
+      results.push({retained,guarded,recovered,closed});
+    }
+    return results;
+  }finally{requestMetadata=original;items=previous;closeDrawer();switchView("home");}
+ });
+ assert.deepEqual(detailRecovery,Array.from({length:2},()=>({retained:true,guarded:true,recovered:true,closed:true})));
+ console.log("PASS: preview and saved detail recovery preserve content, prevent duplicate requests and ignore closed panels");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{
