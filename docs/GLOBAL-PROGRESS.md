@@ -8,6 +8,18 @@ Mise à jour : 2 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Actualisation des œuvres TMDB enregistrées — 2 novembre 2026
+
+État final 14f13f4a61a145616207836c447a5fdad71fd736 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41531315583) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41531308347) réussies. 688 tests unitaires, contrôles navigateur, paquet, charge et récupération réussis ; audit des dépendances sans vulnérabilité connue signalée.
+
+Le bouton d'actualisation reconnaît les identifiants TMDB qualifiés et les anciens liens officiels comme références exactes. Il ne repart plus sur une recherche de titre pour une œuvre renommée. Les anciennes identités numériques confirmées par leur URL sont normalisées. Une identité contradictoire, une clé absente ou une mauvaise réponse ne déclenchent pas une recherche de remplacement.
+
+L'actualisation forcée contourne une réponse terminée mise en mémoire, tout en partageant une requête identique encore en cours. Le contrôle avant écriture compare aussi l'identité TMDB dérivée de l'URL : changer l'ancienne URL pendant le chargement empêche l'application de la réponse de la précédente œuvre. Les notes, progression, couverture personnalisée et modifications concurrentes restent protégées par le filtre de champs existant. Les synopsis personnalisés et les bandes-annonces/distributions déjà enregistrées ne sont pas remplacés ; les champs manquants sont complétés.
+
+Quatre nouveaux tests couvrent ces parcours et les limites. Le test navigateur de l'actualisation distingue maintenant une panne du fournisseur (échec) d'une absence d'informations et d'une réponse devenue périmée (actualisation différée).
+
+Limites : données authentifiées TMDB simulées dans ces tests, aucune clé réelle ajoutée. G05 reste partiel. **21/60 = 35 % global vérifié**, inchangé. Aucun déploiement ou changement de l'extension installée.
+
 ## Fiches TMDB : absence de clé expliquée et accès aux réglages — 2 novembre 2026
 
 Commit 67995503637e0315e99a9704d5ab4dbad1634a72 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41497131068) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41497124070) réussies. 684 tests unitaires, contrôles navigateur, paquet, charge et récupération réussis ; audit des dépendances sans vulnérabilité connue signalée.
