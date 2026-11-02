@@ -8,6 +8,16 @@ Mise à jour : 2 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Fiches TMDB : absence de clé expliquée et accès aux réglages — 2 novembre 2026
+
+Commit 67995503637e0315e99a9704d5ab4dbad1634a72 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41497131068) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41497124070) réussies. 684 tests unitaires, contrôles navigateur, paquet, charge et récupération réussis ; audit des dépendances sans vulnérabilité connue signalée.
+
+Le chargement des détails distingue maintenant une clé TMDB absente des autres erreurs. Les fiches de découverte et les œuvres enregistrées expliquent la configuration manquante dans les huit langues proposées, puis ouvrent les réglages avec le champ TMDB sélectionné. Le contenu existant reste visible ; aucun rechargement inutile n'est lancé par cette action. Les autres erreurs conservent la reprise déjà validée.
+
+Le test du moteur vérifie le code public de clé manquante et l'absence de fuite des messages fournisseur. Le navigateur valide 16 parcours (deux panneaux dans huit langues), leur contenu conservé, la disparition du statut occupé et le déplacement du focus. Les anciens contrôles de reprise après panne restent verts.
+
+Limites : aucune clé réelle ajoutée ni accès authentifié TMDB validé ; G05 reste partiel. **21/60 = 35 % global vérifié**, inchangé. Pas de déploiement ou mise à jour de l'extension installée.
+
 ## Fiches : reprise après échec sans perdre le contenu — 2 novembre 2026
 
 Commit cc738fd896e3d6d00449d87eb9e020fdaa0493b7 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41494122538) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41494109986) réussies. 683 tests unitaires et contrôles navigateur, paquet, charge et récupération réussis. Audit des dépendances sans vulnérabilité connue signalée.
