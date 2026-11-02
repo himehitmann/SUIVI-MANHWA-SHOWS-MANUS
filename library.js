@@ -2300,7 +2300,7 @@ function openDrawer(id) {
       ${!isGame&&(i.genres?.length||i.catalogTags?.length)?`<div class="section-t">${t("genresLabel")}</div><div class="tags">${[...new Set([...(i.genres||[]),...(i.catalogTags||[])])].filter(x=>typeof x==="string").map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>`:""}
       ${Array.isArray(i.authors)&&i.authors.length ? `<div class="section-t">${t("creatorsLabel")}</div><p class="synopsis" data-i18n-static>${i.authors.filter(x=>typeof x==="string").map(esc).join(" — ")}</p>` : ""}
       ${distinctAlternativeTitles(i).length ? `<div class="section-t">${t("aliasesLabel")}</div><ul class="synopsis">${distinctAlternativeTitles(i).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="dr-refresh-info">${I.refresh} ${t("refreshDetails")}</button><button class="btn" id="dr-home-toggle" aria-pressed="${!!i.homeHidden}">${t(i.homeHidden?"showOnHome":"hideFromHome")}</button></div><p class="field-hint" id="dr-refresh-status" role="status"></p><div id="dr-extra-info"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="dr-refresh-info">${I.refresh} ${t("refreshDetails")}</button><button class="btn" id="dr-home-toggle" aria-pressed="${!!i.homeHidden}">${t(i.homeHidden?"showOnHome":"hideFromHome")}</button></div><p class="field-hint" id="dr-refresh-status" role="status"></p><div id="dr-extra-info">${!isGame?embeddedTrailer(i.trailerUrl,i.trailer):""}</div>
       ${episodeGuideSlot(i)}
       ${i.synopsis ? `<div class="section-t">${t("synopsis")}</div><p class="synopsis clamp" id="dr-syn">${esc(i.synopsis)}</p><button class="link-btn" id="dr-syn-toggle">${t("showMore")}</button>` : ""}
       ${!isGame && Array.isArray(i.cast) && i.cast.length ? `<div class="section-t">${t("cast")}</div><div class="cast-strip scroll-x">${i.cast.map((c) => `<div class="cast-card"><div class="cast-av"><span class="cast-ph">${esc((c.name || "?")[0].toUpperCase())}</span>${c.image ? `<img src="${esc(c.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : ""}</div><b>${esc(c.name)}</b>${c.character ? `<small>${esc(c.character)}</small>` : ""}${c.role && c.role !== "MAIN" ? `<small>${esc(c.role.toLowerCase())}</small>` : ""}</div>`).join("")}</div>` : ""}
@@ -2517,9 +2517,11 @@ function wireDrawer(i, isWatch, isGame) {
   if((!i.cast?.length && (i.anilistId||i.externalIds?.anilist||i.externalIds?.tvmaze)) || (i.type==="watching"&&(i.externalIds?.tmdb||/^https:\/\/www\.themoviedb\.org\/(tv|movie)\//.test(i.url||"")))) {
     const detailToken=previewRequest,d=document.getElementById("drawer");
     requestMetadata({type:"CATALOG_DETAIL",item:i},response=>{
-      if(api.runtime.lastError||!response?.ok||detailToken!==previewRequest||!d.classList.contains("open")||d.dataset.itemId!==i.id)return;
+      if(api.runtime.lastError||!response?.ok||!response.item||detailToken!==previewRequest||!d.classList.contains("open")||d.dataset.itemId!==i.id)return;
       const extra=document.getElementById("dr-extra-info");
-      if(extra)extra.innerHTML=catalogInformation({...response.item,releaseStatus:undefined,synopsis:i.synopsis?undefined:response.item.synopsis,cast:i.cast?.length?[]:response.item.cast,authors:[],alternativeTitles:[]});
+      const synopsis=document.getElementById("dr-syn");
+      if(synopsis&&typeof response.item.synopsis==="string"&&response.item.synopsis.trim())synopsis.textContent=response.item.synopsis;
+      if(extra)extra.innerHTML=catalogInformation({...response.item,trailerUrl:response.item.trailerUrl||i.trailerUrl,trailer:response.item.trailer||i.trailer,releaseStatus:undefined,synopsis:synopsis?undefined:response.item.synopsis,cast:i.cast?.length?[]:response.item.cast,authors:[],alternativeTitles:[]});
     });
   }
   renderDrawerTags(i);

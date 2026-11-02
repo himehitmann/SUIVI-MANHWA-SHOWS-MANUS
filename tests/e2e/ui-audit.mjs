@@ -1296,6 +1296,38 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
  assert.deepEqual(tmdbPanels,{preview:true,savedPanel:true,untouched:true});
  console.log("PASS: TMDB trailers embedded in preview and saved panels with stale-response isolation and personal progress retained");
 
+
+ const savedMetadata=await page.evaluate(async()=>{
+  const original=requestMetadata,previous=items,pending=[];
+  const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+  const saved={id:"retained-media-fixture",type:"watching",title:"Saved series",externalIds:{tmdb:"tv:7"},synopsis:"Original stored synopsis",trailerUrl:"https://www.youtube.com/watch?v=abcdefghijk",cast:[{name:"Saved actor"}],season:2,episode:4,notes:"Personal notes"};
+  requestMetadata=(message,callback)=>{
+    if(message.type==="CATALOG_DETAIL"){pending.push(callback);return;}
+    if(message.type==="CATALOG_EPISODE_GUIDE"){callback({ok:true,seasons:[]});return;}
+    return original(message,callback);
+  };
+  const video=()=>document.querySelectorAll('#drawer iframe[src="https://www.youtube-nocookie.com/embed/abcdefghijk"]').length===1;
+  try{
+    items=[saved,...items];openDrawer(saved.id);
+    const immediate=video();
+    pending.shift()({ok:false,error:"details_unavailable"});await tick();
+    const offline=video()&&document.getElementById("dr-syn").textContent==="Original stored synopsis";
+    closeDrawer();openDrawer(saved.id);
+    document.getElementById("dr-syn-toggle").click();
+    const expanded=!document.getElementById("dr-syn").classList.contains("clamp");
+    pending.shift()({ok:true,item:{...saved,synopsis:"Nouveau synopsis <img src=x onerror=alert(1)>",trailerUrl:"",trailer:"",cast:[{name:"New actor"}]}});await tick();
+    const synopsis=document.getElementById("dr-syn");
+    const localized=synopsis.textContent==="Nouveau synopsis <img src=x onerror=alert(1)>"&&!synopsis.querySelector("img")&&document.querySelectorAll("#drawer .synopsis").length>=1;
+    const stateRetained=expanded&&!synopsis.classList.contains("clamp");
+    const fallback=video();
+    const noDuplicateCast=document.getElementById("drawer").querySelectorAll(".cast-card").length===1;
+    const untouched=saved.synopsis==="Original stored synopsis"&&saved.cast[0].name==="Saved actor"&&saved.episode===4&&saved.notes==="Personal notes";
+    return {immediate,offline,localized,stateRetained,fallback,noDuplicateCast,untouched};
+  }finally{requestMetadata=original;items=previous;closeDrawer();switchView("home");}
+ });
+ assert.deepEqual(savedMetadata,{immediate:true,offline:true,localized:true,stateRetained:true,fallback:true,noDuplicateCast:true,untouched:true});
+ console.log("PASS: saved trailer survives provider failures; translated synopsis updates safely without changing stored progress or expansion");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{
