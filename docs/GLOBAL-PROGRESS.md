@@ -8,6 +8,16 @@ Mise à jour : 2 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Fiches : reprise après échec sans perdre le contenu — 2 novembre 2026
+
+Commit cc738fd896e3d6d00449d87eb9e020fdaa0493b7 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41494122538) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41494109986) réussies. 683 tests unitaires et contrôles navigateur, paquet, charge et récupération réussis. Audit des dépendances sans vulnérabilité connue signalée.
+
+Les panneaux de découverte et les fiches enregistrées partagent désormais un chargement des détails avec statut accessible, message d'échec et bouton Réessayer. Le contenu existant reste affiché pendant la panne et la reprise. La demande est limitée à une tentative active par panneau ; la fermeture ou le remplacement de la fiche invalide les anciennes actions et réponses.
+
+Le nouveau scénario navigateur vérifie les deux parcours : délai dépassé simulé, contenu conservé, double clic n'envoyant qu'une seule demande, réponse réussie effaçant le message et ancien bouton inactif après fermeture. Les erreurs de transport et délais restent bornés par requestMetadata.
+
+Limites : la nouvelle tentative ne configure pas de clé fournisseur absente et ne garantit pas la disponibilité du service. Aucune modification des données personnelles ni installation utilisateur. G05 reste partiel ; **21/60 = 35 % global vérifié**, inchangé.
+
 ## Fiches enregistrées : lecteur unique et synopsis actualisé — 2 novembre 2026
 
 État final 128a3441b64c76bcaa80351e1196ad80ca9cbcca : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41396929726) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41396925325) réussies. 683 tests unitaires et contrôles navigateur, paquet, charge et récupération réussis. Audit des dépendances sans vulnérabilité connue signalée.
