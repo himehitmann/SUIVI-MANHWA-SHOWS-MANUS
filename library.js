@@ -2320,7 +2320,6 @@ function openDrawer(id) {
         ${episodeGrid(i)}
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
           ${i.total && unseen(i) > 0 ? `<button class="btn primary" id="dr-markall">${I.check} ${t("markAll")}</button>` : ""}
-          ${embeddedTrailer(i.trailerUrl)}
           ${safeNavigationUrl(i.url) ? `<a class="btn" href="${esc(safeNavigationUrl(i.url))}" target="_blank" rel="noreferrer">${I.open} ${t("open")}</a>` : ""}
         </div>`}
       ${isGame ? gameNewsHtml(i)+gameRewardsHtml() : `<div class="section-t">${t("status")}</div>
