@@ -8,6 +8,16 @@ Mise à jour : 2 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Nettoyage des copies temporaires TMDB — 2 novembre 2026
+
+Commit b87bb926960516e6f9486ae9c6aa715c755e91be : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41532367042) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41532355115) réussies. 691 tests unitaires, contrôles navigateur, paquet, charge et récupération réussis ; audit des dépendances sans vulnérabilité connue signalée.
+
+Après l'enregistrement confirmé d'une modification de clé TMDB ou de langue, les copies temporaires des détails et guides TMDB sont vidées. Elles étaient déjà séparées par clé/langue ; cette modification évite de conserver les anciennes entrées jusqu'à leur expiration. Aucun élément de bibliothèque n'est supprimé.
+
+Trois nouveaux tests couvrent modification/suppression, langue, réglages identiques ou sans rapport, échec d'enregistrement et arrivée tardive d'une ancienne réponse. Cette dernière ne recrée pas d'entrée dans le cache vidé. Une requête déjà lancée n'est pas annulée par cette modification.
+
+Limites : ce nettoyage concerne les caches TMDB, pas une révocation auprès du fournisseur ni la suppression des informations sauvegardées volontairement. **21/60 = 35 % global vérifié**, inchangé. Aucun déploiement ou installation utilisateur.
+
 ## Actualisation des œuvres TMDB enregistrées — 2 novembre 2026
 
 État final 14f13f4a61a145616207836c447a5fdad71fd736 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41531315583) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41531308347) réussies. 688 tests unitaires, contrôles navigateur, paquet, charge et récupération réussis ; audit des dépendances sans vulnérabilité connue signalée.
