@@ -3112,3 +3112,37 @@ describe("saved TMDB metadata refresh",()=>{
    }
  });
 });
+
+describe("TMDB transient cache lifecycle",()=>{
+ it("clears details and guides after a key or language change without touching saved works",async()=>{
+   const saved={id:"saved",title:"My show",type:"watching",episode:4,notes:"Keep"};
+   const w=worker({"dasi.items":[saved],"dasi.settings":{tmdbKey:"old",lang:"en"}});
+   for(const patch of [{tmdbKey:"replacement"},{tmdbKey:""},{lang:"fr"}]){
+     w.run('tmdbDetailCache.set("old",{at:Date.now(),task:Promise.resolve({})});tmdbGuideCache.set("old",{at:Date.now(),task:Promise.resolve({})})');
+     expect((await w.call({type:"SET_SETTINGS",patch})).settings).toMatchObject(patch);
+     expect(w.run("tmdbDetailCache.size+tmdbGuideCache.size")).toBe(0);
+     expect(w.data["dasi.items"]).toEqual([saved]);
+   }
+ });
+ it("retains usable cached data for unchanged settings and failed writes",async()=>{
+   const w=worker({"dasi.settings":{tmdbKey:"existing",lang:"en"}});
+   w.run('tmdbDetailCache.set("existing",{});tmdbGuideCache.set("existing",{})');
+   for(const patch of [{tmdbKey:"existing"},{lang:"en"},{notifyNew:false},{rawgKey:"unrelated"}]){
+     await w.call({type:"SET_SETTINGS",patch});expect(w.run("tmdbDetailCache.size+tmdbGuideCache.size")).toBe(2);
+   }
+   w.run('chrome.storage.local.set=async()=>{throw Error("unavailable")}');
+   expect((await w.call({type:"SET_SETTINGS",patch:{tmdbKey:"replacement"}})).ok).toBe(false);
+   expect(w.run("tmdbDetailCache.size+tmdbGuideCache.size")).toBe(2);
+ });
+ it("does not repopulate cleared cache entries when an old provider response arrives",async()=>{
+   const w=worker({"dasi.settings":{tmdbKey:"old",lang:"en"}});
+   let release:any,started:any;const ready=new Promise(resolve=>{started=resolve;});
+   w.ctx.started=started;w.ctx.pending=new Promise(resolve=>{release=resolve;});
+   w.run('fetchRemote=async()=>{started();return {ok:true,json:()=>pending}}');
+   const task=w.run('tmdbDetail({type:"watching",title:"Saved",externalIds:{tmdb:"tv:7"}})');await ready;
+   await w.call({type:"SET_SETTINGS",patch:{tmdbKey:""}});
+   release({id:7,name:"Old request"});await task;
+   expect(w.run("tmdbDetailCache.size")).toBe(0);
+   await expect(w.run('tmdbDetail({type:"watching",externalIds:{tmdb:"tv:7"}})')).rejects.toThrow("tmdb_key_required");
+ });
+});

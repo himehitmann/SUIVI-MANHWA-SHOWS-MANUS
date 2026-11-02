@@ -2611,7 +2611,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "NOTIF_CLEAR":
       mutateAndReply(async()=>{const notifications=message.type==='NOTIF_CLEAR'?[]:(await read(NOTIF_KEY,[])).map(n=>({...n,read:true}));await writeData({[NOTIF_KEY]:notifications});return {notifications};},sendResponse);return true;
     case "SET_SETTINGS":
-      mutateAndReply(async()=>{const previous={...DEFAULT_SETTINGS,...await read(SETTINGS_KEY,{})},settings={...previous,...message.patch};await writeData({[SETTINGS_KEY]:settings});if(["tmdbKey","rawgKey","lang"].some(key=>previous[key]!==settings[key]))catalogJobs.clear();return {settings};},sendResponse);return true;
+      mutateAndReply(async()=>{const previous={...DEFAULT_SETTINGS,...await read(SETTINGS_KEY,{})},settings={...previous,...message.patch};await writeData({[SETTINGS_KEY]:settings});if(["tmdbKey","rawgKey","lang"].some(key=>previous[key]!==settings[key]))catalogJobs.clear();if(["tmdbKey","lang"].some(key=>previous[key]!==settings[key])){tmdbDetailCache.clear();tmdbGuideCache.clear();}return {settings};},sendResponse);return true;
     case "LIST_REORDER_ITEMS":
     case "LIST_REMOVE_MEMBERS":
     case "LIST_MEMBERSHIP":
