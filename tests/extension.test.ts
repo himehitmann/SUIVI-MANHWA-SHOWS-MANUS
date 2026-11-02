@@ -3054,3 +3054,61 @@ describe("catalog detail configuration errors",()=>{
   expect(await w.call(message)).toEqual({ok:false,error:"details_unavailable"});
  });
 });
+
+describe("saved TMDB metadata refresh",()=>{
+ it("uses the confirmed identity for renamed works and legacy links without title search, retaining personal data",async()=>{
+  for(const identity of [{externalIds:{tmdb:"tv:7"}},{url:"https://www.themoviedb.org/tv/7-old-title"},{externalIds:{tmdb:"7"},url:"https://www.themoviedb.org/tv/7"},{externalIds:{tmdb:"movie:7"}}]){
+    const item={id:"saved",title:"My personal title",type:"watching",season:2,episode:4,total:12,notes:"Keep",rating:5,tags:["My tag"],cover:"custom",coverOverride:true,synopsis:"Custom summary",...identity};
+    const w=worker({"dasi.items":[item],"dasi.settings":{tmdbKey:"fixture",lang:"fr"}});
+    w.run('catalogSearchAll=async()=>{throw Error("must not search title")};fetchRemote=async()=>({ok:true,json:async()=>({id:7,name:"Original series",title:"Original film",overview:"Provider description",poster_path:"/cover.jpg",genres:[{name:"Drama"}],credits:{cast:[{name:"Actor"}]},videos:{results:[{site:"YouTube",key:"abcdefghijk",type:"Trailer",official:true}]}})})');
+    const result=await w.call({type:"COMPLETE_ITEM_METADATA",id:"saved",force:true});
+    expect(result.ok).toBe(true);expect(result.status).toBe("matched");
+    expect(result.item).toMatchObject({title:item.title,season:2,episode:4,total:12,notes:"Keep",rating:5,tags:["My tag"],cover:"custom",synopsis:"Custom summary",trailerUrl:"https://www.youtube.com/watch?v=abcdefghijk",cast:[{name:"Actor",character:"",image:""}]});
+    expect(result.item.externalIds.tmdb).toBe(identity.externalIds?.tmdb==="movie:7"?"movie:7":"tv:7");
+    expect(w.data["dasi.items"][0].trailerUrl).toBe(result.item.trailerUrl);
+  }
+ });
+ it("bypasses completed detail cache on forced refresh while coalescing active forced requests",async()=>{
+   const w=worker({"dasi.settings":{tmdbKey:"fixture"}});
+   w.run('var item={type:"watching",title:"Saved",externalIds:{tmdb:"tv:7"}},calls=0;fetchRemote=async()=>({ok:true,json:async()=>({id:7,name:"Series",overview:"Description "+(++calls)})})');
+   expect((await w.run("catalogDetail(item)")).synopsis).toBe("Description 1");
+   expect((await w.run("catalogDetail(item)")).synopsis).toBe("Description 1");
+   expect((await w.run("catalogDetail(item,true)")).synopsis).toBe("Description 2");
+   let release:any,started:any;
+   const ready=new Promise(resolve=>{started=resolve;});
+   w.ctx.started=started;w.ctx.pending=new Promise(resolve=>{release=resolve;});
+   w.run('fetchRemote=async()=>{calls++;started();return {ok:true,json:()=>pending}}');
+   const first=w.run("catalogDetail(item,true)");await ready;
+   const second=w.run("catalogDetail(item,true)");
+   await new Promise(resolve=>setTimeout(resolve,10));
+   release({id:7,name:"Series",overview:"Description 3"});await Promise.all([first,second]);
+   expect(w.run("calls")).toBe(3);
+ });
+ it("does not overwrite a changed legacy URL or edits made while the provider is loading",async()=>{
+   for(const changeIdentity of [false,true]){
+     const item={id:"saved",title:"Saved",type:"watching",url:"https://www.themoviedb.org/tv/7",episode:3,notes:"Before"};
+     const w=worker({"dasi.items":[item],"dasi.settings":{tmdbKey:"fixture"}});
+     let release:any,started:any;const ready=new Promise(resolve=>{started=resolve;});
+     w.ctx.started=started;w.ctx.pending=new Promise(resolve=>{release=resolve;});
+     w.run('fetchRemote=async()=>{started();return {ok:true,json:()=>pending}}');
+     const task=w.run('enrichWork("saved",true)');await ready;
+     const live=w.data["dasi.items"][0];live.episode=5;live.notes="Edited";live.cover="New custom";live.coverOverride=true;live.synopsis="My new synopsis";
+     if(changeIdentity)live.url="https://www.themoviedb.org/tv/8";
+     release({id:7,name:"Series",overview:"Provider summary",poster_path:"/cover.jpg",genres:[{name:"Drama"}]});
+     const result=await task;
+     expect(w.data["dasi.items"][0]).toMatchObject({episode:5,notes:"Edited",cover:"New custom",coverOverride:true,synopsis:"My new synopsis"});
+     if(changeIdentity){expect(result.status).toBe("stale");expect(w.data["dasi.items"][0].externalIds).toBeUndefined();}
+     else expect(w.data["dasi.items"][0].externalIds.tmdb).toBe("tv:7");
+   }
+ });
+ it("never falls back to title matching after a missing key, conflicting identity or wrong provider response",async()=>{
+   for(const mode of ["missing","conflict","wrong"]){
+     const item={id:"saved",title:"Saved",type:"watching",externalIds:{tmdb:"tv:7"},...(mode==="conflict"?{url:"https://www.themoviedb.org/movie/7"}:{})};
+     const w=worker({"dasi.items":[item],"dasi.settings":{tmdbKey:mode==="missing"?"":"fixture"}});
+     w.run('var searches=0;catalogSearchAll=async()=>{searches++;return []};fetchRemote=async()=>({ok:true,json:async()=>({id:8,name:"Wrong series"})})');
+     const result=await w.run('enrichWork("saved",true)');
+     expect(result.status).toBe(mode==="conflict"?"ambiguous":"retryable_error");
+     expect(w.run("searches")).toBe(0);expect(w.data["dasi.items"]).toEqual([item]);
+   }
+ });
+});

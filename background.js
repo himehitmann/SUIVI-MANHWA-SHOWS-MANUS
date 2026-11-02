@@ -1229,7 +1229,7 @@ function tmdbDetailTrailer(rows,language) {
   candidates.sort((a,b)=>score(b)-score(a));
   return candidates.length?"https://www.youtube.com/watch?v="+candidates[0].key:"";
 }
-async function tmdbDetail(item) {
+async function tmdbDetail(item,force=false) {
   const identity=tmdbWorkIdentity(item);
   if(item.type!=="watching"||!identity)throw Error("missing_catalog_identity");
   const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS),key=settings.tmdbKey;
@@ -1237,7 +1237,7 @@ async function tmdbDetail(item) {
   const language=["en","fr","ja","es","de","ko","pt","zh-CN"].includes(settings.lang)?settings.lang:"en";
   const [kind,id]=identity.split(":"),cacheKey=key+"|"+language+"|"+identity;
   let entry=tmdbDetailCache.get(cacheKey);
-  if(!entry||Date.now()-entry.at>=600000){
+  if(!entry||(!entry.pending&&(force||Date.now()-entry.at>=600000))){
     if([...tmdbDetailCache.values()].filter(value=>value.pending).length>=4)throw Error("catalog_busy");
     entry={at:Date.now(),pending:true,task:null};
     const current=entry;
@@ -1263,7 +1263,7 @@ async function tmdbDetail(item) {
   return {...item,...detail,title:item.title,alternativeTitles:[...new Set([...identityTitles(item),...detail.alternativeTitles])],externalIds:{...item.externalIds,...detail.externalIds}};
 }
 
-async function catalogDetail(item) {
+async function catalogDetail(item,force=false) {
   const ids=identityIds(item);
   if(/^\d+$/.test(ids.anilist||"")) {
     let detail;
@@ -1284,7 +1284,7 @@ async function catalogDetail(item) {
       cast:(show._embedded?.cast||[]).slice(0,20).map(c=>({name:c.person?.name,character:c.character?.name,image:c.person?.image?.medium||c.character?.image?.medium||""})).filter(c=>c.name)
     };
   }
-  if(item.type==="watching"&&tmdbWorkIdentity(item))return tmdbDetail(item);
+  if(item.type==="watching"&&tmdbWorkIdentity(item))return tmdbDetail(item,force);
   if(item.type==="game"&&(ids.rawg||ids.steam||steamAppId(item.url)))return knownGameDetails(item);
   return item;
 }
@@ -1924,7 +1924,7 @@ function metadataLeaseValid(item,lease) {
   return !lease||(item?.metadataPending?.jobId===lease.jobId&&item?.metadataPending?.attemptId===lease.attemptId);
 }
 function metadataIdentityUnchanged(live,before) {
-  return live&&live.title===before.title&&live.type===before.type&&JSON.stringify(identityIds(live))===JSON.stringify(identityIds(before));
+  return live&&live.title===before.title&&live.type===before.type&&JSON.stringify(identityIds(live))===JSON.stringify(identityIds(before))&&tmdbWorkIdentity(live)===tmdbWorkIdentity(before);
 }
 function applyMetadataPatch(live,before,patch) {
   const safe={...live};
@@ -2067,13 +2067,15 @@ async function enrichWork(id,force=false,lease=null) {
   }
   let match;
   const ids=identityIds(it);
-  const known= /^[1-9]\d*$/.test(ids.anilist||"") || /^[1-9]\d*$/.test(ids.tvmaze||"") || /^[1-9]\d*$/.test(ids.mal||"");
+  const tmdbIdentity=it.type==="watching"?tmdbWorkIdentity(it):"";
+  if(it.type==="watching"&&ids.tmdb&&!tmdbIdentity)return {status:"ambiguous"};
+  const known= !!tmdbIdentity || /^[1-9]\d*$/.test(ids.anilist||"") || /^[1-9]\d*$/.test(ids.tvmaze||"") || /^[1-9]\d*$/.test(ids.mal||"");
   if(known) {
     // A confirmed identifier remains authoritative when the displayed title changes.
     // A failed exact lookup must not silently select another similarly named work.
     try {
-      const detail=await catalogDetail(it);
-      if(!detail||!sharedCatalogIdentity(it,detail))return {status:"ambiguous"};
+      const detail=await catalogDetail(it,force);
+      if(!detail||(!sharedCatalogIdentity(it,detail)&&!(tmdbIdentity&&detail.type===it.type&&tmdbWorkIdentity(detail)===tmdbIdentity)))return {status:"ambiguous"};
       match=detail;
     } catch {return {status:"retryable_error",error:"source_unavailable"};}
   } else {
