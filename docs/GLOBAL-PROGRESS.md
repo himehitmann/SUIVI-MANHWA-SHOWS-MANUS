@@ -1,12 +1,22 @@
 # Suivi global Yomu
 
-Mise à jour : 1er novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 2 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Fiches enregistrées : lecteur unique et synopsis actualisé — 2 novembre 2026
+
+État final 128a3441b64c76bcaa80351e1196ad80ca9cbcca : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41396929726) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41396925325) réussies. 683 tests unitaires et contrôles navigateur, paquet, charge et récupération réussis. Audit des dépendances sans vulnérabilité connue signalée.
+
+Le lecteur d'une œuvre enregistrée est rendu dans une seule section, dès l'ouverture avec les données disponibles. Il reste présent si le fournisseur échoue ou retourne une fiche sans vidéo. Le nouveau scénario navigateur a détecté un doublon de lecteur lors du premier passage ; l'ancien emplacement a été supprimé et le scénario est désormais vert.
+
+Lorsqu'un synopsis existe déjà, le nouveau texte fourni remplace le texte affiché sans créer un deuxième synopsis ni replier celui que l'utilisateur a déplié. L'insertion utilise textContent ; la vérification inclut une chaîne HTML qui doit rester du texte. La distribution déjà affichée n'est pas dupliquée. Les champs enregistrés et la progression personnelle ne sont pas modifiés.
+
+Limites : ne garantit pas la disponibilité des traductions/vidéos chez tous les fournisseurs. Les appels authentifiés TMDB restent validés avec réponses simulées, pas avec une clé réelle. **21/60 = 35 % global vérifié**, inchangé ; G05/G06/G16 restent partiels. Aucune installation dans le navigateur utilisateur.
 
 ## Fiches TMDB : détails localisés et lecteur de bande-annonce — 1er novembre 2026
 
