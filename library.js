@@ -613,6 +613,7 @@ const DETAIL_LOCALES={
   "catalogNewKey": ["New API key","Nouvelle clé API","新しいAPIキー","Nueva clave API","Neuer API-Schlüssel","새 API 키","Nova chave API","新 API 密钥"],
   "catalogRemoveKey": ["Remove key","Supprimer la clé","キーを削除","Eliminar clave","Schlüssel entfernen","키 삭제","Remover chave","删除密钥"],
   "catalogInvalidKey": ["Enter a key without spaces (maximum 256 characters).","Saisis une clé sans espaces (256 caractères maximum).","空白なしで256文字以内のキーを入力してください。","Introduce una clave sin espacios (máximo 256 caracteres).","Schlüssel ohne Leerzeichen eingeben (höchstens 256 Zeichen).","공백 없이 256자 이하의 키를 입력하세요.","Introduz uma chave sem espaços (máximo de 256 caracteres).","请输入不含空格的密钥（最多256个字符）。"],
+  "tmdbDetailKeyNeeded": ["Add your TMDB API key in Settings to load these details.","Ajoute ta clé API TMDB dans les réglages pour charger ces informations.","詳細を読み込むには設定でTMDB APIキーを追加してください。","Añade tu clave API de TMDB en los ajustes para cargar estos detalles.","Füge in den Einstellungen deinen TMDB-API-Schlüssel hinzu, um diese Details zu laden.","상세 정보를 불러오려면 설정에서 TMDB API 키를 추가하세요.","Adiciona a tua chave API TMDB nas definições para carregar estes detalhes.","请在设置中添加 TMDB API 密钥以加载这些详情。"],
   "tmdbGuideKeyNeeded": ["Add your TMDB API key in Settings to load these seasons.","Ajoute ta clé API TMDB dans les réglages pour charger ces saisons.","このシーズンを読み込むには設定でTMDB APIキーを追加してください。","Añade tu clave API de TMDB en los ajustes para cargar estas temporadas.","Füge in den Einstellungen deinen TMDB-API-Schlüssel hinzu, um diese Staffeln zu laden.","시즌을 불러오려면 설정에서 TMDB API 키를 추가하세요.","Adiciona a tua chave API TMDB nas definições para carregar estas temporadas.","请在设置中添加 TMDB API 密钥以加载这些季。"],
   "episodesUnavailable": [
     "Episodes are unavailable at the moment.",
@@ -2289,6 +2290,13 @@ function loadCatalogPanelDetails(item,status,active,apply) {
       pending=false;
       if(!active()||!status.isConnected)return;
       status.removeAttribute("aria-busy");
+      if(response?.error==="tmdb_key_required"){
+        status.replaceChildren(document.createTextNode(t("tmdbDetailKeyNeeded")+" "));
+        const configure=document.createElement("button");configure.type="button";configure.className="link-btn";configure.textContent=t("settings");
+        configure.onclick=()=>{if(!active()||!status.isConnected)return;switchView("settings");document.getElementById("key-tmdbKey")?.focus();};
+        status.append(configure);
+        return;
+      }
       if(!response?.ok||!response.item){
         status.replaceChildren(document.createTextNode(t("detailsUnavailable")+" "));
         const retry=document.createElement("button");retry.type="button";retry.className="link-btn";retry.textContent=t("retryLabel");retry.onclick=load;status.append(retry);

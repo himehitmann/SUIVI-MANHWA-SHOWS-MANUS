@@ -3044,3 +3044,13 @@ describe("TMDB detail enrichment",()=>{
   w.run('finish({id:7,name:"Title"})');await Promise.all(pending);expect(w.run("calls")).toBe(1);
  });
 });
+
+describe("catalog detail configuration errors",()=>{
+ it("exposes a missing key as an actionable code while keeping arbitrary provider details private",async()=>{
+  const w=worker();
+  const message={type:"CATALOG_DETAIL",item:{type:"watching",externalIds:{tmdb:"tv:7"}}};
+  expect(await w.call(message)).toEqual({ok:false,error:"tmdb_key_required"});
+  w.run('catalogDetail=async()=>{throw Error("private-url-and-key")}');
+  expect(await w.call(message)).toEqual({ok:false,error:"details_unavailable"});
+ });
+});

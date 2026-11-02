@@ -1360,6 +1360,37 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
  assert.deepEqual(detailRecovery,Array.from({length:2},()=>({retained:true,guarded:true,recovered:true,closed:true})));
  console.log("PASS: preview and saved detail recovery preserve content, prevent duplicate requests and ignore closed panels");
 
+
+ const detailKeyRoutes=await page.evaluate(async()=>{
+  const original=requestMetadata,previous=items,previousSettings=settings,pending=[];
+  const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+  requestMetadata=(message,callback)=>{
+    if(message.type==="CATALOG_DETAIL"){pending.push(callback);return;}
+    if(message.type==="CATALOG_EPISODE_GUIDE"){callback({ok:true,seasons:[]});return;}
+    return original(message,callback);
+  };
+  let verified=0;
+  try{
+    for(const lang of ["en","fr","ja","es","de","ko","pt","zh-CN"]){
+      settings={...previousSettings,lang,tmdbKey:""};
+      for(const savedMode of [false,true]){
+        const item={id:"missing-key-fixture",type:"watching",title:"Configured later",externalIds:{tmdb:"tv:7"},synopsis:"Retained content",episode:3};
+        if(savedMode){items=[item,...previous];openDrawer(item.id);}else openCatalogPreviewResolved(item);
+        const status=document.getElementById(savedMode?"dr-detail-status":"preview-status");
+        pending.shift()({ok:false,error:"tmdb_key_required"});await tick();
+        const button=status.querySelector("button");
+        if(status.textContent.includes(t("tmdbDetailKeyNeeded"))&&button.textContent===t("settings")&&document.getElementById("drawer").textContent.includes("Retained content")&&!status.hasAttribute("aria-busy")){
+          button.click();
+          if(view==="settings"&&document.activeElement.id==="key-tmdbKey"&&pending.length===0)verified++;
+        }
+      }
+    }
+    return verified;
+  }finally{requestMetadata=original;settings=previousSettings;items=previous;closeDrawer();switchView("home");}
+ });
+ assert.equal(detailKeyRoutes,16);
+ console.log("PASS: missing TMDB detail key routes to settings in both panels across eight languages");
+
  const options=await context.newPage();options.on("pageerror",error=>errors.push(error.message));
  await options.goto(base+"options.html");await options.waitForFunction(()=>typeof send==="function");
  const transport=await options.evaluate(async()=>{

@@ -2715,7 +2715,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "CATALOG_EPISODE_GUIDE":
       catalogEpisodeGuide(message.item||{},message.seasonId).then(data=>sendResponse({ok:true,...data}),error=>sendResponse({ok:false,error:error?.message==="tmdb_key_required"?"tmdb_key_required":"episode_guide_unavailable"}));return true;
     case "CATALOG_DETAIL":
-      catalogDetail(message.item||{}).then(item=>sendResponse({ok:true,item}),()=>sendResponse({ok:false,error:"details_unavailable"}));return true;
+      catalogDetail(message.item||{}).then(item=>sendResponse({ok:true,item}),error=>sendResponse({ok:false,error:error?.message==="tmdb_key_required"?"tmdb_key_required":"details_unavailable"}));return true;
     case "CATALOG_SEARCH":
       if(message.progressive===true){catalogSearchProgress(message.query,message.retry===true,typeof message.more==="string"?message.more:null).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));return true;}
       catalogSearchAll(message.query || "")
