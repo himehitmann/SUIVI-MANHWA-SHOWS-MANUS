@@ -1079,6 +1079,59 @@ try {
   await transferPage.close();
   console.log("Guest library transfer: preview, target account, copy, original retention and pending backup passed");
 
+
+  // Exercise the packaged notification API and real tab routing, without replacing chrome.notifications.
+  const notificationProbe=await worker.evaluate(async()=>{
+    const keys=["dasi.items","dasi.settings","yomu.notificationTargets.v1"];
+    const previous=await chrome.storage.local.get(keys);
+    await chrome.storage.local.set({"dasi.items":[{id:"notification-route",title:"Notification route",type:"reading",chapter:4,total:20,notes:"Keep"}],"dasi.settings":{lang:"en",notifyNew:true}});
+    await systemNotify("Yomu notification test","Open the saved work","delivery-probe","notification-route");
+    const targets=(await chrome.storage.local.get("yomu.notificationTargets.v1"))["yomu.notificationTargets.v1"]||[];
+    const target=targets.find(row=>row.itemId==="notification-route");
+    const visible=await chrome.notifications.getAll();
+    return {previous,id:target?.id,registered:!!target&&Object.hasOwn(visible,target.id)};
+  });
+  assert(notificationProbe.id,"Notification target was not retained");
+  assert(notificationProbe.registered,"Chrome did not register the created notification");
+  try{
+    const opened=context.waitForEvent("page");
+    await worker.evaluate(id=>openSystemNotification(id),notificationProbe.id);
+    const targetPage=await opened;
+    await targetPage.waitForURL(base+"library.html?notification=*");
+    await targetPage.locator("#drawer.open #dr-title").waitFor();
+    assert.equal(await targetPage.locator("#dr-title").inputValue(),"Notification route");
+    await targetPage.close();
+    const disabled=await worker.evaluate(async()=>{
+      const before=await chrome.notifications.getAll();
+      await chrome.storage.local.set({"dasi.settings":{lang:"en",notifyNew:false}});
+      await systemNotify("Muted","Must not register","muted-probe","notification-route");
+      const after=await chrome.notifications.getAll();
+      return Object.keys(after).filter(id=>!Object.hasOwn(before,id));
+    });
+    assert.deepEqual(disabled,[]);
+    await worker.evaluate(async id=>{
+      const key="yomu.notificationTargets.v1",rows=(await chrome.storage.local.get(key))[key];
+      await chrome.storage.local.set({[key]:rows.map(row=>row.id===id?{...row,ts:Date.now()-31*86400000}:row)});
+    },notificationProbe.id);
+    const expiredOpened=context.waitForEvent("page");
+    await worker.evaluate(id=>openSystemNotification(id),notificationProbe.id);
+    const expiredPage=await expiredOpened;
+    await expiredPage.waitForURL(base+"library.html?notification=*");
+    await expiredPage.waitForFunction(()=>document.querySelector("#nav")&&typeof items!=="undefined"&&items.some(item=>item.id==="notification-route"));
+    assert.equal(await expiredPage.locator("#drawer.open").count(),0);
+    await expiredPage.close();
+    const retained=await worker.evaluate(async()=> (await chrome.storage.local.get("dasi.items"))["dasi.items"][0]);
+    assert.equal(retained.chapter,4);assert.equal(retained.notes,"Keep");
+    console.log("PASS: packaged Chrome notification registered, real saved-work tab routing, global mute and expired destination");
+  }finally{
+    await worker.evaluate(async probe=>{
+      await chrome.notifications.clear(probe.id);
+      const keys=["dasi.items","dasi.settings","yomu.notificationTargets.v1"];
+      await chrome.storage.local.remove(keys.filter(key=>!Object.hasOwn(probe.previous,key)));
+      await chrome.storage.local.set(probe.previous);
+    },notificationProbe);
+  }
+
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(
