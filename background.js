@@ -1222,6 +1222,7 @@ async function completeAnimeTrailer(item,detail,timeoutMs=1500) {
 
 
 const tmdbDetailCache=new Map();
+let tmdbDetailPending=0;
 function tmdbDetailTrailer(rows,language) {
   const locale=language.split("-")[0];
   const candidates=(Array.isArray(rows)?rows:[]).filter(row=>row?.site==="YouTube"&&typeof row.key==="string"&&/^[A-Za-z0-9_-]{11}$/.test(row.key)&&["Trailer","Teaser"].includes(row.type));
@@ -1238,7 +1239,8 @@ async function tmdbDetail(item,force=false) {
   const [kind,id]=identity.split(":"),cacheKey=key+"|"+language+"|"+identity;
   let entry=tmdbDetailCache.get(cacheKey);
   if(!entry||(!entry.pending&&(force||Date.now()-entry.at>=600000))){
-    if([...tmdbDetailCache.values()].filter(value=>value.pending).length>=4)throw Error("catalog_busy");
+    if(tmdbDetailPending>=4)throw Error("catalog_busy");
+    tmdbDetailPending++;
     entry={at:Date.now(),pending:true,task:null};
     const current=entry;
     entry.task=(async()=>{
@@ -1255,7 +1257,7 @@ async function tmdbDetail(item,force=false) {
       const synopsis=text(data.overview).slice(0,20000),cover=image(data.poster_path),trailer=tmdbDetailTrailer(data.videos?.results,language);
       if(synopsis)detail.synopsis=synopsis;if(cover)detail.cover=cover;if(trailer)detail.trailerUrl=trailer;
       return detail;
-    })().catch(error=>{if(tmdbDetailCache.get(cacheKey)===current)tmdbDetailCache.delete(cacheKey);throw error;}).finally(()=>{current.pending=false;});
+    })().catch(error=>{if(tmdbDetailCache.get(cacheKey)===current)tmdbDetailCache.delete(cacheKey);throw error;}).finally(()=>{current.pending=false;tmdbDetailPending--;});
     tmdbDetailCache.set(cacheKey,entry);
     while(tmdbDetailCache.size>40)tmdbDetailCache.delete(tmdbDetailCache.keys().next().value);
   }

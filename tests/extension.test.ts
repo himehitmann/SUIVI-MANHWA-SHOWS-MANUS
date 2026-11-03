@@ -3146,3 +3146,24 @@ describe("TMDB transient cache lifecycle",()=>{
    await expect(w.run('tmdbDetail({type:"watching",externalIds:{tmdb:"tv:7"}})')).rejects.toThrow("tmdb_key_required");
  });
 });
+
+describe("TMDB detail concurrency across configuration changes",()=>{
+ it("counts outstanding requests even after caches are cleared and frees slots after success or failure",async()=>{
+  const w=worker({"dasi.settings":{tmdbKey:"fixture",lang:"en"}});
+  w.run('var finishes=[],starts=0;fetchRemote=async()=>{starts++;return {ok:true,json:()=>new Promise((resolve,reject)=>finishes.push({resolve,reject}))}}');
+  const tasks=[1,2,3,4].map(id=>w.run('tmdbDetail({type:"watching",title:"Show",externalIds:{tmdb:"tv:'+id+'"}})'));
+  for(let n=0;n<100&&w.run("starts")<4;n++)await new Promise(resolve=>setTimeout(resolve,2));
+  expect(w.run("starts")).toBe(4);
+  await w.call({type:"SET_SETTINGS",patch:{lang:"fr"}});
+  await expect(w.run('tmdbDetail({type:"watching",externalIds:{tmdb:"tv:5"}})')).rejects.toThrow("catalog_busy");
+  expect(w.run("starts")).toBe(4);
+  w.run('finishes[0].resolve({id:1,name:"First"})');await tasks[0];
+  const next=w.run('tmdbDetail({type:"watching",externalIds:{tmdb:"tv:5"}})');
+  for(let n=0;n<100&&w.run("starts")<5;n++)await new Promise(resolve=>setTimeout(resolve,2));
+  expect(w.run("starts")).toBe(5);
+  const failure=expect(tasks[1]).rejects.toThrow("provider_failed");
+  w.run('finishes[1].reject(Error("provider_failed"));finishes[2].resolve({id:3,name:"Third"});finishes[3].resolve({id:4,name:"Fourth"});finishes[4].resolve({id:5,name:"Fifth"})');
+  await failure;await Promise.all([tasks[2],tasks[3],next]);
+  expect(w.run("tmdbDetailPending")).toBe(0);
+ });
+});
