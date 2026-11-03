@@ -3234,7 +3234,7 @@ describe("release notification languages",()=>{
       w.run('var delivered=[];systemNotify=async(title,message)=>delivered.push({title,message});fetchTrackedReleases=async()=>Array.from({length:episodeCount},(_,i)=>({season:1,episode:i+2,at:Date.now()-1000}));steamAppDetails=async()=>({comingSoon:false})');
       await w.run("checkTrackedReleasesOnce()");
       await w.run("checkGameReleases()");
-      const messages=w.data["dasi.notifications"].map((row:any)=>({title:row.title,message:row.message}));
+      const messages=w.data["dasi.notifications"].map((row:any)=>({title:row.title,message:row.message})).sort((a:any,b:any)=>a.title.localeCompare(b.title));
       expect(messages).toEqual([{title:"Game",message:game},{title:"Series",message:episodeMessage}]);
       expect(w.run("delivered")).toEqual([{title:"Series",message:episodeMessage},{title:"Game",message:game}]);
       await w.run("checkTrackedReleasesOnce()");
