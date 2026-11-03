@@ -2953,6 +2953,22 @@ function freshTrackedReleases(item, episodes, settings, now=Date.now()) {
     return ep.season>season || ep.season===season&&ep.episode>episode;
   });
 }
+// These messages are shared by the in-app feed and the native notification.
+const RELEASE_NOTIFICATION_MESSAGES={
+  en:{game:"is out now",episode:n=>n+" new episode"+(n===1?"":"s")+" available"},
+  fr:{game:"est disponible",episode:n=>n+(n===1?" nouvel épisode disponible":" nouveaux épisodes disponibles")},
+  ja:{game:"配信開始",episode:n=>"新しいエピソードが"+n+"話配信されました"},
+  es:{game:"ya está disponible",episode:n=>n+(n===1?" nuevo episodio disponible":" nuevos episodios disponibles")},
+  de:{game:"ist jetzt verfügbar",episode:n=>n+(n===1?" neue Folge verfügbar":" neue Folgen verfügbar")},
+  ko:{game:"출시되었습니다",episode:n=>"새 에피소드 "+n+"개가 공개되었습니다"},
+  pt:{game:"já está disponível",episode:n=>n+(n===1?" novo episódio disponível":" novos episódios disponíveis")},
+  "zh-CN":{game:"现已推出",episode:n=>"已更新 "+n+" 集"}
+};
+function releaseNotificationText(language,kind,count=1){
+  const messages=Object.hasOwn(RELEASE_NOTIFICATION_MESSAGES,language)?RELEASE_NOTIFICATION_MESSAGES[language]:RELEASE_NOTIFICATION_MESSAGES.en;
+  return kind==="game"?messages.game:messages.episode(count);
+}
+
 async function checkTrackedReleasesOnce() {
   const epoch=accountEpoch;
   const candidates=(await read(ITEMS_KEY,[])).filter(i=>releaseIdentity(i)&&notificationItemState(i)!=="dropped"&&Date.now()-(i.releaseCheckedAt||0)>=TRACKED_RELEASE_INTERVAL).sort((a,b)=>(a.releaseCheckedAt||0)-(b.releaseCheckedAt||0)).slice(0,6);
@@ -2976,9 +2992,7 @@ async function checkTrackedReleasesOnce() {
       const changes={[ITEMS_KEY]:current.map(i=>i.id===live.id?updated:i)};
       let message="";
       if(fresh.length){
-        message=settings.lang==="fr"
-          ? fresh.length+(fresh.length>1?" nouveaux épisodes disponibles":" nouvel épisode disponible")
-          : fresh.length+" new episode"+(fresh.length>1?"s":"")+" available";
+        message=releaseNotificationText(settings.lang,"episode",fresh.length);
         changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:live.id,title:live.title,message,url:live.url,read:false,ts:Date.now()},...await read(NOTIF_KEY,[])].slice(0,120);
       }
       await writeData(changes);
@@ -3016,7 +3030,7 @@ async function checkGameReleasesOnce() {
         const next=items.map(i=>i.id===current.id?{...i,released,releaseDate:details.releaseDate||i.releaseDate,releaseCheckedAt:Date.now(),updatedAt:Date.now()}:i);
         const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
         const alert=released&&!current.released&&!itemAlertsPaused(current)&&current.notifyUpdates!==false&&settings.notifyNew!==false;
-        const message=settings.lang==="fr"?"est disponible":"is out now";
+        const message=releaseNotificationText(settings.lang,"game");
         const changes={[ITEMS_KEY]:next};
         if(alert)changes[NOTIF_KEY]=[{id:"n_"+crypto.randomUUID(),itemId:current.id,title:current.title,message,url:current.url,read:false,ts:Date.now()},...await read(NOTIF_KEY,[])].slice(0,120);
         await writeData(changes);

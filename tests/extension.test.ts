@@ -3167,3 +3167,82 @@ describe("TMDB detail concurrency across configuration changes",()=>{
   expect(w.run("tmdbDetailPending")).toBe(0);
  });
 });
+
+describe("release notification languages",()=>{
+  it.each([
+  [
+    "en",
+    "1 new episode available",
+    "2 new episodes available",
+    "is out now"
+  ],
+  [
+    "fr",
+    "1 nouvel épisode disponible",
+    "2 nouveaux épisodes disponibles",
+    "est disponible"
+  ],
+  [
+    "ja",
+    "新しいエピソードが1話配信されました",
+    "新しいエピソードが2話配信されました",
+    "配信開始"
+  ],
+  [
+    "es",
+    "1 nuevo episodio disponible",
+    "2 nuevos episodios disponibles",
+    "ya está disponible"
+  ],
+  [
+    "de",
+    "1 neue Folge verfügbar",
+    "2 neue Folgen verfügbar",
+    "ist jetzt verfügbar"
+  ],
+  [
+    "ko",
+    "새 에피소드 1개가 공개되었습니다",
+    "새 에피소드 2개가 공개되었습니다",
+    "출시되었습니다"
+  ],
+  [
+    "pt",
+    "1 novo episódio disponível",
+    "2 novos episódios disponíveis",
+    "já está disponível"
+  ],
+  [
+    "zh-CN",
+    "已更新 1 集",
+    "已更新 2 集",
+    "现已推出"
+  ],
+  [
+    "unsupported",
+    "1 new episode available",
+    "2 new episodes available",
+    "is out now"
+  ]
+])("uses %s for both stored and delivered release alerts",async(lang,one,two,game)=>{
+    for(const [count,episodeMessage] of [[1,one],[2,two]] as const){
+      const w=worker({"dasi.settings":{lang,notifyNew:true},"dasi.items":[
+        {id:"series",title:"Series",type:"watching",season:1,episode:1,releaseCheckedAt:Date.now()-8*3600000,externalIds:{tvmaze:"7"},notes:"Keep"},
+        {id:"game",title:"Game",type:"game",externalIds:{steam:"123"},released:false,notes:"Keep"}
+      ]});
+      w.ctx.episodeCount=count;
+      w.run('var delivered=[];systemNotify=async(title,message)=>delivered.push({title,message});fetchTrackedReleases=async()=>Array.from({length:episodeCount},(_,i)=>({season:1,episode:i+2,at:Date.now()-1000}));steamAppDetails=async()=>({comingSoon:false})');
+      await w.run("checkTrackedReleasesOnce()");
+      await w.run("checkGameReleases()");
+      const messages=w.data["dasi.notifications"].map((row:any)=>({title:row.title,message:row.message}));
+      expect(messages).toEqual([{title:"Game",message:game},{title:"Series",message:episodeMessage}]);
+      expect(w.run("delivered")).toEqual([{title:"Series",message:episodeMessage},{title:"Game",message:game}]);
+      await w.run("checkTrackedReleasesOnce()");
+      await w.run("checkGameReleases()");
+      expect(w.data["dasi.notifications"]).toHaveLength(2);
+      expect(w.run("delivered")).toHaveLength(2);
+      expect(w.data["dasi.items"][0]).toMatchObject({episode:1,notes:"Keep"});
+      expect(w.data["dasi.items"][1]).toMatchObject({released:true,notes:"Keep"});
+    }
+  });
+});
