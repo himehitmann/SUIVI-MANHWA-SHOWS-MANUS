@@ -8,6 +8,14 @@ Mise à jour : 3 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Notifications : réception dans Chromium empaqueté — 3 novembre 2026
+
+Commit 43ff8a4088abc29684f67efddef932924eb799c0 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41585138282) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41585133496) réussies. 692 tests unitaires et contrôles navigateur, paquet, charge et récupération réussis.
+
+Le nouveau parcours utilise les véritables chrome.notifications.create/getAll/clear et chrome.tabs.create dans l'extension empaquetée. Il vérifie l'enregistrement effectif de la notification, l'ouverture d'un nouvel onglet contenant la fiche correspondant à sa destination, l'absence de nouvelle notification après désactivation globale et le refus d'ouvrir une œuvre depuis une destination expirée. Notes et progression restent inchangées ; les données d'essai sont restaurées.
+
+La route de clic est appelée directement par le test : l'interaction sur une notification native du système d'exploitation n'est pas simulée ni revendiquée. Le rendu de la notification par Windows, le clic natif et la matrice complète de préférences par œuvre dans ce même parcours restent à vérifier. G12 demeure partiel ; **21/60 = 35 % global vérifié**, inchangé. Aucune installation dans le navigateur utilisateur.
+
 ## Limite des chargements TMDB conservée après nettoyage — 3 novembre 2026
 
 Commit b566da157d608e180f3204e22690603b4f060333 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41584173776) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41584168365) réussies. 692 tests unitaires, contrôles navigateur, paquet, charge et récupération réussis ; audit des dépendances sans vulnérabilité connue signalée.
@@ -975,7 +983,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G09 | Filtres type, genre, diffusion, dates futures et prix correctement combinés | V | CI #606 et #614 : combinaisons année 2028/gratuit, changement de type, genres conservés pendant chargement, états séparés et portée œuvre/série vs saison/partie. Mapping AniList/Jikan/TVmaze, ajout, actualisation et rechargement Chrome vérifiés. Les métadonnées manquantes restent inconnues ; couverture des fournisseurs distincte de ce critère. |
 | G10 | Jeux au-delà de Steam, boutiques officielles, prix et tags détaillés | P | Steam et RAWG avec clé personnelle : repli sur identifiant connu, plateformes/boutiques fusionnées, genres conservés et refresh sans perte des modifications personnelles testés. Prix multi-boutiques, droits et couverture réelle restent partiels. |
 | G11 | Actualités récentes, codes et récompenses structurés avec expiration | NV | Ne pas confondre annonces génériques et codes actifs vérifiés. Flux officiels et expiration à réaliser. |
-| G12 | Notifications par œuvre/jeu, catégories et désactivation réellement vérifiées | P | Préférences présentes ; livraison et suppression des événements périmés à valider. |
+| G12 | Notifications par œuvre/jeu, catégories et désactivation réellement vérifiées | P | Enregistrement via API Chromium réelle, route vers fiche dans un nouvel onglet, désactivation globale et destination expirée vérifiés le 3 novembre. Préférences par œuvre couvertes au niveau moteur ; rendu/clic natifs Windows et matrice complète dans le paquet restent à vérifier. |
 | G13 | Bibliothèque cohérente, compteurs, listes et actions rapides sans ajout invisible | V | Réception du 29 octobre : 216 combinaisons de filtres, cinq tris, compteurs et états après opérations ; parcours extension/web et erreurs réussis. Voir [réception G13](LIBRARY-ACCEPTANCE-2026-10-29.md). Validation fonctionnelle en environnement de test, pas publication ni sauvegarde cloud réelle. |
 | G14 | Personnalisation profil : nom, bio, avatar/bannière recadrables et synchronisation | V | ProfileEditor et parcours web : image WebP, profil relu via API et écran étroit. D’autres personnalisations restent possibles sans invalider ce périmètre. |
 | G15 | Amis, messages, partage de recommandations avec contrôle de confidentialité | NV | Service social complet absent. Invitations, refus/blocage, signalement et permissions nécessaires. |
