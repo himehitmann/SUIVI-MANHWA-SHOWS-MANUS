@@ -1,12 +1,22 @@
 # Suivi global Yomu
 
-Mise à jour : 3 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 4 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Actualités des jeux : réglages du paquet et reprise après erreur source — 4 novembre 2026
+
+Commit 2022fe86df20a2723019c11afc61f3d46e969435 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41734930436) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41734920373) réussies. **705 tests unitaires**, parcours navigateur et paquet, interface, charge et récupération réussis. Aucune vulnérabilité connue signalée par l'audit des dépendances.
+
+Une réponse Steam sans tableau d'actualités est désormais traitée comme une erreur de source. L'extension conserve les annonces déjà chargées, leurs identifiants et la date de dernière vérification réussie. Une tentative suivante peut donc récupérer et notifier une annonce qui aurait été manquée. Une réponse valide avec un tableau vide reste acceptée.
+
+Le parcours Chromium empaqueté utilise les cases à cocher des fiches pour sélectionner mises à jour seules, événements seuls, récompenses seules et désactivation du jeu. Il vérifie leur conservation après réouverture, les jeux en pause ou abandonnés, le premier chargement silencieux, l'exclusion des dates futures/anciennes, les annonces déjà vues, les doublons, la mutualisation de deux vérifications simultanées et l'absence de répétition après une nouvelle récupération du même flux. Quatre alertes attendues sont contrôlées dans le stockage et via chrome.notifications.getAll ; les notes et évaluations sont conservées.
+
+Les réponses HTTP sont des données de test contrôlées ; le parseur Steam, les réglages, le stockage et les API de notification Chromium sont réels. Cela ne valide ni la couverture de tous les éditeurs, ni des codes promotionnels actifs. G11 reste NV. G12 reste partiel tant que le rendu et le clic natifs Windows ne sont pas vérifiés. **21/60 (35 %) global**, inchangé.
 
 ## Alertes : préférences par œuvre et huit langues — 3 novembre 2026
 
@@ -993,7 +1003,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G09 | Filtres type, genre, diffusion, dates futures et prix correctement combinés | V | CI #606 et #614 : combinaisons année 2028/gratuit, changement de type, genres conservés pendant chargement, états séparés et portée œuvre/série vs saison/partie. Mapping AniList/Jikan/TVmaze, ajout, actualisation et rechargement Chrome vérifiés. Les métadonnées manquantes restent inconnues ; couverture des fournisseurs distincte de ce critère. |
 | G10 | Jeux au-delà de Steam, boutiques officielles, prix et tags détaillés | P | Steam et RAWG avec clé personnelle : repli sur identifiant connu, plateformes/boutiques fusionnées, genres conservés et refresh sans perte des modifications personnelles testés. Prix multi-boutiques, droits et couverture réelle restent partiels. |
 | G11 | Actualités récentes, codes et récompenses structurés avec expiration | NV | Ne pas confondre annonces génériques et codes actifs vérifiés. Flux officiels et expiration à réaliser. |
-| G12 | Notifications par œuvre/jeu, catégories et désactivation réellement vérifiées | P | API Chromium réelle, route vers fiche, désactivation globale, expiration et six préférences/états d’œuvre vérifiés dans le paquet le 3 novembre. Alertes épisodes/sorties de jeux dans les huit langues testées. Rendu/clic natifs Windows et matrice complète des actualités de jeux dans le paquet restent à vérifier. |
+| G12 | Notifications par œuvre/jeu, catégories et désactivation réellement vérifiées | P | API Chromium réelle, route vers fiche, désactivation globale, expiration, préférences/états des œuvres et catégories d’actualités de jeux testés dans le paquet. Cases à cocher persistantes, premier chargement silencieux et absence de doublons vérifiés. Alertes de sortie dans huit langues testées. Rendu/clic natifs Windows restent à vérifier. |
 | G13 | Bibliothèque cohérente, compteurs, listes et actions rapides sans ajout invisible | V | Réception du 29 octobre : 216 combinaisons de filtres, cinq tris, compteurs et états après opérations ; parcours extension/web et erreurs réussis. Voir [réception G13](LIBRARY-ACCEPTANCE-2026-10-29.md). Validation fonctionnelle en environnement de test, pas publication ni sauvegarde cloud réelle. |
 | G14 | Personnalisation profil : nom, bio, avatar/bannière recadrables et synchronisation | V | ProfileEditor et parcours web : image WebP, profil relu via API et écran étroit. D’autres personnalisations restent possibles sans invalider ce périmètre. |
 | G15 | Amis, messages, partage de recommandations avec contrôle de confidentialité | NV | Service social complet absent. Invitations, refus/blocage, signalement et permissions nécessaires. |
