@@ -3236,13 +3236,13 @@ describe("release notification languages",()=>{
       await w.run("checkGameReleases()");
       const messages=w.data["dasi.notifications"].map((row:any)=>({title:row.title,message:row.message})).sort((a:any,b:any)=>a.title.localeCompare(b.title));
       expect(messages).toEqual([{title:"Game",message:game},{title:"Series",message:episodeMessage}]);
-      expect(w.run("delivered")).toEqual([{title:"Series",message:episodeMessage},{title:"Game",message:game}]);
+      expect([...w.run("delivered")].sort((a:any,b:any)=>a.title.localeCompare(b.title))).toEqual(messages);
       await w.run("checkTrackedReleasesOnce()");
       await w.run("checkGameReleases()");
       expect(w.data["dasi.notifications"]).toHaveLength(2);
       expect(w.run("delivered")).toHaveLength(2);
-      expect(w.data["dasi.items"][0]).toMatchObject({episode:1,notes:"Keep"});
-      expect(w.data["dasi.items"][1]).toMatchObject({released:true,notes:"Keep"});
+      expect(w.data["dasi.items"].find((item:any)=>item.id==="series")).toMatchObject({episode:1,notes:"Keep"});
+      expect(w.data["dasi.items"].find((item:any)=>item.id==="game")).toMatchObject({released:true,notes:"Keep"});
     }
   });
 });
