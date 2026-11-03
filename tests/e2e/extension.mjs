@@ -1132,6 +1132,54 @@ try {
     },notificationProbe);
   }
 
+
+  const episodeAlerts=await worker.evaluate(async()=>{
+    const keys=["dasi.items","dasi.settings","dasi.notifications","yomu.notificationTargets.v1"];
+    const previous=await chrome.storage.local.get(keys),originalFetch=fetchRemote;
+    const now=Date.now(),baseline=now-8*3600000;
+    const cases=[
+      {id:"alert-active"},
+      {id:"alert-muted",notifyUpdates:false},
+      {id:"alert-paused",state:"on_hold"},
+      {id:"alert-dropped",state:"dropped"},
+      {id:"alert-seen",episode:2},
+      {id:"alert-baseline",releaseCheckedAt:undefined}
+    ].map(row=>({title:row.id,type:"watching",externalIds:{tvmaze:"7"},season:1,episode:1,notes:"Keep",releaseCheckedAt:baseline,...row}));
+    let registered=[];
+    try{
+      await chrome.storage.local.set({"dasi.items":cases,"dasi.settings":{lang:"en",notifyNew:true},"dasi.notifications":[],"yomu.notificationTargets.v1":[]});
+      fetchRemote=async(url,options)=>{
+        if(String(url)==="https://api.tvmaze.com/shows/7/episodes")return {ok:true,json:async()=>[
+          {season:1,number:2,airstamp:new Date(now-3600000).toISOString()},
+          {season:1,number:2,airstamp:new Date(now-3600000).toISOString()},
+          {season:1,number:3,airstamp:new Date(now+86400000).toISOString()},
+          {season:1,number:4,airstamp:new Date(now-9*86400000).toISOString()}
+        ]};
+        return originalFetch(url,options);
+      };
+      await checkTrackedReleases();await notificationDeliveryQueue;
+      const first=await chrome.storage.local.get(keys);
+      registered=(first["yomu.notificationTargets.v1"]||[]).map(row=>row.id);
+      const native=await chrome.notifications.getAll();
+      await checkTrackedReleases();await notificationDeliveryQueue;
+      const second=await chrome.storage.local.get(keys);
+      return {
+        alerts:first["dasi.notifications"].map(row=>row.itemId),
+        native:registered.length===1&&registered.every(id=>Object.hasOwn(native,id)),
+        noRepeat:second["dasi.notifications"].length===1,
+        progressPreserved:second["dasi.items"].every(row=>row.notes==="Keep"&&row.episode===(row.id==="alert-seen"?2:1)),
+        futureExcluded:second["dasi.items"].filter(row=>row.id!=="alert-dropped").every(row=>row.recentEpisodes.length===1&&row.recentEpisodes[0].episode===2)
+      };
+    }finally{
+      fetchRemote=originalFetch;
+      for(const id of registered)await chrome.notifications.clear(id);
+      await chrome.storage.local.remove(keys.filter(key=>!Object.hasOwn(previous,key)));
+      await chrome.storage.local.set(previous);
+    }
+  });
+  assert.deepEqual(episodeAlerts,{alerts:["alert-active"],native:true,noRepeat:true,progressPreserved:true,futureExcluded:true});
+  console.log("PASS: packaged tracked-episode alerts respect work mute, pause, drop, viewed progress, first-check baseline and duplicate/future/old releases");
+
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(
