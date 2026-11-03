@@ -3246,3 +3246,30 @@ describe("release notification languages",()=>{
     }
   });
 });
+
+describe("game news source failures",()=>{
+  it.each([{}, {appnews:{}}, {appnews:{newsitems:null}}])("retains the news baseline after a malformed response and retries",async payload=>{
+    const checked=Date.now()-8*3600000;
+    const previous={id:"prior",title:"Previous announcement",publishedAt:checked-1000};
+    const w=worker({"dasi.settings":{notifyNew:true},"dasi.items":[{id:"game",title:"Game",type:"game",released:true,externalIds:{steam:"620"},gameNewsCheckedAt:checked,gameNewsSeenIds:["prior"],news:[previous],notes:"Keep"}]});
+    w.ctx.fetch=async()=>({ok:true,json:async()=>payload});
+    await w.run("checkGameNews()");
+    expect(w.data["dasi.items"][0]).toMatchObject({gameNewsCheckedAt:checked,gameNewsSeenIds:["prior"],news:[previous],notes:"Keep"});
+    expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+    w.ctx.fetch=async()=>({ok:true,json:async()=>({appnews:{appid:620,newsitems:[{gid:"new",title:"Patch 2",date:Math.floor(Date.now()/1000)-60}]}})});
+    await w.run("checkGameNews()");
+    expect(w.data["dasi.items"][0].gameNewsCheckedAt).toBeGreaterThan(checked);
+    expect(w.data["dasi.items"][0].gameNewsSeenIds).toEqual(expect.arrayContaining(["prior","new"]));
+    expect(w.data["dasi.notifications"]).toHaveLength(1);
+    expect(w.data["dasi.notifications"][0]).toMatchObject({itemId:"game",message:"Patch 2"});
+  });
+  it("accepts a genuinely empty news feed without inventing an alert",async()=>{
+    const checked=Date.now()-8*3600000;
+    const w=worker({"dasi.items":[{id:"game",type:"game",released:true,externalIds:{steam:"620"},gameNewsCheckedAt:checked}]});
+    w.ctx.fetch=async()=>({ok:true,json:async()=>({appnews:{appid:620,newsitems:[]}})});
+    await w.run("checkGameNews()");
+    expect(w.data["dasi.items"][0].gameNewsCheckedAt).toBeGreaterThan(checked);
+    expect(w.data["dasi.items"][0].news).toEqual([]);
+    expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
+  });
+});

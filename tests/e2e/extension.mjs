@@ -1193,6 +1193,108 @@ try {
   assert.deepEqual(episodeAlerts,{alerts:["alert-active"],native:true,noRepeat:true,progressPreserved:true,futureExcluded:true});
   console.log("PASS: packaged tracked-episode alerts respect work mute, pause, drop, viewed progress, first-check baseline and duplicate/future/old releases");
 
+
+  // Use the real saved-game controls and the real Steam-news parser, with a
+  // deterministic HTTP fixture; native notification APIs remain unmocked.
+  const gameNewsProbe=await worker.evaluate(async()=>{
+    if(gameNewsTask)await gameNewsTask;
+    if(gameReleaseCheck)await gameReleaseCheck;
+    const keys=["dasi.items","dasi.settings","dasi.notifications","yomu.notificationTargets.v1"];
+    const previous=await chrome.storage.local.get(keys),now=Date.now(),baseline=now-8*3600000;
+    globalThis.newsProbeFetch=fetchRemote;
+    globalThis.newsProbeCalls=0;
+    const games=[
+      {id:"news-all"},{id:"news-updates"},{id:"news-events"},{id:"news-rewards"},
+      {id:"news-muted"},{id:"news-paused",state:"on_hold"},
+      {id:"news-dropped",state:"dropped"},{id:"news-baseline",gameNewsCheckedAt:undefined}
+    ].map(row=>({title:row.id,type:"game",released:true,gameEnrichedAt:now,enrichedAt:now,externalIds:{steam:"620"},gameNewsCheckedAt:baseline,gameNewsSeenIds:["seen"],notes:"Keep",rating:4,...row}));
+    const entries=[
+      {gid:"patch",title:"Patch 2",date:Math.floor(now/1000)-60},
+      {gid:"patch",title:"Patch duplicate",date:Math.floor(now/1000)-60},
+      {gid:"event",title:"Summer festival",date:Math.floor(now/1000)-120},
+      {gid:"reward",title:"Twitch drops rewards",date:Math.floor(now/1000)-180},
+      {gid:"seen",title:"Patch already seen",date:Math.floor(now/1000)-240},
+      {gid:"future",title:"Future festival",date:Math.floor(now/1000)+86400},
+      {gid:"old",title:"Old patch",date:Math.floor(now/1000)-8*86400}
+    ];
+    fetchRemote=async(url,options)=>{
+      if(String(url).startsWith("https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=620&")){
+        globalThis.newsProbeCalls++;
+        return {ok:true,json:async()=>({appnews:{appid:620,newsitems:entries}})};
+      }
+      return globalThis.newsProbeFetch(url,options);
+    };
+    await chrome.storage.local.set({"dasi.items":games,"dasi.settings":{lang:"en",notifyNew:true},"dasi.notifications":[],"yomu.notificationTargets.v1":[]});
+    return {keys,previous,baseline};
+  });
+  try{
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("games");resolve();})));
+    for(const [id,fields] of [
+      ["news-updates",["events","rewards"]],
+      ["news-events",["updates","rewards"]],
+      ["news-rewards",["updates","events"]],
+      ["news-muted",["master"]]
+    ]){
+      await page.evaluate(id=>openDrawer(id),id);
+      for(const field of fields){
+        const selector=field==="master"?"#dr-notify":"#dr-notify-game-"+field;
+        const property=field==="master"?"notifyUpdates":"notifyGame"+field[0].toUpperCase()+field.slice(1);
+        await page.locator(selector).uncheck();
+        await page.waitForFunction(({id,property,selector})=>items.find(row=>row.id===id)?.[property]===false&&!document.querySelector(selector)?.disabled,{id,property,selector});
+      }
+      await page.locator("#dr-close").click();
+      await page.evaluate(id=>openDrawer(id),id);
+      for(const field of fields)assert.equal(await page.locator(field==="master"?"#dr-notify":"#dr-notify-game-"+field).isChecked(),false,"Game alert preference did not survive reopening");
+      await page.locator("#dr-close").click();
+    }
+    const result=await worker.evaluate(async()=>{
+      await Promise.all([checkGameNews(),checkGameNews()]);
+      await notificationDeliveryQueue;
+      const data=await chrome.storage.local.get(["dasi.items","dasi.notifications","yomu.notificationTargets.v1"]);
+      const targets=data["yomu.notificationTargets.v1"],native=await chrome.notifications.getAll();
+      return {
+        alerts:data["dasi.notifications"].map(row=>({id:row.itemId,message:row.message})).sort((a,b)=>a.id.localeCompare(b.id)),
+        native:targets.length===4&&targets.every(row=>Object.hasOwn(native,row.id)),
+        requests:globalThis.newsProbeCalls,
+        preserved:data["dasi.items"].every(row=>row.notes==="Keep"&&row.rating===4),
+        feeds:data["dasi.items"].filter(row=>row.id!=="news-dropped").every(row=>row.news.length===5&&!row.news.some(entry=>entry.id==="future"))
+      };
+    });
+    assert.deepEqual(result,{
+      alerts:[
+        {id:"news-all",message:"Patch 2 — Summer festival — Twitch drops rewards"},
+        {id:"news-events",message:"Summer festival"},
+        {id:"news-rewards",message:"Twitch drops rewards"},
+        {id:"news-updates",message:"Patch 2"}
+      ],
+      native:true,requests:7,preserved:true,feeds:true
+    });
+    const repeated=await worker.evaluate(async baseline=>{
+      const keys=["dasi.items","dasi.notifications","yomu.notificationTargets.v1"];
+      const first=await chrome.storage.local.get(keys);
+      await chrome.storage.local.set({"dasi.items":first["dasi.items"].map(row=>({...row,gameNewsCheckedAt:baseline}))});
+      await checkGameNews();await notificationDeliveryQueue;
+      const second=await chrome.storage.local.get(keys);
+      return {count:second["dasi.notifications"].length,targets:second["yomu.notificationTargets.v1"].map(row=>row.id).sort(),before:first["yomu.notificationTargets.v1"].map(row=>row.id).sort(),requests:globalThis.newsProbeCalls};
+    },gameNewsProbe.baseline);
+    assert.equal(repeated.count,4);
+    assert.deepEqual(repeated.targets,repeated.before);
+    assert.equal(repeated.requests,14,"Repeated check must fetch again to exercise saved announcement deduplication");
+    console.log("PASS: packaged game-news checkbox preferences, category filters, mute/pause/drop, silent baseline, real native registration and repeated-feed deduplication");
+  }finally{
+    await worker.evaluate(async probe=>{
+      if(gameNewsTask)await gameNewsTask;
+      await notificationDeliveryQueue;
+      const targets=(await chrome.storage.local.get("yomu.notificationTargets.v1"))["yomu.notificationTargets.v1"]||[];
+      for(const target of targets)await chrome.notifications.clear(target.id);
+      fetchRemote=globalThis.newsProbeFetch;
+      delete globalThis.newsProbeFetch;delete globalThis.newsProbeCalls;
+      await chrome.storage.local.remove(probe.keys.filter(key=>!Object.hasOwn(probe.previous,key)));
+      await chrome.storage.local.set(probe.previous);
+    },gameNewsProbe);
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);closeDrawer();resolve();})));
+  }
+
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(

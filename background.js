@@ -1723,6 +1723,7 @@ async function steamNews(appid) {
   const res = await fetchRemote(url);
   if (!res.ok) throw new Error(`steam_news_${res.status}`);
   const data = await res.json(),now=Date.now();
+  if(!Array.isArray(data?.appnews?.newsitems))throw Error("invalid_news_data");
   if(data?.appnews?.appid!==undefined&&String(data.appnews.appid)!==String(appid))throw Error("catalog_identity_mismatch");
   const seen=new Set();
   return (Array.isArray(data?.appnews?.newsitems)?data.appnews.newsitems:[])
