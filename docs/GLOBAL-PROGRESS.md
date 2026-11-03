@@ -1,12 +1,22 @@
 # Suivi global Yomu
 
-Mise à jour : 2 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 3 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Limite des chargements TMDB conservée après nettoyage — 3 novembre 2026
+
+Commit b566da157d608e180f3204e22690603b4f060333 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41584173776) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41584168365) réussies. 692 tests unitaires, contrôles navigateur, paquet, charge et récupération réussis ; audit des dépendances sans vulnérabilité connue signalée.
+
+Le compteur des chargements de détails TMDB actifs est désormais indépendant du cache. Vider ce dernier après un changement de langue ou de clé ne permet donc plus de dépasser les quatre demandes simultanées. Le compteur est libéré dans tous les cas de fin de requête, y compris les échecs.
+
+Un nouveau test maintient quatre réponses en attente, change la langue, vérifie le refus d'une cinquième demande, puis la libération des places après succès et échec. Les demandes identiques continuent à partager le travail actif tant que leur entrée existe.
+
+Limites : concerne le chargement des détails TMDB, pas une limite globale de tous les fournisseurs ou une preuve de capacité du service en production. **21/60 = 35 % global vérifié**, inchangé. Aucune installation ou mise en ligne.
 
 ## Nettoyage des copies temporaires TMDB — 2 novembre 2026
 
