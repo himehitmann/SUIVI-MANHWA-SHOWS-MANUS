@@ -1135,7 +1135,8 @@ try {
 
   const episodeAlerts=await worker.evaluate(async()=>{
     const keys=["dasi.items","dasi.settings","dasi.notifications","yomu.notificationTargets.v1"];
-    const previous=await chrome.storage.local.get(keys),originalFetch=fetchRemote;
+    if(trackedReleaseTask)await trackedReleaseTask;
+    const previous=await chrome.storage.local.get(keys),originalFetch=fetchRemote,previousBatch=lastTrackedReleaseBatch;
     const now=Date.now(),baseline=now-8*3600000;
     const cases=[
       {id:"alert-active"},
@@ -1157,21 +1158,21 @@ try {
         ]};
         return originalFetch(url,options);
       };
-      await checkTrackedReleases();await notificationDeliveryQueue;
+      lastTrackedReleaseBatch=0;await checkTrackedReleases();await notificationDeliveryQueue;
       const first=await chrome.storage.local.get(keys);
       registered=(first["yomu.notificationTargets.v1"]||[]).map(row=>row.id);
       const native=await chrome.notifications.getAll();
-      await checkTrackedReleases();await notificationDeliveryQueue;
+      lastTrackedReleaseBatch=0;await checkTrackedReleases();await notificationDeliveryQueue;
       const second=await chrome.storage.local.get(keys);
       return {
         alerts:first["dasi.notifications"].map(row=>row.itemId),
         native:registered.length===1&&registered.every(id=>Object.hasOwn(native,id)),
         noRepeat:second["dasi.notifications"].length===1,
         progressPreserved:second["dasi.items"].every(row=>row.notes==="Keep"&&row.episode===(row.id==="alert-seen"?2:1)),
-        futureExcluded:second["dasi.items"].filter(row=>row.id!=="alert-dropped").every(row=>row.recentEpisodes.length===1&&row.recentEpisodes[0].episode===2)
+        futureExcluded:second["dasi.items"].filter(row=>row.id!=="alert-dropped").every(row=>Array.isArray(row.recentEpisodes)&&row.recentEpisodes.length===1&&row.recentEpisodes[0].episode===2)
       };
     }finally{
-      fetchRemote=originalFetch;
+      fetchRemote=originalFetch;lastTrackedReleaseBatch=previousBatch;
       for(const id of registered)await chrome.notifications.clear(id);
       await chrome.storage.local.remove(keys.filter(key=>!Object.hasOwn(previous,key)));
       await chrome.storage.local.set(previous);
