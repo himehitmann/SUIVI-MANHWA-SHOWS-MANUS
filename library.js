@@ -1142,9 +1142,36 @@ function saveProfilePatch(patch) {
     settings={...settings,profile:r.settings.profile||settings.profile};paintAvatar();renderProfileMenu();resolve(true);
   }));
 }
-function refreshOpenItem(id) {
+function drawerDraftFields() {
+  const type=[...document.querySelectorAll("#dr-type option")].find(option=>option.defaultSelected)?.value;
+  return [["dr-title","title"],["dr-num",type==="watching"?"episode":"chapter"],["dr-total","total"],["dr-season",type==="watching"?"season":"volume"]];
+}
+function refreshOpenItem(id,confirmedPatch={}) {
   const drawer=document.getElementById("drawer");
-  if(drawer.classList.contains("open") && drawer.dataset.itemId===id)openDrawer(id);
+  if(!drawer.classList.contains("open")||drawer.dataset.itemId!==id)return;
+  // A separate confirmed edit must not discard a failed title/progress draft.
+  const drafts=drawerDraftFields().flatMap(([field,key])=>{
+    const input=document.getElementById(field);
+    if(!input||input.disabled||input.value===input.defaultValue)return [];
+    const submitted=key==="title"?input.value.trim():Math.max(0,Math.round(Number(input.value)));
+    if(Object.hasOwn(confirmedPatch,key)&&String(confirmedPatch[key]??"")===String(submitted))return [];
+    return [{field,key,value:input.value,invalid:input.getAttribute("aria-invalid"),
+      status:document.getElementById(field+"-status")?.textContent||"",
+      retry:document.getElementById(field+"-retry")?.hidden===false,
+      focused:document.activeElement===input}];
+  });
+  openDrawer(id);
+  const fields=new Map(drawerDraftFields());
+  for(const draft of drafts){
+    const input=document.getElementById(draft.field);
+    if(!input||fields.get(draft.field)!==draft.key)continue;
+    input.value=draft.value;
+    if(draft.invalid)input.setAttribute("aria-invalid",draft.invalid);
+    const status=document.getElementById(draft.field+"-status"),retry=document.getElementById(draft.field+"-retry");
+    if(status)status.textContent=draft.status;
+    if(retry)retry.hidden=!draft.retry;
+    if(draft.focused)input.focus({preventScroll:true});
+  }
 }
 function update(id, patch, {retainDraft=false}={}) {
   return new Promise(resolve => requestMetadata({type:"UPDATE_ITEM",id,patch}, r => {
@@ -1152,7 +1179,7 @@ function update(id, patch, {retainDraft=false}={}) {
       toast(settings.lang === "fr" ? "Enregistrement non confirmé. Vérifie la valeur avant de réessayer." : "Save not confirmed. Check the value before retrying.");
       if(!retainDraft)refreshOpenItem(id); resolve(false); return;
     }
-    items = r.items; renderAll(); refreshOpenItem(id); resolve(true);
+    items = r.items; renderAll(); refreshOpenItem(id,patch); resolve(true);
   }));
 }
 

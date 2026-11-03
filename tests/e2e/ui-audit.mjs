@@ -515,6 +515,50 @@ try {
   }finally{api.runtime.sendMessage=original;requestMetadata=request;items=savedItems;closeDrawer();renderAll();}
  });
  assert.deepEqual(titleDraft,{retained:true,single:true,timeout:true,saved:true,emptyRejected:true});
+
+ // Unrelated edits must preserve a failed title/number draft and its retry.
+ const independentDrafts=await page.evaluate(async()=>{
+  const original=api.runtime.sendMessage,savedItems=items;
+  let rejectedKey="",rejectPreference=false;
+  const sent=[];
+  api.runtime.sendMessage=(message,callback)=>{
+   if(message.type==="UPDATE_ITEM"){
+    sent.push({...message.patch});
+    if(Object.hasOwn(message.patch,rejectedKey)||(rejectPreference&&Object.hasOwn(message.patch,"notifyUpdates"))){callback({ok:false,error:"storage_failed"});return;}
+    callback({ok:true,items:items.map(item=>item.id===message.id?{...item,...message.patch}:item)});return;
+   }
+   return original.call(api.runtime,message,callback);
+  };
+  const pause=()=>new Promise(resolve=>setTimeout(resolve,10)),results=[];
+  try{
+   for(const [field,key,value] of [["dr-title","title","My retained title"],["dr-num","episode","8"],["dr-total","total","45"],["dr-season","season","3"]]){
+    items=[{id:"draft-work",title:"Original",type:"watching",episode:2,chapter:4,total:30,season:1,notifyUpdates:true,notes:"Keep",identityVersion:1,enrichedAt:1}];
+    openDrawer("draft-work");rejectedKey=key;rejectPreference=false;
+    const before=items[0][key],input=document.getElementById(field);
+    input.value=value;input.dispatchEvent(new Event("change"));await pause();
+    const failureMessage=document.getElementById(field+"-status").textContent;
+    document.getElementById("dr-notify").click();await pause();
+    const afterSuccess=document.getElementById(field);
+    const retainedAfterSuccess=afterSuccess.value===value&&afterSuccess.getAttribute("aria-invalid")==="true"&&!document.getElementById(field+"-retry").hidden&&document.getElementById(field+"-status").textContent===failureMessage&&items[0][key]===before&&items[0].notifyUpdates===false;
+    rejectPreference=true;document.getElementById("dr-notify").click();await pause();
+    const retainedAfterFailure=document.getElementById(field).value===value&&!document.getElementById(field+"-retry").hidden&&document.getElementById("dr-notify").checked===false&&items[0][key]===before;
+    rejectedKey="";rejectPreference=false;
+    document.getElementById(field+"-retry").click();await pause();
+    const saved=String(items[0][key])===value&&document.getElementById(field).value===value&&document.getElementById(field+"-retry").hidden&&items[0].notes==="Keep";
+    results.push({field,retainedAfterSuccess,retainedAfterFailure,saved});
+   }
+   // An episode draft must not become chapter progress after changing media type.
+   items=[{id:"draft-work",title:"Original",type:"watching",episode:2,chapter:4,total:30,season:1,notes:"Keep",identityVersion:1,enrichedAt:1}];
+   openDrawer("draft-work");rejectedKey="episode";
+   const episode=document.getElementById("dr-num");episode.value="18";episode.dispatchEvent(new Event("change"));await pause();
+   const type=document.getElementById("dr-type");type.value="reading";type.dispatchEvent(new Event("change"));await pause();
+   const typeSafe=items[0].type==="reading"&&items[0].episode===2&&items[0].chapter===4&&document.getElementById("dr-num").value==="4"&&document.getElementById("dr-num-retry").hidden;
+   return {results,typeSafe,preferencePatches:sent.filter(patch=>Object.hasOwn(patch,"notifyUpdates")).every(patch=>Object.keys(patch).length===1)};
+  }finally{api.runtime.sendMessage=original;items=savedItems;closeDrawer();renderAll();}
+ });
+ assert(independentDrafts.results.every(row=>row.retainedAfterSuccess&&row.retainedAfterFailure&&row.saved),JSON.stringify(independentDrafts));
+ assert(independentDrafts.typeSafe&&independentDrafts.preferencePatches,JSON.stringify(independentDrafts));
+ console.log("PASS: failed title/progress drafts survive independent preference saves and failures; retry commits only the intended field");
  const removal=await page.evaluate(async()=>{
   const original=api.runtime.sendMessage,request=requestMetadata,originalConfirm=window.confirm;
   const savedItems=items;let pending,calls=0;
