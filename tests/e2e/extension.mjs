@@ -65,8 +65,12 @@ try {
     });
     });
     globalThis.testCover = cover;
+    globalThis.catalogFixtureStarted=[];
+    globalThis.catalogFixtureFinished=[];
     catalogSearchAll = async query => {
+      globalThis.catalogFixtureStarted.push(query);
       await new Promise(r => setTimeout(r, query === "old" ? 900 : 30));
+      globalThis.catalogFixtureFinished.push(query);
       return [
         {
           title: query === "old" ? "Old result" : "Aniimo",
@@ -479,15 +483,23 @@ try {
   }
 
   await page.locator("#q").fill("old");
-
-  await page.waitForTimeout(350);
+  await worker.evaluate(async()=>{
+    const deadline=Date.now()+10000;
+    while(!globalThis.catalogFixtureStarted.includes("old")&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,25));
+    if(!globalThis.catalogFixtureStarted.includes("old"))throw Error("Old search did not start");
+  });
   await page.locator("#q").fill("Aniimo");
-  await page.locator("[data-preview]").first().waitFor();
-  await page.waitForTimeout(1000);
+  const aniimoResult=page.locator("#search-results .link-btn[data-preview]").filter({hasText:/^Aniimo$/});
+  await aniimoResult.waitFor();
+  await worker.evaluate(async()=>{
+    const deadline=Date.now()+10000;
+    while(!globalThis.catalogFixtureFinished.includes("old")&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,25));
+    if(!globalThis.catalogFixtureFinished.includes("old"))throw Error("Old search did not finish");
+  });
   assert(
     !(await page.locator("#search-results").innerText()).includes("Old result")
   );
-  await page.locator("[data-preview]").first().click();
+  await aniimoResult.click();
   await page.locator("#preview-add").waitFor();
   assert.equal(
     await page.locator("#drawer .drawer-title").innerText(),
