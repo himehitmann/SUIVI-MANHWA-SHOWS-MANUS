@@ -8,6 +8,16 @@ Mise à jour : 4 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Fiches : conserver une saisie après l'échec d'enregistrement — 4 novembre 2026
+
+Commit 6a61a384166b5cf8e1ed589baac3aaa096a283fb : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41736264293) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41736256277) réussies. **705 tests unitaires** et contrôles navigateur, paquet, interface, charge et récupération réussis. L'audit des dépendances ne signale aucune vulnérabilité connue.
+
+Le rafraîchissement d'une fiche après une autre modification pouvait effacer un titre ou une valeur numérique dont l'enregistrement avait échoué. Les champs modifiés encore présents dans la fiche sont maintenant restaurés avec leur message d'erreur et leur bouton de nouvelle tentative. Une réponse confirmée remplace correctement le champ concerné ; une valeur d'épisode n'est pas transposée en chapitre lors d'un changement de type.
+
+Le parcours navigateur vérifie titre, progression, total et saison après une modification de préférence réussie puis échouée, la réussite de la nouvelle tentative et l'absence d'enregistrement implicite du brouillon. Il contrôle aussi le changement série vers lecture. Les réponses de sauvegarde sont contrôlées afin de reproduire les échecs ; les composants et interactions de fiche sont réels.
+
+Cette conservation concerne la fiche ouverte après une autre modification ; elle ne constitue pas une sauvegarde durable du brouillon après fermeture, rechargement ou désinstallation. **21/60 (35 %) global**, inchangé.
+
 ## Actualités des jeux : réglages du paquet et reprise après erreur source — 4 novembre 2026
 
 Commit 2022fe86df20a2723019c11afc61f3d46e969435 : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41734930436) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41734920373) réussies. **705 tests unitaires**, parcours navigateur et paquet, interface, charge et récupération réussis. Aucune vulnérabilité connue signalée par l'audit des dépendances.
