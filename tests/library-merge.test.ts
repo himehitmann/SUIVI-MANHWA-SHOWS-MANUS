@@ -29,3 +29,38 @@ describe('web library interoperability',()=>{
   expect(a?.url).toBe('');expect(a?.updatedAt).toBe(0);expect(normalizeLibraryItem(a)).toEqual(a);
  });
 });
+
+describe("reimporting progress into a personal library",()=>{
+ const merged=(saved:any, incoming:any[])=>mergeLibraryImport({...seedState(),items:[normalizeLibraryItem(saved)!]}, {items:incoming}).state.items[0];
+ it("retains personal fields, later pages, provider ids and list memberships on repeated imports",()=>{
+  const saved={id:"comic",type:"reading",title:"My title",volume:2,chapter:12.75,page:8,total:30,progress:43,status:"on_hold",notes:"My notes",rating:4,favorite:true,tags:["Mine"],notifyUpdates:false,externalIds:{anilist:"42",mal:"7"},url:"https://reader.example/current",updatedAt:100};
+  const incoming={...saved,id:"export-id",title:"Catalogue title",page:2,notes:"Other note",rating:1,favorite:false,notifyUpdates:true,status:"completed",progress:100,tags:["Imported"],externalIds:{anilist:"42",book:"8"},url:"https://other.example/older",updatedAt:1};
+  const before={...seedState(),items:[normalizeLibraryItem(saved)!]};
+  const backup={items:[incoming],lists:[{id:"tracker",itemIds:["export-id"]}]};
+  const first=mergeLibraryImport(before,backup).state;
+  expect(first.items[0]).toMatchObject({...saved,tags:["Mine","Imported"],externalIds:{anilist:"42",mal:"7",book:"8"}});
+  expect(first.lists[0].itemIds).toEqual(["comic"]);
+  expect(mergeLibraryImport(first,backup).state).toEqual(first);
+ });
+ it("starts a later chapter or volume at its own page and ignores an older volume",()=>{
+  const saved={id:"comic",type:"reading",title:"Comic",volume:2,chapter:12.75,page:88,totalPages:90,total:30,progress:40};
+  const newer=merged(saved,[{...saved,chapter:13,page:undefined,totalPages:undefined,progress:undefined}]);
+  expect(newer).toMatchObject({chapter:13,total:30,progress:43});
+  expect(newer.page).toBeUndefined();expect(newer.totalPages).toBeUndefined();
+  const last=merged(saved,[{id:"comic",title:"Comic",type:"reading",volume:3,chapter:1,page:2},{...saved,chapter:25,page:55}]);
+  expect(last).toMatchObject({volume:3,chapter:1,page:2});expect(last.total).toBeUndefined();
+ });
+ it("keeps playback time with its episode, and does not advance to an unstarted season",()=>{
+  const saved={id:"show",type:"watching",title:"Show",season:1,episode:8,position:500,duration:900,episodeTitle:"Eight",notes:"Keep",total:10};
+  expect(merged(saved,[{...saved,position:10}])).toMatchObject({episode:8,position:500,duration:900});
+  expect(merged(saved,[{id:"show",type:"watching",title:"Show",season:2}])).toMatchObject({season:1,episode:8,position:500});
+  const next=merged(saved,[{id:"show",type:"watching",title:"Show",season:2,episode:1}]);
+  expect(next).toMatchObject({season:2,episode:1,notes:"Keep"});
+  for(const field of ["position","duration","episodeTitle","total"] as const)expect(next[field]).toBeUndefined();
+ });
+ it("compares game completion as a percentage even when an old record contains reading fields",()=>{
+  const saved={id:"game",type:"game",title:"Game",progress:80,chapter:2,notes:"Keep"};
+  expect(merged(saved,[{...saved,progress:10,chapter:100}])).toMatchObject({progress:80,notes:"Keep"});
+  expect(merged(saved,[{...saved,progress:90}]).progress).toBe(90);
+ });
+});

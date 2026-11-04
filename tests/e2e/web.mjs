@@ -41,12 +41,24 @@ try{
  await page.getByRole('button',{name:'Save my position',exact:true}).click();
  await page.reload();await page.getByRole('heading',{name:'Alchemy of Souls',exact:true}).waitFor();assert.equal(await page.getByLabel('Episode / 20',{exact:true}).inputValue(),'20');
  await page.getByLabel('Personal notes',{exact:true}).fill('Keep this note across devices');await page.getByRole('button',{name:'Save my position',exact:true}).click();
- await page.goto(base+'/settings');await page.getByRole('button',{name:'Sync now',exact:true}).click();await page.getByText('Library synced',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Favorite',exact:true}).click();
+ await page.locator('button.heart-button[aria-pressed="true"]').waitFor();
+ await page.goto(base+'/settings');
+ const exportPart=items=>Buffer.from(JSON.stringify({version:2,items}));
+ await page.locator('input[type=file]').last().setInputFiles([
+  {name:'first.json',mimeType:'application/json',buffer:exportPart([{id:'alchemy',title:'Alchemy of Souls',type:'watching',season:1,episode:3,notes:'Old export note',favorite:false},{id:'decimal-reader',title:'Decimal Reader',type:'reading',chapter:12.75,page:8}])},
+  {name:'second.json',mimeType:'application/json',buffer:exportPart([{id:'decimal-reader',title:'Decimal Reader',type:'reading',chapter:12.75,page:2}])}
+ ]);
+ await page.getByRole('status').filter({hasText:'0 added, 3 updated'}).waitFor();
+ await page.reload();
+ await page.getByRole('button',{name:'Sync now',exact:true}).click();await page.getByText('Library synced',{exact:true}).waitFor();
  const token=await page.evaluate(()=>localStorage.getItem('dasi.sync.token:'+encodeURIComponent('/api')));
  const remote=await (await fetch(base+'/api/sync',{headers:{Authorization:'Bearer '+token}})).json();
  assert.equal(remote.blob.profile.name,'Reader profile');assert.equal(remote.blob.profile.bio,'Manga and dramas');assert.match(remote.blob.profile.avatar,/^data:image\/webp/);
  assert.equal(remote.blob.items.find(i=>i.title==='Side Story').chapter,3.25);
  assert.equal(remote.blob.items.find(i=>i.id==='decimal-reader').chapter,12.75);
+ assert.equal(remote.blob.items.find(i=>i.id==='decimal-reader').page,8);
+ assert.equal(remote.blob.items.find(i=>i.id==='alchemy').favorite,true);
  assert.equal(remote.blob.items.find(i=>i.id==='alchemy').episode,20);assert.equal(remote.blob.items.find(i=>i.id==='alchemy').notes,'Keep this note across devices');assert.equal(remote.blob.items.find(i=>i.id==='aniimo').type,'game');
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.getByRole('button',{name:'Sign in',exact:true}).waitFor();await page.goto(base+'/');assert.equal(await page.getByRole('link',{name:'Alchemy of Souls',exact:true}).count(),0);
  await page.goto(base+'/settings');await page.getByPlaceholder('Email',{exact:true}).fill('web-user@example.test');await page.getByPlaceholder('Password',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('button',{name:'Sign out',exact:true}).waitFor();

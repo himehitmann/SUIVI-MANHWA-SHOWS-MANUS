@@ -249,7 +249,7 @@
   }
 
   // ---- entry point --------------------------------------------------------
-  async function parseFiles(fileList) {
+  async function parseFiles(fileList, {keepRecords = false} = {}) {
     const files = Array.from(fileList || []);
     const acc = { items: [], sites: undefined, lists: undefined, settings: undefined, formats: new Set(), warnings: [] };
     for (const f of files) {
@@ -275,6 +275,11 @@
           parseOne(f.name, await f.text(), acc);
         }
       } catch (e) { acc.warnings.push(`Could not read ${f.name}: ${e.message || "invalid file"}`); }
+    }
+    // The web library merges rows against its saved positions and personal fields.
+    if (keepRecords) {
+      const items = acc.items.filter(item => item && item.title);
+      return {...acc, items, count: items.length, formats: [...acc.formats]};
     }
     // Dedup by normalized title + type, keeping the furthest progress / a rating.
     const norm = (s) => String(s || "").normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
