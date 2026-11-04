@@ -413,6 +413,17 @@ try {
   assert.equal(await page.locator('#drawer .drawer-title').innerText(),'English fixture');
   assert.equal(await page.locator('#preview-add').isDisabled(),true);
   await page.locator('#preview-close').click();
+  await page.evaluate(()=>openDrawer("identity-saved"));
+  const chapterInput=page.locator('#dr-num');
+  assert.equal(await chapterInput.inputValue(),"12.5");
+  await chapterInput.fill("12.75");
+  assert(await chapterInput.evaluate(input=>input.validity.valid));
+  await chapterInput.press("Enter");
+  await page.waitForFunction(()=>items.find(row=>row.id==="identity-saved")?.chapter===12.75);
+  const fractionalChapter=await worker.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].find(row=>row.id==="identity-saved"));
+  assert.equal(fractionalChapter.chapter,12.75);
+  assert.equal(fractionalChapter.latestChapter,12.75);
+  await page.locator('#dr-close').click();
   await worker.evaluate(state=>chrome.storage.local.set(state),identitySavedState);
   await page.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:'GET_STATE'},state=>{hydrate(state);resolve();})));
 

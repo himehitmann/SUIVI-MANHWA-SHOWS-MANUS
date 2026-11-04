@@ -21,9 +21,21 @@ try{
 
  await page.getByLabel('Display name',{exact:true}).fill('Reader profile');await page.getByLabel('Biography',{exact:true}).fill('Manga and dramas');await page.getByRole('heading',{name:'My profile',exact:true}).click();
  const png=await page.screenshot();await page.getByLabel('Avatar',{exact:true}).setInputFiles({name:'avatar.png',mimeType:'image/png',buffer:png});await page.getByRole('dialog').waitFor();await page.getByRole('slider').first().fill('1.5');await page.getByRole('button',{name:'Save image',exact:true}).click();
- const backup={version:2,items:[{id:'alchemy',title:'Alchemy of Souls',type:'watching',season:1,episode:2,total:20,url:'https://example.com/show',updatedAt:1},{id:'aniimo',title:'Aniimo',type:'game',tags:['RPG'],externalIds:{steam:4126040},updatedAt:1}],lists:[{id:'watch',name:'My imported list',itemIds:['alchemy']}]};
+ const backup={version:2,items:[{id:'decimal-reader',title:'Decimal Reader',type:'reading',chapter:12.5,episode:2,total:30,updatedAt:1},{id:'alchemy',title:'Alchemy of Souls',type:'watching',season:1,episode:2,total:20,url:'https://example.com/show',updatedAt:1},{id:'aniimo',title:'Aniimo',type:'game',tags:['RPG'],externalIds:{steam:4126040},updatedAt:1}],lists:[{id:'watch',name:'My imported list',itemIds:['alchemy']}]};
  await page.locator('input[type=file]').last().setInputFiles({name:'yomu.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
- await page.getByRole('status').filter({hasText:'2 added'}).waitFor();
+ await page.getByRole('status').filter({hasText:'3 added'}).waitFor();
+ await page.goto(base+'/');await page.locator('.add-work-btn').click();
+ const manual=page.getByRole('dialog');
+ await manual.getByPlaceholder('Title',{exact:true}).fill('Side Story');
+ await manual.getByPlaceholder('Chapter',{exact:true}).fill('3.25');
+ await manual.getByRole('button',{name:'Add to library',exact:true}).click();
+ await manual.waitFor({state:'hidden'});
+ await page.goto(base+'/work/decimal-reader');
+ const chapter=page.getByLabel('Chapter / 30',{exact:true});
+ await chapter.waitFor();assert.equal(await chapter.inputValue(),'12.5');
+ await chapter.fill('12.75');assert(await chapter.evaluate(input=>input.validity.valid));
+ await page.getByRole('button',{name:'Save my position',exact:true}).click();await page.reload();
+ await chapter.waitFor();assert.equal(await chapter.inputValue(),'12.75');
  await page.goto(base+'/work/alchemy');await page.getByRole('heading',{name:'Alchemy of Souls',exact:true}).waitFor();
  await page.getByLabel('Episode / 20',{exact:true}).fill('847');
  await page.getByRole('button',{name:'Save my position',exact:true}).click();
@@ -33,6 +45,8 @@ try{
  const token=await page.evaluate(()=>localStorage.getItem('dasi.sync.token:'+encodeURIComponent('/api')));
  const remote=await (await fetch(base+'/api/sync',{headers:{Authorization:'Bearer '+token}})).json();
  assert.equal(remote.blob.profile.name,'Reader profile');assert.equal(remote.blob.profile.bio,'Manga and dramas');assert.match(remote.blob.profile.avatar,/^data:image\/webp/);
+ assert.equal(remote.blob.items.find(i=>i.title==='Side Story').chapter,3.25);
+ assert.equal(remote.blob.items.find(i=>i.id==='decimal-reader').chapter,12.75);
  assert.equal(remote.blob.items.find(i=>i.id==='alchemy').episode,20);assert.equal(remote.blob.items.find(i=>i.id==='alchemy').notes,'Keep this note across devices');assert.equal(remote.blob.items.find(i=>i.id==='aniimo').type,'game');
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.getByRole('button',{name:'Sign in',exact:true}).waitFor();await page.goto(base+'/');assert.equal(await page.getByRole('link',{name:'Alchemy of Souls',exact:true}).count(),0);
  await page.goto(base+'/settings');await page.getByPlaceholder('Email',{exact:true}).fill('web-user@example.test');await page.getByPlaceholder('Password',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('button',{name:'Sign out',exact:true}).waitFor();

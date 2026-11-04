@@ -55,7 +55,8 @@ export function AddWork({ onClose, initial }: { onClose: () => void; initial?:Ca
 
   const submit = () => {
     if (!title.trim()) return;
-    const n = num ? parseInt(num, 10) || undefined : undefined;
+    const position = type === "reading" ? Number(num) : parseInt(num, 10);
+    const n = Number.isFinite(position) && position !== 0 ? position : undefined;
     const added=store.addItem({
       ...picked,
       title,
@@ -121,6 +122,7 @@ export function AddWork({ onClose, initial }: { onClose: () => void; initial?:Ca
             <input
               type="number"
               min="0"
+              step={type === "reading" ? "any" : 1}
               value={num}
               onChange={(e) => setNum(e.target.value)}
               placeholder={type === "game" ? "%" : type === "reading" ? t("add.chapter") : t("add.episode")}

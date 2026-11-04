@@ -369,7 +369,7 @@ try {
   const pause=()=>new Promise(resolve=>setTimeout(resolve,45));
   const results=[];
   try{
-   for(const [type,field,key,value] of [["reading","dr-num","chapter",17],["reading","dr-total","total",50],["reading","dr-season","volume",4],["watching","dr-num","episode",6],["watching","dr-season","season",3]]){
+   for(const [type,field,key,value] of [["reading","dr-num","chapter",12.5],["reading","dr-total","total",50],["reading","dr-season","volume",4],["watching","dr-num","episode",6],["watching","dr-season","season",3]]){
     items=[{id:"edit-work",title:"Edit work",type,chapter:2,episode:2,total:30,volume:2,season:1,identityVersion:1,enrichedAt:1}];openDrawer("edit-work");
     const input=document.getElementById(field),before=items[0][key],initial=input.value;
     mode="failure";input.value=String(value);input.dispatchEvent(new Event("change"));await pause();

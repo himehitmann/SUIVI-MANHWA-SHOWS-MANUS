@@ -1142,6 +1142,9 @@ function saveProfilePatch(patch) {
     settings={...settings,profile:r.settings.profile||settings.profile};paintAvatar();renderProfileMenu();resolve(true);
   }));
 }
+function drawerNumberValue(input, number) {
+  return Math.max(0, input.step === "any" ? number : Math.round(number));
+}
 function drawerDraftFields() {
   const type=[...document.querySelectorAll("#dr-type option")].find(option=>option.defaultSelected)?.value;
   return [["dr-title","title"],["dr-num",type==="watching"?"episode":"chapter"],["dr-total","total"],["dr-season",type==="watching"?"season":"volume"]];
@@ -1153,7 +1156,7 @@ function refreshOpenItem(id,confirmedPatch={}) {
   const drafts=drawerDraftFields().flatMap(([field,key])=>{
     const input=document.getElementById(field);
     if(!input||input.disabled||input.value===input.defaultValue)return [];
-    const submitted=key==="title"?input.value.trim():Math.max(0,Math.round(Number(input.value)));
+    const submitted=key==="title"?input.value.trim():drawerNumberValue(input,Number(input.value));
     if(Object.hasOwn(confirmedPatch,key)&&String(confirmedPatch[key]??"")===String(submitted))return [];
     return [{field,key,value:input.value,invalid:input.getAttribute("aria-invalid"),
       status:document.getElementById(field+"-status")?.textContent||"",
@@ -2370,7 +2373,7 @@ function openDrawer(id) {
       : `
         <div class="section-t">${t("progress")}</div>
         <p class="field-hint">${isWatch ? t("progHintWatch") : t("progHintRead")}</p>
-        <div class="stepper"><button id="dr-minus" aria-label="−">${I.minus}</button><input id="dr-num" type="number" min="0" value="${cur}" /><button id="dr-plus" aria-label="+">${I.plus}</button><span>${unit}${isWatch && i.season ? ` — Saison ${i.season}` : ""}</span></div>
+        <div class="stepper"><button id="dr-minus" aria-label="−">${I.minus}</button><input id="dr-num" type="number" min="0" step="${isWatch ? "1" : "any"}" value="${cur}" /><button id="dr-plus" aria-label="+">${I.plus}</button><span>${unit}${isWatch && i.season ? ` — Saison ${i.season}` : ""}</span></div>
         <div class="section-t" style="margin-top:14px">${t("totalReleased")}</div>
         <p class="field-hint">${t("totalHint")}</p>
         <div class="released-row"><input id="dr-total" type="number" min="0" value="${i.total || ""}" placeholder="${isWatch ? t("watching") : t("reading")}…" /><span class="rel-hint">${unseen(i) > 0 ? t("unseenN", { n: unseen(i) }) : i.total ? t("upToDate") : ""}</span></div>
@@ -2467,12 +2470,12 @@ function bindDrawerNumber(item,input,makePatch,label,related=[]) {
   let saving=false;
   const save=async raw=>{
     if(saving)return;
-    input.value=String(raw);
     const number=Number(raw);
     if(!Number.isFinite(number)||input.validity.badInput){
       input.setAttribute("aria-invalid","true");status.textContent=settings.lang==="fr"?"Saisis un nombre valide.":"Enter a valid number.";return;
     }
-    const value=Math.max(0,Math.round(number)),patch=makePatch(value);
+    input.value=String(raw);
+    const value=drawerNumberValue(input,number),patch=makePatch(value);
     saving=true;const controls=[input,retry,...related].filter(Boolean);
     controls.forEach(node=>{node.disabled=true;});
     status.textContent=settings.lang==="fr"?"Enregistrement…":"Saving…";

@@ -11,7 +11,8 @@ import NotFound from './NotFound';
 export default function WorkDetail(){
  const store=useStore(),{lang,t}=useI18n(),fr=lang==='fr',params=useParams();
  const item=store.items.find(i=>i.id===params.id||encodeURIComponent(i.id)===params.id);
- const [number,setNumber]=useState(item?.episode||item?.chapter||item?.progress||0),[season,setSeason]=useState(item?.season||1);
+ const position=item?.type==="reading"?item.chapter:item?.type==="watching"?item.episode:item?.progress;
+ const [number,setNumber]=useState(position??0),[season,setSeason]=useState(item?.season||1);
  const [status,setStatus]=useState<ItemStatus>(item?.status||'in_progress'),[notes,setNotes]=useState(item?.notes||''),[rating,setRating]=useState(item?.rating||0);
  if(!item)return <NotFound/>;
  const unit=item.type==='game'?(fr?'Progression (%)':'Progress (%)'):item.type==='watching'?(fr?'Épisode':'Episode'):(fr?'Chapitre':'Chapter');
@@ -26,7 +27,7 @@ export default function WorkDetail(){
   </div></section>
   <div className="work-columns"><section className="settings-card"><h2>{fr?'Ma progression':'My progress'}</h2><div className="work-fields">
    {item.type==='watching'&&<label>{fr?'Saison':'Season'}<input type="number" min={1} value={season} onChange={e=>setSeason(Math.max(1,Number(e.target.value)||1))}/></label>}
-   <label>{unit}{total?' / '+total:''}<input type="number" min={0} max={total} value={number} onChange={e=>setNumber(Math.max(0,Math.min(total||Infinity,Number(e.target.value)||0)))}/></label>
+   <label>{unit}{total?' / '+total:''}<input type="number" min={0} max={total} step={item.type==="reading"?"any":1} value={number} onChange={e=>setNumber(Math.max(0,Math.min(total||Infinity,Number(e.target.value)||0)))}/></label>
    <label>{fr?'Statut':'Status'}<select value={status} onChange={e=>setStatus(e.target.value as ItemStatus)}>{(['planned','in_progress','completed','on_hold','dropped'] as const).map((s,i)=><option key={s} value={s}>{(fr?['À commencer','En cours','Terminé','En pause','Abandonné']:['Planned','In progress','Completed','On hold','Dropped'])[i]}</option>)}</select></label>
    <label>{fr?'Ma note / 10':'My rating / 10'}<input type="number" min={0} max={10} step={0.5} value={rating} onChange={e=>setRating(Math.max(0,Math.min(10,Number(e.target.value)||0)))}/></label>
   </div><label>{fr?'Notes personnelles':'Personal notes'}<textarea rows={5} maxLength={10000} value={notes} onChange={e=>setNotes(e.target.value)}/></label><button className="primary-cta" onClick={save}>{t('action.save')}</button></section>

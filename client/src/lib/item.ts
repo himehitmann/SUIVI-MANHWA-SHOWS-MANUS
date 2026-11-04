@@ -112,6 +112,7 @@ export function createItem(input: ItemInput): LibraryItem {
   const title = (input.title || "").trim() || "Untitled";
   const domain = domainOf(input.url);
   const now = Date.now();
+  const chapter = Number(input.chapter);
   const progress =
     input.progress ?? (input.status === "completed" ? 100 : 0);
   return {
@@ -120,7 +121,7 @@ export function createItem(input: ItemInput): LibraryItem {
     year:input.year,format:input.format,total:input.total,synopsis:input.synopsis,externalIds:input.externalIds,
     title,
     type: input.type ?? "reading",
-    chapter: input.chapter===undefined?undefined:Math.min(input.total||Infinity,Math.max(0,Math.floor(Number(input.chapter)||0))),
+    chapter: input.chapter===undefined?undefined:Math.min(input.total||Infinity,Math.max(0,Number.isFinite(chapter)?chapter:0)),
     volume: input.volume,
     season: input.season,
     episode: input.episode===undefined?undefined:Math.min(input.total||Infinity,Math.max(0,Math.floor(Number(input.episode)||0))),
