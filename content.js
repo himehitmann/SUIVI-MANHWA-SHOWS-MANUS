@@ -27,6 +27,12 @@
     const n = parseInt(String(v).replace(/[^\d]/g, ""), 10);
     return Number.isFinite(n) ? n : undefined;
   };
+  const chapterNumber = (value) => {
+    const text = String(value ?? "").trim();
+    if (!/^\d+(?:[.,]\d+)?$/.test(text)) return undefined;
+    const chapter = Number(text.replace(",", "."));
+    return Number.isFinite(chapter) ? chapter : undefined;
+  };
   const qtext = (sel) => {
     const el = document.querySelector(sel);
     if (!el) return "";
@@ -64,8 +70,8 @@
   };
 
   const parseChapter = (text) => {
-    let m = text.match(/(?:chapter|chap|ch)\.?\s*[-#:]?\s*(\d{1,5}(?:\.\d)?)/i);
-    if (m) return { chapter: num(m[1]) };
+    const m = text.match(/\b(?:chapter|chapitre|chap|ch)\.?\s*[-#:]?\s*(\d{1,5}(?:[.,]\d+)?)/i);
+    if (m) return { chapter: chapterNumber(m[1]) };
     return null;
   };
 
@@ -102,7 +108,7 @@
       match: /(^|\.)webtoons\.com$/,
       parse() {
         const title = cleanTitle(metaFirst(["meta[property='og:title']", "h1", ".subj"]));
-        const ep = num(urlParam("episode_no"));
+        const ep = chapterNumber(urlParam("episode_no"));
         return { title, type: "reading", chapter: ep };
       },
     },
@@ -111,7 +117,7 @@
       match: /(^|\.)comic\.naver\.com$/,
       parse() {
         const title = cleanTitle(metaFirst(["meta[property='og:title']", ".EpisodeListInfo__title--mYLjC", "h2"]));
-        const no = num(urlParam("no"));
+        const no = chapterNumber(urlParam("no"));
         return { title, type: "reading", chapter: no };
       },
     },
@@ -126,9 +132,9 @@
       id: "asura",
       match: /asura(comic|scans|toon)?\.[a-z.]+$/,
       parse() {
-        const m = location.pathname.match(/chapter-(\d+(?:\.\d)?)/i);
+        const m = location.pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
         const title = cleanTitle(qtext("h1") || qtext(".entry-title") || metaFirst(["meta[property='og:title']"]));
-        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+        return { title, type: "reading", chapter: m ? chapterNumber(m[1]) : undefined };
       },
     },
     {
@@ -153,26 +159,26 @@
       id: "mangago",
       match: /(^|\.)mangago\.[a-z]+$/,
       parse() {
-        const m = location.pathname.match(/\/(?:chapter|c)(\d+)/i) || document.title.match(/ch\.?\s*(\d+)/i);
-        return { title: cleanTitle(metaFirst(["meta[property='og:title']", "h1"])), type: "reading", chapter: m ? num(m[1]) : undefined };
+        const m = location.pathname.match(/\/(?:chapter|c)(\d+(?:\.\d+)?)/i) || document.title.match(/ch\.?\s*(\d+(?:[.,]\d+)?)/i);
+        return { title: cleanTitle(metaFirst(["meta[property='og:title']", "h1"])), type: "reading", chapter: m ? chapterNumber(m[1]) : undefined };
       },
     },
     {
       id: "manganato",
       match: /manganato|manganelo|chapmanganato|natomanga/,
       parse() {
-        const m = location.pathname.match(/chapter-(\d+(?:\.\d)?)/i);
+        const m = location.pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
         const title = cleanTitle(qtext(".panel-breadcrumb a:nth-last-child(2)") || qtext("h1") || metaFirst(["meta[property='og:title']"]));
-        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+        return { title, type: "reading", chapter: m ? chapterNumber(m[1]) : undefined };
       },
     },
     {
       id: "mangakakalot",
       match: /mangakakalot/,
       parse() {
-        const m = location.pathname.match(/chapter[_-](\d+(?:\.\d)?)/i);
+        const m = location.pathname.match(/chapter[_-](\d+(?:\.\d+)?)/i);
         const title = cleanTitle(qtext(".manga-info-text h1") || qtext("h1") || metaFirst(["meta[property='og:title']"]));
-        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+        return { title, type: "reading", chapter: m ? chapterNumber(m[1]) : undefined };
       },
     },
     {
@@ -305,7 +311,7 @@
       parse() {
         const m = location.pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
         const title = cleanTitle(qtext("h1") || metaFirst(["meta[property='og:title']"]));
-        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+        return { title, type: "reading", chapter: m ? chapterNumber(m[1]) : undefined };
       },
     },
     {
@@ -323,7 +329,7 @@
       parse() {
         const m = location.pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
         const title = cleanTitle(qtext(".breadcrumb a:nth-last-child(2)") || qtext("h1") || metaFirst(["meta[property='og:title']"]));
-        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+        return { title, type: "reading", chapter: m ? chapterNumber(m[1]) : undefined };
       },
     },
     {
@@ -332,16 +338,16 @@
       parse() {
         const m = location.pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
         const title = cleanTitle(qtext(".name.box h1") || qtext("h1") || metaFirst(["meta[property='og:title']"]));
-        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+        return { title, type: "reading", chapter: m ? chapterNumber(m[1]) : undefined };
       },
     },
     {
       id: "mangapill",
       match: /mangapill\.com$/,
       parse() {
-        const m = location.pathname.match(/chapter-(\d+(?:-\d+)?)/i);
+        const m = location.pathname.match(/chapter-(\d+(?:\.\d+)?)/i);
         const title = cleanTitle(metaFirst(["meta[property='og:title']", "h1"]));
-        return { title, type: "reading", chapter: m ? num(String(m[1]).split("-")[0]) : undefined };
+        return { title, type: "reading", chapter: parseChapter(document.title)?.chapter ?? chapterNumber(m?.[1]) };
       },
     },
     {
@@ -350,7 +356,7 @@
       parse() {
         const m = location.pathname.match(/chapter[-\/](\d+(?:\.\d+)?)/i);
         const title = cleanTitle(qtext("h1") || qtext(".entry-title") || metaFirst(["meta[property='og:title']"]));
-        return { title, type: "reading", chapter: m ? num(m[1]) : undefined };
+        return { title, type: "reading", chapter: m ? chapterNumber(m[1]) : undefined };
       },
     },
     {
@@ -358,7 +364,7 @@
       match: /tapas\.io$/,
       parse() {
         const title = cleanTitle(qtext(".series-header__title") || metaFirst(["meta[property='og:title']"]));
-        const ep = parseChapter(document.title) || { chapter: num((qtext(".episode-title") || "").match(/\d+/)?.[0]) };
+        const ep = parseChapter(document.title) || { chapter: chapterNumber((qtext(".episode-title") || "").match(/\d+(?:[.,]\d+)?/)?.[0]) };
         return { title, type: "reading", ...(ep || {}) };
       },
     },

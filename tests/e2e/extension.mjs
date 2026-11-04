@@ -138,6 +138,20 @@ try {
     await game.close();
   }
 
+  for (const [url,label,chapter] of [
+    ["https://reader.example/comic/bonus", "Chapitre 12,75", 12.75],
+    ["https://manganato.com/manga-test/chapter-0.25", "Bonus", 0.25]
+  ]) {
+    const reader=await context.newPage();
+    await reader.route("**/*",route=>route.fulfill({contentType:"text/html",body:"<title>Side Story - "+label+"</title><h1>Side Story</h1>"}));
+    await reader.goto(url);
+    await reader.evaluate(()=>{globalThis.chrome={runtime:{sendMessage:message=>{if(message.type==="DETECTION_UPDATED")globalThis.testDetection=message.payload;},onMessage:{addListener(){}}}};});
+    await reader.addScriptTag({path:path.join(root,"content.js")});
+    await reader.waitForFunction(()=>globalThis.testDetection);
+    const detected=await reader.evaluate(()=>globalThis.testDetection);
+    assert.equal(detected.type,"reading");assert.equal(detected.chapter,chapter);
+    await reader.close();
+  }
   for (const domain of ["reader-one.example","reader-two.example"]) {
     const reading=await context.newPage();
     await reading.route("**/*",r=>r.fulfill({contentType:"text/html",body:'<title>Miraculoushub | Watch online</title><meta property="og:site_name" content="Miraculoushub"><meta property="og:title" content="Miraculoushub"><h1>Miraculous Season 6 Episode 26 English Dub</h1>'}));

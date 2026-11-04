@@ -13,9 +13,10 @@ const LEADING_ARTICLE = /^(the|a|an|le|la|les|un|une|el|los|las|der|die|das)\s+/
  */
 export function normalizeTitle(title: string): string {
   let t = (title || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
-  t = t.replace(/\b(chapter|chap|ch|episode|epi|ep|season|saison|vol|volume|page|part|arc|cour)\s*\d+\b/g, " ");
+  t = t.replace(/\b(?:chapter|chapitre|chap|ch)\.?\s*\d+(?:[.,]\d+)?\b/g, " ");
+  t = t.replace(/\b(episode|epi|ep|season|saison|vol|volume|page|part|arc|cour)\s*\d+\b/g, " ");
   t = t.replace(/\bs\s*\d+\s*e\s*\d+\b/g, " "); // s01e02 style
-  t = t.replace(/第?\s*\d+\s*[화話话巻卷章回]/g, " "); // CJK/KR counters: 第12話, 12화, 3章…
+  t = t.replace(/第?\s*\d+(?:[.,]\d+)?\s*[화話话巻卷章回]/g, " "); // CJK/KR counters: 第12話, 12화, 3章…
   // Strip general / CJK / fullwidth punctuation (em dash, 、。！…) then keep
   // digits, Latin letters and any non-ASCII letter (Hangul, Kana, Han…);
   // collapse the rest. Avoids \p{} so it works on the ES5 target.

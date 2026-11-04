@@ -85,3 +85,9 @@ it("imports fractional manga positions from XML and CSV while episode numbers st
   expect(result[0].chapter).toBe(12.75);
   expect(result[1].episode).toBe(4);
 });
+
+it("uses the same reading identity for bonus chapters but keeps an unmarked sequel number",()=>{
+  expect(workId("Side Story - Chapitre 12,75")).toBe(workId("Side Story"));
+  expect(workId("Side Story 第12.5章")).toBe(workId("Side Story"));
+  expect(workId("Side Story 2")).not.toBe(workId("Side Story"));
+});

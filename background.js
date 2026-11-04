@@ -83,9 +83,10 @@ const DEFAULT_SETTINGS = { notifyNew: true, lang: "en", profile: { name: "", ava
 const LEADING_ARTICLE = /^(the|a|an|le|la|les|un|une|el|los|las|der|die|das)\s+/;
 const normalizeTitle = (title) => {
   let t = (title || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
-  t = t.replace(/\b(chapter|chap|ch|episode|epi|ep|season|saison|vol|volume|page|part|arc|cour)\s*\d+\b/g, " ");
+  t = t.replace(/\b(?:chapter|chapitre|chap|ch)\.?\s*\d+(?:[.,]\d+)?\b/g, " ");
+  t = t.replace(/\b(episode|epi|ep|season|saison|vol|volume|page|part|arc|cour)\s*\d+\b/g, " ");
   t = t.replace(/\bs\s*\d+\s*e\s*\d+\b/g, " ");
-  t = t.replace(/第?\s*\d+\s*[화話话巻卷章回]/g, " ");
+  t = t.replace(/第?\s*\d+(?:[.,]\d+)?\s*[화話话巻卷章回]/g, " ");
   t = t.replace(/[\u2000-\u206F\u3000-\u303F\uFF00-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65]/g, " ");
   t = t.replace(/[^0-9a-z\u0080-\uffff]+/gi, " ").trim();
   t = t.replace(LEADING_ARTICLE, "");

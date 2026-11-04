@@ -3273,3 +3273,10 @@ describe("game news source failures",()=>{
     expect(w.data["dasi.notifications"]||[]).toHaveLength(0);
   });
 });
+
+it("matches an explicitly labelled bonus chapter to the same work without merging numbered sequels",()=>{
+  const w=worker();
+  expect(w.run('sameWork("Side Story - Chapter 12.75","Side Story")')).toBe(true);
+  expect(w.run('sameWork("Side Story 第12.5章","Side Story")')).toBe(true);
+  expect(w.run('sameWork("Side Story 2","Side Story")')).toBe(false);
+});
