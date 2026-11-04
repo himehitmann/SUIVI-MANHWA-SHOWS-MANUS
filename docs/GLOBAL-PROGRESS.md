@@ -8,6 +8,14 @@ Mise à jour : 4 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Chapitres bonus dans les fiches, les imports et la détection — 4 novembre 2026
+
+Les positions de lecture décimales sont conservées dans la fiche de l’extension, sa nouvelle tentative de sauvegarde, le formulaire d’ajout web et les imports de suivi. Le détecteur de pages lisait parfois « 12.5 » comme « 125 ». Il reconnaît désormais les fractions dans les libellés et les adresses traités. La comparaison des titres tient compte d’un marqueur de chapitre décimal, avec des contrôles distincts pour les suites numérotées.
+
+Les parcours Chromium utilisent des pages de lecture contrôlées, un chapitre déjà enregistré dans l’extension et la sauvegarde réelle du service worker. Le parcours web importe 12,5, enregistre 12,75, recharge la fiche, ajoute une autre lecture à 3,25 et vérifie les deux valeurs sur l’API du serveur de test. Les imports CSV, XML compatible MyAnimeList et JSON sont couverts par les scénarios de cette modification. Les épisodes et les autres compteurs entiers conservent leur comportement.
+
+Commit e1bd8d79f4ab92d2486afbb8f68ca8fcefb1d4b2. [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41780668665) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41780662803). Les deux exécutions ont réussi, avec 709 tests unitaires et les contrôles du paquet, du navigateur, de charge et de récupération. **21/60 (35 %) global vérifié.** Une ancienne progression incorrecte peut être corrigée sur la fiche.
+
 ## Fiches : conserver une saisie après l'échec d'enregistrement — 4 novembre 2026
 
 Commit 6a61a384166b5cf8e1ed589baac3aaa096a283fb : [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41736264293) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41736256277) réussies. **705 tests unitaires** et contrôles navigateur, paquet, interface, charge et récupération réussis. L'audit des dépendances ne signale aucune vulnérabilité connue.
