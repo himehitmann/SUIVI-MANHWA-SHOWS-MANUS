@@ -22,9 +22,14 @@
     }
     return "";
   };
+  function chapterNumber(raw) {
+    const token = String(raw ?? "").trim().match(/^[+]?(?:\d+(?:[.,]\d+)?|[.,]\d+)/)?.[0];
+    const value = typeof raw === "number" ? raw : Number(token?.replace(",", "."));
+    return Number.isFinite(value) && value > 0 ? value : undefined;
+  }
   const asType = (raw) => {
     const s = String(raw || "").toLowerCase();
-    if (/manhwa|manhua|manga|webtoon|comic|book|novel|light.?novel|bd/.test(s)) return "reading";
+    if (s === "reading" || /manhwa|manhua|manga|webtoon|comic|book|novel|light.?novel|bd/.test(s)) return "reading";
     if (/game|jeu/.test(s)) return "game";
     if (/movie|film|show|serie|série|tv|episode|épisode|anime|drama|season/.test(s)) return "watching";
     return "";
@@ -101,8 +106,9 @@
       }
     }
     const num = (v) => { const n = parseInt(v, 10); return isFinite(n) && n > 0 ? n : undefined; };
-    episode = episode || num(src.episode) || num(src.episode_number) || num(src.episodeNumber) || num(src.episodes_watched) || num(src.num_watched_episodes) || num(src.my_watched_episodes) || num(src.watched_episodes) || num(src.watchedEpisodes) || num(src.num_episodes_watched);
-    chapter = num(src.chapter) || num(src.chapter_number) || num(src.chapters_read) || num(src.num_read_chapters) || num(src.my_read_chapters);
+    const position = type === "reading" ? chapterNumber : num;
+    episode = episode || position(src.episode) || position(src.episode_number) || position(src.episodeNumber) || position(src.episodes_watched) || position(src.num_watched_episodes) || position(src.my_watched_episodes) || position(src.watched_episodes) || position(src.watchedEpisodes) || position(src.num_episodes_watched);
+    chapter = chapterNumber(src.chapter) || chapterNumber(src.chapter_number) || chapterNumber(src.chapters_read) || chapterNumber(src.num_read_chapters) || chapterNumber(src.my_read_chapters);
     season = season || num(src.season);
     if (type === "reading" && !chapter && episode) { chapter = episode; episode = undefined; }
 
@@ -198,7 +204,7 @@
           status: importStatus(g("my_status")),
           externalIds: { mal: g(isManga ? "series_mangadb_id" : "series_animedb_id") || undefined },
           episode: isManga ? undefined : parseInt(g("my_watched_episodes"), 10) || undefined,
-          chapter: isManga ? parseInt(g("my_read_chapters"), 10) || undefined : undefined,
+          chapter: isManga ? chapterNumber(g("my_read_chapters")) : undefined,
           rating: (() => { const s = Math.round((parseInt(g("my_score"), 10) || 0) / 2); return s > 0 ? s : undefined; })(),
           imported: true,
         });

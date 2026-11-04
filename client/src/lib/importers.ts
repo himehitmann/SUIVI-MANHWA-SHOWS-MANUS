@@ -31,6 +31,11 @@ const tag = (block: string, name: string): string | undefined => {
   if (!m) return undefined;
   return m[1].replace(/^<!\[CDATA\[/, "").replace(/\]\]>$/, "").trim() || undefined;
 };
+function chapterNumber(raw: string | undefined): number | undefined {
+  const token = raw?.trim().match(/^[+]?(?:\d+(?:[.,]\d+)?|[.,]\d+)/)?.[0];
+  const chapter = Number(token?.replace(",", "."));
+  return Number.isFinite(chapter) && chapter > 0 ? chapter : undefined;
+}
 const numTag = (block: string, name: string): number | undefined => {
   const v = tag(block, name);
   const n = v ? parseInt(v, 10) : NaN;
@@ -61,7 +66,7 @@ export function parseMalXml(text: string): LibraryItem[] {
       createItem({
         title,
         type: "reading",
-        chapter: numTag(b, "my_read_chapters"),
+        chapter: chapterNumber(tag(b, "my_read_chapters")),
         volume: numTag(b, "my_read_volumes"),
         status: malStatus(tag(b, "my_status") || ""),
         rating: numTag(b, "my_score"),
@@ -125,7 +130,7 @@ export function parseCsv(text: string): LibraryItem[] {
       createItem({
         title,
         type: (isWatch ? "watching" : "reading") as ContentType,
-        chapter: num(col.chapter),
+        chapter: chapterNumber(cells[col.chapter]),
         episode: num(col.episode),
         season: num(col.season),
         status: statusRaw ? malStatus(statusRaw) : undefined,

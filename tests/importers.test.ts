@@ -76,3 +76,12 @@ describe("JSON imports", () => {
     expect(parseImport("just some text").format).toBe("unknown");
   });
 });
+
+it("imports fractional manga positions from XML and CSV while episode numbers stay whole",()=>{
+  const xml="<myanimelist><manga><manga_title>Side Story</manga_title><my_read_chapters>0.5</my_read_chapters></manga></myanimelist>";
+  expect(parseImport(xml).items[0].chapter).toBe(0.5);
+  const csv='title,type,chapter,episode\nBonus,reading,"12,75",\nEpisode,watching,,4.5';
+  const result=parseImport(csv).items;
+  expect(result[0].chapter).toBe(12.75);
+  expect(result[1].episode).toBe(4);
+});

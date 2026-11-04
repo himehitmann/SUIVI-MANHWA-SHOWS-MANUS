@@ -140,3 +140,15 @@ it("retains imported catalog identity and descriptive metadata",async()=>{
   const r=await c.window.YomuImport.parseFiles([file([{title:"Titre français",type:"manga",synonyms:["English title"],author:{name:"Creator"},ids:{anilist:123},description:"A synopsis",chapters_read:8}])]);
   expect(r.items[0]).toMatchObject({alternativeTitles:["English title"],authors:["Creator"],externalIds:{anilist:123},synopsis:"A synopsis",chapter:8});
 });
+
+it("imports fractional reading positions without converting episodes into fractional viewing progress",async()=>{
+  const c=parser();
+  const result=await c.window.YomuImport.parseFiles([file([
+    {title:"Reading",type:"reading",chapters_read:"12.75"},
+    {title:"Bonus",type:"manga",episode_number:"0,5"},
+    {title:"Show",type:"anime",episode:4.5}
+  ])]);
+  expect(result.items.find((row:any)=>row.title==="Reading")).toMatchObject({type:"reading",chapter:12.75});
+  expect(result.items.find((row:any)=>row.title==="Bonus").chapter).toBe(0.5);
+  expect(result.items.find((row:any)=>row.title==="Show").episode).toBe(4);
+});
