@@ -2509,8 +2509,23 @@ async function mergeImport(payload) {
     patch[LISTS_KEY]=[...lists.values()];
   }
   if(Array.isArray(payload.sites))patch[SITES_KEY]=mergeById(payload.sites,await read(SITES_KEY,[]));
-  if(Array.isArray(payload.notifications))patch[NOTIF_KEY]=mergeById(payload.notifications.map(n=>({...n,itemId:ids.get(n.itemId)||n.itemId})),await read(NOTIF_KEY,[]));
-  if(payload.settings)patch[SETTINGS_KEY]={...DEFAULT_SETTINGS,...sharedSettings(payload.settings),...await read(SETTINGS_KEY,{})};
+  if(Array.isArray(payload.notifications)) {
+    const restored=payload.notifications
+      .filter(n=>n && typeof n.id==="string" && n.id.trim() && (typeof n.title==="string" || typeof n.message==="string"))
+      .map(n=>({...n,itemId:ids.get(n.itemId)||n.itemId,read:n.read===true}));
+    patch[NOTIF_KEY]=mergeById(restored,await read(NOTIF_KEY,[])).sort((a,b)=>(Number(b.ts)||0)-(Number(a.ts)||0));
+  }
+  if(payload.settings && typeof payload.settings==="object" && !Array.isArray(payload.settings)) {
+    const imported=sharedSettings(payload.settings);
+    const local=await read(SETTINGS_KEY,{});
+    patch[SETTINGS_KEY]={...DEFAULT_SETTINGS,...imported,...local};
+    if(imported.profile) {
+      // A new install may already have an empty default profile. Keep deliberate local edits.
+      const current=local.profile||{};
+      const chosen=Object.entries(current).filter(([,value])=>value!==undefined && (value!=="" || Number(current.updatedAt)>0));
+      patch[SETTINGS_KEY].profile={...DEFAULT_SETTINGS.profile,...imported.profile,...Object.fromEntries(chosen)};
+    }
+  }
   await writeData(patch);
   // Queue state was saved atomically with the imported works. The periodic
   // alarm resumes remaining records even after Chrome suspends this worker.
@@ -2583,6 +2598,24 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       return true;
 
+    case "EXPORT_BACKUP": {
+      const epoch=accountEpoch;
+      serializeLibrary(async()=>{
+        if(epoch!==accountEpoch)throw Error("account_changed");
+        const snapshot=await api.storage.local.get([...Object.values(DATA_KEYS),SETTINGS_KEY]);
+        if(epoch!==accountEpoch)throw Error("account_changed");
+        const backup={version:2};
+        for(const [field,key] of Object.entries(DATA_KEYS)){
+          if(Object.hasOwn(snapshot,key)&&!Array.isArray(snapshot[key]))throw Error("invalid_library_data");
+          backup[field]=snapshot[key]||[];
+        }
+        const settings=snapshot[SETTINGS_KEY];
+        if(settings!==undefined&&(!settings||typeof settings!=="object"||Array.isArray(settings)))throw Error("invalid_library_data");
+        backup.settings=sharedSettings({...DEFAULT_SETTINGS,...settings});
+        return {ok:true,backup};
+      }).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message||error)}));
+      return true;
+    }
     case "GET_STATE": {
       const stateEpoch=accountEpoch;
       void checkTrackedReleases().catch(()=>{});

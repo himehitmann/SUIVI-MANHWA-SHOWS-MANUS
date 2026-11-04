@@ -39,6 +39,12 @@ try {
     env: { ...process.env, YOMU_EXTENSION_DIR: folder },
   });
   if (test.status !== 0) throw Error("Unpacked extension verification failed");
+  if(!process.argv.includes("--upgrade-only")){
+    const restore=spawnSync(process.execPath,["tests/e2e/backup-restore.mjs"],{
+      stdio:"inherit",env:{...process.env,YOMU_EXTENSION_DIR:folder}
+    });
+    if(restore.status!==0)throw Error("Fresh profile backup restoration failed");
+  }
   const upgrade = spawnSync(process.execPath, ["tests/e2e/upgrade.mjs"], {
     stdio: "inherit",
     env: { ...process.env, YOMU_EXTENSION_DIR: folder },

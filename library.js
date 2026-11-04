@@ -971,6 +971,8 @@ const SEARCH_LOCALES={
 };
 for(const [key,values] of Object.entries(SEARCH_LOCALES))["en","fr","ja","es","de","ko","pt","zh-CN"].forEach((code,index)=>LANGS[code][key]=values[index]);
 for(const [code,label] of Object.entries({en:"Close",fr:"Fermer",ja:"閉じる",es:"Cerrar",de:"Schließen",ko:"닫기",pt:"Fechar","zh-CN":"关闭"}))LANGS[code].close=label;
+for(const [code,label] of Object.entries({en:"Backup restored",fr:"Sauvegarde restaurée",ja:"バックアップを復元しました",es:"Copia de seguridad restaurada",de:"Sicherung wiederhergestellt",ko:"백업을 복원했습니다",pt:"Cópia de segurança restaurada","zh-CN":"备份已恢复"})) LANGS[code].backupRestored=label;
+for(const [code,label] of Object.entries({en:"Backup could not be created. Try again.",fr:"Impossible de créer la sauvegarde. Réessaie.",ja:"バックアップを作成できませんでした。もう一度お試しください。",es:"No se pudo crear la copia de seguridad. Inténtalo de nuevo.",de:"Die Sicherung konnte nicht erstellt werden. Versuche es erneut.",ko:"백업을 만들지 못했습니다. 다시 시도해 주세요.",pt:"Não foi possível criar a cópia de segurança. Tenta novamente.","zh-CN":"无法创建备份，请重试。"})) LANGS[code].backupExportFailed=label;
 const t = (k, p) => { let s = (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || k; if (p) for (const key in p) s = s.replace(`{${key}}`, p[key]); return s; };
 // Array-valued i18n (plan feature lists), falls back to English.
 const tArr = (k) => (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || [];
@@ -3005,9 +3007,27 @@ function backupSettings(value={}) {
   if(value.profile&&typeof value.profile==="object")result.profile=Object.fromEntries(["name","bio","avatar","banner","updatedAt"].filter(key=>Object.hasOwn(value.profile,key)).map(key=>[key,value.profile[key]]));
   return result;
 }
-function doExport() {
-  const blob = new Blob([JSON.stringify({ version: 2, items, sites, notifications, lists, settings: backupSettings(settings) }, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `yomu-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url);
+let exportPending=false;
+async function doExport() {
+  if(exportPending)return;
+  exportPending=true;
+  const button=document.getElementById("export");
+  if(button){button.disabled=true;button.setAttribute("aria-busy","true");}
+  try{
+    const response=await new Promise(resolve=>requestMetadata({type:"EXPORT_BACKUP"},resolve,45000));
+    if(!response?.ok||response.backup?.version!==2||!validLibraryState(response.backup))throw Error("backup_unavailable");
+    const blob=new Blob([JSON.stringify(response.backup,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    try{
+      const link=document.createElement("a");link.href=url;
+      link.download=`yomu-backup-${new Date().toISOString().slice(0,10)}.json`;link.click();
+    }finally{setTimeout(()=>URL.revokeObjectURL(url),0);}
+  }catch{toast(t("backupExportFailed"));}
+  finally{
+    exportPending=false;
+    const current=document.getElementById("export");
+    if(current){current.disabled=false;current.removeAttribute("aria-busy");}
+  }
 }
 // Universal import: accepts one or many files (JSON, CSV, XML, ZIP) from Yomu
 // or other trackers (Trakt, TV Time, IMDb, Letterboxd, MyAnimeList). Parses
@@ -3025,7 +3045,8 @@ async function doImport(e) {
     toast(t("importing"));
     const res = await window.YomuImport.parseFiles(files);
     const warnings=Array.isArray(res.warnings)?res.warnings:[];
-    if (!res.count && !res.lists?.length && !res.sites?.length) { toast(t("importNothing")); return; }
+    const hasHistory=res.notifications?.some(n=>n && typeof n.id==="string" && n.id.trim() && (typeof n.title==="string" || typeof n.message==="string"));
+    if (!res.count && !res.lists?.length && !res.sites?.length && !hasHistory && !Object.keys(backupSettings(res.settings||{})).length) { toast(t("importNothing")); return; }
     const response=await new Promise(resolve=>requestMetadata({type:"IMPORT_MERGE",payload:res},resolve,45000));
     if(!response?.ok){
       toast(settings.lang==="fr"?"Import non confirmé. Vérifie la bibliothèque avant de réessayer.":"Import not confirmed. Check your library before retrying.");
@@ -3038,7 +3059,7 @@ async function doImport(e) {
     }
     hydrate(state);
     const count=Number(response.added||0)+Number(response.updated||0);
-    toast(t("importedN",{n:count})+(warnings.length?' — '+warnings.join(' — '):''));
+    toast((count?t("importedN",{n:count}):t("backupRestored"))+(warnings.length?' — '+warnings.join(' — '):''));
   } catch {
     toast(t("importFailed"));
   } finally {

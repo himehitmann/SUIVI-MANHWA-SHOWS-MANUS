@@ -164,3 +164,14 @@ it("combines lists and sites from every backup and keeps each timestamp with its
   expect(r.items[0].position).toBeUndefined();expect(r.items[0].duration).toBeUndefined();expect(r.items[0].episodeTitle).toBeUndefined();
   expect(r.lists.map((row:any)=>row.id)).toEqual(["a","b"]);expect(r.sites.map((row:any)=>row.id)).toEqual(["a","b"]);
 });
+
+it("recognizes empty Yomu libraries and collects history and public profile data across backup files",async()=>{
+  const c=parser();
+  const r=await c.window.YomuImport.parseFiles([
+    file({version:2,items:[],lists:[{id:"list",itemIds:[]}],sites:[{id:"site"}],notifications:[{id:"a",title:"First"}],settings:{lang:"fr",profile:{name:"Reader"}}}),
+    file({version:1,items:[],notifications:[{id:"b",title:"Second"}],settings:{profile:{bio:"Bio"}}})
+  ]);
+  expect(r.count).toBe(0);expect(r.formats).toEqual(["Yomu"]);
+  expect(r.settings).toMatchObject({lang:"fr",profile:{name:"Reader",bio:"Bio"}});
+  expect(r.lists[0].id).toBe("list");expect(r.sites[0].id).toBe("site");expect(r.notifications.map((n:any)=>n.id)).toEqual(["a","b"]);
+});

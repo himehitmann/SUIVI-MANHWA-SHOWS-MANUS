@@ -133,7 +133,10 @@
 
   // ---- JSON ---------------------------------------------------------------
   function looksLikeYomuBackup(obj) {
-    return obj && Array.isArray(obj.items) && obj.items.some((i) => i && i.title && (i.type || i.id));
+    return obj && Array.isArray(obj.items) && (
+      (obj.items.length === 0 && (obj.version === 1 || obj.version === 2)) ||
+      obj.items.some((i) => i && i.title && (i.type || i.id))
+    );
   }
   // Walk any JSON and collect arrays of media-ish objects.
   function collectFromJson(data, out, hintType) {
@@ -224,7 +227,12 @@
           data.items.forEach((i) => acc.items.push(i));
           if (Array.isArray(data.sites)) acc.sites = (acc.sites || []).concat(data.sites);
           if (Array.isArray(data.lists)) acc.lists = (acc.lists || []).concat(data.lists);
-          if (data.settings) acc.settings = data.settings;
+          if (Array.isArray(data.notifications)) acc.notifications = (acc.notifications || []).concat(data.notifications);
+          if (data.settings && typeof data.settings === "object" && !Array.isArray(data.settings)) {
+            const previous = acc.settings || {};
+            acc.settings = {...previous, ...data.settings};
+            if (previous.profile || data.settings.profile) acc.settings.profile = {...previous.profile, ...data.settings.profile};
+          }
           return;
         }
         const before = acc.items.length;
@@ -302,7 +310,7 @@
     }
     return {
       items: [...byKey.values()],
-      sites: acc.sites, lists: acc.lists, settings: acc.settings,
+      sites: acc.sites, lists: acc.lists, notifications: acc.notifications, settings: acc.settings,
       count: byKey.size, formats: [...acc.formats], warnings: acc.warnings,
     };
   }
