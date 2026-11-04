@@ -222,8 +222,8 @@
         if (looksLikeYomuBackup(data)) {
           acc.formats.add("Yomu");
           data.items.forEach((i) => acc.items.push(i));
-          if (Array.isArray(data.sites)) acc.sites = data.sites;
-          if (Array.isArray(data.lists)) acc.lists = data.lists;
+          if (Array.isArray(data.sites)) acc.sites = (acc.sites || []).concat(data.sites);
+          if (Array.isArray(data.lists)) acc.lists = (acc.lists || []).concat(data.lists);
           if (data.settings) acc.settings = data.settings;
           return;
         }
@@ -289,13 +289,15 @@
       const key = (it.id ? "id:" + it.id : norm(it.title) + "|" + (it.year || "")) + "|" + (it.type || "watching");
       const prev = byKey.get(key);
       if (!prev) { byKey.set(key, it); continue; }
+      const {fields}=YomuImportedPosition(prev,it);
+      const union=(a,b)=>[...new Set([...(Array.isArray(a)?a:[]),...(Array.isArray(b)?b:[])])];
+      const saved=Object.fromEntries(Object.entries(prev).filter(([,value])=>value!==undefined&&value!==""));
       byKey.set(key, {
-        ...prev, ...it,
-        season: Math.max(prev.season || 1,it.season || 1),
-        episode: (prev.season || 1) > (it.season || 1) ? prev.episode : (it.season || 1) > (prev.season || 1) ? it.episode : Math.max(prev.episode || 0,it.episode || 0) || undefined,
-        chapter: Math.max(prev.chapter || 0, it.chapter || 0) || undefined,
-        rating: it.rating || prev.rating,
-        cover: prev.cover || it.cover,
+        ...it,...saved,...fields,
+        favorite:prev.favorite||it.favorite||false,
+        externalIds:{...it.externalIds,...prev.externalIds},
+        tags:union(prev.tags,it.tags),
+        sources:union(prev.sources,it.sources),
       });
     }
     return {

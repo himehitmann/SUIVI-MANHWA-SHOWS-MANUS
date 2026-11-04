@@ -1320,6 +1320,35 @@ try {
     await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);closeDrawer();resolve();})));
   }
 
+
+  // Reimport via the packaged Settings file input, including overlapping backup files.
+  const importBefore=await worker.evaluate(async()=>{
+    const keys=["dasi.items","dasi.lists","dasi.sites"];
+    const previous=await chrome.storage.local.get(keys);
+    await chrome.storage.local.set({"dasi.items":[{id:"resume-reader",type:"reading",title:"Resume reader",chapter:12.75,page:8,notes:"Personal",favorite:true,rating:4,tags:["Mine"],cover:"https://example.test/cover.png",synopsis:"Book",enrichedAt:1,identityVersion:1}],"dasi.lists":[],"dasi.sites":[]});
+    return {keys,previous};
+  });
+  try{
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("settings");resolve();})));
+    const part=(id,pageNumber)=>({name:id+".json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify({version:2,items:[{id:"resume-reader",title:"Resume reader",type:"reading",chapter:12.75,page:pageNumber,notes:"Export note",favorite:false,rating:1,tags:["Imported"]}],lists:[{id,name:id,itemIds:["resume-reader"]}],sites:[{id,name:id,url:"https://"+id+".example/"}]}))});
+    for(let attempt=0;attempt<2;attempt++){
+      await page.locator("#file").setInputFiles([part("part-a",10),part("part-b",4)]);
+      await page.waitForFunction(()=>!importPending&&document.querySelector("#file")?.files.length===0&&items.some(row=>row.id==="resume-reader"&&row.page===10));
+    }
+    const saved=await worker.evaluate(async()=>chrome.storage.local.get(["dasi.items","dasi.lists","dasi.sites"]));
+    assert.equal(saved["dasi.items"].length,1);
+    const read=saved["dasi.items"][0];
+    assert.equal(read.chapter,12.75);assert.equal(read.page,10);assert.equal(read.notes,"Personal");assert.equal(read.favorite,true);assert.equal(read.rating,4);
+    assert.deepEqual([...read.tags].sort(),["Imported","Mine"]);
+    assert.deepEqual(saved["dasi.lists"].map(row=>[row.id,row.itemIds]).sort(),[["part-a",["resume-reader"]],["part-b",["resume-reader"]]]);
+    assert.deepEqual(saved["dasi.sites"].map(row=>row.id).sort(),["part-a","part-b"]);
+    console.log("PASS: packaged multi-file reimport retains personal fields, furthest page, every list and site on repeat");
+  }finally{
+    await worker.evaluate(async probe=>{
+      await chrome.storage.local.remove(probe.keys.filter(key=>!Object.hasOwn(probe.previous,key)));
+      await chrome.storage.local.set(probe.previous);
+    },importBefore);
+  }
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(

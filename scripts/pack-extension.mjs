@@ -20,6 +20,7 @@ const required = [
   "offscreen.html",
   "offscreen.js",
   "ocr-regions.js",
+  "import-position.js",
   "import-parse.js",
   "icon.png",
 ];

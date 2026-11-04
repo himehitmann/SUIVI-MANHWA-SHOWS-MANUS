@@ -7,6 +7,7 @@ function parser() {
     readFileSync(new URL("../vendor/fflate.min.js", import.meta.url), "utf8"),
     ctx
   );
+  vm.runInContext(readFileSync(new URL("../import-position.js", import.meta.url), "utf8"),ctx);
   vm.runInContext(
     readFileSync(new URL("../import-parse.js", import.meta.url), "utf8"),
     ctx
@@ -151,4 +152,15 @@ it("imports fractional reading positions without converting episodes into fracti
   expect(result.items.find((row:any)=>row.title==="Reading")).toMatchObject({type:"reading",chapter:12.75});
   expect(result.items.find((row:any)=>row.title==="Bonus").chapter).toBe(0.5);
   expect(result.items.find((row:any)=>row.title==="Show").episode).toBe(4);
+});
+
+it("combines lists and sites from every backup and keeps each timestamp with its episode",async()=>{
+  const c=parser();
+  const first={id:"show",title:"Show",type:"watching",season:1,episode:8,position:400,duration:900,episodeTitle:"Eight",notes:"Mine"};
+  const second={id:"show",title:"Show",type:"watching",season:2,episode:1};
+  const make=(row:any,id:string)=>file({version:2,items:[row],lists:[{id,itemIds:["show"]}],sites:[{id,url:"https://"+id+".example"}]});
+  const r=await c.window.YomuImport.parseFiles([make(first,"a"),make(second,"b")]);
+  expect(r.items).toHaveLength(1);expect(r.items[0]).toMatchObject({season:2,episode:1,notes:"Mine"});
+  expect(r.items[0].position).toBeUndefined();expect(r.items[0].duration).toBeUndefined();expect(r.items[0].episodeTitle).toBeUndefined();
+  expect(r.lists.map((row:any)=>row.id)).toEqual(["a","b"]);expect(r.sites.map((row:any)=>row.id)).toEqual(["a","b"]);
 });

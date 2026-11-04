@@ -1,4 +1,4 @@
-importScripts("sync-core.js", "auto-translation.js");
+importScripts("sync-core.js", "auto-translation.js", "import-position.js");
 async function fetchRemote(input, init = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -2484,13 +2484,12 @@ async function mergeImport(payload) {
     if(ex)key=ex.id;
     else {const base=key||'imported-work';let n=1;while(byId.has(key))key=base+'-'+type+'-'+n++;}
     if(p.id)ids.set(p.id,key);
-    const season=Math.max(Number(ex?.season)||1,Number(p.season)||1);
-    const episode=(Number(ex?.season)||1)>(Number(p.season)||1)?ex.episode:(Number(p.season)||1)>(Number(ex?.season)||1)?p.episode:Math.max(ex?.episode||0,p.episode||0);
-    const sameSeason=!ex||(Number(ex.season)||1)===(Number(p.season)||1);
-    const item=boundedProgress({...p,...ex,...identityMetadata(ex,p),id:key,title:ex?.title||p.title,type,season:type==='watching'?season:undefined,
-      episode:type==='watching'?episode:undefined,chapter:type==='reading'?Math.max(ex?.chapter||0,p.chapter||0):undefined,
-      total:sameSeason?(ex?.total||p.total):season===(Number(p.season)||1)?p.total:ex?.total,
-      rating:ex?.rating||p.rating||0,cover:ex?.cover||p.cover||'',url:ex?.url||p.url||'',favorite:ex?.favorite||p.favorite||false,
+    const position=ex ? YomuImportedPosition(ex,p) : null;
+    const source=position?.advances?p:ex;
+    const item=boundedProgress({...p,...ex,...identityMetadata(ex,p),id:key,title:ex?.title||p.title,type,
+      season:type==="watching"?(p.season||1):undefined, episode:type==="watching"?(p.episode||0):undefined,
+      chapter:type==="reading"?(p.chapter||0):undefined,...position?.fields,
+      rating:ex?.rating??p.rating??0,cover:ex?.cover||p.cover||'',url:source?.url||ex?.url||p.url||'',favorite:ex?.favorite||p.favorite||false,
       tags:[...new Set([...(ex?.tags||[]),...(p.tags||[])])],sources:[...new Set([...(ex?.sources||[]),...(p.sources||[])])],
       createdAt:ex?.createdAt||p.createdAt||Date.now(),updatedAt:Date.now(),imported:true});
     byId.set(key,item);

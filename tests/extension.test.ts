@@ -20,7 +20,10 @@ function worker(seed: Record<string, any> = {}, syncSeed:Record<string,any>={}) 
   const ctx = vm.createContext({
     console,
     crypto:globalThis.crypto,
-    importScripts:()=>vm.runInContext(readFileSync(new URL("../sync-core.js",import.meta.url),"utf8"),ctx),
+    importScripts:(...names:string[])=>{
+      for(const name of names.filter(name=>name==="sync-core.js"||name==="import-position.js"))
+        vm.runInContext(readFileSync(new URL("../"+name,import.meta.url),"utf8"),ctx);
+    },
     URL,
     AbortController,
     AbortSignal,
@@ -3279,4 +3282,15 @@ it("matches an explicitly labelled bonus chapter to the same work without mergin
   expect(w.run('sameWork("Side Story - Chapter 12.75","Side Story")')).toBe(true);
   expect(w.run('sameWork("Side Story 第12.5章","Side Story")')).toBe(true);
   expect(w.run('sameWork("Side Story 2","Side Story")')).toBe(false);
+});
+
+it("retains the furthest scoped position and personal fields through the extension import message",async()=>{
+  const common={title:"Reading fixture",type:"reading",cover:"https://example.test/cover.png",synopsis:"Story",enrichedAt:1,identityVersion:1};
+  const original={...common,id:"saved",volume:1,chapter:12.75,page:8,totalPages:90,total:30,notes:"Mine",tags:["Personal"],favorite:true,rating:4,notifyUpdates:false};
+  const w=worker({"dasi.items":[original]});
+  const run=async(data:any)=>{const result=await w.call({type:"IMPORT_MERGE",payload:{items:[{...common,id:"saved",...data}]}});expect(result.ok).toBe(true);return w.data["dasi.items"][0];};
+  expect(await run({chapter:12.75,page:2,notes:"Older note",tags:["Tracker"],favorite:false,rating:1,notifyUpdates:true})).toMatchObject({page:8,notes:"Mine",favorite:true,rating:4,tags:["Personal","Tracker"],notifyUpdates:false});
+  const advanced=await run({volume:2,chapter:1,page:3});
+  expect(advanced).toMatchObject({volume:2,chapter:1,page:3,notes:"Mine"});expect(advanced.totalPages).toBeUndefined();expect(advanced.total).toBeUndefined();
+  expect(await run({volume:1,chapter:55,page:20})).toMatchObject({volume:2,chapter:1,page:3});
 });
