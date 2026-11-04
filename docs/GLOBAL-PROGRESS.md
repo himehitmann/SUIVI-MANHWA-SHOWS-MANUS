@@ -8,6 +8,14 @@ Mise à jour : 4 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Réimport de sauvegardes qui se recoupent — 4 novembre 2026
+
+Sur le web comme dans l’extension, le calcul de la reprise compare la page à l’intérieur de son chapitre et le temps de lecture à l’intérieur de son épisode. Un chapitre ou une saison réellement plus avancés peuvent être adoptés avec leur propre position. Une indication de saison sans épisode ne remplace pas une lecture commencée. Les informations absentes dans un fichier partiel ne doivent pas effacer les notes personnelles, les favoris, les évaluations ou les étiquettes déjà enregistrés.
+
+Le sélecteur de fichiers conserve les listes et sites de chaque sauvegarde sélectionnée. Le parcours Chrome empaqueté importe deux fois deux fichiers contenant la même œuvre et vérifie la page, les champs personnels, les listes et les sites dans le stockage réel. Le parcours web recharge la bibliothèque après l’import et vérifie la page 8, les notes et le favori dans la réponse de l’API de test. Ces essais utilisent des données synthétiques.
+
+Commit 93786cda1c280bc31c2373e8bf0fa6cb7e49d573. [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41867118364) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41867106733). Les deux exécutions ont réussi avec 715 tests unitaires, les parcours navigateur et les contrôles de récupération et de charge. **21/60 (35 %) global vérifié.**
+
 ## Chapitres bonus dans les fiches, les imports et la détection — 4 novembre 2026
 
 Les positions de lecture décimales sont conservées dans la fiche de l’extension, sa nouvelle tentative de sauvegarde, le formulaire d’ajout web et les imports de suivi. Le détecteur de pages lisait parfois « 12.5 » comme « 125 ». Il reconnaît désormais les fractions dans les libellés et les adresses traités. La comparaison des titres tient compte d’un marqueur de chapitre décimal, avec des contrôles distincts pour les suites numérotées.
