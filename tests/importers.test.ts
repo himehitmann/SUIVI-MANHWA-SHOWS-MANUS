@@ -76,3 +76,18 @@ describe("JSON imports", () => {
     expect(parseImport("just some text").format).toBe("unknown");
   });
 });
+
+it("imports fractional manga positions from XML and CSV while episode numbers stay whole",()=>{
+  const xml="<myanimelist><manga><manga_title>Side Story</manga_title><my_read_chapters>0.5</my_read_chapters></manga></myanimelist>";
+  expect(parseImport(xml).items[0].chapter).toBe(0.5);
+  const csv='title,type,chapter,episode\nBonus,reading,"12,75",\nEpisode,watching,,4.5';
+  const result=parseImport(csv).items;
+  expect(result[0].chapter).toBe(12.75);
+  expect(result[1].episode).toBe(4);
+});
+
+it("uses the same reading identity for bonus chapters but keeps an unmarked sequel number",()=>{
+  expect(workId("Side Story - Chapitre 12,75")).toBe(workId("Side Story"));
+  expect(workId("Side Story 第12.5章")).toBe(workId("Side Story"));
+  expect(workId("Side Story 2")).not.toBe(workId("Side Story"));
+});

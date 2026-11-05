@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    function validDescriptor(d) {
+      return d is map && d.keys().hasOnly(['id','chunks','bytes','hash'])
+        && d.id is string && d.id.matches('^v-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$')
+        && d.hash is string && d.hash.matches('^[a-f0-9]{64}$')
+        && d.chunks is int && d.chunks >= 1 && d.chunks <= 16
+        && d.bytes is int && d.bytes > (d.chunks - 1) * 262144 && d.bytes <= d.chunks * 262144;
+    }
+    function validHead() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['schema','current','previous']) && d.schema is int && d.schema == 1
+        && validDescriptor(d.current)
+        && (d.previous == null || (validDescriptor(d.previous) && d.previous.id != d.current.id));
+    }
+    function belongsTo(chunkId, descriptor) {
+      return descriptor != null && chunkId.matches('^' + descriptor.id + '-([0-9]|1[0-5])$');
+    }
+    match /users/{uid}/library/head {
+      allow get: if owner(uid);
+      allow create: if owner(uid) && validHead() && request.resource.data.previous == null;
+      allow update: if owner(uid) && validHead()
+        && request.resource.data.current.id != resource.data.current.id
+        && request.resource.data.previous == resource.data.current;
+      // Listings and deletion of the recovery pointer are intentionally not exposed.
+    }
+    match /users/{uid}/chunks/{chunkId} {
+      function nextHead() {
+        return getAfter(/databases/$(database)/documents/users/$(uid)/library/head).data;
+      }
+      allow get: if owner(uid);
+      allow create: if owner(uid)
+        && request.resource.data.keys().hasOnly(['payload'])
+        && request.resource.data.payload is string
+        && request.resource.data.payload.size() > 0 && request.resource.data.payload.size() <= 349528
+        && belongsTo(chunkId, nextHead().current);
+      // Immutable chunks. Only a chunk no longer referenced by either retained version can be removed.
+      allow delete: if owner(uid)
+        && !belongsTo(chunkId, nextHead().current)
+        && !belongsTo(chunkId, nextHead().previous);
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

@@ -1,0 +1,208 @@
+import {describe,it,expect} from "vitest";
+import {mkdtempSync,rmSync} from "node:fs";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
+import {createStore} from "../server/lib/store";
+import {applyPlanIntent,billingReceipt} from "../server/lib/billing";
+const user={id:"billing-user",email:"billing@example.test",passwordHash:"hash",plan:"free" as const,createdAt:1};
+describe("durable billing replay protection",()=>{
+  it("applies concurrent duplicates once and does not restore a canceled plan",async()=>{
+    const store=createStore();await store.createUser(user);
+    const receipt={provider:"stripe" as const,eventId:"evt_paid"};
+    const results=await Promise.all(Array.from({length:10},()=>applyPlanIntent(store,{userId:user.id,plan:"pro"},receipt)));
+    expect(results.filter(r=>r.plan==="pro")).toHaveLength(1);
+    await applyPlanIntent(store,{userId:user.id,plan:"free"},{provider:"stripe",eventId:"evt_canceled"});
+    expect((await applyPlanIntent(store,{userId:user.id,plan:"pro"},receipt)).unchanged).toBe(true);
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+  });
+  it("persists receipts across restart and preserves account credentials",async()=>{
+    const dir=mkdtempSync(join(tmpdir(),"yomu-billing-"));
+    try {
+      const file=join(dir,"accounts.json"),store=createStore(file);
+      await store.createUser(user);
+      await applyPlanIntent(store,{userId:user.id,plan:"pro"},{provider:"paddle",eventId:"evt_paid"});
+      await store.updateUser({...user,passwordHash:"changed",email:"changed@example.test",plan:"pro"});
+      await applyPlanIntent(store,{userId:user.id,plan:"free"},{provider:"paddle",eventId:"evt_canceled"});
+      const restarted=createStore(file);
+      await applyPlanIntent(restarted,{userId:user.id,plan:"pro"},{provider:"paddle",eventId:"evt_paid"});
+      expect(await restarted.getUserById(user.id)).toMatchObject({plan:"free",passwordHash:"changed",email:"changed@example.test"});
+    } finally {rmSync(dir,{recursive:true,force:true});}
+  });
+  it("does not consume an event before its account exists",async()=>{
+    const store=createStore(),receipt={provider:"stripe" as const,eventId:"evt_retry"};
+    expect((await applyPlanIntent(store,{userId:user.id,plan:"pro"},receipt)).ok).toBe(false);
+    await store.createUser(user);
+    expect((await applyPlanIntent(store,{userId:user.id,plan:"pro"},receipt)).plan).toBe("pro");
+  });
+  it("separates providers and validates receipt identifiers",()=>{
+    expect(billingReceipt("stripe",{id:"evt_1",created:1,data:{object:{id:"sub_1"}}})).toEqual({provider:"stripe",eventId:"evt_1",resourceId:"sub_1",occurredAt:1000});
+    expect(billingReceipt("paddle",{event_id:"evt_1",occurred_at:"2026-01-01T00:00:00Z",data:{id:"txn_1",subscription_id:"sub_1"}})).toEqual({provider:"paddle",eventId:"evt_1",resourceId:"sub_1",occurredAt:1767225600000});
+    for(const id of [undefined,"","x".repeat(256),"a/b"])expect(billingReceipt("stripe",{id})).toBeNull();
+  });
+});
+
+describe("billing event order",()=>{
+  const receipt=(eventId:string,occurredAt:number)=>({provider:"stripe" as const,eventId,resourceId:"sub_order",occurredAt});
+  it("ignores a distinct older activation after cancellation",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"free",receipt("evt_new_cancel",2000));
+    expect((await store.applyBillingEvent(user.id,"pro",receipt("evt_old_active",1000))).unchanged).toBe(true);
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+    await store.applyBillingEvent(user.id,"pro",receipt("evt_new_active",3000));
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+  });
+  it("does not consume ambiguous events or reassign a subscription to another account",async()=>{
+    const store=createStore();await store.createUser(user);await store.createUser({...user,id:"other",email:"other@example.test"});
+    await store.applyBillingEvent(user.id,"pro",receipt("evt_first",1000));
+    expect((await store.applyBillingEvent(user.id,"free",receipt("evt_tied",1000))).reason).toBe("billing_order_ambiguous");
+    expect((await store.applyBillingEvent("other","free",receipt("evt_wrong_account",2000))).reason).toBe("billing_resource_conflict");
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+  });
+  it("retains the ordering watermark across file restart",async()=>{
+    const dir=mkdtempSync(join(tmpdir(),"yomu-billing-order-"));
+    try{
+      const file=join(dir,"accounts.json"),store=createStore(file);await store.createUser(user);
+      await store.applyBillingEvent(user.id,"free",receipt("evt_new",2000));
+      const restarted=createStore(file);
+      await restarted.applyBillingEvent(user.id,"pro",receipt("evt_old",1000));
+      expect((await restarted.getUserById(user.id))?.plan).toBe("free");
+    }finally{rmSync(dir,{recursive:true,force:true});}
+  });
+  it("rejects missing or malformed provider timestamps and resource identifiers",()=>{
+    for(const created of [undefined,"1",NaN,-1,Infinity]){
+      expect(billingReceipt("stripe",{id:"evt_valid",created,data:{object:{id:"sub_valid"}}})).toBeNull();
+    }
+    expect(billingReceipt("stripe",{id:"evt_valid",created:1,data:{object:{}}})).toBeNull();
+    expect(billingReceipt("paddle",{event_id:"evt_valid",occurred_at:"invalid",data:{id:"sub_valid"}})).toBeNull();
+  });
+});
+
+describe("multiple paid subscription entitlements",()=>{
+  const receipt=(provider:"stripe"|"paddle",resourceId:string,eventId:string,occurredAt:number)=>({provider,resourceId,eventId,occurredAt});
+  it("keeps Pro until every active subscription ends, across providers",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",receipt("stripe","sub_a","evt_a",1000));
+    await store.applyBillingEvent(user.id,"pro",receipt("paddle","sub_b","evt_b",2000));
+    await store.applyBillingEvent(user.id,"free",receipt("stripe","sub_a","evt_a_end",3000));
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+    await store.applyBillingEvent(user.id,"free",receipt("paddle","sub_b","evt_b_end",4000));
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+    await store.applyBillingEvent(user.id,"pro",receipt("stripe","sub_a","evt_a_old",2000));
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+  });
+  it("retains the other entitlement across restart and simultaneous changes",async()=>{
+    const dir=mkdtempSync(join(tmpdir(),"yomu-multiple-plans-"));
+    try{
+      const file=join(dir,"accounts.json"),store=createStore(file);await store.createUser(user);
+      await store.applyBillingEvent(user.id,"pro",receipt("stripe","sub_a","evt_a",1000));
+      await store.applyBillingEvent(user.id,"pro",receipt("stripe","sub_b","evt_b",1000));
+      const restarted=createStore(file);
+      await Promise.all([
+        restarted.applyBillingEvent(user.id,"free",receipt("stripe","sub_a","evt_a_end",2000)),
+        restarted.applyBillingEvent(user.id,"pro",receipt("stripe","sub_b","evt_b_renew",2000)),
+      ]);
+      expect((await restarted.getUserById(user.id))?.plan).toBe("pro");
+      await restarted.createUser({...user,id:"separate",email:"separate@example.test"});
+      await restarted.applyBillingEvent("separate","free",receipt("stripe","sub_separate","evt_separate",3000));
+      expect((await restarted.getUserById("separate"))?.plan).toBe("free");
+    }finally{rmSync(dir,{recursive:true,force:true});}
+  });
+});
+
+describe("lifetime purchase refunds",()=>{
+  const r=(resourceId:string,eventId:string,occurredAt=1000,revokeLifetime=false)=>({provider:"stripe" as const,resourceId,eventId,occurredAt,revokeLifetime});
+  it("revokes only the refunded purchase and survives restart and late notifications",async()=>{
+    const dir=mkdtempSync(join(tmpdir(),"yomu-refund-"));
+    try{
+      const file=join(dir,"accounts.json"),store=createStore(file);await store.createUser(user);
+      await store.applyBillingEvent(user.id,"pro",r("sub_other","evt_pro"));
+      await store.applyBillingEvent(user.id,"lifetime",r("cs_a","evt_buy_a"));
+      await store.applyBillingEvent(user.id,"lifetime",r("cs_b","evt_buy_b"));
+      await store.applyBillingEvent(user.id,"free",r("cs_a","evt_refund_a",1000,true));
+      expect((await store.getUserById(user.id))?.plan).toBe("lifetime");
+      await store.applyBillingEvent(user.id,"free",r("cs_b","evt_refund_b",2000,true));
+      expect((await store.getUserById(user.id))?.plan).toBe("pro");
+      const restarted=createStore(file);
+      await restarted.applyBillingEvent(user.id,"lifetime",r("cs_b","evt_async_late",3000));
+      await restarted.applyBillingEvent(user.id,"free",r("cs_b","evt_refund_b",2000,true));
+      expect((await restarted.getUserById(user.id))?.plan).toBe("pro");
+      await restarted.applyBillingEvent(user.id,"free",r("sub_other","evt_end",4000));
+      expect((await restarted.getUserById(user.id))?.plan).toBe("free");
+    }finally{rmSync(dir,{recursive:true,force:true});}
+  });
+  it("keeps refund-before-purchase terminal and does not transfer ownership",async()=>{
+    const store=createStore();await store.createUser(user);await store.createUser({...user,id:"other",email:"other@example.test"});
+    await store.applyBillingEvent(user.id,"free",r("cs_a","evt_refund",2000,true));
+    await store.applyBillingEvent(user.id,"lifetime",r("cs_a","evt_late",3000));
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+    expect((await store.applyBillingEvent("other","free",r("cs_a","evt_wrong",4000,true))).reason).toBe("billing_resource_conflict");
+  });
+  it("preserves a lifetime grant that predates tracked purchases",async()=>{
+    const store=createStore();await store.createUser({...user,plan:"lifetime"});
+    for(const id of ["cs_a","cs_b"])await store.applyBillingEvent(user.id,"lifetime",r(id,"buy_"+id));
+    for(const id of ["cs_a","cs_b"])await store.applyBillingEvent(user.id,"free",r(id,"refund_"+id,2000,true));
+    expect((await store.getUserById(user.id))?.plan).toBe("lifetime");
+  });
+  it("rejects revoking a recurring resource or granting via a refund",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",r("sub_other","evt_pro"));
+    expect((await store.applyBillingEvent(user.id,"free",r("sub_other","evt_wrong",2000,true))).reason).toBe("billing_resource_conflict");
+    expect((await store.applyBillingEvent(user.id,"lifetime",r("cs_a","evt_wrong_plan",2000,true))).reason).toBe("billing_resource_conflict");
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+  });
+});
+
+describe("equal-time subscription reconciliation",()=>{
+  const r=(eventId:string,occurredAt=1000)=>({provider:"stripe" as const,resourceId:"sub_tie",eventId,occurredAt});
+  it("uses current provider state and remembers the resolved event",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",r("evt_initial"));
+    let reads=0;const resolve=async()=>{reads++;return "free" as const;};
+    await store.applyBillingEvent(user.id,"free",r("evt_tied"),resolve);
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+    await store.applyBillingEvent(user.id,"pro",r("evt_tied"),resolve);
+    expect(reads).toBe(1);
+    await store.applyBillingEvent(user.id,"pro",r("evt_older",500),resolve);
+    expect(reads).toBe(1);
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+  });
+  it("does not consume an event when lookup fails and can retry",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",r("evt_initial"));
+    expect((await store.applyBillingEvent(user.id,"free",r("evt_retry"),async()=>{throw new Error("down");})).reason).toBe("billing_lookup_unavailable");
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+    await store.applyBillingEvent(user.id,"free",r("evt_retry"),async()=>"free");
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+  });
+  it("rejects a lookup made stale by a newer delivery while awaiting the provider",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",r("evt_initial"));
+    let finish!:(plan:"free")=>void;
+    const pending=store.applyBillingEvent(user.id,"free",r("evt_tied"),()=>new Promise(resolve=>{finish=resolve;}));
+    await store.applyBillingEvent(user.id,"pro",r("evt_newer",2000));
+    finish("free");expect((await pending).reason).toBe("billing_order_ambiguous");
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+    await store.applyBillingEvent(user.id,"free",r("evt_tied"),async()=>"free");
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+  });
+  it("preserves another active subscription when the tied one has ended",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"pro",r("evt_initial"));
+    await store.applyBillingEvent(user.id,"pro",{...r("evt_other"),resourceId:"sub_other"});
+    await store.applyBillingEvent(user.id,"free",r("evt_tied"),async()=>"free");
+    expect((await store.getUserById(user.id))?.plan).toBe("pro");
+  });
+});
+
+it("does not let later delivery of an intermediate state override a reconciled current state",async()=>{
+  const dir=mkdtempSync(join(tmpdir(),"yomu-reconcile-"));
+  try{
+    const file=join(dir,"accounts.json"),store=createStore(file);await store.createUser(user);
+    const r=(eventId:string,occurredAt:number)=>({provider:"stripe" as const,resourceId:"sub_tie",eventId,occurredAt});
+    await store.applyBillingEvent(user.id,"pro",r("initial",1000));
+    await store.applyBillingEvent(user.id,"free",r("tie",1000),async()=>"free");
+    const restarted=createStore(file);let reads=0;
+    await restarted.applyBillingEvent(user.id,"pro",r("intermediate",2000),async()=>{reads++;return "free";});
+    expect(reads).toBe(1);expect((await restarted.getUserById(user.id))?.plan).toBe("free");
+  }finally{rmSync(dir,{recursive:true,force:true});}
+});
