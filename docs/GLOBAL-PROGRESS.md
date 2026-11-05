@@ -1,12 +1,22 @@
 # Suivi global Yomu
 
-Mise à jour : 4 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 5 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Export et restauration dans une installation neuve — 5 novembre 2026
+
+L’export lit désormais les collections et préférences enregistrées dans le stockage de l’extension, sous la même file de traitement que les modifications de bibliothèque. Une vue ouverte devenue obsolète ne produit plus une sauvegarde vide. Les préférences exportées excluent les clés privées. Les sauvegardes Yomu sans œuvre peuvent restaurer un profil, des listes, des sites ou un historique de notifications.
+
+Le parcours empaqueté télécharge le fichier depuis le bouton Exporter, ferme le profil Chromium source et ouvre un profil indépendant neuf. Il importe ce fichier par le sélecteur réel et vérifie chapitre 12,75, page 8, notes, favori, étiquettes, liste, site, préférences et profil. Les imports répétés conservent une notification déjà lue et ne recréent aucune alerte système. Les préférences privées présentes sur l’installation de destination sont conservées. Les données de cet essai sont synthétiques.
+
+Commit 9e518a07d76ddf8c6e4b50043a32088a138cceb4. [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41878854002) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41878847679) réussies. **716 tests unitaires**, parcours navigateur, récupération et charge réussis. L’audit des dépendances ne signale aucune vulnérabilité connue. [Paquet vérifié](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/41878854002/artifacts/13347224810).
+
+Cette récupération nécessite un fichier exporté préalablement et conservé hors de l’extension. La sauvegarde automatique en ligne et sa configuration de production restent à valider. Aucun nouveau critère global entièrement fermé, **21/60 (35 %) global vérifié**.
 
 ## Réimport de sauvegardes qui se recoupent — 4 novembre 2026
 
