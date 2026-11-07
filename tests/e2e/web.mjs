@@ -106,5 +106,29 @@ try{
  page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Review and confirm',exact:true}).click();await page.getByRole('status').filter({hasText:'Change saved'}).waitFor();assert.equal(adminChanges.length,1);assert.equal(adminChanges[0].days,14);assert.equal(adminChanges[0].targetId,'reader-fixture');assert.match(adminChanges[0].requestId,/^[0-9a-f-]{36}$/);
  await page.setViewportSize({width:375,height:900});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'test-results/admin-mobile.png',fullPage:true});assert.deepEqual(errors,[]);
 
+ // Separate source-local IDs before merging files into the signed-in web library.
+ await page.goto(base+'/settings');
+ const collisionNames=['Crimson Maple Saga','Lunar Harbor Chronicles'];
+ const collisionFiles=collisionNames.map((title,index)=>({name:'collision-'+index+'.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({
+  version:2,items:[{id:'collision-shared',title,type:'reading',chapter:index?9:4}],
+  lists:[{id:'collision-list-'+index,name:'Collision collection '+index,itemIds:['collision-shared']}]
+ }))}));
+ for(let pass=0;pass<2;pass++){
+  await page.locator('input[type=file]').last().setInputFiles(collisionFiles);
+  await page.getByRole('status').filter({hasText:pass?'0 added, 2 updated':'2 added, 0 updated'}).waitFor();
+ }
+ await page.getByRole('button',{name:'Sync now',exact:true}).click();await page.getByText('Library synced',{exact:true}).waitFor();
+ const collisionToken=await page.evaluate(()=>localStorage.getItem('dasi.sync.token:'+encodeURIComponent('/api')));
+ const collisionRemote=await (await fetch(base+'/api/sync',{headers:{Authorization:'Bearer '+collisionToken}})).json();
+ assert.equal(collisionRemote.blob.items.filter(item=>collisionNames.includes(item.title)).length,2);
+ for(let index=0;index<2;index++){
+  const list=collisionRemote.blob.lists.find(list=>list.id==='collision-list-'+index);
+  const work=collisionRemote.blob.items.find(item=>item.id===list.itemIds[0]);
+  assert.equal(work.title,collisionNames[index]);assert.equal(work.chapter,index?9:4);
+  await page.goto(base+'/list/'+list.id);await page.getByRole('link',{name:collisionNames[index],exact:true}).waitFor();
+  assert.equal(await page.getByRole('link',{name:collisionNames[1-index],exact:true}).count(),0);
+ }
+ assert.deepEqual(errors,[]);
+ console.log('PASS: web multi-file collision imports retain distinct works, list membership and real API persistence after repeat');
  console.log('Web browser journeys passed: account creation, extension backup import, bounded progress, notes, real API sync, sign-out isolation, sign-in restoration, mobile game detail.');
 }finally{if(browser)await browser.close();server.kill();await new Promise(r=>server.exitCode!==null?r():server.once('exit',r));await fs.rm(temp,{recursive:true,force:true});}

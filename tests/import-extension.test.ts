@@ -201,3 +201,35 @@ it("does not confuse an external tracker items array with a native backup",async
   const r=await c.window.YomuImport.parseFiles([file({items:[{id:123,title:"External",type:"anime",episodes_watched:4}]})]);
   expect(r.warnings).toEqual([]);expect(r.items[0]).toMatchObject({title:"External",type:"watching",format:"ANIME",episode:4});
 });
+
+describe("backup identifiers belong to their source file",()=>{
+  it.each([false,true])("keeps conflicting works and their own memberships (keepRecords=%s)",async keepRecords=>{
+    const c=parser();
+    const backup=(title:string,type:string,list:string)=>file({version:2,items:[{id:"same",title,type,chapter:3}],lists:[{id:list,itemIds:["same"]}],notifications:[{id:list+"-notice",title,itemId:"same"}]});
+    const r=await c.window.YomuImport.parseFiles([backup("First comic","reading","first"),backup("Other comic","reading","second"),backup("Different series","watching","third")],{keepRecords});
+    expect(r.warnings).toEqual([]);expect(r.items).toHaveLength(3);
+    expect(new Set(r.items.map((item:any)=>item.id)).size).toBe(3);
+    for(const [index,list] of r.lists.entries()){
+      const expected=["First comic","Other comic","Different series"][index];
+      expect(r.items.find((item:any)=>item.id===list.itemIds[0]).title).toBe(expected);
+      expect(r.notifications[index].itemId).toBe(list.itemIds[0]);
+    }
+  });
+  it("separates same-title remakes and provider identity conflicts without taking an existing suffix",async()=>{
+    const c=parser();
+    const r=await c.window.YomuImport.parseFiles([
+      file({version:2,items:[{id:"same",title:"Remake",type:"watching",year:1990,externalIds:{tmdb:1}},{id:"same-import-2",title:"Reserved",type:"watching"}]}),
+      file({version:2,items:[{id:"same",title:"Remake",type:"watching",year:2026,externalIds:{tmdb:2}}],lists:[{id:"new",itemIds:["same"]}]}),
+      file({version:2,items:[{id:"same",title:"Remake",type:"watching",year:1990,externalIds:{tmdb:3}}],lists:[{id:"other",itemIds:["same"]}]})
+    ]);
+    expect(r.warnings).toEqual([]);expect(r.items).toHaveLength(4);
+    expect(new Set(r.items.map((item:any)=>item.id)).size).toBe(4);
+    expect(r.items.find((item:any)=>item.id===r.lists[0].itemIds[0]).externalIds.tmdb).toBe(2);
+    expect(r.items.find((item:any)=>item.id===r.lists[1].itemIds[0]).externalIds.tmdb).toBe(3);
+  });
+  it("refuses conflicting IDs inside one backup instead of guessing a list member",async()=>{
+    const c=parser();
+    const r=await c.window.YomuImport.parseFiles([file({version:2,items:[{id:"same",title:"First",type:"reading"},{id:"same",title:"Second",type:"reading"}],lists:[{id:"list",itemIds:["same"]}]})]);
+    expect(r.count).toBe(0);expect(r.warnings).toHaveLength(1);expect(r.lists).toBeUndefined();
+  });
+});

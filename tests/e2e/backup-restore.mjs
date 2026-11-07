@@ -137,3 +137,33 @@ await freshInstall(async(page,worker)=>{
 console.log("PASS: downloaded extension backup restores into a separate fresh Chromium profile, including title-free backups and read history");
 
 console.log("PASS: invalid and truncated imports preserve all collections; failed storage import and export recover through the real buttons");
+
+await freshInstall(async(page,worker)=>{
+  const names=["Crimson Maple Saga","Lunar Harbor Chronicles"];
+  const uploads=names.map((title,index)=>({name:"collision-"+index+".json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify({
+    version:2,
+    items:[{id:"shared-id",title,type:"reading",chapter:index?9:4,cover:"https://example.test/art.png",synopsis:"Story",identityVersion:1,enrichedAt:1}],
+    lists:[{id:"collision-list-"+index,name:"Collection "+index,itemIds:["shared-id"]}],
+    notifications:[{id:"collision-notice-"+index,title,itemId:"shared-id",read:true,ts:index+1}]
+  }))}));
+  for(let pass=0;pass<2;pass++){
+    await page.locator("#file").setInputFiles(uploads);
+    await page.waitForFunction(()=>!importPending&&document.querySelector("#file").files.length===0);
+    const data=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists","dasi.notifications"]));
+    assert.equal(data["dasi.items"].length,2);assert.equal(data["dasi.lists"].length,2);
+    for(let index=0;index<2;index++){
+      const list=data["dasi.lists"].find(list=>list.id==="collision-list-"+index);
+      const work=data["dasi.items"].find(item=>item.id===list.itemIds[0]);
+      assert.equal(work.title,names[index]);assert.equal(work.chapter,index?9:4);
+      assert.equal(data["dasi.notifications"].find(n=>n.id==="collision-notice-"+index).itemId,work.id);
+    }
+  }
+  await page.reload();await page.locator("#avatar").click();
+  const exported=JSON.parse(await downloadBackup(page));
+  assert.equal(exported.items.length,2);
+  for(let index=0;index<2;index++){
+    const list=exported.lists.find(list=>list.id==="collision-list-"+index);
+    assert.equal(exported.items.find(item=>item.id===list.itemIds[0]).title,names[index]);
+  }
+});
+console.log("PASS: repeated multi-file imports with colliding work IDs preserve both works, their lists and notification destinations");

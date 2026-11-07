@@ -189,6 +189,41 @@
       (Array.isArray(obj.items) && obj.items.some((i) => i && i.title && (["reading","watching","game"].includes(i.type) || (typeof i.id === "string" && !i.type))))
     );
   }
+  // IDs belong to their source backup. Keep conflicting records and references separate.
+  function compatibleImportId(a, b) {
+    const title = value => String(value || "").normalize("NFKC").toLowerCase().trim().replace(/\s+/g, " ");
+    if ((a.type || "watching") !== (b.type || "watching") || title(a.title) !== title(b.title)) return false;
+    if (a.year && b.year && String(a.year) !== String(b.year)) return false;
+    if (a.format && b.format && a.format !== b.format) return false;
+    return !Object.keys(a.externalIds || {}).some(key => b.externalIds?.[key] != null && String(a.externalIds[key]) !== String(b.externalIds[key]));
+  }
+  function separateBackupIds(data, acc) {
+    const previous = new Map();
+    for (const item of acc.items) if (item.id) {
+      const rows = previous.get(item.id) || []; rows.push(item); previous.set(item.id, rows);
+    }
+    const incoming = new Map(), remap = new Map();
+    const used = new Set([...previous.keys(), ...data.items.map(item => item.id).filter(Boolean)]);
+    for (const item of data.items) if (item.id) {
+      const duplicate = incoming.get(item.id);
+      // A list cannot distinguish conflicting members that already share an ID inside one file.
+      if (duplicate && !compatibleImportId(duplicate, item)) throw Error("ambiguous_backup_ids");
+      incoming.set(item.id, item);
+    }
+    for (const [id, item] of incoming) {
+      if (!(previous.get(id) || []).some(row => !compatibleImportId(row, item))) continue;
+      let counter = 2, next;
+      do { next = id + "-import-" + counter++; } while (used.has(next));
+      used.add(next); remap.set(id, next);
+    }
+    const mapped = id => remap.get(id) || id;
+    return {...data,
+      items: data.items.map(item => remap.has(item.id) ? {...item, id: mapped(item.id)} : item),
+      lists: data.lists?.map(list => ({...list, itemIds: list.itemIds?.map(mapped)})),
+      notifications: data.notifications?.map(notification => ({...notification, itemId: mapped(notification.itemId)})),
+    };
+  }
+
   // Walk any JSON and collect arrays of media-ish objects.
   function collectFromJson(data, out, hintType) {
     if (Array.isArray(data)) {
@@ -272,11 +307,12 @@
     // JSON?
     if (t[0] === "{" || t[0] === "[") {
       {
-        const data = JSON.parse(t);
+        let data = JSON.parse(t);
         if (looksLikeYomuBackup(data)) {
           if (data.version !== undefined && ![1,2].includes(data.version)) throw Error("unsupported_backup_version");
           if (!Array.isArray(data.items)) throw Error("invalid_import_data");
           validatePayload(data);
+          data = separateBackupIds(data, acc);
           acc.formats.add("Yomu");
           data.items.forEach((i) => acc.items.push(i));
           if (Array.isArray(data.sites)) acc.sites = (acc.sites || []).concat(data.sites);
