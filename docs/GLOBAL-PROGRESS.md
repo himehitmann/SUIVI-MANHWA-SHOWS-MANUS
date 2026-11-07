@@ -1,12 +1,22 @@
 # Suivi global Yomu
 
-Mise à jour : 5 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 7 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Imports endommagés et nouvelle tentative après erreur — 7 novembre 2026
+
+La validation des sauvegardes Yomu vérifie la structure des collections, les champs de progression, les listes, les sites, les notifications et les préférences utilisées par la bibliothèque. Le service worker applique aussi cette validation avant toute écriture. Un fichier JSON tronqué déclenche désormais une erreur de lecture au lieu de retomber silencieusement sur une autre interprétation. Une erreur signalée sur un des fichiers sélectionnés bloque l’ensemble de l’import, sur le web et dans l’extension, pour éviter une restauration partielle présentée comme réussie. Les formats externes restent convertis par leur parcours habituel.
+
+Les tests couvrent les champs mal formés, un ensemble composé d’un fichier valide et d’un fichier tronqué, ainsi qu’un échec d’écriture simulé puis une nouvelle tentative. Le parcours du paquet Chromium utilise les sélecteurs et boutons réels, compare toutes les collections et préférences avant et après les imports refusés, vérifie que l’export échoué ne télécharge aucun fichier, puis réussit un nouvel export contenant les données conservées. Les erreurs de stockage sont injectées dans le navigateur de test. Aucun changement n’a été installé dans le navigateur personnel.
+
+Commit 1a759d9a751c97fe774bd191464004343e3fceba. [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42380530359) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42380525742) réussies. **735 tests unitaires**, parcours web et paquet, interface, charge et récupération réussis. Aucune vulnérabilité connue signalée par l’audit des dépendances. [Paquet vérifié](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42380525742/artifacts/13577522546).
+
+La restauration après désinstallation nécessite toujours un fichier exporté conservé hors de l’extension ou un service de sauvegarde configuré. La configuration de production de la sauvegarde en ligne reste à réaliser. **21/60 (35 %) global vérifié**, sans nouveau critère entièrement fermé.
 
 ## Export et restauration dans une installation neuve — 5 novembre 2026
 
