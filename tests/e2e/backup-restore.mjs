@@ -83,5 +83,57 @@ await freshInstall(async(page,worker)=>{
   assert.equal(data["dasi.settings"].profile.name,"Lectrice");assert.equal(data["dasi.settings"].profile.banner,"Imported banner");
   assert.equal(data["dasi.items"].length,1);assert.equal(data["dasi.lists"].length,1);assert.equal(data["dasi.sites"].length,1);
   assert.deepEqual(await worker.evaluate(()=>chrome.notifications.getAll()),{});
+
+  await page.locator("#avatar").click();
+  const before=await worker.evaluate(keys=>chrome.storage.local.get(keys),keys);
+  const invalid=Buffer.from(JSON.stringify({version:2,items:[{id:"bad-work",title:"Should not appear",type:"reading"}],sites:[null]}));
+  await restoreBackup(page,invalid);
+  assert.match(await page.locator("#toast").textContent(),/Aucun import/);
+  assert.deepEqual(await worker.evaluate(keys=>chrome.storage.local.get(keys),keys),before);
+  await page.locator("#file").setInputFiles([
+    {name:"good.json",mimeType:"application/json",buffer:files.full},
+    {name:"truncated.json",mimeType:"application/json",buffer:Buffer.from('{"version":2,"items":[')}
+  ]);
+  await page.waitForFunction(()=>!importPending&&document.querySelector("#file").files.length===0);
+  assert.match(await page.locator("#toast").textContent(),/Aucun import/);
+  assert.deepEqual(await worker.evaluate(keys=>chrome.storage.local.get(keys),keys),before);
+
+  const retry=Buffer.from(JSON.stringify({version:2,items:[{id:"retry-work",title:"Retry work",type:"reading",chapter:9,cover:"https://example.test/art.png",synopsis:"Story",identityVersion:1,enrichedAt:1}]}));
+  await worker.evaluate(()=>{
+    globalThis.backupTestSet=chrome.storage.local.set;
+    chrome.storage.local.set=async values=>{
+      if(values["dasi.items"]?.some(item=>item.id==="retry-work"))throw Error("quota_exceeded");
+      return globalThis.backupTestSet.call(chrome.storage.local,values);
+    };
+  });
+  try{
+    await restoreBackup(page,retry);
+    assert.match(await page.locator("#toast").textContent(),/Import non confirmé/);
+    assert.deepEqual(await worker.evaluate(keys=>chrome.storage.local.get(keys),keys),before);
+    assert.equal(await page.locator("#import").isEnabled(),true);
+  }finally{await worker.evaluate(()=>{chrome.storage.local.set=globalThis.backupTestSet;delete globalThis.backupTestSet;});}
+  await restoreBackup(page,retry);
+  assert.equal((await worker.evaluate(()=>chrome.storage.local.get("dasi.items")))["dasi.items"].find(item=>item.id==="retry-work")?.chapter,9);
+
+  let downloads=0;const onDownload=()=>downloads++;page.on("download",onDownload);
+  await worker.evaluate(()=>{
+    globalThis.backupTestGet=chrome.storage.local.get;
+    chrome.storage.local.get=async keys=>{
+      if(Array.isArray(keys)&&keys.includes("dasi.items"))throw Error("storage_unavailable");
+      return globalThis.backupTestGet.call(chrome.storage.local,keys);
+    };
+  });
+  try{
+    await page.locator("#export").click();await page.waitForFunction(()=>!exportPending);
+    assert.equal(downloads,0);assert.match(await page.locator("#toast").textContent(),/Impossible de créer/);
+    assert.equal(await page.locator("#export").isEnabled(),true);
+  }finally{
+    await worker.evaluate(()=>{chrome.storage.local.get=globalThis.backupTestGet;delete globalThis.backupTestGet;});
+    page.off("download",onDownload);
+  }
+  const recovered=JSON.parse(await downloadBackup(page));
+  assert.equal(recovered.items.length,2);assert.equal(recovered.items.find(item=>item.id==="bonus").chapter,12.75);
 });
 console.log("PASS: downloaded extension backup restores into a separate fresh Chromium profile, including title-free backups and read history");
+
+console.log("PASS: invalid and truncated imports preserve all collections; failed storage import and export recover through the real buttons");

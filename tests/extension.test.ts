@@ -21,7 +21,7 @@ function worker(seed: Record<string, any> = {}, syncSeed:Record<string,any>={}) 
     console,
     crypto:globalThis.crypto,
     importScripts:(...names:string[])=>{
-      for(const name of names.filter(name=>name==="sync-core.js"||name==="import-position.js"))
+      for(const name of names.filter(name=>name==="sync-core.js"||name==="import-position.js"||name==="import-parse.js"))
         vm.runInContext(readFileSync(new URL("../"+name,import.meta.url),"utf8"),ctx);
     },
     URL,
@@ -3293,4 +3293,37 @@ it("retains the furthest scoped position and personal fields through the extensi
   const advanced=await run({volume:2,chapter:1,page:3});
   expect(advanced).toMatchObject({volume:2,chapter:1,page:3,notes:"Mine"});expect(advanced.totalPages).toBeUndefined();expect(advanced.total).toBeUndefined();
   expect(await run({volume:1,chapter:55,page:20})).toMatchObject({volume:2,chapter:1,page:3});
+});
+
+describe("import validation preserves stored data",()=>{
+  it.each([
+    {items:"broken"},
+    {items:[{title:"New",type:"reading",tags:{bad:true}}]},
+    {items:[{title:"New",type:"reading",favorite:{bad:true}}]},
+    {items:[{title:"New",type:"reading",chapter:Infinity}]},
+    {items:[{id:{bad:true},title:"New"}]},
+    {items:[{title:"New"}],sites:[null]},
+    {items:[{title:"New"}],lists:[{id:"list",itemIds:"kept"}]},
+    {items:[{title:"New"}],notifications:[{id:"notice",title:"News",read:"yes"}]},
+    {items:[{title:"New"}],settings:{profile:[]}},
+    {items:[{title:"New"}],settings:{homeCats:"anime"}},
+  ])("rejects malformed imports before changing any collection: %j",async payload=>{
+    const seed={"dasi.items":[{id:"kept",...book("Kept"),chapter:4,notes:"Mine"}],"dasi.lists":[{id:"mine",itemIds:["kept"]}],"dasi.sites":[],"dasi.notifications":[],"dasi.settings":{lang:"fr",profile:{name:"Reader"}}};
+    const w=worker(seed);
+    const result=await w.call({type:"IMPORT_MERGE",payload});
+    expect(result).toEqual({ok:false,error:"invalid_import_data"});
+    for(const [key,value] of Object.entries(seed))expect(w.data[key]).toEqual(value);
+    expect(w.data["yomu.tombstones.v1"]).toBeUndefined();
+  });
+  it("keeps the original snapshot after a failed write and allows retry",async()=>{
+    const seed={"dasi.items":[{id:"kept",...book("Kept"),chapter:4}],"dasi.lists":[{id:"mine",itemIds:["kept"]}]};
+    const w=worker(seed);
+    w.run('globalThis.originalWrite=chrome.storage.local.set;chrome.storage.local.set=async()=>{throw Error("quota_exceeded")}');
+    const payload={items:[{id:"new",...book("New"),cover:"https://example.test/cover",synopsis:"Story",identityVersion:1}],lists:[{id:"new-list",itemIds:["new"]}]};
+    expect((await w.call({type:"IMPORT_MERGE",payload})).ok).toBe(false);
+    for(const [key,value] of Object.entries(seed))expect(w.data[key]).toEqual(value);
+    w.run("chrome.storage.local.set=originalWrite");
+    expect((await w.call({type:"IMPORT_MERGE",payload})).ok).toBe(true);
+    expect(w.data["dasi.items"]).toHaveLength(2);expect(w.data["dasi.lists"]).toHaveLength(2);
+  });
 });

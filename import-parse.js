@@ -2,8 +2,8 @@
  * Yomu universal import parser (vanilla, no build step). Turns whatever a user
  * drops in — a Yomu backup, a Trakt/TV Time/IMDb/Letterboxd export, one or many
  * JSON/CSV/XML files, or a ZIP of any of those — into a flat list of works Yomu
- * can merge into the library. Best-effort and forgiving: unknown shapes are
- * skipped, never fatal, so a single odd file can't make the whole import fail.
+ * can merge into the library. Unknown formats are skipped. Unreadable files
+ * or malformed native backups block the selection before any data is saved.
  *
  * Exposes: window.YomuImport.parseFiles(FileList|File[]) -> Promise<{
  *   items: Array<payload>, sites?, lists?, settings?, count, formats: string[]
@@ -131,11 +131,62 @@
     };
   }
 
+  // Check the complete candidate before any collection is saved.
+  function validatePayload(payload) {
+    const object = value => value && typeof value === "object" && !Array.isArray(value);
+    const fail = () => { throw Error("invalid_import_data"); };
+    const strings = value => Array.isArray(value) && value.every(x => typeof x === "string");
+    const fields = (row, names, check) => {
+      for (const key of names) if (row[key] != null && !check(row[key])) fail();
+    };
+    if (!object(payload)) fail();
+    for (const kind of ["items","lists","sites","notifications"]) {
+      if (payload[kind] === undefined) continue;
+      if (!Array.isArray(payload[kind])) fail();
+      for (const row of payload[kind]) {
+        if (!object(row)) fail();
+        fields(row,["id","title"],value => typeof value === "string" && !!value.trim());
+        if (kind === "items") {
+          if (typeof row.title !== "string" || !row.title.trim()) fail();
+          fields(row,["type"],value => ["reading","watching","game"].includes(value));
+          fields(row,["tags","sources","alternativeTitles","authors"],strings);
+          fields(row,["externalIds"],object);
+          fields(row,["url","cover","notes","synopsis","episodeTitle","status","format"],value => typeof value === "string");
+          fields(row,["chapter","page","totalPages","volume","season","episode","position","duration","total","progress","rating"],Number.isFinite);
+          fields(row,["favorite"],value => typeof value === "boolean");
+        } else {
+          if (typeof row.id !== "string" || !row.id.trim()) fail();
+          if (kind === "lists") {
+            fields(row,["itemIds"],strings);
+            fields(row,["name","cover"],value => typeof value === "string");
+          }
+          if (kind === "sites") fields(row,["name","url","domain","icon"],value => typeof value === "string");
+          if (kind === "notifications") {
+            fields(row,["message","itemId","url"],value => typeof value === "string");
+            fields(row,["read"],value => typeof value === "boolean");
+            fields(row,["ts"],Number.isFinite);
+          }
+        }
+      }
+    }
+    if (payload.settings !== undefined) {
+      if (!object(payload.settings)) fail();
+      fields(payload.settings,["lang","translateLang","librarySort"],value => typeof value === "string");
+      fields(payload.settings,["notifyNew","autoTrack"],value => typeof value === "boolean");
+      fields(payload.settings,["homeCats"],strings);
+      if (payload.settings.profile != null) {
+        if (!object(payload.settings.profile)) fail();
+        fields(payload.settings.profile,["name","bio","avatar","banner"],value => typeof value === "string");
+        fields(payload.settings.profile,["updatedAt"],Number.isFinite);
+      }
+    }
+  }
+
   // ---- JSON ---------------------------------------------------------------
   function looksLikeYomuBackup(obj) {
-    return obj && Array.isArray(obj.items) && (
-      (obj.items.length === 0 && (obj.version === 1 || obj.version === 2)) ||
-      obj.items.some((i) => i && i.title && (i.type || i.id))
+    return obj && typeof obj === "object" && (
+      obj.version === 1 || obj.version === 2 ||
+      (Array.isArray(obj.items) && obj.items.some((i) => i && i.title && (["reading","watching","game"].includes(i.type) || (typeof i.id === "string" && !i.type))))
     );
   }
   // Walk any JSON and collect arrays of media-ish objects.
@@ -220,9 +271,12 @@
     const t = text.replace(/^﻿/, "").trim();
     // JSON?
     if (t[0] === "{" || t[0] === "[") {
-      try {
+      {
         const data = JSON.parse(t);
         if (looksLikeYomuBackup(data)) {
+          if (data.version !== undefined && ![1,2].includes(data.version)) throw Error("unsupported_backup_version");
+          if (!Array.isArray(data.items)) throw Error("invalid_import_data");
+          validatePayload(data);
           acc.formats.add("Yomu");
           data.items.forEach((i) => acc.items.push(i));
           if (Array.isArray(data.sites)) acc.sites = (acc.sites || []).concat(data.sites);
@@ -239,7 +293,7 @@
         collectFromJson(data, acc.items);
         if (acc.items.length > before) acc.formats.add(/\.json$/i.test(name) ? "JSON" : "data");
         return;
-      } catch { /* fall through */ }
+      }
     }
     // XML (MAL)?
     if (/^<\?xml|<myanimelist|<anime>|<manga>/i.test(t)) {
@@ -284,6 +338,8 @@
         }
       } catch (e) { acc.warnings.push(`Could not read ${f.name}: ${e.message || "invalid file"}`); }
     }
+    // A failed file must never turn a multi-file restore into a partial success.
+    if (acc.warnings.length) return {items:[],count:0,formats:[...acc.formats],warnings:acc.warnings};
     // The web library merges rows against its saved positions and personal fields.
     if (keepRecords) {
       const items = acc.items.filter(item => item && item.title);
@@ -315,5 +371,5 @@
     };
   }
 
-  window.YomuImport = { parseFiles };
+  (typeof window === "undefined" ? globalThis : window).YomuImport = { parseFiles, validatePayload };
 })();

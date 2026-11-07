@@ -1,4 +1,4 @@
-importScripts("sync-core.js", "auto-translation.js", "import-position.js");
+importScripts("sync-core.js", "auto-translation.js", "import-position.js", "import-parse.js");
 async function fetchRemote(input, init = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -2473,6 +2473,7 @@ async function runImportEnrichmentBatch() {
 }
 
 async function mergeImport(payload) {
+  YomuImport.validatePayload(payload);
   const items=await read(ITEMS_KEY,[]), byId=new Map(items.map(i=>[i.id,i])), ids=new Map(), enrichIds=new Set();
   let added=0,updated=0;
   for(const raw of (Array.isArray(payload.items)?payload.items:[])) {

@@ -973,6 +973,7 @@ for(const [key,values] of Object.entries(SEARCH_LOCALES))["en","fr","ja","es","d
 for(const [code,label] of Object.entries({en:"Close",fr:"Fermer",ja:"閉じる",es:"Cerrar",de:"Schließen",ko:"닫기",pt:"Fechar","zh-CN":"关闭"}))LANGS[code].close=label;
 for(const [code,label] of Object.entries({en:"Backup restored",fr:"Sauvegarde restaurée",ja:"バックアップを復元しました",es:"Copia de seguridad restaurada",de:"Sicherung wiederhergestellt",ko:"백업을 복원했습니다",pt:"Cópia de segurança restaurada","zh-CN":"备份已恢复"})) LANGS[code].backupRestored=label;
 for(const [code,label] of Object.entries({en:"Backup could not be created. Try again.",fr:"Impossible de créer la sauvegarde. Réessaie.",ja:"バックアップを作成できませんでした。もう一度お試しください。",es:"No se pudo crear la copia de seguridad. Inténtalo de nuevo.",de:"Die Sicherung konnte nicht erstellt werden. Versuche es erneut.",ko:"백업을 만들지 못했습니다. 다시 시도해 주세요.",pt:"Não foi possível criar a cópia de segurança. Tenta novamente.","zh-CN":"无法创建备份，请重试。"})) LANGS[code].backupExportFailed=label;
+for(const [code,label] of Object.entries({"en":"One of the files is unreadable or invalid. Nothing was imported. Check your files and try again.","fr":"Un des fichiers est illisible ou invalide. Aucun import effectué. Vérifie tes fichiers puis réessaie.","ja":"読み取れない、または無効なファイルがあります。何もインポートされていません。ファイルを確認して再試行してください。","es":"Uno de los archivos es ilegible o no es válido. No se importó nada. Revisa los archivos e inténtalo de nuevo.","de":"Eine Datei ist unlesbar oder ungültig. Es wurde nichts importiert. Prüfe die Dateien und versuche es erneut.","ko":"읽을 수 없거나 유효하지 않은 파일이 있습니다. 아무것도 가져오지 않았습니다. 파일을 확인하고 다시 시도하세요.","pt":"Um dos ficheiros está ilegível ou é inválido. Nada foi importado. Verifica os ficheiros e tenta novamente.","zh-CN":"有文件无法读取或无效，未导入任何内容。请检查文件后重试。"})) LANGS[code].importInvalidFile=label;
 const t = (k, p) => { let s = (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || k; if (p) for (const key in p) s = s.replace(`{${key}}`, p[key]); return s; };
 // Array-valued i18n (plan feature lists), falls back to English.
 const tArr = (k) => (LANGS[settings.lang] && LANGS[settings.lang][k]) || LANGS.en[k] || [];
@@ -3045,10 +3046,12 @@ async function doImport(e) {
     toast(t("importing"));
     const res = await window.YomuImport.parseFiles(files);
     const warnings=Array.isArray(res.warnings)?res.warnings:[];
+    if(warnings.length){toast(t("importInvalidFile"));return;}
     const hasHistory=res.notifications?.some(n=>n && typeof n.id==="string" && n.id.trim() && (typeof n.title==="string" || typeof n.message==="string"));
     if (!res.count && !res.lists?.length && !res.sites?.length && !hasHistory && !Object.keys(backupSettings(res.settings||{})).length) { toast(t("importNothing")); return; }
     const response=await new Promise(resolve=>requestMetadata({type:"IMPORT_MERGE",payload:res},resolve,45000));
     if(!response?.ok){
+      if(response?.error==="invalid_import_data"){toast(t("importInvalidFile"));return;}
       toast(settings.lang==="fr"?"Import non confirmé. Vérifie la bibliothèque avant de réessayer.":"Import not confirmed. Check your library before retrying.");
       return;
     }

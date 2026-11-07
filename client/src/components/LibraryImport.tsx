@@ -11,7 +11,9 @@ export function LibraryImport(){
  const run=async(files:File[])=>{
   if(!files.length)return;setBusy(true);setReport('');
   try{
-   await loadParser();const parsed=await window.YomuImport!.parseFiles(files,{keepRecords:true}),result=store.importBackup(parsed);
+   await loadParser();const parsed=await window.YomuImport!.parseFiles(files,{keepRecords:true});
+   if(parsed.warnings.length)throw Error("invalid_import_files");
+   const result=store.importBackup(parsed);
    setReport((fr?result.added+' ajoutés, '+result.updated+' mis à jour, '+result.ignored+' ignorés.':result.added+' added, '+result.updated+' updated, '+result.ignored+' skipped.')+' '+parsed.formats.join(', ')+(parsed.warnings.length?' — '+parsed.warnings.join(' — '):''));
   }catch{setReport(fr?'Import impossible. Vérifie le fichier puis réessaie ; ta bibliothèque est conservée.':'Import failed. Check the file and try again; your library is unchanged.');}
   finally{setBusy(false);if(input.current)input.current.value='';}

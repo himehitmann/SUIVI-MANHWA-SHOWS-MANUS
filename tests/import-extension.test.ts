@@ -175,3 +175,29 @@ it("recognizes empty Yomu libraries and collects history and public profile data
   expect(r.settings).toMatchObject({lang:"fr",profile:{name:"Reader",bio:"Bio"}});
   expect(r.lists[0].id).toBe("list");expect(r.sites[0].id).toBe("site");expect(r.notifications.map((n:any)=>n.id)).toEqual(["a","b"]);
 });
+
+it.each([
+  {version:2,items:[{id:"good",title:"Good",type:"reading"}],sites:[null]},
+  {version:2,items:[{id:"good",title:"Good",type:"reading"}],settings:{profile:[]}},
+  {version:2,items:[{id:"good",title:"Good",type:"reading",tags:"bad"}]},
+  {version:2,items:"broken"},
+  {version:3,items:[{id:"good",title:"Good",type:"reading"}]},
+])("refuses malformed native backups without exposing partial data: %j",async backup=>{
+  const c=parser();
+  const r=await c.window.YomuImport.parseFiles([file(backup)]);
+  expect(r.count).toBe(0);expect(r.items).toEqual([]);expect(r.sites).toBeUndefined();expect(r.settings).toBeUndefined();expect(r.warnings.length).toBeGreaterThan(0);
+});
+
+it.each([false,true])("fails the whole selection if one JSON file is truncated (keepRecords=%s)",async keepRecords=>{
+  const c=parser();
+  const valid=file({version:2,items:[{id:"good",title:"Good",type:"reading"}],settings:{lang:"fr"}});
+  const broken={name:"broken.json",size:20,text:async()=>'{"items":[{"title":"Oops"}'};
+  const r=await c.window.YomuImport.parseFiles([valid,broken],{keepRecords});
+  expect(r.items).toEqual([]);expect(r.settings).toBeUndefined();expect(r.count).toBe(0);expect(r.warnings).toHaveLength(1);
+});
+
+it("does not confuse an external tracker items array with a native backup",async()=>{
+  const c=parser();
+  const r=await c.window.YomuImport.parseFiles([file({items:[{id:123,title:"External",type:"anime",episodes_watched:4}]})]);
+  expect(r.warnings).toEqual([]);expect(r.items[0]).toMatchObject({title:"External",type:"watching",format:"ANIME",episode:4});
+});
