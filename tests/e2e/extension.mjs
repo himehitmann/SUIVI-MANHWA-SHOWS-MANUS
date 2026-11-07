@@ -337,6 +337,8 @@ try {
   await page.waitForFunction(async()=>{const state=await chrome.runtime.sendMessage({type:"GET_STATE"});return state.items[0]?.metadataPending?.state==="running";});
   await page.evaluate(()=>switchView("library"));
   await page.locator("#library-metadata-status:not([hidden])").waitFor();
+  // Storage persistence and the page storage-change listener finish independently.
+  await page.waitForFunction(()=>/being completed|en cours de recherche/.test(document.querySelector("#library-metadata-status")?.textContent||""));
   assert.match(await page.locator("#library-metadata-status").innerText(),/being completed|en cours de recherche/);
   // Persisting "running" precedes the provider call; await the actual mock request.
   await worker.evaluate(()=>new Promise((resolve,reject)=>{
