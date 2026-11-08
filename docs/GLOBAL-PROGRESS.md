@@ -8,6 +8,18 @@ Mise à jour : 8 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remp
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Opérations en attente pendant un changement de compte — 8 novembre 2026
+
+Les mutations de bibliothèque vérifient maintenant que le compte n’a pas changé entre la réception de la demande et son exécution dans la file d’attente. Cette protection couvre les imports, les suppressions, les listes, les sites, les notifications et préférences, ainsi que les modifications de fiche, la progression vidéo et la mise en file des recherches de métadonnées. Les demandes devenues périmées reçoivent l’erreur account_changed avant d’écrire.
+
+La lecture GET_STATE passe par la même file pour fournir un ensemble cohérent de collections et de préférences. Une erreur de lecture reçoit une réponse explicite au lieu de laisser la demande sans réponse. Les changements de compte et opérations d’authentification existants conservent leurs contrôles propres.
+
+Les tests unitaires mettent douze types de demandes en attente derrière un changement de compte, puis vérifient le refus de chaque demande et la conservation des données du compte source et du compte cible. Deux tests supplémentaires couvrent l’échec de lecture et la cohérence d’un état lu pendant un changement de compte. Le parcours Chromium du paquet envoie trois vrais messages d’extension en attente, change de compte, vérifie les refus, contrôle les données du compte B et revient au compte A. Les comptes et la synchronisation utilisés par cette fixture sont synthétiques et sans connexion à un service de production.
+
+Commit 0f0490b7d386aa7bd80c60a0bd78daf4dfad0be2. [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42473084962) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42473081264). Les deux exécutions ont réussi. **753 tests unitaires**, parcours web et extension empaquetée, interface, charge et récupération réussis. Aucune vulnérabilité connue signalée par l’audit des dépendances. [Paquet vérifié](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42473081264/artifacts/13614741247).
+
+Ce lot concerne les demandes déjà reçues par le worker avant le changement de compte. Il ne constitue pas une validation générale de tous les brouillons et formulaires ouverts dans plusieurs onglets. **21/60 (35 %) global vérifié**, sans nouveau critère entièrement fermé.
+
 ## Identifiants en conflit entre sauvegardes — 8 novembre 2026
 
 L’import de plusieurs sauvegardes conserve désormais les œuvres différentes qui partagent un identifiant local. Les références des listes et notifications suivent l’identifiant attribué à chaque œuvre. Les comparaisons prennent en compte le titre, le type, le format, les années renseignées et les références de catalogue incompatibles. Les identifiants déjà présents dans les fichiers sont réservés pour éviter une nouvelle collision lors du renommage. Un fichier qui associe son propre identifiant à plusieurs œuvres contradictoires est refusé avant enregistrement.
