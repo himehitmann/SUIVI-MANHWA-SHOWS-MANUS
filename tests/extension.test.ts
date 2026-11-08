@@ -3327,3 +3327,52 @@ describe("import validation preserves stored data",()=>{
     expect(w.data["dasi.items"]).toHaveLength(2);expect(w.data["dasi.lists"]).toHaveLength(2);
   });
 });
+
+describe("queued operations remain attached to their original account",()=>{
+  const cfg=(id:string)=>({apiUrl:"https://sync.example/api",userId:id,email:id+"@example.com",token:id});
+  it.each([
+    {type:"IMPORT_MERGE",payload:{items:[{id:"incoming",title:"Imported",type:"reading"}]}},
+    {type:"UPDATE_ITEM",id:"shared",patch:{chapter:99,notes:"Wrong account"}},
+    {type:"REMOVE_ITEM",id:"shared"},
+    {type:"SET_SETTINGS",patch:{profile:{name:"Wrong account"}}},
+    {type:"LIST_CREATE",name:"Wrong list"},
+    {type:"LIST_DELETE",id:"shared-list"},
+    {type:"ADD_SITE",payload:{id:"wrong",url:"https://wrong.example"}},
+    {type:"NOTIF_CLEAR"},
+    {type:"NOTIF_READ_ALL"},
+    {type:"QUEUE_MISSING_METADATA"},
+    {type:"VIDEO_PROGRESS",payload:{title:"Shared work",type:"watching",episode:2,position:50,duration:100,confidence:1}},
+    {type:"GET_STATE"},
+  ])("rejects a queued %j after switching accounts",async message=>{
+    const destination={"dasi.items":[{id:"shared",title:"Shared work",type:"watching",episode:1,notes:"B notes"}],"dasi.lists":[{id:"shared-list",name:"B list",itemIds:["shared"]}],"dasi.sites":[],"dasi.notifications":[{id:"b-notice",title:"B",read:false}],"dasi.settings":{profile:{name:"B"}},"yomu.tombstones.v1":[]};
+    const source={"dasi.items":[{id:"a",...book("A work")}],"dasi.sync.config":cfg("a")};
+    const w=worker(source);w.ctx.destination=destination;w.ctx.target=cfg("b");
+    await w.run("chrome.storage.local.set({[ACCOUNT_CACHE_KEY]:{[scopeOf(target)]:destination}})");
+    w.run("globalThis.queueGate=new Promise(resolve=>{globalThis.releaseQueue=resolve})");
+    const blocked=w.run("serializeLibrary(()=>queueGate)");
+    const switched=w.run("serializeLibrary(()=>switchSyncAccount(target))");
+    const pending=w.call(message);
+    w.run("releaseQueue()");await blocked;await switched;
+    expect(await pending).toEqual({ok:false,error:"account_changed"});
+    for(const [key,value] of Object.entries(destination))expect(w.data[key]).toEqual(value);
+    expect(w.data["dasi.sync.config"].userId).toBe("b");
+    w.ctx.target=cfg("a");await w.run("serializeLibrary(()=>switchSyncAccount(target))");
+    expect(w.data["dasi.items"]).toEqual(source["dasi.items"]);
+  });
+  it("reports snapshot read failures instead of leaving the caller unanswered",async()=>{
+    const w=worker();
+    w.run('globalThis.originalGet=chrome.storage.local.get;chrome.storage.local.get=async key=>{if(key==="dasi.settings")throw Error("storage_unavailable");return originalGet(key)}');
+    expect(await w.call({type:"GET_STATE"})).toEqual({ok:false,error:"storage_unavailable"});
+  });
+  it("finishes a coherent snapshot before allowing an account switch",async()=>{
+    const w=worker({"dasi.items":[{id:"a",...book("A")}],"dasi.settings":{profile:{name:"A"}},"dasi.sync.config":cfg("a")});
+    w.ctx.target=cfg("b");w.run("checkTrackedReleases=async()=>{}");
+    w.run('globalThis.originalGet=chrome.storage.local.get;globalThis.snapshotGate=new Promise(resolve=>{globalThis.releaseSnapshot=resolve});globalThis.snapshotStarted=new Promise(resolve=>{globalThis.startSnapshot=resolve});globalThis.holdOnce=true;chrome.storage.local.get=async key=>{const value=await originalGet(key);if(key==="dasi.items"&&holdOnce){holdOnce=false;startSnapshot();await snapshotGate;}return value}');
+    const pending=w.call({type:"GET_STATE"});await w.run("snapshotStarted");
+    const switched=w.run("serializeLibrary(()=>switchSyncAccount(target))");
+    w.run("releaseSnapshot()");
+    const result=await pending;await switched;
+    expect(result.items[0].id).toBe("a");expect(result.settings.profile.name).toBe("A");
+    expect(w.data["dasi.sync.config"].userId).toBe("b");
+  });
+});

@@ -167,3 +167,44 @@ await freshInstall(async(page,worker)=>{
   }
 });
 console.log("PASS: repeated multi-file imports with colliding work IDs preserve both works, their lists and notification destinations");
+
+await freshInstall(async(page,worker)=>{
+  const before=await worker.evaluate(async()=>{
+    const config=id=>({provider:"firebase",apiUrl:"https://accounts.example/api",userId:id,email:id+"@example.test",token:id});
+    const a={"dasi.items":[{id:"shared",title:"Account A work",type:"reading",chapter:4,notes:"A notes"}],"dasi.lists":[],"dasi.sites":[],"dasi.notifications":[],"dasi.settings":{profile:{name:"Account A"}},"yomu.tombstones.v1":[]};
+    const b={"dasi.items":[{id:"shared",title:"Account B work",type:"reading",chapter:9,notes:"B notes"}],"dasi.lists":[{id:"b-list",name:"B list",itemIds:["shared"]}],"dasi.sites":[],"dasi.notifications":[],"dasi.settings":{profile:{name:"Account B"}},"yomu.tombstones.v1":[]};
+    // No external account or network access is needed for this worker queue fixture.
+    autoSync=()=>{};checkTrackedReleases=async()=>{};
+    await serializeLibrary(()=>chrome.storage.local.set({...a,[SYNC_CFG_KEY]:config("a"),[ACCOUNT_CACHE_KEY]:{[scopeOf(config("b"))]:b}}));
+    globalThis.accountQueueReady=new Promise(resolve=>{globalThis.accountQueueReadyResolve=resolve;});
+    let received=0;
+    globalThis.accountQueueObserver=message=>{if(message.queueTest===true&&++received===3)globalThis.accountQueueReadyResolve();};
+    chrome.runtime.onMessage.addListener(globalThis.accountQueueObserver);
+    globalThis.accountQueueGate=new Promise(resolve=>{globalThis.accountQueueRelease=resolve;});
+    void serializeLibrary(()=>globalThis.accountQueueGate);
+    globalThis.accountSwitchDone=serializeLibrary(()=>switchSyncAccount(config("b")));
+    return {a,b};
+  });
+  await page.evaluate(()=>{
+    globalThis.oldAccountRequests=Promise.all([
+      {type:"UPDATE_ITEM",id:"shared",patch:{chapter:99,notes:"Wrong account"}},
+      {type:"IMPORT_MERGE",payload:{items:[{id:"wrong-import",title:"Wrong import",type:"reading"}]}},
+      {type:"SET_SETTINGS",patch:{profile:{name:"Wrong profile"}}},
+    ].map(message=>chrome.runtime.sendMessage({...message,queueTest:true})));
+  });
+  await worker.evaluate(()=>globalThis.accountQueueReady);
+  await worker.evaluate(()=>globalThis.accountQueueRelease());
+  const responses=await page.evaluate(()=>globalThis.oldAccountRequests);
+  assert(responses.every(response=>response.ok===false&&response.error==="account_changed"),JSON.stringify(responses));
+  await worker.evaluate(()=>globalThis.accountSwitchDone);
+  const destination=await worker.evaluate(keys=>chrome.storage.local.get(keys),Object.keys(before.b));
+  assert.deepEqual(destination,before.b);
+  const source=await worker.evaluate(async()=>{
+    chrome.runtime.onMessage.removeListener(globalThis.accountQueueObserver);
+    const cfg={provider:"firebase",apiUrl:"https://accounts.example/api",userId:"a",email:"a@example.test",token:"a"};
+    await serializeLibrary(()=>switchSyncAccount(cfg));
+    return chrome.storage.local.get(["dasi.items","dasi.settings"]);
+  });
+  assert.deepEqual(source["dasi.items"],before.a["dasi.items"]);assert.deepEqual(source["dasi.settings"],before.a["dasi.settings"]);
+});
+console.log("PASS: queued edits, imports and preferences from account A cannot change account B; account A data remains intact");

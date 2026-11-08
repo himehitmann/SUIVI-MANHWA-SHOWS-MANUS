@@ -2400,8 +2400,15 @@ async function detectTab(tabId) {
 
 
 // Every read-modify-write of user data shares one queue, including imports.
+function serializeAccount(task) {
+  const epoch=accountEpoch;
+  return serializeLibrary(()=>{
+    if(epoch!==accountEpoch)throw Error("account_changed");
+    return task();
+  });
+}
 function mutateAndReply(task, respond) {
-  serializeLibrary(task).then(result=>{respond(result);autoSync();},error=>respond({ok:false,error:String(error.message || error)}));
+  serializeAccount(task).then(result=>{respond(result);autoSync();},error=>respond({ok:false,error:String(error.message || error)}));
 }
 const IMPORT_ENRICH_ALARM="yomu-import-enrichment";
 let importEnrichmentQueue=null;
@@ -2551,7 +2558,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
 
     case "VIDEO_PROGRESS":
-      serializeLibrary(async()=>{
+      serializeAccount(async()=>{
         const p=message.payload;
         if(!p || p.type!=="watching" || !Number.isFinite(p.position) || p.position<3 || !(Number(p.confidence)>=.75))return {ok:true,skipped:"uncertain_video"};
         const settings=await read(SETTINGS_KEY,DEFAULT_SETTINGS);
@@ -2618,29 +2625,26 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
     case "GET_STATE": {
-      const stateEpoch=accountEpoch;
       void checkTrackedReleases().catch(()=>{});
-      Promise.all([
-        read(ITEMS_KEY, []),
-        read(SITES_KEY, []),
-        read(NOTIF_KEY, []),
-        read(LISTS_KEY, []),
-        read(SETTINGS_KEY, DEFAULT_SETTINGS),
-        api.storage.local.get(["dasi.currentDetection", "dasi.lastConflict"]),
-        message.notificationId?read(NOTIFICATION_TARGETS_KEY,[]):[],
-        message.notificationId?getSyncConfig():null,
-      ]).then(([items, sites, notifications, lists, settings, state, targets, config]) =>
-        sendResponse({
-          items,
-          sites,
-          notifications,
-          lists,
+      serializeAccount(async()=>{
+        const [items, sites, notifications, lists, settings, state, targets, config]=await Promise.all([
+          read(ITEMS_KEY, []),
+          read(SITES_KEY, []),
+          read(NOTIF_KEY, []),
+          read(LISTS_KEY, []),
+          read(SETTINGS_KEY, DEFAULT_SETTINGS),
+          api.storage.local.get(["dasi.currentDetection", "dasi.lastConflict"]),
+          message.notificationId?read(NOTIFICATION_TARGETS_KEY,[]):[],
+          message.notificationId?getSyncConfig():null,
+        ]);
+        return {
+          items, sites, notifications, lists,
           settings: { ...DEFAULT_SETTINGS, ...(settings || {}) },
           currentDetection: state["dasi.currentDetection"],
           lastConflict: state["dasi.lastConflict"],
-          notificationItemId:stateEpoch===accountEpoch?notificationTarget(message.notificationId,targets,items,scopeOf(config)):"",
-        }),
-      );
+          notificationItemId:notificationTarget(message.notificationId,targets,items,scopeOf(config)),
+        };
+      }).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message||error)}));
       return true;
     }
 
@@ -2706,7 +2710,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "REMOVE_SITE":
       mutateAndReply(async()=>{const previous=await read(SITES_KEY,[]);const sites=message.type==='REMOVE_SITE'?previous.filter(s=>(s.id||s.url)!==message.id):previous.some(s=>s.url===message.payload.url)?previous:[...previous,message.payload];await writeData({[SITES_KEY]:sites});return {sites};},sendResponse);return true;
     case "QUEUE_MISSING_METADATA":
-      serializeLibrary(()=>queueMissingMetadata(message.ids)).then(result=>{sendResponse(result);void ensureImportEnrichmentAlarm().then(()=>runImportEnrichment()).catch(()=>{});},error=>sendResponse({ok:false,error:String(error.message)}));return true;
+      serializeAccount(()=>queueMissingMetadata(message.ids)).then(result=>{sendResponse(result);void ensureImportEnrichmentAlarm().then(()=>runImportEnrichment()).catch(()=>{});},error=>sendResponse({ok:false,error:String(error.message)}));return true;
     case "COMPLETE_ITEM_METADATA": {
       const epoch = accountEpoch;
       read(ITEMS_KEY, []).then(async saved => {
@@ -2728,7 +2732,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Patch a saved item (favorite, rating, tags, status…) from the library page.
     case "UPDATE_ITEM":
-      serializeLibrary(async () => {
+      serializeAccount(async () => {
         const items = await read(ITEMS_KEY, []);
         const patch = Object.fromEntries(Object.entries(message.patch || {}).filter(([k]) => !['id','createdAt','__proto__','constructor','prototype'].includes(k)));
         const next = items.map(i => i.id === message.id ? boundedProgress({...i,...patch,activityAt:Date.now(),updatedAt:Date.now()}) : i);
@@ -2817,7 +2821,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       requestAccountRecovery(message.payload).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));
       return true;
     case "SYNC_PREVIEW_GUEST_IMPORT":
-      serializeLibrary(previewGuestTransfer).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));
+      serializeAccount(previewGuestTransfer).then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));
       return true;
     case "SYNC_IMPORT_GUEST":
       mutateAndReply(()=>importGuestTransfer(message.token),sendResponse);
