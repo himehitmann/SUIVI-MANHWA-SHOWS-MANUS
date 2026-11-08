@@ -1,12 +1,24 @@
 # Suivi global Yomu
 
-Mise à jour : 7 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 8 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Identifiants en conflit entre sauvegardes — 8 novembre 2026
+
+L’import de plusieurs sauvegardes conserve désormais les œuvres différentes qui partagent un identifiant local. Les références des listes et notifications suivent l’identifiant attribué à chaque œuvre. Les comparaisons prennent en compte le titre, le type, le format, les années renseignées et les références de catalogue incompatibles. Les identifiants déjà présents dans les fichiers sont réservés pour éviter une nouvelle collision lors du renommage. Un fichier qui associe son propre identifiant à plusieurs œuvres contradictoires est refusé avant enregistrement.
+
+Les tests unitaires couvrent le parcours normal et celui du web, les remakes, les conflits entre références de catalogue, les suffixes déjà occupés et les fichiers ambigus. Le test du paquet importe deux fois deux sauvegardes contenant le même identifiant pour deux œuvres différentes, vérifie leur progression, leurs listes et leurs notifications, puis recharge et exporte le résultat. Le parcours web vérifie les deux listes après réimport et confirme leur contenu sur l’API réelle du serveur de test. Les données et serveurs restent isolés des comptes de production.
+
+Une première exécution a également révélé une attente insuffisante dans un ancien test de métadonnées. Ce test attend maintenant la mise à jour affichée dans la bibliothèque après la confirmation du stockage, en conservant son assertion sur le message attendu.
+
+Code 48fc6b47d578dd8f6d8e11a084f2ac374fb171eb, attente navigateur 132388e9df961aac7cb2a21de4d3b4f48f484f86. [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42381539600) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42381534899). Les deux exécutions ont réussi avec **739 tests unitaires**, les parcours navigateur et paquet, les contrôles d’interface, de charge et de récupération. Aucune vulnérabilité connue signalée par l’audit des dépendances. [Paquet vérifié](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42381539600/artifacts/13577739150).
+
+**21/60 (35 %) global vérifié**. Ce lot renforce les imports déjà couverts par G13 et ne ferme pas de nouveau critère global.
 
 ## Imports endommagés et nouvelle tentative après erreur — 7 novembre 2026
 
