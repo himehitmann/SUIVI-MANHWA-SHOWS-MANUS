@@ -221,7 +221,7 @@ await freshInstall(async(page,worker)=>{
     const data=id=>({"dasi.items":[{id:"shared",title:"Private work "+id,type:"reading",chapter:id==="a"?4:9,notes:"Notes "+id,cover:"https://example.test/art.png",synopsis:"Story",identityVersion:1,enrichedAt:1}],"dasi.lists":[],"dasi.sites":[],"dasi.notifications":[],"dasi.settings":{lang:"en",profile:{name:"Reader "+id}},"yomu.tombstones.v1":[]});
     await serializeLibrary(()=>chrome.storage.local.set({...data("a"),[SYNC_CFG_KEY]:config("a"),[ACCOUNT_CACHE_KEY]:{[scopeOf(config("b"))]:data("b")}}));
   });
-  await initialReload;await page.waitForFunction(()=>!accountChanging&&settings.profile.name==="Reader a"&&items[0]?.title==="Private work a");
+  await initialReload;await page.waitForFunction(()=>typeof accountChanging!=="undefined"&&!accountChanging&&settings.profile.name==="Reader a"&&items[0]?.title==="Private work a");
   const second=await page.context().newPage(),otherErrors=[];
   second.on("pageerror",error=>otherErrors.push(error.message));
   await second.goto(new URL("library.html",worker.url()).href);
@@ -250,7 +250,7 @@ await freshInstall(async(page,worker)=>{
   await worker.evaluate(()=>serializeLibrary(()=>switchSyncAccount({apiUrl:"https://accounts.example/api",userId:"b",email:"b@example.test",token:"b"})));
   await Promise.all(reloaded);
   for(const tab of [page,second]){
-    await tab.waitForFunction(()=>!accountChanging&&!importPending&&settings.profile.name==="Reader b"&&items[0]?.title==="Private work b");
+    await tab.waitForFunction(()=>typeof accountChanging!=="undefined"&&!accountChanging&&!importPending&&settings.profile.name==="Reader b"&&items[0]?.title==="Private work b");
     assert.equal(await tab.locator("#drawer.open").count(),0);
     assert.equal(await tab.evaluate(()=>typeof globalThis.pendingOldParser),"undefined");
     assert.equal(await tab.evaluate(()=>getComputedStyle(document.documentElement).visibility),"visible");
@@ -260,10 +260,10 @@ await freshInstall(async(page,worker)=>{
   const signedOut=[page,second].map(tab=>tab.waitForEvent("framenavigated",frame=>frame===tab.mainFrame()));
   await worker.evaluate(()=>serializeLibrary(()=>switchSyncAccount(null)));
   await Promise.all(signedOut);
-  for(const tab of [page,second])await tab.waitForFunction(()=>!accountChanging&&!libraryLoadPending&&items.length===0&&settings.profile.name==="");
+  for(const tab of [page,second])await tab.waitForFunction(()=>typeof accountChanging!=="undefined"&&!accountChanging&&!libraryLoadPending&&items.length===0&&settings.profile.name==="");
   const back=page.waitForEvent("framenavigated",frame=>frame===page.mainFrame());
   await worker.evaluate(()=>serializeLibrary(()=>switchSyncAccount({apiUrl:"https://accounts.example/api",userId:"a",email:"a@example.test",token:"new-a"})));
-  await back;await page.waitForFunction(()=>settings.profile.name==="Reader a"&&items[0]?.chapter===4);
+  await back;await page.waitForFunction(()=>typeof settings!=="undefined"&&settings.profile.name==="Reader a"&&items[0]?.chapter===4);
   assert.equal(await page.evaluate(()=>items[0].title),"Private work a");
   assert.equal(await page.evaluate(()=>items[0].notes),"Notes a");
   assert.deepEqual(otherErrors,[]);
