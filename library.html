@@ -132,7 +132,7 @@
       .strip-list .lc::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.28)); border-radius:16px; }
       .strip-list .lc .cnt { position:absolute; bottom:8px; right:9px; z-index:2; background:rgba(36,31,51,.78); color:#fff; font-size:11px; font-weight:800; padding:3px 9px; border-radius:99px; }
       .strip-list b { font-size:14px; } .strip-list small { font-size:11.5px; }
-      .strip-new { width:210px !important; height:124px !important; }
+      .strip-new { width:210px; height:124px; }
       .advanced { margin-top:20px; border-top:1px solid var(--line); padding-top:12px; }
       .advanced summary { cursor:pointer; font-size:13px; font-weight:600; color:var(--muted); list-style:none; }
       .advanced summary::-webkit-details-marker { display:none; }
@@ -699,6 +699,15 @@ main:focus{outline:none}
       .dash-id{padding-top:0}
       .dash-id h1{font-size:27px}
       .dash-banner .edit-banner{background:#fff;color:var(--ink);backdrop-filter:none;border-radius:5px}
+      .dash:not(.has-banner){display:flex;align-items:center;justify-content:space-between;gap:20px;padding:8px 0;overflow:visible}
+      .dash:not(.has-banner) .dash-body{order:1;min-width:0;flex:1;padding:0;align-items:center}
+      .dash:not(.has-banner) .dash-av{margin:0;width:64px;height:64px;border-width:0}
+      .dash:not(.has-banner) .dash-banner{order:2;height:auto;background:none;flex:none}
+      .dash:not(.has-banner) .edit-banner{position:static;background:#f4f7f5}
+      .library-sidebar .lists-strip-head{margin-top:0;gap:12px;flex-wrap:wrap}
+      .library-sidebar .strip-list .lc:after{border-radius:5px}
+      @media(max-width:640px){.dash:not(.has-banner){flex-wrap:wrap;gap:10px}.dash:not(.has-banner) .dash-body{flex-basis:100%}.dash:not(.has-banner) .dash-banner{margin-left:82px}.dash:not(.has-banner) .edit-banner{font-size:11px}}
+
       .library-shortcuts{gap:28px;margin:18px 0 16px}
       .library-shortcuts button{padding:12px 0;font-size:14px}
       .library-shortcuts strong{font-size:17px;color:var(--lav-ink)}

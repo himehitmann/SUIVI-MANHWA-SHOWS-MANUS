@@ -1484,7 +1484,7 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
   lists=[{id:"design-list",name:"Weekend reading",itemIds:["design-0","design-2"],cover:"#245747"},{id:"design-later",name:"To discover",itemIds:["design-1"],cover:"#38566e"}];
   sites=[{id:"design-site",name:"My reading site",url:"https://reader.example/"}];
   settings={...settings,lang:"en",profile:{name:"My library",bio:"Stories to come back to."}};
-  libraryQuery="";filter="all";libraryFormat="all";libraryUnlisted=false;currentListId=null;
+  libraryQuery="";filter="all";libraryFormat="all";libraryUnlisted=false;currentListId=null;showArchivedLists=false;
   closeDrawer();renderAll();switchView("library");
  });
  for(const width of [320,390,768,1440]){
@@ -1493,7 +1493,7 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
    const rect=selector=>{const r=document.querySelector(selector).getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};
    const collection=rect(".library-collection"),sidebar=rect(".library-sidebar");
    const covers=[...document.querySelectorAll("#grid .card .cover")].map(n=>{const r=n.getBoundingClientRect();return {width:r.width,height:r.height};});
-   const outside=[...document.querySelectorAll("#grid .card,#grid .card h3,#grid .quick-add,.library-controls>label,.library-sidebar .site-chip")].filter(n=>n.getClientRects().length).filter(n=>{const r=n.getBoundingClientRect();return r.left < -1 || r.right>innerWidth+1;}).map(n=>n.className);
+   const outside=[...document.querySelectorAll("#grid .card,#grid .card h3,#grid .quick-add,.library-controls>label,.library-sidebar .site-chip,.library-sidebar button")].filter(n=>n.getClientRects().length).filter(n=>{const r=n.getBoundingClientRect();return r.left < -1 || r.right>innerWidth+1;}).map(n=>n.className);
    return {collection,sidebar,covers,outside};
   });
   assert.deepEqual(layout.outside,[],"Catalog controls overflow at "+width);
@@ -1511,6 +1511,7 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
  await page.screenshot({path:"test-results/design-detail-1280.png",fullPage:true});
  await page.locator("#dr-close").click();
  await page.evaluate(()=>switchView("home"));
+ await page.waitForFunction(()=>document.getElementById("drawer").getBoundingClientRect().left>=innerWidth-1);
  await page.screenshot({path:"test-results/design-home-1280.png",fullPage:true});
  const homePreview=await page.screenshot({type:"jpeg",quality:55});
  console.log("YOMU_DESIGN_HOME="+homePreview.toString("base64"));

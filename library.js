@@ -1656,7 +1656,7 @@ function renderLibHeader() {
   const p = settings.profile || {};
   const name = p.name || "Yomu";
   const banner = p.banner ? safeBackground(p.banner) : "";
-  el.innerHTML = `<div class="dash">
+  el.innerHTML = `<div class="dash${banner ? " has-banner" : ""}">
     <div class="dash-banner" style="${banner}"><button class="edit-banner" id="dash-edit-banner">${I.image} ${t("changeBanner")}</button></div>
     <div class="dash-body">
       <div class="dash-av" id="dash-av">${p.avatar ? `<img src="${esc(p.avatar)}">` : esc(initials(name))}<span class="cam">${I.image}</span></div>
