@@ -1,5 +1,30 @@
 /* Yomu — tracker home. Vanilla, no build step. */
 const api = globalThis.chrome;
+// A library document belongs to one account. Discard old forms and async work on a switch.
+let accountChanging = false;
+function sendLibraryMessage(message, callback) {
+  if (accountChanging) return Promise.resolve({ok:false,error:"account_changed"});
+  if (typeof callback === "function") {
+    return api.runtime.sendMessage(message, response => {
+      void api.runtime.lastError;
+      if (!accountChanging) callback(response);
+    });
+  }
+  return api.runtime.sendMessage(message);
+}
+function libraryAccountScope(config) {
+  if (!config?.token) return "guest";
+  if (config.provider === "firebase") return "firebase|" + config.projectId + "|" + config.userId;
+  return String(config.apiUrl || "").replace(/\/+$/, "") + "|" + (config.userId || "legacy:" + String(config.email || "").toLowerCase());
+}
+api.storage.onChanged.addListener((changes, area) => {
+  const change = changes["dasi.sync.config"];
+  if (area !== "local" || !change || accountChanging || libraryAccountScope(change.oldValue) === libraryAccountScope(change.newValue)) return;
+  accountChanging = true;
+  // Hide private content immediately; a fresh document also cancels pending file parsing.
+  document.documentElement.style.visibility = "hidden";
+  location.replace(new URL("library.html", location.href).href);
+});
 const UNLOCK_ALL = typeof DASI_UNLOCK_ALL !== "undefined" ? DASI_UNLOCK_ALL : true;
 
 let items = [], sites = [], notifications = [], lists = [];
@@ -2306,7 +2331,7 @@ function requestMetadata(message,callback,timeoutMs=15000) {
   const finish=response=>{if(settled)return;settled=true;clearTimeout(timer);callback(response);};
   const timer=setTimeout(()=>finish({ok:false,error:"metadata_timeout"}),timeoutMs);
   try {
-    api.runtime.sendMessage(message,response=>{
+    sendLibraryMessage(message,response=>{
       const error=api.runtime.lastError;
       finish(error?{ok:false,error:"metadata_transport"}:response);
     });
@@ -2935,7 +2960,7 @@ function wireSettings() {
   document.getElementById("sync-link").onclick = () => api.runtime.openOptionsPage();
   buildShare(document.getElementById("share"));
   buildRateStore(document.getElementById("rate-store"));
-  api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => { void api.runtime.lastError; userPlan = (s && s.plan) || null; const el = document.getElementById("sync-state"); if (s && el) el.textContent = backupLabel(s,settings.lang); });
+  sendLibraryMessage({ type: "SYNC_STATUS" }, (s) => { void api.runtime.lastError; userPlan = (s && s.plan) || null; const el = document.getElementById("sync-state"); if (s && el) el.textContent = backupLabel(s,settings.lang); });
 }
 function backupLabel(s, lang=s.lang) {
   const fr=lang==='fr';
@@ -2951,7 +2976,7 @@ function backupLabel(s, lang=s.lang) {
 let backupRefreshTimer=null;
 function refreshBackupLabels() {
   if(!document.getElementById("sync-state")&&!document.getElementById("account-backup-state"))return;
-  api.runtime.sendMessage({type:"SYNC_STATUS"},s=>{
+  sendLibraryMessage({type:"SYNC_STATUS"},s=>{
     if(api.runtime.lastError||!s)return;
     for(const id of ["sync-state","account-backup-state"]) {
       const el=document.getElementById(id);
@@ -2968,7 +2993,7 @@ api.storage.onChanged.addListener((changes,area)=>{
 function renderAccountPanel() {
   const el = document.getElementById("account-panel");
   if (!el) return;
-  api.runtime.sendMessage({ type: "SYNC_STATUS" }, (s) => {
+  sendLibraryMessage({ type: "SYNC_STATUS" }, (s) => {
     void api.runtime.lastError;
     if(!el.isConnected)return;
     userPlan = (s && s.plan) || userPlan;
@@ -2982,23 +3007,23 @@ function renderAccountPanel() {
       <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changeEmail")}</b></div><input class="field" id="acc-email" type="email" placeholder="new@email.com" style="max-width:200px" /><input class="field" id="acc-email-current" type="password" autocomplete="current-password" placeholder="${t("currentPassword")}" style="max-width:150px" /><button class="btn" id="acc-email-btn">${t("save")}</button></div>
       <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changePassword")}</b></div><input class="field" id="acc-pw-cur" type="password" placeholder="${t("currentPassword")}" style="max-width:150px" /><input class="field" id="acc-pw-new" type="password" placeholder="${t("newPassword")}" style="max-width:150px" /><button class="btn" id="acc-pw-btn">${t("save")}</button></div>
       <div class="row"><button class="btn" id="acc-logout-all">${settings.lang==='fr'?'Déconnecter tous les appareils':'Sign out all devices'}</button><button class="btn" id="acc-delete">${settings.lang==='fr'?'Supprimer mon compte':'Delete my account'}</button></div>`;
-    document.getElementById('acc-logout-all').onclick=()=>api.runtime.sendMessage({type:'SYNC_LOGOUT_ALL'},r=>{if(r?.ok){api.runtime.sendMessage({type:'GET_STATE'},hydrate);renderAccountPanel();}else toast(r?.error||'Try again');});
+    document.getElementById('acc-logout-all').onclick=()=>sendLibraryMessage({type:'SYNC_LOGOUT_ALL'},r=>{if(r?.ok){sendLibraryMessage({type:'GET_STATE'},hydrate);renderAccountPanel();}else toast(r?.error||'Try again');});
     document.getElementById('acc-delete').onclick=()=>{
       const current=document.getElementById('acc-pw-cur').value;
       if(!current){toast(t('currentPassword'));return;}
       if(!confirm(settings.lang==='fr'?'Supprimer définitivement ce compte et ses données synchronisées ? Une copie locale sera conservée.':'Permanently delete this account and its synced data? A local copy will be retained.'))return;
-      api.runtime.sendMessage({type:'SYNC_DELETE_ACCOUNT',current},r=>{if(r?.ok){api.runtime.sendMessage({type:'GET_STATE'},hydrate);renderAccountPanel();}else toast(r?.error||'Try again');});
+      sendLibraryMessage({type:'SYNC_DELETE_ACCOUNT',current},r=>{if(r?.ok){sendLibraryMessage({type:'GET_STATE'},hydrate);renderAccountPanel();}else toast(r?.error||'Try again');});
     };
     document.getElementById("acc-manage").onclick = () => api.runtime.openOptionsPage();
     document.getElementById("acc-email-btn").onclick = () => {
       const v = document.getElementById("acc-email").value.trim();
       if (!v) return;
-      api.runtime.sendMessage({ type: "SYNC_CHANGE_EMAIL", email: v,current:document.getElementById("acc-email-current").value }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changeEmail") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) renderAccountPanel(); });
+      sendLibraryMessage({ type: "SYNC_CHANGE_EMAIL", email: v,current:document.getElementById("acc-email-current").value }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changeEmail") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) renderAccountPanel(); });
     };
     document.getElementById("acc-pw-btn").onclick = () => {
       const cur = document.getElementById("acc-pw-cur").value, nw = document.getElementById("acc-pw-new").value;
       if (!nw) return;
-      api.runtime.sendMessage({ type: "SYNC_CHANGE_PASSWORD", current: cur, next: nw }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changePassword") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) { document.getElementById("acc-pw-cur").value = ""; document.getElementById("acc-pw-new").value = ""; } });
+      sendLibraryMessage({ type: "SYNC_CHANGE_PASSWORD", current: cur, next: nw }, (r) => { void api.runtime.lastError; toast(r && r.ok ? t("changePassword") + " ✓" : (r && r.error) || "Error"); if (r && r.ok) { document.getElementById("acc-pw-cur").value = ""; document.getElementById("acc-pw-new").value = ""; } });
     };
   });
 }
@@ -3010,12 +3035,13 @@ function backupSettings(value={}) {
 }
 let exportPending=false;
 async function doExport() {
-  if(exportPending)return;
+  if(accountChanging||exportPending)return;
   exportPending=true;
   const button=document.getElementById("export");
   if(button){button.disabled=true;button.setAttribute("aria-busy","true");}
   try{
     const response=await new Promise(resolve=>requestMetadata({type:"EXPORT_BACKUP"},resolve,45000));
+    if(accountChanging)return;
     if(!response?.ok||response.backup?.version!==2||!validLibraryState(response.backup))throw Error("backup_unavailable");
     const blob=new Blob([JSON.stringify(response.backup,null,2)],{type:"application/json"});
     const url=URL.createObjectURL(blob);
@@ -3039,23 +3065,26 @@ function paintImportPending() {
 }
 async function doImport(e) {
   const input=e.target,files=Array.from(input.files||[]);
-  if(importPending||!files.length)return;
+  if(accountChanging||importPending||!files.length)return;
   importPending=true;paintImportPending();
   try {
     if (!window.YomuImport) { toast(t("importFailed")); return; }
     toast(t("importing"));
     const res = await window.YomuImport.parseFiles(files);
+    if(accountChanging)return;
     const warnings=Array.isArray(res.warnings)?res.warnings:[];
     if(warnings.length){toast(t("importInvalidFile"));return;}
     const hasHistory=res.notifications?.some(n=>n && typeof n.id==="string" && n.id.trim() && (typeof n.title==="string" || typeof n.message==="string"));
     if (!res.count && !res.lists?.length && !res.sites?.length && !hasHistory && !Object.keys(backupSettings(res.settings||{})).length) { toast(t("importNothing")); return; }
     const response=await new Promise(resolve=>requestMetadata({type:"IMPORT_MERGE",payload:res},resolve,45000));
+    if(accountChanging)return;
     if(!response?.ok){
       if(response?.error==="invalid_import_data"){toast(t("importInvalidFile"));return;}
       toast(settings.lang==="fr"?"Import non confirmé. Vérifie la bibliothèque avant de réessayer.":"Import not confirmed. Check your library before retrying.");
       return;
     }
     const state=await new Promise(resolve=>requestMetadata({type:"GET_STATE"},resolve));
+    if(accountChanging)return;
     if(!state||!["items","lists","sites","notifications"].every(key=>Array.isArray(state[key]))||!state.settings||typeof state.settings!=="object"||Array.isArray(state.settings)){
       toast(settings.lang==="fr"?"Import enregistré. Actualisation impossible ; rouvre la bibliothèque.":"Import saved. Refresh failed; reopen the library.");
       return;
@@ -3486,7 +3515,7 @@ function refreshCatalogSaveLabels(root,results) {
   // The worker accepts 200 identities per message; later pages need their own batch.
   for(let start=0;start<buttons.length;start+=200) {
     const batch=buttons.slice(start,start+200);
-    api.runtime.sendMessage({type:"CHECK_EXISTING_BATCH",items:batch.map(button=>results[Number(button.dataset.savedLabel)])},r=>{
+    sendLibraryMessage({type:"CHECK_EXISTING_BATCH",items:batch.map(button=>results[Number(button.dataset.savedLabel)])},r=>{
       if(api.runtime.lastError||!r?.ok)return;
       batch.forEach((button,index)=>{if(button.isConnected)button.textContent=r.matches?.[index]?(t("inLibrary")):t("details");});
     });
@@ -3868,7 +3897,7 @@ api.storage.onChanged.addListener((changes, area) => {
   if(!storageRefreshDirty && !(change.newValue||[]).some(item=>before.get(item.id)!==signature(item))&&(change.oldValue||[]).length===(change.newValue||[]).length)return;
   // Progress edits invalidate old snapshots but must not discard pending metadata.
   storageRefreshDirty = true;
-  storageRefresh = setTimeout(() => api.runtime.sendMessage({ type: "GET_STATE" }, state => {
+  storageRefresh = setTimeout(() => sendLibraryMessage({ type: "GET_STATE" }, state => {
     const error=api.runtime.lastError;
     if (error || version!==storageRefreshVersion || !Array.isArray(state?.items)) return;
     storageRefreshDirty = false;
@@ -3932,7 +3961,7 @@ function requestCatalogTranslation(texts,target,timeoutMs=15000){
     let settled=false;
     const finish=value=>{if(settled)return;settled=true;clearTimeout(timer);resolve(value);};
     const timer=setTimeout(()=>finish(null),timeoutMs);
-    try{api.runtime.sendMessage({type:"DASI_MT",texts,target},response=>{
+    try{sendLibraryMessage({type:"DASI_MT",texts,target},response=>{
       const error=api.runtime.lastError;
       finish(error?null:response);
     });}catch{finish(null);}

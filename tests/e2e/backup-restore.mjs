@@ -169,6 +169,8 @@ await freshInstall(async(page,worker)=>{
 console.log("PASS: repeated multi-file imports with colliding work IDs preserve both works, their lists and notification destinations");
 
 await freshInstall(async(page,worker)=>{
+  const sender=await page.context().newPage();
+  await sender.goto(new URL("tests/fixtures/reader.html",worker.url()).href);
   const before=await worker.evaluate(async()=>{
     const config=id=>({provider:"firebase",apiUrl:"https://accounts.example/api",userId:id,email:id+"@example.test",token:id});
     const a={"dasi.items":[{id:"shared",title:"Account A work",type:"reading",chapter:4,notes:"A notes"}],"dasi.lists":[],"dasi.sites":[],"dasi.notifications":[],"dasi.settings":{profile:{name:"Account A"}},"yomu.tombstones.v1":[]};
@@ -185,7 +187,7 @@ await freshInstall(async(page,worker)=>{
     globalThis.accountSwitchDone=serializeLibrary(()=>switchSyncAccount(config("b")));
     return {a,b};
   });
-  await page.evaluate(()=>{
+  await sender.evaluate(()=>{
     globalThis.oldAccountRequests=Promise.all([
       {type:"UPDATE_ITEM",id:"shared",patch:{chapter:99,notes:"Wrong account"}},
       {type:"IMPORT_MERGE",payload:{items:[{id:"wrong-import",title:"Wrong import",type:"reading"}]}},
@@ -194,7 +196,7 @@ await freshInstall(async(page,worker)=>{
   });
   await worker.evaluate(()=>globalThis.accountQueueReady);
   await worker.evaluate(()=>globalThis.accountQueueRelease());
-  const responses=await page.evaluate(()=>globalThis.oldAccountRequests);
+  const responses=await sender.evaluate(()=>globalThis.oldAccountRequests);
   assert(responses.every(response=>response.ok===false&&response.error==="account_changed"),JSON.stringify(responses));
   await worker.evaluate(()=>globalThis.accountSwitchDone);
   const destination=await worker.evaluate(keys=>chrome.storage.local.get(keys),Object.keys(before.b));
@@ -206,5 +208,65 @@ await freshInstall(async(page,worker)=>{
     return chrome.storage.local.get(["dasi.items","dasi.settings"]);
   });
   assert.deepEqual(source["dasi.items"],before.a["dasi.items"]);assert.deepEqual(source["dasi.settings"],before.a["dasi.settings"]);
+  await sender.close();
 });
 console.log("PASS: queued edits, imports and preferences from account A cannot change account B; account A data remains intact");
+
+await freshInstall(async(page,worker)=>{
+  const initialReload=page.waitForEvent("framenavigated",frame=>frame===page.mainFrame());
+  await worker.evaluate(async()=>{
+    autoSync=()=>{};checkTrackedReleases=async()=>{};
+    getDiscover=async()=>({manga:[],manhwa:[],manhua:[],anime:[],series:[],gamesHot:[],gamesSoon:[]});
+    const config=id=>({apiUrl:"https://accounts.example/api",userId:id,email:id+"@example.test",token:id});
+    const data=id=>({"dasi.items":[{id:"shared",title:"Private work "+id,type:"reading",chapter:id==="a"?4:9,notes:"Notes "+id,cover:"https://example.test/art.png",synopsis:"Story",identityVersion:1,enrichedAt:1}],"dasi.lists":[],"dasi.sites":[],"dasi.notifications":[],"dasi.settings":{lang:"en",profile:{name:"Reader "+id}},"yomu.tombstones.v1":[]});
+    await serializeLibrary(()=>chrome.storage.local.set({...data("a"),[SYNC_CFG_KEY]:config("a"),[ACCOUNT_CACHE_KEY]:{[scopeOf(config("b"))]:data("b")}}));
+  });
+  await initialReload;await page.waitForFunction(()=>!accountChanging&&settings.profile.name==="Reader a"&&items[0]?.title==="Private work a");
+  const second=await page.context().newPage(),otherErrors=[];
+  second.on("pageerror",error=>otherErrors.push(error.message));
+  await second.goto(new URL("library.html",worker.url()).href);
+  await second.waitForFunction(()=>items[0]?.title==="Private work a");
+  await second.evaluate(()=>{openDrawer("shared");globalThis.sameAccountMarker=true;globalThis.refreshObserved=false;chrome.storage.onChanged.addListener(changes=>{if(changes["dasi.sync.config"])globalThis.refreshObserved=true;});});
+  await second.locator("#dr-title").fill("Unsaved title");
+  await worker.evaluate(async()=>{const config=await getSyncConfig();await chrome.storage.local.set({[SYNC_CFG_KEY]:{...config,token:"renewed-a",plan:"pro"}});});
+  await second.waitForFunction(()=>globalThis.refreshObserved===true);
+  assert.equal(await second.evaluate(()=>globalThis.sameAccountMarker),true);
+  assert.equal(await second.locator("#dr-title").inputValue(),"Unsaved title");
+  const scopes=await second.evaluate(()=>({
+    firebaseSame:libraryAccountScope({provider:"firebase",projectId:"one",userId:"reader",token:"old"})===libraryAccountScope({provider:"firebase",projectId:"one",userId:"reader",token:"new"}),
+    firebaseOther:libraryAccountScope({provider:"firebase",projectId:"one",userId:"reader",token:"token"})!==libraryAccountScope({provider:"firebase",projectId:"two",userId:"reader",token:"token"}),
+    otherServer:libraryAccountScope({apiUrl:"https://one.example/api",userId:"reader",token:"token"})!==libraryAccountScope({apiUrl:"https://two.example/api",userId:"reader",token:"token"})
+  }));
+  assert.deepEqual(scopes,{firebaseSame:true,firebaseOther:true,otherServer:true});
+
+  await page.locator("#avatar").click();
+  await page.evaluate(()=>{
+    globalThis.pendingOldParser=true;
+    window.YomuImport.parseFiles=()=>new Promise(resolve=>{globalThis.finishOldParser=()=>resolve({count:1,items:[{title:"Old account import",type:"reading"}],warnings:[]});});
+  });
+  await page.locator("#file").setInputFiles({name:"waiting.json",mimeType:"application/json",buffer:Buffer.from("[]")});
+  await page.waitForFunction(()=>importPending);
+  const reloaded=[page,second].map(tab=>tab.waitForEvent("framenavigated",frame=>frame===tab.mainFrame()));
+  await worker.evaluate(()=>serializeLibrary(()=>switchSyncAccount({apiUrl:"https://accounts.example/api",userId:"b",email:"b@example.test",token:"b"})));
+  await Promise.all(reloaded);
+  for(const tab of [page,second]){
+    await tab.waitForFunction(()=>!accountChanging&&!importPending&&settings.profile.name==="Reader b"&&items[0]?.title==="Private work b");
+    assert.equal(await tab.locator("#drawer.open").count(),0);
+    assert.equal(await tab.evaluate(()=>typeof globalThis.pendingOldParser),"undefined");
+    assert.equal(await tab.evaluate(()=>getComputedStyle(document.documentElement).visibility),"visible");
+  }
+  const after=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.settings"]));
+  assert.equal(after["dasi.items"].length,1);assert.equal(after["dasi.items"][0].chapter,9);assert.equal(after["dasi.items"][0].notes,"Notes b");assert.equal(after["dasi.settings"].profile.name,"Reader b");
+  const signedOut=[page,second].map(tab=>tab.waitForEvent("framenavigated",frame=>frame===tab.mainFrame()));
+  await worker.evaluate(()=>serializeLibrary(()=>switchSyncAccount(null)));
+  await Promise.all(signedOut);
+  for(const tab of [page,second])await tab.waitForFunction(()=>!accountChanging&&!libraryLoadPending&&items.length===0&&settings.profile.name==="");
+  const back=page.waitForEvent("framenavigated",frame=>frame===page.mainFrame());
+  await worker.evaluate(()=>serializeLibrary(()=>switchSyncAccount({apiUrl:"https://accounts.example/api",userId:"a",email:"a@example.test",token:"new-a"})));
+  await back;await page.waitForFunction(()=>settings.profile.name==="Reader a"&&items[0]?.chapter===4);
+  assert.equal(await page.evaluate(()=>items[0].title),"Private work a");
+  assert.equal(await page.evaluate(()=>items[0].notes),"Notes a");
+  assert.deepEqual(otherErrors,[]);
+  await second.close();
+});
+console.log("PASS: open library tabs discard old-account drafts and pending file parsing on switch/sign-out while same-account token renewal preserves the draft");
