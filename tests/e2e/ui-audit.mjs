@@ -1494,9 +1494,11 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
    const collection=rect(".library-collection"),sidebar=rect(".library-sidebar");
    const covers=[...document.querySelectorAll("#grid .card .cover")].map(n=>{const r=n.getBoundingClientRect();return {width:r.width,height:r.height};});
    const outside=[...document.querySelectorAll("#grid .card,#grid .card h3,#grid .quick-add,.library-controls>label,.library-sidebar .site-chip,.library-sidebar button")].filter(n=>n.getClientRects().length).filter(n=>{const r=n.getBoundingClientRect();return r.left < -1 || r.right>innerWidth+1;}).map(n=>n.className);
-   return {collection,sidebar,covers,outside};
+   const joinedListLabels=[...document.querySelectorAll(".library-sidebar .strip-list")].filter(row=>row.querySelector("small").getBoundingClientRect().top<row.querySelector(".list-open").getBoundingClientRect().bottom).map(row=>row.dataset.list);
+   return {collection,sidebar,covers,outside,joinedListLabels};
   });
   assert.deepEqual(layout.outside,[],"Catalog controls overflow at "+width);
+  assert.deepEqual(layout.joinedListLabels,[],"List names and counts must occupy separate lines at "+width);
   assert(layout.covers.every(r=>Math.abs(r.height/r.width-1.5)<.02),"Library covers must use one stable ratio");
   if(width>=1200)assert(layout.sidebar.left>=layout.collection.right,"Desktop sidebar must sit beside the works");
   else assert(layout.sidebar.top>=layout.collection.bottom,"Small screens must show works before lists and sites");

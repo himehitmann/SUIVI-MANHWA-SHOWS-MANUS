@@ -1931,7 +1931,7 @@ function renderPlans() {
 }
 
 /* ================= LISTS ================= */
-function listCover(l) { return safeBackground(l.cover); }
+function listCover(l) { return l.cover ? safeBackground(l.cover) : "background:#08734e"; }
 function isImg(v) { return v && /^https?:|^data:/.test(v); }
 let showArchivedLists=false;
 function listMembers(list) {
