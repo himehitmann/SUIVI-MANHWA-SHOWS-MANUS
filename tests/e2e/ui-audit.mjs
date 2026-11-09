@@ -1466,6 +1466,57 @@ console.log("PASS: home labels, empty states, categories and keyboard carousel c
   }finally{api.runtime.sendMessage=original;}
  });
  assert(staleStatus.visible);assert.equal(staleStatus.email,"new@example.test");
+
+ // Editorial catalog layout with synthetic covers; no user data is captured.
+ const designBefore=await page.evaluate(()=>({items,lists,sites,settings}));
+ await page.evaluate(()=>{
+  const titles=["The paper garden","A letter from the sea","Moonlight station","The last bookshop","Beyond the northern sky","A very long title that must wrap without covering any of the controls","雨のあとに","La maison des étoiles"];
+  const colors=["#245747","#c5755e","#38566e","#8f603d","#6b6b91","#425d69","#a27287","#756b45"];
+  items=titles.map((title,index)=>{
+   const canvas=document.createElement("canvas");canvas.width=360;canvas.height=540;
+   const ctx=canvas.getContext("2d");ctx.fillStyle=colors[index];ctx.fillRect(0,0,360,540);
+   ctx.fillStyle="#ffffff20";ctx.beginPath();ctx.arc(245,230,160,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle="#ffffff45";ctx.fillRect(35,290,155,210);
+   ctx.fillStyle="#fff";ctx.font="600 24px sans-serif";ctx.fillText("YOMU / "+String(index+1).padStart(2,"0"),28,48);
+   ctx.font="600 34px sans-serif";ctx.fillText(title.split(" ").slice(0,2).join(" "),28,130,302);
+   return {id:"design-"+index,title,type:"reading",chapter:index+2,total:24,cover:canvas.toDataURL("image/png"),url:"https://reader.example/work/"+index,format:"MANHWA",synopsis:"A quiet town, an unexpected letter and a story that continues beyond the last page.",state:"current",favorite:index===0,notes:"Keep my notes",enrichedAt:Date.now(),activityAt:Date.now()-index*3600000};
+  });
+  lists=[{id:"design-list",name:"Weekend reading",itemIds:["design-0","design-2"],cover:"#245747"},{id:"design-later",name:"To discover",itemIds:["design-1"],cover:"#38566e"}];
+  sites=[{id:"design-site",name:"My reading site",url:"https://reader.example/"}];
+  settings={...settings,lang:"en",profile:{name:"My library",bio:"Stories to come back to."}};
+  libraryQuery="";filter="all";libraryFormat="all";libraryUnlisted=false;currentListId=null;
+  closeDrawer();renderAll();switchView("library");
+ });
+ for(const width of [320,390,768,1440]){
+  await page.setViewportSize({width,height:1000});
+  const layout=await page.evaluate(()=>{
+   const rect=selector=>{const r=document.querySelector(selector).getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};
+   const collection=rect(".library-collection"),sidebar=rect(".library-sidebar");
+   const covers=[...document.querySelectorAll("#grid .card .cover")].map(n=>{const r=n.getBoundingClientRect();return {width:r.width,height:r.height};});
+   const outside=[...document.querySelectorAll("#grid .card,#grid .card h3,#grid .quick-add,.library-controls>label,.library-sidebar .site-chip")].filter(n=>n.getClientRects().length).filter(n=>{const r=n.getBoundingClientRect();return r.left < -1 || r.right>innerWidth+1;}).map(n=>n.className);
+   return {collection,sidebar,covers,outside};
+  });
+  assert.deepEqual(layout.outside,[],"Catalog controls overflow at "+width);
+  assert(layout.covers.every(r=>Math.abs(r.height/r.width-1.5)<.02),"Library covers must use one stable ratio");
+  if(width>=1200)assert(layout.sidebar.left>=layout.collection.right,"Desktop sidebar must sit beside the works");
+  else assert(layout.sidebar.top>=layout.collection.bottom,"Small screens must show works before lists and sites");
+  await page.screenshot({path:"test-results/design-library-"+width+".png",fullPage:true});
+ }
+ await page.setViewportSize({width:1280,height:1000});
+ // Emit only this small synthetic preview so it can be reviewed through CI logs.
+ const designPreview=await page.screenshot({type:"jpeg",quality:55});
+ console.log("YOMU_DESIGN_LIBRARY="+designPreview.toString("base64"));
+ await page.evaluate(()=>openDrawer("design-0"));
+ await page.locator("#dr-close").waitFor({state:"visible"});
+ await page.screenshot({path:"test-results/design-detail-1280.png",fullPage:true});
+ await page.locator("#dr-close").click();
+ await page.evaluate(()=>switchView("home"));
+ await page.screenshot({path:"test-results/design-home-1280.png",fullPage:true});
+ const homePreview=await page.screenshot({type:"jpeg",quality:55});
+ console.log("YOMU_DESIGN_HOME="+homePreview.toString("base64"));
+ await page.evaluate(previous=>{items=previous.items;lists=previous.lists;sites=previous.sites;settings=previous.settings;closeDrawer();renderAll();switchView("home");},designBefore);
+ console.log("PASS: editorial library covers and controls at four widths; desktop sidebar and collection-first mobile order; home and detail previews captured");
+
  assert.deepEqual(errors,[],"Unhandled browser errors");
  await fs.writeFile("test-results/ui-audit.json",JSON.stringify({report,settingFailures,queue,discovery,transport,staleStatus,errors},null,2));
  console.log("PASS: five views at four widths; navigation/header geometry; silent discovery and metadata recovery; options timeout and stale-response isolation");

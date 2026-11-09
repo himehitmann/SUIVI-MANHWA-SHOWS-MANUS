@@ -669,6 +669,111 @@ main:focus{outline:none}
 #dr-rate button:focus-visible{outline:2px solid var(--lav-ink);outline-offset:2px}
 #view-settings .row .grow{overflow-wrap:anywhere}
 #dr-prereg{border:0;background:transparent;padding:8px 0;white-space:normal;text-align:left;max-width:100%}#dr-prereg .box{flex-shrink:0}#dr-prereg:focus-visible{outline:2px solid var(--lav-ink);outline-offset:3px}
+
+      /* Catalog direction: artwork first, quiet surfaces, a single green accent.
+         Keep custom profile artwork and all existing controls/data intact. */
+      :root{--ink:#19211e;--muted:#606a65;--line:#e5eae7;--bg:#fff;--card:#fff;--lav:#eef6f1;--lav-ink:#08734e;--lav-deep:#055b3d;--shadow:none;--shadow-lg:0 12px 32px #17251e12}
+      body{background:var(--bg)}
+      header{background:#fff;backdrop-filter:none}
+      .brand .shine{background:none;-webkit-text-fill-color:var(--ink);color:var(--ink);animation:none}
+      .brand .logo{background:#08734e;box-shadow:none;border-radius:8px;transform:none}
+      .pro-btn{background:var(--ink);box-shadow:none;border-radius:7px}
+      .pro-btn:hover{background:#31463c;box-shadow:none;transform:none}
+      .search{background:#f4f6f5;border-radius:7px}
+      nav.tabs button{border-radius:4px;color:var(--muted)}
+      nav.tabs button.active{background:transparent;color:var(--lav-ink);box-shadow:inset 0 -3px var(--lav-ink)}
+      nav.tabs button:hover{background:#f4f6f5}
+      .btn,.icon-btn,.lang-btn{border-radius:7px;box-shadow:none}
+      .btn:hover{background:#f0f5f2}
+      .btn.primary:hover{background:var(--lav-deep)}
+      .tag{background:transparent;color:var(--muted);padding:0;font-weight:500;font-size:11px;border-radius:0}
+      .tags{gap:5px 10px}
+      .chip-toggle{border:0;background:#f4f6f5;border-radius:5px;color:var(--ink)}
+      .chip-toggle.on{background:#e3f3e9;color:#075c3f}
+      .field{border-radius:6px}
+      .library-intro{margin:0;line-height:1.6}
+      .dash{border:0;border-radius:8px;box-shadow:none;margin-bottom:16px}
+      .dash-banner{height:88px;background-color:#eaf3ee;background-image:none}
+      .dash-body{padding:12px 16px 8px;gap:18px}
+      .dash-av{width:76px;height:76px;margin-top:-40px;font-size:26px;box-shadow:none;background:#08734e}
+      .dash-id{padding-top:0}
+      .dash-id h1{font-size:27px}
+      .dash-banner .edit-banner{background:#fff;color:var(--ink);backdrop-filter:none;border-radius:5px}
+      .library-shortcuts{gap:28px;margin:18px 0 16px}
+      .library-shortcuts button{padding:12px 0;font-size:14px}
+      .library-shortcuts strong{font-size:17px;color:var(--lav-ink)}
+      #stats{display:flex;flex-wrap:wrap;gap:12px 28px;margin-bottom:10px}
+      #stats .chip{display:flex;align-items:baseline;gap:7px;border:0;border-radius:0;padding:0;box-shadow:none}
+      #stats .chip b{font-size:15px}#stats .chip span{font-size:12px;font-weight:400}
+      .library-layout{display:grid;grid-template-columns:minmax(0,1fr) 264px;gap:40px;align-items:start}
+      .library-layout>.library-section,.library-sidebar>.library-section:first-child{margin-top:14px}
+      .library-sidebar{min-width:0}
+      .library-section{padding-top:24px;margin-bottom:20px}
+      .library-section h2{font-size:22px;letter-spacing:-.02em}
+      .library-sidebar h2{font-size:18px}
+      .library-section>.sub{font-size:13px;line-height:1.65}
+      .library-section .filters{gap:4px 16px}
+      .filters button{background:none;border-radius:0;padding:9px 0;color:var(--muted);font-size:13px}
+      .filters button.active{background:none;color:var(--lav-ink);box-shadow:inset 0 -2px var(--lav-ink)}
+      #grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:24px 20px;align-items:start}
+      .library-controls{grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:0;font-size:12px}
+      .library-controls .field{margin-top:6px;background:#f7f9f8;border-color:var(--line);min-height:38px}
+      #grid .library-result-count{margin:0;font-size:12px}
+      #grid .card{display:flex;flex-direction:column;gap:0;border:0;border-radius:0;padding:0;background:none;box-shadow:none;transform:none;min-width:0}
+      #grid .card .cover{width:100%;height:auto;aspect-ratio:2/3;border-radius:6px}
+      #grid .card .cover img.cov{object-fit:cover;object-position:top}
+      #grid .card-body{width:100%;padding-top:10px}
+      #grid .card h3{margin:0;white-space:normal;font-size:14px;line-height:1.4}
+      #grid .card h3 .link-btn{font:inherit;font-weight:700;text-align:left;color:var(--ink);padding:0;overflow-wrap:anywhere}
+      #grid .card p{font-size:12px;line-height:1.5;margin:7px 0}
+      #grid .card small{color:var(--muted);font-size:11px}
+      #grid .card .fav{z-index:3;top:8px;right:8px;width:32px;height:32px;display:grid;place-items:center;background:#fff;border-radius:50%;color:#68756d}
+      #grid .card .fav.on{color:#986100}
+      #grid .card .rate{margin-top:7px}
+      #grid .card .quick-add{font-size:12px;min-height:32px;margin-top:8px;color:var(--lav-ink)}
+      #grid .card .cat-badge{max-width:calc(100% - 44px);left:7px;right:auto;top:8px;overflow-wrap:anywhere;border-radius:3px}
+      .library-sidebar #list-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px;overflow:visible;padding:0}
+      .library-sidebar .strip-list{width:auto;min-width:0}
+      .library-sidebar .strip-list .lc{background-color:#08734e;width:100%;height:76px;border-radius:5px;box-shadow:none}
+      .library-sidebar .strip-list:hover .lc{transform:none;box-shadow:none}
+      .library-sidebar .list-open{font-size:12px;line-height:1.5}
+      .library-sidebar .strip-new{width:100%;height:76px;border-radius:5px;border-color:#a8beb2}
+      .library-sidebar #toggle-archived{grid-column:1/-1;justify-self:start;height:auto;max-width:100%;white-space:normal}
+      .library-sidebar .list-empty-help{grid-column:1/-1}
+      .site-chip{border:0;background:#f4f7f5;border-radius:5px;box-shadow:none;padding:8px 10px}
+      .site-chip:hover{transform:none}
+      #list-add-options{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;max-height:360px}
+      #list-add-options .chip-toggle{min-height:44px;align-items:center;text-align:left;white-space:normal;overflow-wrap:anywhere}
+      #list-add-more{margin-top:12px}
+      #view-home .home-heading h1{font-size:32px}
+      #view-home .home-feature-wrap{background:#f1f5f2;color:var(--ink);border-radius:10px}
+      #view-home .home-feature-backdrop{left:55%;opacity:.2}
+      #view-home .home-feature-backdrop img.cov{filter:blur(10px);opacity:.5}
+      #view-home .home-feature-backdrop:after{background:none}
+      #view-home .home-feature-copy{position:relative;z-index:1}
+      #view-home .home-feature h2{color:var(--ink);font-weight:800;letter-spacing:-.035em}
+      #view-home .home-eyebrow{color:var(--lav-ink)}
+      #view-home .home-feature-meta{color:var(--muted)}
+      #view-home .home-feature-synopsis{color:#38473e}
+      #view-home .home-feature-art img.cov{border-radius:5px;box-shadow:0 12px 28px #1d392422}
+      #view-home .home-feature .btn-glass{background:#08734e;color:#fff;border:0;border-radius:5px;box-shadow:none}
+      #view-home .home-feature .btn-glass.ghost{background:#fff;color:var(--ink)}
+      #view-home .feature-arrow{color:var(--ink)}
+      #view-home .feature-arrow:hover{background:#dfeae3}
+      #view-home .feature-dots button:after{background:#a6b6ad}
+      #view-home .feature-dots button.on:after{background:#08734e}
+      #view-home .home-feature-wrap :is(button,a,.home-feature-synopsis):focus-visible{outline-color:var(--lav-ink)}
+      #view-home .chip-toggle.on{background:#08734e;color:#fff;border-color:transparent}
+      .drawer{width:min(560px,95vw);background:#fff;box-shadow:-16px 0 48px #13251b1a}
+      .drawer-hero{background:#f2f6f3;padding:26px 28px}
+      .drawer-body{padding:26px 28px 40px}
+      .drawer-title{font-size:26px;line-height:1.25;letter-spacing:-.025em}
+      .drawer .synopsis{color:#3a4940;line-height:1.8;font-size:14px}
+      .drawer .section-t{color:var(--muted);letter-spacing:.06em;font-size:11px;margin-top:26px}
+      .drawer .guide-episode{padding:14px 0;border-bottom:1px solid var(--line)}
+      @media(max-width:1100px){.library-layout{grid-template-columns:1fr;gap:0}.library-sidebar{display:grid;grid-template-columns:1fr 1fr;gap:28px}.library-sidebar #list-strip{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}.library-sidebar>.library-section{margin-top:14px}}
+      @media(max-width:640px){#grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 14px}.library-sidebar{grid-template-columns:1fr;gap:0}.library-shortcuts{gap:8px}.library-shortcuts button{font-size:13px}.library-controls{gap:10px}.library-controls>label{max-width:100%;min-width:0}.library-controls select{max-width:100%}#list-add-options{grid-template-columns:1fr}.drawer-hero,.drawer-body{padding:22px 20px}.drawer-title{font-size:23px}#view-home .home-heading h1{font-size:27px}.dash-body{padding-inline:8px}}
+
 </style>
   </head>
   <body>
@@ -698,11 +803,15 @@ main:focus{outline:none}
           <nav id="library-shortcuts" class="library-shortcuts" aria-label="Library sections"></nav>
           <div class="stats" id="stats"></div>
           <div class="metadata-notice" id="library-metadata-status" hidden></div>
+          <div class="library-layout">
+          <section class="library-section library-collection" aria-labelledby="collection-title"><h2 id="collection-title" data-t="collectionTitle"></h2><p class="sub" data-t="collectionHelp"></p><div class="filters" id="filters"></div>
+          <div class="grid" id="grid"></div></section>
+          <aside class="library-sidebar">
           <section class="library-section" aria-labelledby="library-lists-title"><div class="lists-strip-head"><h2 id="library-lists-title" data-t="lists"></h2><button class="btn sm" id="add-list-inline"></button></div>
           <p class="sub" data-t="listsHelp"></p><div class="scroll-x" id="list-strip"></div></section>
           <section id="sites-block" class="library-section" aria-labelledby="sites-h"><div class="lists-strip-head"><h2 id="sites-h">Your sites</h2></div><p class="sub" id="sites-help" data-t="sitesHelp"></p><div class="site-chips" id="site-strip"></div></section>
-          <section class="library-section" aria-labelledby="collection-title"><h2 id="collection-title" data-t="collectionTitle"></h2><p class="sub" data-t="collectionHelp"></p><div class="filters" id="filters"></div>
-          <div class="grid" id="grid"></div></section>
+          </aside>
+          </div>
         </div>
         <div id="list-detail" hidden></div>
       </section>

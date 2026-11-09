@@ -30,7 +30,7 @@ const UNLOCK_ALL = typeof DASI_UNLOCK_ALL !== "undefined" ? DASI_UNLOCK_ALL : tr
 let items = [], sites = [], notifications = [], lists = [];
 let settings = { notifyNew: true, lang: "en", profile: { name: "", avatar: "" } };
 let filter = "all", query = "", currentListId = null, view = "home";
-let listAddQuery = "";
+let listAddQuery = "", listAddLimit = 50;
 let listCreationPending=false;
 function paintListCreation() {
   for(const id of ["new-list","add-list-inline"]){const button=document.getElementById(id);if(button){button.disabled=listCreationPending;button.setAttribute("aria-busy",String(listCreationPending));}}
@@ -1798,7 +1798,7 @@ function renderGrid() {
   const formats=[...new Set(items.filter(i=>i.type!=="game").map(i=>String(i.format||"").toUpperCase()).filter(Boolean))].sort();
   // Keep an active filter visible even when its final matching work was removed.
   if(libraryFormat!=="all"&&!formats.includes(libraryFormat))formats.push(libraryFormat);
-  const controls='<div style="grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'+
+  const controls='<div class="library-controls">'+
     '<label style="flex:1;min-width:min(240px,100%)">'+(t("librarySearchLabel"))+' <input type="search" class="field" id="library-search" value="'+esc(libraryQuery)+'" placeholder="'+(t("librarySearchHint"))+'"></label>'+
     '<label>'+ t("sortBy")+' <select class="field" id="library-sort"'+(librarySortSaving?' disabled aria-busy="true"':'')+'>'+
     [["recent",t("sortRecent")],["title",t("sortTitle")],["rating",t("sortRating")],["remaining",t("sortRemaining")],["added",t("sortAdded")]].map(([v,label])=>'<option value="'+v+'"'+((settings.librarySort||"recent")===v?' selected':'')+'>'+label+'</option>').join("")+'</select></label>'+
@@ -2092,7 +2092,7 @@ function renderSites() {
     });
   }));
 }
-function openList(id) { const selected=lists.find(list=>list.id===id);if(selected)showArchivedLists=Boolean(selected.archived); if(currentListId!==id)listAddQuery=""; currentListId = id; document.getElementById("lib-main").hidden = true; document.getElementById("list-detail").hidden = false; renderListDetail(); document.getElementById("back-lists")?.focus({preventScroll:true}); window.scrollTo({ top: 0, behavior: "smooth" }); }
+function openList(id) { const selected=lists.find(list=>list.id===id);if(selected)showArchivedLists=Boolean(selected.archived); if(currentListId!==id){listAddQuery="";listAddLimit=50;} currentListId = id; document.getElementById("lib-main").hidden = true; document.getElementById("list-detail").hidden = false; renderListDetail(); document.getElementById("back-lists")?.focus({preventScroll:true}); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function renderListDetail() {
   const l = lists.find((x) => x.id === currentListId);
   const wrap = document.getElementById("list-detail");
@@ -2126,16 +2126,17 @@ function renderListDetail() {
         <div class="li-cover" style="background:${safeColor(i.accent,accentFor(i))}">${coverInner(i)}</div>
         <div style="flex:1;min-width:0"><button class="link-btn list-work-title" data-open="${esc(i.id)}">${esc(i.title)}</button><small><span class="cat-inline">${esc(catLabel(i))}</span> ${esc(marker(i))}</small></div>
         <button class="btn" data-remove="${esc(i.id)}" aria-label="${esc(t("listRemoveMember")+": "+i.title)}">${t("listRemoveMember")}</button></div>`).join("") : `<p class="empty" style="padding:24px 0">${t("listEmptyHelp")}</p>`}</div>`}
-    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><p class="sub">${t("listAddHelp")}</p><label for="list-add-search">${t("librarySearchLabel")}</label><input class="field" type="search" id="list-add-search" value="${esc(listAddQuery)}" /><p class="sub" id="list-add-count" role="status"></p><div class="chips-wrap" id="list-add-options"></div>` : ""}`;
+    ${notIn.length ? `<div class="section-t">${t("addWorks")}</div><p class="sub">${t("listAddHelp")}</p><label for="list-add-search">${t("librarySearchLabel")}</label><input class="field" type="search" id="list-add-search" value="${esc(listAddQuery)}" /><p class="sub" id="list-add-count" role="status"></p><div class="chips-wrap" id="list-add-options"></div><button type="button" class="btn" id="list-add-more" aria-controls="list-add-options" hidden>${t("showMore")}</button>` : ""}`;
   const search=document.getElementById("list-add-search");
   if(search) {
     const renderOptions=()=>{
       const normalize=value=>String(value||"").normalize("NFKD").replace(/\p{M}/gu,"").toLocaleLowerCase().trim();
       const q=normalize(search.value);
       const matches=notIn.filter(i=>[i.title,...(i.alternativeTitles||[]),...(i.authors||[]),...(i.tags||[])].some(value=>normalize(value).includes(q)));
-      const shown=matches.slice(0,50);
+      const shown=matches.slice(0,listAddLimit);
       document.getElementById("list-add-count").textContent=shown.length+" / "+matches.length+" "+t("works");
       const options=document.getElementById("list-add-options");
+      document.getElementById("list-add-more").hidden=shown.length>=matches.length;
       options.innerHTML=shown.length?shown.map(i=>'<button class="chip-toggle" data-add="'+esc(i.id)+'"><span class="cat-inline">'+esc(catLabel(i))+'</span> '+esc(i.title)+'</button>').join(""):'<p class="sub">'+t("noMatch")+'</p>';
       options.querySelectorAll("[data-add]").forEach(b=>b.onclick=async()=>{
         if(b.disabled)return;
@@ -2145,7 +2146,12 @@ function renderListDetail() {
         if(hadFocus&&currentListId===l.id&&document.activeElement===document.body)document.getElementById("list-add-search")?.focus();
       });
     };
-    search.oninput=()=>{listAddQuery=search.value;renderOptions();};renderOptions();
+    document.getElementById("list-add-more").onclick=()=>{
+      const previousCount=document.querySelectorAll("#list-add-options [data-add]").length;
+      listAddLimit+=50;renderOptions();
+      document.querySelectorAll("#list-add-options [data-add]")[previousCount]?.focus();
+    };
+    search.oninput=()=>{listAddQuery=search.value;listAddLimit=50;renderOptions();};renderOptions();
     if(restoreSearch){search.focus();search.setSelectionRange(...selection);}
   }
   wireListDetail(l);
@@ -2315,7 +2321,7 @@ function listMsg(type, payload, done) {
 }
 function backToLists() {
   const previousId=currentListId;
-  listAddQuery = ""; currentListId = null;
+  listAddQuery = ""; listAddLimit = 50; currentListId = null;
   document.getElementById("list-detail").hidden = true;
   const main=document.getElementById("lib-main");main.hidden = false;
   renderLists(); renderGrid();

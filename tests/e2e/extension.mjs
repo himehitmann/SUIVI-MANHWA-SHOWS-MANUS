@@ -227,10 +227,28 @@ try {
     await worker.evaluate(async()=>{
       const originals=(await chrome.storage.local.get("dasi.items"))["dasi.items"];
       if(!originals.some(item=>item.id==="alchemy-of-souls"))throw Error("Baseline work missing before list journey");
-      await chrome.storage.local.set({"dasi.items":[...originals,...Array.from({length:65},(_,n)=>({id:"list-extra-"+n,title:"Library extra "+n,type:"reading",alternativeTitles:n===64?["Étoile secrète"]:[],enrichedAt:1}))],"dasi.lists":[{id:"journey-list",name:"Reading queue",itemIds:["alchemy-of-souls"]}]});
+      await chrome.storage.local.set({"dasi.items":[...originals,...Array.from({length:125},(_,n)=>({id:"list-extra-"+n,title:"Library extra "+n,type:"reading",alternativeTitles:n===64?["Étoile secrète"]:[],enrichedAt:1}))],"dasi.lists":[{id:"journey-list",name:"Reading queue",itemIds:["alchemy-of-souls"]}]});
     });
     await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("library");openList("journey-list");resolve();})));
     assert.equal(await page.locator('#list-add-options [data-add]').count(),50,"Large libraries should not render every add button at once");
+    const availableCount=await page.evaluate(()=>items.filter(item=>!lists.find(list=>list.id==="journey-list").itemIds.includes(item.id)).length);
+    const nextId=await page.evaluate(()=>items.filter(item=>!lists.find(list=>list.id==="journey-list").itemIds.includes(item.id))[50].id);
+    await page.locator("#list-add-more").focus();await page.keyboard.press("Enter");
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),100);
+    assert.equal(await page.evaluate(()=>document.activeElement?.dataset.add),nextId,"Keyboard pagination should focus the first newly revealed work");
+    await page.locator("#list-add-more").click();
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),availableCount);
+    assert.equal(await page.locator("#list-add-more").isVisible(),false,"The end of the list must not offer an empty next page");
+    await page.locator('[data-add="list-extra-124"]').click();
+    await page.locator('#list-items [data-open="list-extra-124"]').waitFor();
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),availableCount-1,"Saving a late-page work must keep the expanded choices");
+    assert((await worker.evaluate(()=>chrome.storage.local.get("dasi.lists")))["dasi.lists"][0].itemIds.includes("list-extra-124"));
+    await page.locator("#list-add-search").fill("Library extra");
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),50,"A new query resets the page size");
+    await page.locator("#list-add-search").fill("");
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),50);
+    console.log("PASS: list choices paginate beyond 100 works, focus new choices by keyboard, preserve expansion after a saved addition and reset for a new search");
+
     await page.evaluate(()=>{
       globalThis.listJourneyTransport=api.runtime.sendMessage;
       api.runtime.sendMessage=function(message,callback){
