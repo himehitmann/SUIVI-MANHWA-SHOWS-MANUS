@@ -1,12 +1,24 @@
 # Suivi global Yomu
 
-Mise à jour : 8 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 9 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Bibliothèques ouvertes après changement de compte — 9 novembre 2026
+
+Les onglets de bibliothèque observent désormais le changement d’identité du compte dans le stockage local. Ils masquent immédiatement l’ancien contenu, cessent d’envoyer des demandes et ignorent les réponses devenues périmées, puis rechargent un document de bibliothèque sans ancienne destination de notification. Ce rechargement abandonne les fiches et formulaires ouverts ainsi que l’analyse d’un fichier d’import encore en attente. Les contrôles d’import et d’export vérifient aussi l’état de transition avant de poursuivre.
+
+Le renouvellement du jeton, une modification de formule et les autres mises à jour conservant la même identité de compte ne rechargent pas l’onglet. La comparaison distingue les serveurs et, pour Firebase, les projets et utilisateurs.
+
+Le parcours du paquet Chromium utilise deux onglets, une fiche avec un titre non enregistré et un import dont l’analyse est volontairement suspendue. Il renouvelle la connexion du même compte, passe au compte B, déconnecte vers la bibliothèque invitée, puis revient au compte A. Il vérifie les profils et œuvres affichés, la fermeture des fiches, l’abandon de l’ancien import et la conservation des progressions et notes enregistrées. Les comptes sont des fixtures locales de test sans accès à un service de production. Le précédent test des messages en attente emploie un document de test indépendant afin de pouvoir observer leurs réponses malgré le rechargement normal de la bibliothèque.
+
+Code aa4b82a7580c04708d1c5692bb16549a7036232c, attente d’initialisation du test c3c7acf78b94a2442c82174b0614a4b8361e4589. Les premiers essais ont révélé une attente de test trop précoce après navigation ; les assertions attendent maintenant que le script de la bibliothèque soit chargé. [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42657531934) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42657519958) réussies. **753 tests unitaires**, parcours web et paquet, contrôles d’interface, de charge et de récupération réussis. Aucune vulnérabilité connue signalée par l’audit des dépendances. [Paquet vérifié](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42657531934/artifacts/13693077716).
+
+Les saisies non enregistrées sont volontairement abandonnées lors d’un changement de compte. **21/60 (35 %) global vérifié**, sans nouveau critère entièrement fermé.
 
 ## Opérations en attente pendant un changement de compte — 8 novembre 2026
 
