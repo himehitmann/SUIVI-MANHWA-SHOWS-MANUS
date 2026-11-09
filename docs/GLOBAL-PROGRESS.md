@@ -1,12 +1,26 @@
 # Suivi global Yomu
 
-Mise à jour : 9 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 10 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Présentation catalogue et bibliothèque — 10 novembre 2026
+
+À la demande de l’utilisatrice, l’interface de l’extension prend une direction de catalogue inspirée des références [Dongman](https://www.dongmanmanhua.cn/), [Naver Webtoon](https://comic.naver.com/index) et de la [fiche Dongman fournie](https://www.dongmanmanhua.cn/SUSPENSE/weixiandetongxue/list?title_no=2848). Le lot adapte la hiérarchie et la place des couvertures ; il n’importe ni identité de marque ni illustrations de ces sites. L’accès direct à certaines pages de référence a été limité ; ce lot ne prétend pas reproduire leur état visuel exact.
+
+Fond clair, navigation sobre et accent vert, couvertures de bibliothèque au ratio stable 2:3, titres et commandes lisibles. La collection précède les listes et les sites dans le document ; ces derniers occupent une colonne latérale sur grand écran et passent sous la collection sur petit écran. La fiche d’œuvre est élargie, avec un synopsis plus lisible ; le bandeau d’accueil garde ses commandes et sa rotation existantes. Un profil sans bannière personnalisée utilise un en-tête compact. Les bannières personnelles restent prises en charge. La modification concerne library.html/library.js de l’extension, pas une refonte achevée de toutes les pages du client web.
+
+L’ajout aux listes ne s’arrête plus aux 50 premiers choix : « Voir plus » révèle les pages suivantes, place le focus clavier sur le premier nouveau choix et disparaît en fin de résultats. L’affichage étendu reste ouvert après un ajout ; une nouvelle recherche ou une autre liste réinitialise la limite.
+
+Les parcours vérifient plus de 100 choix, un ajout réel au-delà de cette limite, la recherche et la conservation des membres. L’audit d’interface contrôle la géométrie à 320, 390, 768 et 1440 px. Des captures de bibliothèque, d’accueil et de fiche utilisent uniquement des données et couvertures synthétiques pour le contrôle visuel, sans données personnelles. La première revue a conduit à réduire l’espace du profil par défaut à retirer une ancienne dimension forcée du bouton de création de liste et à séparer les noms de listes de leurs compteurs. Les contrôles de géométrie couvrent également les boutons de la colonne latérale et la séparation verticale de ces libellés.
+
+Code 4b28609c8fa4b7c26e66b5315bdec646997fce6b, ajustements 50ced355cf90387c7b375a6365544ff199987685 et 9356841a965009f01d10ed372d2d898303fd9361. [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42718204197) et [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42718194535) réussies. **753 tests unitaires**, parcours web et paquet, contrôles d’interface, de charge et de récupération réussis. Aucune vulnérabilité connue signalée par l’audit des dépendances. [Paquet et captures de contrôle](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42718194535/artifacts/13718928512).
+
+**21/60 (35 %) global vérifié**, sans nouveau critère entièrement fermé. Le design sur le catalogue réel, la couverture des fournisseurs et la préparation de production conservent leurs limites documentées.
 
 ## Bibliothèques ouvertes après changement de compte — 9 novembre 2026
 
