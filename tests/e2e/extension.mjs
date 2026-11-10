@@ -908,6 +908,105 @@ try {
   await reader.locator("#yomu-translation-status button").first().click();
   await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
   console.log("Readable rendered panel translated locally without additional host access");
+  // Long HTML pages use real content-script messages (including worker size
+  // validation), while the external translation response is deterministic.
+  const longTextReader=await context.newPage();
+  longTextReader.on("pageerror",error=>errors.push(error.message));
+  await longTextReader.route("https://en.wikipedia.org/yomu-e2e/long-text",route=>route.fulfill({
+    contentType:"text/html",body:'<!doctype html><html lang="en"><head><title>Text fixture</title></head><body></body></html>'
+  }));
+  await longTextReader.goto("https://en.wikipedia.org/yomu-e2e/long-text");
+  await worker.evaluate(()=>{
+    globalThis.beforeLongTextTranslator=translateTexts;
+    globalThis.longTextCalls=[];globalThis.longTextFailAt=0;globalThis.longTextHold=false;globalThis.longTextHeld=null;globalThis.longTextInvalid=false;
+    translateTexts=async texts=>{
+      globalThis.longTextCalls.push([...texts]);
+      if(globalThis.longTextFailAt===globalThis.longTextCalls.length)throw Error("gtx_503");
+      if(globalThis.longTextInvalid){globalThis.longTextInvalid=false;return [];}
+      if(globalThis.longTextHold)return new Promise(resolve=>{globalThis.longTextHeld=()=>resolve(texts.map(text=>text.replaceAll("Hello","Bonjour")));});
+      return texts.map(text=>text.replaceAll("Hello","Bonjour"));
+    };
+  });
+  const setLongTextFixture=async texts=>{
+    await longTextReader.evaluate(texts=>{
+      document.body.replaceChildren();
+      for(const [index,text] of texts.entries()) {
+        const paragraph=document.createElement("p");paragraph.id="paragraph-"+index;paragraph.textContent=text;document.body.append(paragraph);
+      }
+      const button=document.createElement("button");button.id="untouched-button";button.textContent="Hello button";document.body.append(button);
+      const input=document.createElement("input");input.id="untouched-input";input.value="Hello private input";document.body.append(input);
+      window.scrollTo(0,0);
+    },texts);
+    await worker.evaluate(()=>{globalThis.longTextCalls=[];globalThis.longTextFailAt=0;globalThis.longTextHold=false;globalThis.longTextHeld=null;globalThis.longTextInvalid=false;});
+  };
+  const startLongText=async()=>{
+    await longTextReader.bringToFront();
+    const result=await page.evaluate(()=>chrome.runtime.sendMessage({type:"TRANSLATE_PAGE",lang:"fr",src:"eng"}));
+    assert.equal(result.ok,true);
+  };
+  const normalParagraphs=Array.from({length:325},(_,index)=>"Hello paragraph "+index+" "+("Text to translate. ").repeat(18));
+  const longParagraph=Array.from({length:1700},(_,index)=>"Hello section "+index+" 世界🌸 ").join("")+"LAST SENTINEL";
+  const manyParagraphs=[...normalParagraphs,longParagraph];
+  await setLongTextFixture(manyParagraphs);
+  await startLongText();
+  await longTextReader.waitForFunction(expected=>document.getElementById("paragraph-325").textContent===expected,longParagraph.replaceAll("Hello","Bonjour"));
+  assert.deepEqual(await longTextReader.locator("p").allTextContents(),manyParagraphs.map(text=>text.replaceAll("Hello","Bonjour")));
+  const longCalls=await worker.evaluate(()=>globalThis.longTextCalls);
+  assert(longCalls.length>1);
+  assert(longCalls.every(batch=>batch.length<=20 && batch.every(text=>text.length<=8000) && batch.join("").length<=40000),"Page text exceeded the bounded message size");
+  assert.equal(await longTextReader.locator("#untouched-button").textContent(),"Hello button");
+  assert.equal(await longTextReader.locator("#untouched-input").inputValue(),"Hello private input");
+  assert.equal(await longTextReader.evaluate(()=>scrollY),0,"Translation forced a scroll");
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+  assert.deepEqual(await longTextReader.locator("p").allTextContents(),manyParagraphs);
+
+  // A single huge node is applied only once every piece succeeds. Retrying
+  // resumes the failed batch rather than retranslating the successful prefix.
+  const hugeParagraph=Array.from({length:6500},(_,index)=>"Hello distinct section "+index+" 世界🌸 ").join("");
+  await setLongTextFixture([hugeParagraph]);
+  await worker.evaluate(()=>{globalThis.longTextFailAt=2;});
+  await startLongText();
+  await longTextReader.locator("#yomu-translation-retry:not([hidden]):not([disabled])").waitFor();
+  assert.equal(await longTextReader.locator("#paragraph-0").textContent(),hugeParagraph,"Part of a long paragraph was replaced before completion");
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),2);
+  await longTextReader.locator("#yomu-translation-retry").click();
+  await longTextReader.waitForFunction(expected=>document.getElementById("paragraph-0").textContent===expected,hugeParagraph.replaceAll("Hello","Bonjour"));
+  const retriedCalls=await worker.evaluate(()=>globalThis.longTextCalls);
+  assert.deepEqual(retriedCalls[2],retriedCalls[1],"Retry did not resume the failed batch");
+  assert.notDeepEqual(retriedCalls[2],retriedCalls[0],"Retry restarted an already successful prefix");
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+  assert.equal(await longTextReader.locator("#paragraph-0").textContent(),hugeParagraph);
+
+  // A malformed success response must offer a retry, never erase the text.
+  await setLongTextFixture(["Hello retry paragraph"]);
+  await worker.evaluate(()=>{globalThis.longTextInvalid=true;});
+  await startLongText();
+  await longTextReader.locator("#yomu-translation-retry:not([hidden]):not([disabled])").waitFor();
+  assert.equal(await longTextReader.locator("#paragraph-0").textContent(),"Hello retry paragraph");
+  await longTextReader.locator("#yomu-translation-retry").click();
+  await longTextReader.waitForFunction(()=>document.getElementById("paragraph-0").textContent==="Bonjour retry paragraph");
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+
+  // Stopping cancels the queue even if the first request is already in flight.
+  const stoppedParagraphs=normalParagraphs.slice(0,75);
+  await setLongTextFixture(stoppedParagraphs);
+  await worker.evaluate(()=>{globalThis.longTextHold=true;});
+  await startLongText();
+  await worker.evaluate(async()=>{
+    const deadline=Date.now()+5000;
+    while(!globalThis.longTextHeld && Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,20));
+    if(!globalThis.longTextHeld)throw Error("Held translation did not start");
+  });
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>globalThis.longTextHeld());
+  await longTextReader.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  assert.deepEqual(await longTextReader.locator("p").allTextContents(),stoppedParagraphs);
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),1,"Stopping still sent the next batch");
+  assert.equal(await longTextReader.locator("#yomu-translation-status").count(),0);
+  await worker.evaluate(()=>{translateTexts=globalThis.beforeLongTextTranslator;});
+  await longTextReader.close();
+  console.log("Long-page translation: 326 text nodes, bounded Unicode batches, complete restoration, failed-batch retry and cancellation passed");
+
   // Packaged automatic translation on HTTPS documents. Only network translation
   // is deterministic; permissions, navigation, injection and image OCR are real.
   const autoReader=await context.newPage();

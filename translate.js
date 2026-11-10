@@ -210,6 +210,25 @@
     resize.observe(im);
     schedule();
   }
+  // One message stays well below the worker's 10k-per-text / 60k-total
+  // limits. Keep word separators and never split a UTF-16 surrogate pair.
+  function splitNodeText(text) {
+    const parts=[];
+    let start=0;
+    while(start<text.length) {
+      let end=Math.min(start+8000,text.length),separator="";
+      if(end<text.length) {
+        const last=text.charCodeAt(end-1);
+        if(last>=0xd800 && last<=0xdbff)end--;
+        const candidate=text.slice(start,end);
+        const boundary=[...candidate.matchAll(/\s+/g)].filter(match=>match.index>=candidate.length/2).pop();
+        if(boundary){end=start+boundary.index;separator=boundary[0];}
+      }
+      parts.push({text:text.slice(start,end),separator});
+      start=end+separator.length;
+    }
+    return parts;
+  }
   async function translate(target, override) {
     restore();
     const token = run,
@@ -218,11 +237,17 @@
       failed = 0,
       empty = 0,
       lastError = "",
-      active = 0;
+      active = 0,
+      textActive = false,
+      textDone = 0,
+      textError = "",
+      textCursor = 0;
+    const textJobs = [];
     const queue = [];
     const failures = new Set();
     retryFailed = () => {
-      if (run !== token || active) return;
+      if (run !== token || active || textActive) return;
+      if(textError){textError="";drainText();}
       const pending = [...failures]; failures.clear(); failed = 0; lastError = "";
       for (const im of pending) { processed.delete(im); if (im.isConnected) enqueue(im); }
       progress();
@@ -243,31 +268,59 @@
         },
       }
     );
-    const nodes = [];
-    while (walker.nextNode() && nodes.length < 300)
-      nodes.push(walker.currentNode);
-    const sourceTexts = nodes.map(node => node.nodeValue);
-    // DOM translation and image OCR progress independently. A slow menu never blocks a panel.
-    if (nodes.length)
-      request({ type: "DASI_MT", texts: sourceTexts, target })
-        .then(r => {
-          if (run !== token) return;
-          r.translations.forEach((text, i) => {
-            if (text && nodes[i]?.isConnected && nodes[i].nodeValue === sourceTexts[i]) {
-              originals.set(nodes[i], {original:sourceTexts[i],translated:text});
-              nodes[i].nodeValue = text;
+    while(walker.nextNode()) {
+      const node=walker.currentNode,source=node.nodeValue;
+      const parts=splitNodeText(source);
+      const entry={node,source,remaining:parts.length,translated:[],skipped:false};
+      parts.forEach((part,index)=>textJobs.push({entry,index,...part}));
+    }
+    // Text batches and image OCR run independently. A failure leaves completed
+    // nodes in place and the cursor on the failed batch for an explicit retry.
+    async function drainText() {
+      if(textActive || run!==token || textCursor>=textJobs.length)return;
+      textActive=true;progress();
+      try {
+        while(textCursor<textJobs.length && run===token) {
+          const batch=[];
+          let cursor=textCursor,size=0;
+          while(cursor<textJobs.length && batch.length<20) {
+            const job=textJobs[cursor],entry=job.entry;
+            if(entry.skipped || !entry.node.isConnected || entry.node.nodeValue!==entry.source) {
+              entry.skipped=true;cursor++;continue;
             }
-          });
-        })
-        .catch(() => {
-          if (run === token && !done)
-            status(
-              wording(
-                "Traduction du texte indisponible. Les images sont traitées séparément.",
-                "Text translation unavailable. Image translation continues."
-              )
-            );
-        });
+            if(batch.length && size+job.text.length>40000)break;
+            batch.push(job);size+=job.text.length;cursor++;
+          }
+          if(!batch.length){textCursor=cursor;continue;}
+          const result=await request({type:"DASI_MT",texts:batch.map(job=>job.text),target});
+          if(run!==token)return;
+          if(!Array.isArray(result.translations) || result.translations.length!==batch.length ||
+            result.translations.some((text,index)=>typeof text!=="string" || batch[index].text.trim()&&!text.trim())) {
+            throw new Error("translation_response_invalid");
+          }
+          for(let i=0;i<batch.length;i++) {
+            const job=batch[i],entry=job.entry;
+            if(!entry.node.isConnected || entry.node.nodeValue!==entry.source){entry.skipped=true;continue;}
+            entry.translated[job.index]=result.translations[i]+job.separator;
+            if(--entry.remaining===0) {
+              const translated=entry.translated.join("");
+              originals.set(entry.node,{original:entry.source,translated});
+              entry.node.nodeValue=translated;
+              entry.translated=[];textDone++;
+            }
+          }
+          textCursor=cursor;progress();
+        }
+        if(run===token && textCursor===textJobs.length){textJobs.length=0;textCursor=0;}
+      }catch(error){
+        if(run===token)textError=error.message==="translation_rate_limited"
+          ?wording("service temporairement limité, patiente au moins une minute","service temporarily rate-limited, wait at least one minute")
+          :wording("traduction du texte interrompue, réessaie pour poursuivre","text translation interrupted, retry to continue");
+      }finally{
+        if(run===token){textActive=false;progress();}
+      }
+    }
+    drainText();
     resize = new ResizeObserver(schedule);
     window.addEventListener("scroll", schedule, {
       passive: true,
@@ -277,28 +330,18 @@
     function progress() {
       if (run !== token) return;
       const retry = document.getElementById("yomu-translation-retry");
-      if (retry) {retry.hidden = !failures.size; retry.disabled = !!active;}
-      status(
-        active
-          ? wording(
-              "Yomu — lecture et traduction des bulles…",
-              "Yomu — reading and translating speech bubbles…"
-            )
-          : failed
-            ? wording(
-                `${done} image(s) traduite(s). ${failed} échec(s) (${lastError}) : réessaie les images échouées.`,
-                `${done} image(s) translated. ${failed} failed (${lastError}): retry the failed images.`
-              )
-            : done
-              ? wording(
-                  `${done} image(s) traduite(s) — poursuis ta lecture.`,
-                  `${done} image(s) translated — keep reading.`
-                )
-              : wording(
-                  "Aucun texte lisible détecté pour le moment.",
-                  "No readable text detected yet."
-                )
+      if (retry) {retry.hidden = !failures.size && !textError; retry.disabled = !!active || textActive;}
+      const completed=wording(
+        `${textDone} passage(s) de texte et ${done} image(s) traduits.`,
+        `${textDone} text passage(s) and ${done} image(s) translated.`
       );
+      if(active || textActive)status(wording("Yomu — traduction en cours… ","Yomu — translating… ")+completed);
+      else if(textError || failed)status(completed+" "+[
+        textError,
+        failed?wording(`${failed} image(s) en échec (${lastError}).`,`${failed} image(s) failed (${lastError}).`):""
+      ].filter(Boolean).join(" "));
+      else if(textDone || done)status(completed+" "+wording("Poursuis ta lecture.","Keep reading."));
+      else status(wording("Aucun texte lisible détecté pour le moment.","No readable text detected yet."));
     }
     async function drain() {
       if (active || run !== token) return;
@@ -361,13 +404,7 @@
     });
     mutation.observe(document.body, { childList: true, subtree: true, attributes:true, attributeFilter:["src","srcset","data-src","data-original","data-lazy-src","data-url"] });
     scan();
-    if (![...document.images].some(isPanel))
-      status(
-        wording(
-          "Yomu — traduction du texte. Aucune image de lecture détectée.",
-          "Yomu — translating text. No reading images detected."
-        )
-      );
+    progress();
   }
   chrome.runtime.onMessage.addListener((m, _sender, respond) => {
     if (m?.type === "DASI_TRANSLATE") {
