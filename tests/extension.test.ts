@@ -3376,3 +3376,84 @@ describe("queued operations remain attached to their original account",()=>{
     expect(w.data["dasi.sync.config"].userId).toBe("b");
   });
 });
+
+describe("translation text integrity",()=>{
+  function recordingWorker() {
+    const w=worker();
+    w.run(`globalThis.queries=[];fetch=async url=>{
+      const query=new URL(url).searchParams;queries.push(Object.fromEntries(query));
+      return {ok:true,status:200,json:async()=>[[[query.get("q")]]]};
+    };`);
+    return w;
+  }
+  it.each([["jpn","ja"],["kor","ko"],["chi_sim","zh-CN"],["eng","en"]])("sends the OCR source %s to translation",async(source,expected)=>{
+    const w=recordingWorker();w.ctx.source=source;
+    w.run(`ensureOffscreen=async()=>{};fetchBlob=async()=>({size:1});blobToDataUrl=async()=>"data:image/png;base64,AA==";
+      ocrViaTesseract=async()=>({width:100,height:200,blocks:[{text:"読書",bbox:{x0:0,y0:0,x1:80,y1:50}}]});`);
+    const result=await w.run('translateImageText("https://reader.example/panel.png","fr",source)');
+    expect(w.run("queries[0].sl")).toBe(expected);
+    expect(w.run("queries[0].tl")).toBe("fr");
+    expect(result.blocks[0].translation).toBe("読書");
+  });
+  it("keeps automatic detection for mixed page text",async()=>{
+    const w=recordingWorker();
+    const result=await w.call({type:"DASI_MT",texts:["Bonjour","Hello"],target:"de"});
+    expect(result).toMatchObject({ok:true,translations:["Bonjour","Hello"]});
+    expect(w.run("queries[0].sl")).toBe("auto");
+  });
+  it("translates more than 500 bubbles rather than reporting untranslated originals as complete",async()=>{
+    const w=recordingWorker();
+    w.run(`fetch=async url=>{const query=new URL(url).searchParams;queries.push(Object.fromEntries(query));return {ok:true,status:200,json:async()=>[[[query.get("q").split("\\n").map(text=>"FR "+text).join("\\n")]]]};};`);
+    w.ctx.bubbles=Array.from({length:505},(_,i)=>"Bubble "+i);
+    const out=await w.run('translateTexts(bubbles,"fr")');
+    expect(out).toHaveLength(505);
+    expect(out[0]).toBe("FR Bubble 0");expect(out[504]).toBe("FR Bubble 504");
+    expect(w.run("queries.length")).toBe(26);
+  });
+  it("keeps long CJK, emoji and words intact within a bounded encoded request",async()=>{
+    const w=recordingWorker();
+    const input=("こんにちは世界 🌸 This is a sentence. ").repeat(220)+"最後";
+    w.ctx.longText=input;
+    const out=await w.run('translateTexts([longText],"fr","jpn")');
+    expect(out).toEqual([input]);
+    const queries=w.run("queries");
+    expect(queries.length).toBeGreaterThan(1);
+    expect(queries.every((q:any)=>encodeURIComponent(q.q).length<=3600)).toBe(true);
+    expect(queries.every((q:any)=>q.sl==="ja")).toBe(true);
+    expect(queries.every((q:any)=>!q.q.includes("\uFFFD"))).toBe(true);
+  });
+  it("splits a long unspaced CJK bubble without losing characters",async()=>{
+    const w=recordingWorker();w.ctx.longText="世界🌸".repeat(800);
+    const out=await w.run('translateTexts([longText],"fr","jpn")');
+    expect(out).toEqual([w.ctx.longText]);
+    expect(w.run("queries").every((q:any)=>encodeURIComponent(q.q).length<=3600)).toBe(true);
+  });
+  it("keeps multiline bubbles separate from adjacent bubbles",async()=>{
+    const w=recordingWorker();
+    const out=await w.run('translateTexts(["First\\nsecond","Other bubble"],"fr")');
+    expect(out).toEqual(["First\nsecond","Other bubble"]);
+    expect(w.run('queries.map(q=>q.q)')).toEqual(["First\nsecond","Other bubble"]);
+  });
+  it("falls back per bubble only when a successful batch loses its separators",async()=>{
+    const w=recordingWorker();
+    w.run(`fetch=async url=>{const q=new URL(url).searchParams.get("q");queries.push(q);return {ok:true,status:200,json:async()=>[[[q.includes("\\n")?"Merged":("FR "+q)]]]};};`);
+    expect(await w.run('translateTexts(["First","Second"],"fr")')).toEqual(["FR First","FR Second"]);
+    expect(w.run("queries")).toEqual(["First\nSecond","First","Second"]);
+  });
+  it("does not turn a server failure into repeated per-bubble requests",async()=>{
+    const w=worker();w.run('globalThis.requests=0;fetch=async()=>{requests++;return {ok:false,status:503};}');
+    await expect(w.run('translateTexts(["First","Second"],"fr")')).rejects.toThrow("gtx_503");
+    expect(w.run("requests")).toBe(1);
+  });
+  it.each([{segments:[]},{segments:[[null]]},{segments:[[""]]},{segments:[["   "]]}])("rejects empty or malformed translations without caching success ($segments)",async ({segments})=>{
+    const w=worker();w.ctx.segments=segments;
+    w.run('globalThis.requests=0;fetch=async()=>{requests++;return {ok:true,status:200,json:async()=>[segments]};}');
+    await expect(w.run('translateTexts(["First","Second"],"fr")')).rejects.toThrow("translation_response_invalid");
+    expect(w.run("requests")).toBe(1);
+  });
+  it("preserves whitespace without sending it to the translation service",async()=>{
+    const w=recordingWorker();
+    expect(await w.run('translateTexts([" ","Hello","\\n"],"fr")')).toEqual([" ","Hello","\n"]);
+    expect(w.run("queries.length")).toBe(1);
+  });
+});

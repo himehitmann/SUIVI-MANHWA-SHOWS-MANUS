@@ -760,55 +760,79 @@ async function addItemToList(itemId, listId, listName) {
 }
 
 /*
- * Optional translation relay. The in-page translator (translate.js) hands us an
- * array of strings and a target language; we translate them (keyless Google
- * endpoint, MyMemory fallback) and hand them back. Runs in the background so the
- * cross-origin fetch uses the extension's host permissions instead of the
- * page's CSP. Best-effort: a failed segment returns the original text.
+ * Translation relay for page text and locally recognized image text. Only text
+ * is sent to the configured keyless endpoint; network failures stay explicit.
  */
+const TRANSLATION_QUERY_LIMIT = 3600;
+function translationLanguage(value, fallback) {
+  const aliases = {eng:"en",fra:"fr",jpn:"ja",kor:"ko",chs:"zh-CN",chi_sim:"zh-CN",chi_tra:"zh-TW"};
+  const lang = aliases[value] || value || fallback;
+  if(typeof lang!=="string" || !/^(?:auto|[a-z]{2,3}(?:-[a-zA-Z]{2,4})?)$/.test(lang))throw new Error("invalid_translation_language");
+  return lang;
+}
 let translationRetryAt=0, translationRetryLoaded=false;
-async function gtxTranslate(text, target) {
+async function gtxTranslate(text, target, source = "auto") {
+  const from=translationLanguage(source,"auto"),to=translationLanguage(target,"en");
+  if(!text.trim() || from===to)return text;
   if(!translationRetryLoaded){translationRetryAt=Math.max(translationRetryAt,Number(await read("yomu.translationRetryAt",0))||0);translationRetryLoaded=true;}
   if(Date.now()<translationRetryAt)throw new Error("translation_rate_limited");
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(text)}`;
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(from)}&tl=${encodeURIComponent(to)}&dt=t&q=${encodeURIComponent(text)}`;
   const r = await fetchRemote(url);
   if(r.status===429){const retry=r.headers.get("retry-after");const seconds=Number(retry);const delay=retry?(Number.isFinite(seconds)?seconds*1000:Date.parse(retry)-Date.now()):60000;translationRetryAt=Date.now()+Math.max(60000,Number.isFinite(delay)?delay:60000);await api.storage.local.set({"yomu.translationRetryAt":translationRetryAt});throw new Error("translation_rate_limited");}
   if (!r.ok) throw new Error(`gtx_${r.status}`);
   const j = await r.json();
-  if(!Array.isArray(j && j[0])) throw new Error("translation_response_invalid");
-  return j[0].map(s => (s && s[0]) || "").join("");
+  if(!Array.isArray(j?.[0]) || !j[0].length || j[0].some(segment=>!Array.isArray(segment)||typeof segment[0]!=="string"))throw new Error("translation_response_invalid");
+  const translated=j[0].map(segment=>segment[0]).join("");
+  if(!translated.trim())throw new Error("translation_response_invalid");
+  return translated;
 }
-async function mymemoryTranslate(text, target) {
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0, 480))}&langpair=${encodeURIComponent("en|" + target)}`;
-  const r = await fetchRemote(url);
-  const j = await r.json();
-  return (j && j.responseData && j.responseData.translatedText) || text;
-}
-async function translateOne(text,target) { return gtxTranslate(text,target); }
-/** Translate an array of strings, batching with a newline join to cut calls. */
-async function translateTexts(texts, target) {
-  const out = new Array(texts.length);
-  const cap = Math.min(texts.length, 500);
-  const SEP = "\n";
-  let i = 0;
-  while (i < cap) {
-    const chunk = texts.slice(i, i + 20);
-    const joined = chunk.join(SEP);
-    let ok = false;
-    if (joined.length < 4000) {
-      try {
-        const tr = await gtxTranslate(joined, target);
-        const parts = tr.split(SEP);
-        if (parts.length === chunk.length) { parts.forEach((p, k) => (out[i + k] = p)); ok = true; }
-      } catch(error) {
-        if(error.message==="translation_rate_limited")throw error;
-        /* fall through to per-item only for other failures */
-      }
+// Limit the encoded query, including CJK and emoji, without splitting surrogate
+// pairs. Prefer a word boundary and preserve the separator between requests.
+async function translateOne(text,target,source = "auto") {
+  let remaining=text,out="";
+  while(remaining) {
+    if(!remaining.trim()){out+=remaining;break;}
+    let end=0,encoded=0;
+    for(const char of remaining) {
+      const size=encodeURIComponent(char).length;
+      if(encoded+size>TRANSLATION_QUERY_LIMIT)break;
+      encoded+=size;end+=char.length;
     }
-    if (!ok) for (let k = 0; k < chunk.length; k++) out[i + k] = await translateOne(chunk[k], target);
-    i += chunk.length;
+    let separator="";
+    if(end<remaining.length) {
+      const candidate=remaining.slice(0,end);
+      const boundary=[...candidate.matchAll(/\s+/g)].filter(match=>match.index>=candidate.length/2).pop();
+      if(boundary){end=boundary.index;separator=boundary[0];}
+    }
+    out+=await gtxTranslate(remaining.slice(0,end),target,source);
+    out+=separator;remaining=remaining.slice(end+separator.length);
   }
-  for (let k = cap; k < texts.length; k++) out[k] = texts[k]; // beyond cap: keep original
+  return out;
+}
+/** Batches keep item order. A failed service request must not fan out into retries. */
+async function translateTexts(texts, target, source = "auto") {
+  const out=[];
+  let i=0;
+  while(i<texts.length) {
+    const first=texts[i];
+    if(!first.trim()){out.push(first);i++;continue;}
+    // Embedded newlines belong to one bubble/node, not to the batch separator.
+    if(/[\r\n]/.test(first) || encodeURIComponent(first).length>TRANSLATION_QUERY_LIMIT) {
+      out.push(await translateOne(first,target,source));i++;continue;
+    }
+    const chunk=[first];
+    while(i+chunk.length<texts.length && chunk.length<20) {
+      const next=texts[i+chunk.length];
+      if(!next.trim() || /[\r\n]/.test(next) || encodeURIComponent([...chunk,next].join("\n")).length>TRANSLATION_QUERY_LIMIT)break;
+      chunk.push(next);
+    }
+    const translated=await gtxTranslate(chunk.join("\n"),target,source);
+    const parts=translated.split("\n");
+    if(parts.length===chunk.length && parts.every(part=>part.trim()))out.push(...parts);
+    else if(chunk.length===1)out.push(translated);
+    else for(const text of chunk)out.push(await translateOne(text,target,source));
+    i+=chunk.length;
+  }
   return out;
 }
 
@@ -2348,7 +2372,7 @@ async function ocrTextTesseract(imageUrl,target,src) {
   const ocr=await ocrViaTesseract(dataUrl,lang);
   const blocks=ocr.blocks || [];
   if(!blocks.length)return {lines:[],blocks:[],width:ocr.width,height:ocr.height};
-  const translated=await translateTexts(blocks.map(b=>b.text),target || 'en');
+  const translated=await translateTexts(blocks.map(b=>b.text),target || 'en',lang);
   const value={width:ocr.width,height:ocr.height,blocks:blocks.map((b,i)=>({...b,translation:translated[i]})),lines:blocks.map((b,i)=>({src:b.text,tr:translated[i]}))};
   if(translatedPanels.size>=24)translatedPanels.delete(translatedPanels.keys().next().value);
   translatedPanels.set(key,{at:Date.now(),value});return value;
