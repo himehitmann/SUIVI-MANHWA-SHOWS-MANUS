@@ -30,13 +30,27 @@
         else resolve(result);
       })
     );
-  async function requestPanel(source,target,src) {
+  async function requestPanel(im,source,target,src) {
     try {return await request({type:"TRANSLATE_IMAGE_TEXT",url:source,target,src});}
     catch(error) {
       // Some image CDNs require the normal page referrer. A content-script fetch
       // uses that referrer and still obeys the CDN's CORS policy.
-      if(error.message!=="img_403" || !/^https?:/.test(source))throw error;
-      const response=await fetch(source,{credentials:"omit",signal:AbortSignal.timeout(15000)});
+      if(!["img_403","image_access_required"].includes(error.message) || !/^https?:/.test(source))throw error;
+      // Reuse an already decoded panel only when the browser permits reading
+      // its pixels. A tainted canvas is never bypassed.
+      try {
+        if(imageSource(im)===source && im.complete && im.naturalWidth>0 && im.naturalHeight>0 &&
+          im.naturalWidth*im.naturalHeight<=16000000 && Math.max(im.naturalWidth,im.naturalHeight)<=16000) {
+          const canvas=document.createElement("canvas");
+          canvas.width=im.naturalWidth;canvas.height=im.naturalHeight;
+          canvas.getContext("2d").drawImage(im,0,0);
+          const local=canvas.toDataURL("image/png");
+          if(local.length<=35*1024*1024)return request({type:"TRANSLATE_IMAGE_TEXT",url:local,target,src});
+        }
+      }catch{} // Cross-origin pixels require the normal, scoped image access.
+      let response;
+      try {response=await fetch(source,{credentials:"omit",signal:AbortSignal.timeout(15000)});}
+      catch {throw new Error("image_access_required");}
       if(!response.ok)throw new Error("img_"+response.status);
       const blob=await response.blob();
       if(blob.size>25*1024*1024)throw new Error("image_too_large");
@@ -295,7 +309,7 @@
         try {
           const source = imageSource(im);
           if (!source) continue;
-          const result = await requestPanel(source,target,src);
+          const result = await requestPanel(im,source,target,src);
           if (run !== token) return;
           if (imageSource(im) !== source) continue;
           failures.delete(im); failed = failures.size;
@@ -304,7 +318,7 @@
             done++;
           } else empty++;
         } catch (e) {
-          if (run === token) {failures.add(im);failed=failures.size;lastError=e.message==="translation_rate_limited"?wording("service temporairement limité, patiente au moins une minute","service temporarily rate-limited, wait at least one minute"):String(e.message||e).slice(0,120);}
+          if (run === token) {failures.add(im);failed=failures.size;lastError=e.message==="translation_rate_limited"?wording("service temporairement limité, patiente au moins une minute","service temporarily rate-limited, wait at least one minute"):e.message==="image_access_required"?wording("ouvre Yomu puis « Image access and privacy » pour autoriser le domaine des images","open Yomu, then Image access and privacy to allow the image domain"):String(e.message||e).slice(0,120);}
         }
       }
       active = 0;

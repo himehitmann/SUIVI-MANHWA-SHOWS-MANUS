@@ -3457,3 +3457,9 @@ describe("translation text integrity",()=>{
     expect(w.run("queries.length")).toBe(1);
   });
 });
+
+it("reports image access failures distinctly without masking invalid panel URLs",async()=>{
+  const w=worker();w.run('fetch=async()=>{throw new TypeError("Failed to fetch");}');
+  await expect(w.run('fetchBlob("https://image.example/panel.png")')).rejects.toThrow("image_access_required");
+  await expect(w.run('fetchBlob("http://127.0.0.1/private")')).rejects.toThrow("invalid_image_url");
+});

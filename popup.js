@@ -7,6 +7,7 @@
 const api = globalThis.chrome;
 const $ = (s) => document.querySelector(s);
 let speed = 1;
+let videoDetected = false;
 let detection = null;
 let activeTab = null;
 let existing = null;
@@ -45,7 +46,14 @@ function setCover(url, initial) {
   }
 }
 
+function renderVideoTools() {
+  const available=Boolean(detection?.hasVideo || videoDetected);
+  $("#video-tools").hidden=!available;
+  $("#video-tools").style.display=available?"grid":"none";
+  $("#pip").disabled=!available;
+}
 function render() {
+  renderVideoTools();
   if (!detection) {
     $("#kindLabel").textContent = "Nothing detected";
     $("#title").textContent = "Nothing detected yet";
@@ -95,8 +103,7 @@ function render() {
     $("#save").classList.remove("warn");
   }
   $("#save").disabled = false;
-  $("#pip").disabled = false;
-  $("#video-tools").style.display="grid";
+
 }
 
 // Kick off detection, then check for an existing save (cross-site, by title).
@@ -187,6 +194,24 @@ $("#save-site").onclick = () => {
   });
 };
 
+// The detector may miss an embedded/shadow player. Probe without changing it,
+// and keep unrelated controls out of a reading-only popup.
+async function refreshVideoTools() {
+  try {
+    const [tab]=await api.tabs.query({active:true,currentWindow:true});
+    if(!tab?.id)return;
+    const results=await api.scripting.executeScript({target:{tabId:tab.id,allFrames:true},func:()=>{
+      const visit=root=>{
+        if([...root.querySelectorAll("video")].some(video=>video.getClientRects().length))return true;
+        return [...root.querySelectorAll("*")].some(element=>element.shadowRoot && visit(element.shadowRoot));
+      };
+      return visit(document);
+    }});
+    videoDetected=results.some(result=>result.result===true);
+  }catch{videoDetected=false;}
+  renderVideoTools();
+}
+refreshVideoTools();
 // Inspect every permitted frame, including players inside open shadow roots.
 async function videoCommand(action, value) {
   const status = $("#video-status");
@@ -318,25 +343,41 @@ $('#tr-stop').onclick=()=>api.runtime.sendMessage({type:'STOP_TRANSLATION'},r=>{
 
 trSel.onchange = () => api.runtime.sendMessage({ type: "SET_SETTINGS", patch: { translateLang: trSel.value } }, () => void api.runtime.lastError);
 
-$("#tr-go").onclick = () => {
-  const lang = trSel.value;
+function startPageTranslation() {
+  const requested={type:"TRANSLATE_PAGE",lang:trSel.value,src:trSrc.value};
   $("#tr-status").classList.remove("up");
-  $("#tr-status").textContent = "Translating the page…";
-  $("#tr-go").disabled = true;
-  // Manga/webtoon panels are images; translating them (OCR) needs to fetch the
-  // panel from its site. Ask once for that access — text pages don't need it,
-  // so denying still lets text translation work.
-  const go = (imagesAllowed = true) => api.runtime.sendMessage({ type: "TRANSLATE_PAGE", lang, src: trSrc.value }, (r) => {
-    void api.runtime.lastError;
-    $("#tr-go").disabled = false;
-    if (r && r.ok) { $("#tr-status").textContent = imagesAllowed ? "Translation started — follow progress on the page." : "Page translation started. Image access was denied; allow it to translate speech bubbles."; }
-    else $("#tr-status").textContent = r && r.error === "restricted_page" ? "Can't translate this page." : "Translation unavailable here.";
-  });
-  try {
-    api.permissions.request({ origins: translationOrigins }, granted => { const error = api.runtime.lastError; go(!!granted && !error); });
-  } catch {
-    go(false);
+  $("#tr-status").textContent="Translating the page…";
+  $("#tr-go").disabled=true;
+  try {api.runtime.sendMessage(requested,r=>{
+    const error=api.runtime.lastError;
+    $("#tr-go").disabled=false;
+    $("#tr-status").textContent=!error&&r?.ok
+      ?"Translation started — follow progress on the page."
+      :r?.error==="restricted_page"?"Can't translate this page.":"Translation unavailable here.";
+  });}catch{
+    $("#tr-go").disabled=false;$("#tr-status").textContent="Translation unavailable here.";
   }
+}
+// Opening the action grants temporary access to this tab. A one-time translation
+// must not silently turn that into persistent access, or prompt for all sites.
+$("#tr-go").onclick=startPageTranslation;
+$("#tr-images").onclick=()=>{
+  const pageOrigin=translationPageUrl?new URL(translationPageUrl).origin+"/*":"";
+  const origins=translationOrigins.filter(origin=>origin!==pageOrigin);
+  if(!origins.length){
+    $("#tr-status").textContent="No external image domain was detected. Try Translate on the reading page.";
+    return;
+  }
+  $("#tr-images").disabled=true;
+  const denied=()=>{
+    $("#tr-images").disabled=false;
+    $("#tr-status").textContent="Image access was not granted. Existing translations are unchanged.";
+  };
+  try {api.permissions.request({origins},granted=>{
+    const error=api.runtime.lastError;
+    if(!granted||error){denied();return;}
+    $("#tr-images").disabled=false;startPageTranslation();
+  });}catch{denied();}
 };
 
 // Sync is optional — footer link just opens the settings, never required.

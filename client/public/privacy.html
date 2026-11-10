@@ -71,7 +71,7 @@
       <h2>6. Translation &amp; discovery</h2>
       <ul>
         <li><strong>Image (OCR) translation</strong> runs locally inside the extension using a bundled engine · panel images are read on your device and are not uploaded. If the local engine fails, a fallback OCR service may be used only if you have enabled it.</li>
-        <li><strong>Text translation</strong> sends the selected page text to a translation service (e.g. Google Translate’s public endpoint, with a MyMemory fallback) to return the translation. The provider also receives normal connection metadata, including your IP address.</li>
+        <li><strong>Text translation</strong> sends page text and text recognized locally in images to Google Translate’s public endpoint to return the translation. Panel images are not sent to this text translation endpoint. The provider also receives normal connection metadata, including your IP address.</li>
         <li><strong>Discover / search</strong> sends the title you look up to public catalog services (AniList, Jikan, Steam, TVMaze, OpenLibrary, Wikipedia) to fetch covers, descriptions, cast and release info. Queries can also be generated from imported or saved titles to complete their metadata. Providers receive queries or work identifiers and normal connection metadata. Cover and character images are loaded from their respective hosts.</li>
       </ul>
 

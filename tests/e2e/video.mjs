@@ -18,7 +18,8 @@ await player.evaluate(async()=>{const host=document.createElement('div');host.id
 await player.waitForFunction(()=>document.querySelector('#test-player').shadowRoot.querySelector('video').readyState>0);
 const target=await w.evaluate(async()=> (await chrome.tabs.query({})).find(t=>t.url==='http://localhost/video').id);
 const p=await c.newPage();await p.goto(base+'popup.html');
-await p.evaluate(id=>{chrome.tabs.query=async()=>[{id}];},target);
+await p.evaluate(async id=>{chrome.tabs.query=async()=>[{id}];await refreshVideoTools();},target);
+assert.equal(await p.locator("#video-tools").isVisible(),true,"The real shadow video must expose playback controls");
 await p.locator('#faster').click();await p.waitForTimeout(1000);console.log(await p.locator('#video-status').innerText());
 assert.equal(await player.evaluate(()=>document.querySelector('#test-player').shadowRoot.querySelector('video').playbackRate),1.25);
 await p.locator('#pip').click();await p.waitForFunction(()=>document.querySelector('#video-status').textContent.includes('Picture-in-Picture'));

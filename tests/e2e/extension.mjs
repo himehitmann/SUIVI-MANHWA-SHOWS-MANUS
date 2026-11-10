@@ -713,6 +713,15 @@ try {
   }));
   assert(bounds.body <= 600, JSON.stringify(bounds));
   await popup.screenshot({ path: path.join(artifactDir, "popup.png") });
+  assert.equal(await popup.locator("#video-tools").isVisible(),true,"A detected video must keep playback controls");
+  await popup.evaluate(()=>{
+    detection={title:"A webtoon chapter",type:"reading",chapter:1,confidence:1,domain:"comic.naver.com",hasVideo:false};
+    render();
+  });
+  assert.equal(await popup.locator("#video-tools").isVisible(),false,"Reading pages without video must hide playback controls");
+  const readingBounds=await popup.evaluate(()=>({body:document.body.scrollHeight,viewport:innerHeight}));
+  assert(readingBounds.body<=readingBounds.viewport,JSON.stringify(readingBounds));
+  await popup.screenshot({path:path.join(artifactDir,"popup-reading.png")});
   // Real bundled OCR; only the network translation response is deterministic in CI.
   const ocr = await worker.evaluate(async d => {
     await ensureOffscreen();
@@ -873,6 +882,32 @@ try {
   await reader.locator("#yomu-translation-status button").first().click();
   await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
 
+  // CORS-readable pixels can be reused locally when the background has no
+  // access to the image host. No second image download or host grant is needed.
+  let readablePanelRequests=0;
+  await reader.route("https://readable-images.example/cors.png",route=>{
+    readablePanelRequests++;
+    return route.fulfill({contentType:"image/png",headers:{"access-control-allow-origin":"*"},body:png});
+  });
+  await reader.locator("#panel").evaluate(async im=>{
+    im.crossOrigin="anonymous";im.src="https://readable-images.example/cors.png";await im.decode();
+  });
+  readablePanelRequests=0;
+  await worker.evaluate(()=>{
+    globalThis.localPixelCalls=[];
+    translateImageText=async(url,...args)=>{
+      globalThis.localPixelCalls.push(url.startsWith("data:")?"data":"remote");
+      if(url==="https://readable-images.example/cors.png")throw new Error("image_access_required");
+      return globalThis.savedPanelTranslator(url,...args);
+    };
+  });
+  await page.evaluate(()=>chrome.runtime.sendMessage({type:"DASI_TRANSLATE",lang:"fr",src:"eng"}));
+  await reader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  assert.deepEqual(await worker.evaluate(()=>globalThis.localPixelCalls),["remote","data"]);
+  assert.equal(readablePanelRequests,0,"Readable local pixels triggered an unnecessary image download");
+  await reader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
+  console.log("Readable rendered panel translated locally without additional host access");
   // Packaged automatic translation on HTTPS documents. Only network translation
   // is deterministic; permissions, navigation, injection and image OCR are real.
   const autoReader=await context.newPage();
@@ -906,6 +941,41 @@ try {
   const popupTarget=targets.targetInfos.find(t=>t.url===base+"popup.html"&&!previousTargets.has(t.targetId));
   assert.ok(popupTarget,"The toolbar popup must have its own browser target: "+JSON.stringify(targets.targetInfos.map(t=>({type:t.type,url:t.url}))));
   const attached=await popupSession.send("Target.attachToTarget",{targetId:popupTarget.targetId,flatten:false});
+  // One-time translation uses the current tab grant, without asking for any
+  // additional host permissions. The explicit image action is separately scoped.
+  await page.evaluate(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    view.originalImagePermissionRequest=view.chrome.permissions.request;
+    view.imagePermissionRequests=[];
+    view.chrome.permissions.request=(request,callback)=>{view.imagePermissionRequests.push(request);callback(false);};
+  });
+  await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
+    id:17,method:"Runtime.evaluate",params:{expression:'document.getElementById("tr-go").click()',userGesture:true}
+  })});
+  await autoReader.waitForFunction(()=>document.querySelector("#copy").textContent==="BONJOUR LE MONDE");
+  assert.deepEqual(await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].imagePermissionRequests),[],"A one-time translation asked for persistent permission");
+  await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
+    id:18,method:"Runtime.evaluate",params:{expression:`
+      globalThis.originalTestOrigins=translationOrigins;
+      translationOrigins=[new URL(translationPageUrl).origin+"/*","https://reader-images.example/*"];
+      document.querySelector(".translation-tools details").open=true;
+      document.getElementById("tr-images").click();
+    `,userGesture:true}
+  })});
+  await page.waitForFunction(()=>chrome.extension.getViews({type:"popup"})[0].document.getElementById("tr-status").textContent==="Image access was not granted. Existing translations are unchanged.");
+  assert.deepEqual(await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].imagePermissionRequests),[{origins:["https://reader-images.example/*"]}]);
+  assert.equal(await autoReader.locator("#copy").textContent(),"BONJOUR LE MONDE","Denied image permission erased a running translation");
+  await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
+    id:19,method:"Runtime.evaluate",params:{expression:`
+      translationOrigins=globalThis.originalTestOrigins;
+      chrome.permissions.request=globalThis.originalImagePermissionRequest;
+      document.querySelector(".translation-tools details").open=false;
+      document.getElementById("tr-stop").click();
+    `,userGesture:true}
+  })});
+  await autoReader.waitForFunction(()=>document.querySelector("#copy").textContent==="HELLO WORLD");
+  console.log("Manual translation requests no persistent permission; denied image access stays scoped and preserves the page");
+  await page.evaluate(()=>{chrome.extension.getViews({type:"popup"})[0].document.getElementById("tr-status").textContent="";});
   await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
     id:1,method:"Runtime.evaluate",params:{
       expression:'document.getElementById("tr-auto").click()',userGesture:true,awaitPromise:true

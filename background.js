@@ -2182,7 +2182,9 @@ function safePanelSource(value) {
   return url.href;
 }
 async function fetchBlob(url) {
-  const r = await fetchRemote(safePanelSource(url),{credentials:"omit",redirect:"error"});
+  const source=safePanelSource(url);
+  let r;try {r=await fetchRemote(source,{credentials:"omit",redirect:"error"});}
+  catch(error){if(error.name==="TypeError")throw Error("image_access_required");throw error;}
   if (!r.ok) throw new Error(`img_${r.status}`);
   const length=Number(r.headers.get("content-length"));if(length>25*1024*1024)throw Error("image_too_large");
   const blob=await r.blob();if(blob.size>25*1024*1024)throw Error("image_too_large");
