@@ -794,6 +794,56 @@ try {
   await reader.locator("#yomu-translation-status button").first().click();
   assert.equal(await reader.locator("[data-yomu-overlay]").count(), 0);
   assert.equal(await reader.locator("#panel").getAttribute("src"), dataUrl);
+  // A delayed translation must not overwrite SPA/live text. Restore must leave
+  // a site's newer value intact while reverting paragraphs still owned by Yomu.
+  await reader.evaluate(()=>{
+    const main=document.querySelector("main");
+    for(const [id,text] of [["stable-copy","Stable paragraph"],["dynamic-copy","Old chapter"],["restore-copy","Restore this paragraph"]]) {
+      const p=document.createElement("p");p.id=id;p.textContent=text;main.prepend(p);
+    }
+    window.scrollTo(0,0);
+  });
+  await worker.evaluate(()=>{
+    globalThis.savedTextTranslator=translateTexts;
+    globalThis.releaseDomTranslation=null;
+    translateTexts=async(texts,...args)=>{
+      if(texts.includes("Stable paragraph"))return new Promise(resolve=>{
+        globalThis.releaseDomTranslation=()=>resolve(texts.map(text=>"Translated: "+text));
+      });
+      return globalThis.savedTextTranslator(texts,...args);
+    };
+  });
+  const startDelayedTranslation=async()=>{
+    await page.evaluate(()=>chrome.runtime.sendMessage({type:"DASI_TRANSLATE",lang:"fr",src:"eng"}));
+    await worker.evaluate(async()=>{
+      const deadline=Date.now()+5000;
+      while(!globalThis.releaseDomTranslation && Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,20));
+      if(!globalThis.releaseDomTranslation)throw Error("DOM translation request did not start");
+    });
+  };
+  await startDelayedTranslation();
+  await reader.locator("#dynamic-copy").evaluate(p=>{p.firstChild.nodeValue="Next chapter arrived";});
+  await worker.evaluate(()=>globalThis.releaseDomTranslation());
+  await reader.waitForFunction(()=>document.querySelector("#stable-copy").textContent==="Translated: Stable paragraph");
+  assert.equal(await reader.locator("#dynamic-copy").textContent(),"Next chapter arrived","Late translation replaced new chapter text");
+  await reader.locator("#stable-copy").evaluate(p=>{p.firstChild.nodeValue="Live status changed";});
+  await reader.locator("#yomu-translation-status button").first().click();
+  assert.equal(await reader.locator("#stable-copy").textContent(),"Live status changed","Restore overwrote a live site update");
+  assert.equal(await reader.locator("#restore-copy").textContent(),"Restore this paragraph","Unchanged translation did not restore");
+
+  // Stopping before the response arrives leaves every paragraph untouched.
+  await reader.locator("#stable-copy").evaluate(p=>{p.firstChild.nodeValue="Stable paragraph";});
+  await worker.evaluate(()=>{globalThis.releaseDomTranslation=null;});
+  await startDelayedTranslation();
+  await reader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>globalThis.releaseDomTranslation());
+  await reader.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  assert.equal(await reader.locator("#stable-copy").textContent(),"Stable paragraph");
+  assert.equal(await reader.locator("#restore-copy").textContent(),"Restore this paragraph");
+  assert.equal(await reader.locator("#yomu-translation-status").count(),0);
+  await reader.evaluate(()=>{for(const id of ["stable-copy","dynamic-copy","restore-copy"])document.getElementById(id).remove();});
+  await worker.evaluate(()=>{translateTexts=globalThis.savedTextTranslator;});
+  console.log("Translation preserves newer site text and ignores stopped requests");
   // A transient image failure can be retried without restarting the page.
   await worker.evaluate(() => {
     globalThis.savedPanelTranslator = translateImageText;

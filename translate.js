@@ -78,8 +78,10 @@
     mutation?.disconnect();
     resize?.disconnect();
     observer = mutation = resize = null;
-    originals.forEach((text, node) => {
-      if (node.isConnected) node.nodeValue = text;
+    originals.forEach(({original,translated}, node) => {
+      // A site may update a live node while translation is enabled. Restore only
+      // the value Yomu still owns; never replace newer chapter or status text.
+      if (node.isConnected && node.nodeValue === translated) node.nodeValue = original;
     });
     originals.clear();
     overlays.forEach(({ el }) => el.remove());
@@ -230,14 +232,15 @@
     const nodes = [];
     while (walker.nextNode() && nodes.length < 300)
       nodes.push(walker.currentNode);
+    const sourceTexts = nodes.map(node => node.nodeValue);
     // DOM translation and image OCR progress independently. A slow menu never blocks a panel.
     if (nodes.length)
-      request({ type: "DASI_MT", texts: nodes.map(n => n.nodeValue), target })
+      request({ type: "DASI_MT", texts: sourceTexts, target })
         .then(r => {
           if (run !== token) return;
           r.translations.forEach((text, i) => {
-            if (text && nodes[i]?.isConnected) {
-              originals.set(nodes[i], nodes[i].nodeValue);
+            if (text && nodes[i]?.isConnected && nodes[i].nodeValue === sourceTexts[i]) {
+              originals.set(nodes[i], {original:sourceTexts[i],translated:text});
               nodes[i].nodeValue = text;
             }
           });
