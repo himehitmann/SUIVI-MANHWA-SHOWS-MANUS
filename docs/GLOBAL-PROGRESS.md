@@ -8,6 +8,24 @@ Mise à jour : 14 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi rem
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Images remplacées en cours de lecture : file et reprise — 14 novembre 2026
+
+Version **0.4.28**, code produit b469652a276f2cf26293afe348d08112268718bb et synchronisation du jeu de données de l'audit visuel 073e8c3caff578a0cbd2bd2722c90b32bf1b9207.
+
+Chaque tâche OCR mémorise l'image, son adresse et sa révision dans la session. Une modification de source invalide la tâche précédente, même lorsque le site revient à la même adresse après un changement intermédiaire. Les tâches obsolètes sont ignorées avant l'envoi et après la réponse ; leurs erreurs ne deviennent pas des échecs de la nouvelle image. Les surimpressions sont retirées quand la source change ou que l'image disparaît.
+
+Le script attend la fin du chargement lorsque `currentSrc` désigne encore l'ancienne image. Il écoute les événements d'image sur le document en capture pour remettre la nouvelle image visible dans la file. L'arrêt retire cette surveillance et empêche le lancement d'une solution de repli (pixels locaux ou téléchargement depuis la page) après le retour tardif d'une erreur d'accès. Une limitation du fournisseur suspend toute la file d'images, y compris les images ajoutées ensuite ; la reprise reste explicite.
+
+**Preuves :** [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/43642180910) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/43642184181). Les quatre jobs sont réussis sur chaque exécution (verify, capacity, recovery et firebase-recovery). **770 tests unitaires**, compilation, audit des dépendances sans vulnérabilité connue signalée, parcours web/extension, audit d'interface et vidéo réussis. La mise à jour du profil Chrome de 0.3.1 vers 0.4.28 conserve compte, progression, listes et profil. [Paquet et rapports](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/43642180910/artifacts/14132407531).
+
+Le parcours Chromium utilise le véritable script injecté et les messages du service worker, avec des réponses OCR/traduction simulées. Il couvre remplacement en attente sans doublon, aller-retour A/B/A, retrait de l'ancienne surimpression, suppression d'une image avant une erreur tardive, arrêt avant le repli et limitation suivie d'une reprise manuelle.
+
+Les premières exécutions du lot ont révélé une image remplacée non remise en attente : l'écoute du chargement au niveau de la fenêtre ne recevait pas l'événement attendu. La correction finale écoute le document. Les traces temporaires ajoutées pour ce diagnostic sont retirées du code final. Les exécutions échouées ne comptent pas comme validations.
+
+La première exécution du code produit final a réussi tous les contrôles sur le push 43641697913. Son exécution PR 43641701664 a réussi le paquet et les scénarios de traduction, puis a expiré au démarrage de l'audit visuel. Ce test écrivait ses données sans attendre la migration d'installation ; sa préparation utilise désormais la même file sérialisée et attend `migrateStorage()`, comme le parcours du paquet. Aucun contrôle de mise en page n'est retiré et le délai n'est pas augmenté.
+
+**Limites :** une requête déjà reçue par l'OCR ou le service externe n'est pas annulée ; son résultat obsolète est ignoré. Ces scénarios prouvent le comportement de la file, pas la qualité linguistique sur les vrais webtoons. Les chapitres réels JP/KR/CN et le premier dialogue natif de permission restent à vérifier. Aucune installation dans le profil Chrome utilisateur, aucun paiement et aucune publication. G16/G17 restent partiels : **21/60 = 35 % global vérifié**.
+
 ## Texte chargé dynamiquement : traduction et restauration — 14 novembre 2026
 
 Version **0.4.27**, code 9f02ae92764c209fa1b81e4343135ba02a19847e et correction de l'environnement de test 46298dca5d5fb230308f9139df6c18a8965a6b15.
