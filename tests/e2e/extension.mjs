@@ -910,6 +910,122 @@ try {
   await reader.locator("#yomu-translation-status button").first().click();
   await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
   console.log("Readable rendered panel translated locally without additional host access");
+
+  // Image jobs belong to a particular source revision, not just a reusable DOM
+  // element. Mock only OCR/translation; exercise the real injected script/queue.
+  const panelReader=await context.newPage();
+  panelReader.on("pageerror",error=>errors.push(error.message));
+  let lifecycleDownloads=0;
+  await panelReader.route("https://en.wikipedia.org/yomu-e2e/panels/*.png",route=>{
+    lifecycleDownloads++;return route.fulfill({contentType:"image/png",body:png});
+  });
+  await panelReader.route("https://en.wikipedia.org/yomu-e2e/panels",route=>route.fulfill({
+    contentType:"text/html",body:'<!doctype html><html lang="en"><head><title>Panels</title></head><body style="display:flex;gap:20px;align-items:start"></body></html>'
+  }));
+  await panelReader.goto("https://en.wikipedia.org/yomu-e2e/panels");
+  await worker.evaluate(()=>{
+    globalThis.lifecycleOriginal=translateImageText;
+    globalThis.lifecycleCalls=[];globalThis.lifecycleHold="";globalThis.lifecycleRelease=null;globalThis.lifecycleLimited=false;
+    translateImageText=async url=>{
+      const key=url.split("/").pop();globalThis.lifecycleCalls.push(key);
+      const result=label=>({width:720,height:1000,blocks:[{text:"Original",translation:label,bbox:{x0:20,y0:20,x1:620,y1:180}}]});
+      if(globalThis.lifecycleLimited){globalThis.lifecycleLimited=false;throw Error("translation_rate_limited");}
+      if(key===globalThis.lifecycleHold){
+        globalThis.lifecycleHold="";
+        return new Promise((resolve,reject)=>{globalThis.lifecycleRelease=(label,error)=>error?reject(Error(error)):resolve(result(label));});
+      }
+      return result("Fresh "+key);
+    };
+  });
+  const waitPanelWorker=async predicate=>{
+    const deadline=Date.now()+7000;
+    while(Date.now()<deadline){if(await worker.evaluate(predicate))return;await new Promise(resolve=>setTimeout(resolve,50));}
+    assert.fail("Panel lifecycle worker condition did not complete");
+  };
+  const panelFixture=async names=>{
+    await panelReader.evaluate(async names=>{
+      document.body.replaceChildren();
+      await Promise.all(names.map(async name=>{
+        const im=document.createElement("img");im.id=name;im.style.cssText="width:200px;height:278px;object-fit:cover";
+        im.src="https://en.wikipedia.org/yomu-e2e/panels/"+name+".png";document.body.append(im);await im.decode();
+      }));
+    },names);
+    await worker.evaluate(()=>{globalThis.lifecycleCalls=[];globalThis.lifecycleHold="";globalThis.lifecycleRelease=null;globalThis.lifecycleLimited=false;});
+  };
+  const startPanels=async()=>{
+    await panelReader.bringToFront();
+    assert.equal((await page.evaluate(()=>chrome.runtime.sendMessage({type:"TRANSLATE_PAGE",lang:"fr",src:"eng"}))).ok,true);
+  };
+  const stopPanels=()=>panelReader.locator("#yomu-translation-status button").first().click();
+  await panelFixture(["blocker","queued"]);
+  await worker.evaluate(()=>{globalThis.lifecycleHold="blocker.png";});
+  await startPanels();
+  await waitPanelWorker(()=>Boolean(globalThis.lifecycleRelease));
+  await panelReader.locator("#queued").evaluate(async im=>{im.src="https://en.wikipedia.org/yomu-e2e/panels/replaced.png";await im.decode();});
+  await worker.evaluate(()=>globalThis.lifecycleRelease("Fresh blocker"));
+  await panelReader.locator('[data-yomu-overlay] [aria-label="Fresh replaced.png"]').waitFor();
+  assert.deepEqual(await worker.evaluate(()=>globalThis.lifecycleCalls),["blocker.png","replaced.png"],"Queued old source or duplicate replacement was translated");
+  await stopPanels();
+
+  // A -> B -> A in a single mutation delivery still creates a new revision.
+  await panelFixture(["cycle"]);
+  await worker.evaluate(()=>{globalThis.lifecycleHold="cycle.png";});
+  await startPanels();await waitPanelWorker(()=>Boolean(globalThis.lifecycleRelease));
+  await panelReader.locator("#cycle").evaluate(async im=>{
+    im.src="https://en.wikipedia.org/yomu-e2e/panels/temporary.png";
+    im.src="https://en.wikipedia.org/yomu-e2e/panels/cycle.png";await im.decode();
+  });
+  await worker.evaluate(()=>globalThis.lifecycleRelease("Stale cycle"));
+  await panelReader.locator('[data-yomu-overlay] [aria-label="Fresh cycle.png"]').waitFor();
+  assert.equal(await panelReader.locator('[aria-label="Stale cycle"]').count(),0);
+  assert.deepEqual(await worker.evaluate(()=>globalThis.lifecycleCalls),["cycle.png","cycle.png"]);
+  // Existing overlays disappear as soon as their source is replaced.
+  await worker.evaluate(()=>{globalThis.lifecycleHold="new-cycle.png";globalThis.lifecycleRelease=null;});
+  await panelReader.locator("#cycle").evaluate(async im=>{im.src="https://en.wikipedia.org/yomu-e2e/panels/new-cycle.png";await im.decode();});
+  await waitPanelWorker(()=>Boolean(globalThis.lifecycleRelease));
+  assert.equal(await panelReader.locator("[data-yomu-overlay]").count(),0,"Previous overlay survived a source change");
+  await panelReader.locator("#cycle").evaluate(im=>im.remove());
+  await worker.evaluate(()=>globalThis.lifecycleRelease("", "img_503"));
+  await panelReader.waitForFunction(()=>!document.querySelector("#yomu-translation-retry")?.disabled);
+  assert.equal(await panelReader.locator("[data-yomu-overlay]").count(),0);
+  assert.equal(await panelReader.locator("#yomu-translation-retry").isVisible(),false,"Removed panel left a stale failure");
+  await stopPanels();
+
+  // Stop blocks the referrer/canvas fallback too, not only the final overlay.
+  await panelFixture(["cancel"]);
+  await worker.evaluate(()=>{globalThis.lifecycleHold="cancel.png";});
+  await startPanels();await waitPanelWorker(()=>Boolean(globalThis.lifecycleRelease));
+  const downloadsBeforeCancel=lifecycleDownloads;
+  await stopPanels();
+  await worker.evaluate(()=>globalThis.lifecycleRelease("", "img_403"));
+  await panelReader.waitForTimeout(250);
+  assert.deepEqual(await worker.evaluate(()=>globalThis.lifecycleCalls),["cancel.png"],"Stopped request launched a local OCR fallback");
+  assert.equal(lifecycleDownloads,downloadsBeforeCancel,"Stopped request downloaded the image again");
+  assert.equal(await panelReader.locator("[data-yomu-overlay],#yomu-translation-status").count(),0);
+
+  // A rate limit suspends the whole image queue, including newly appended
+  // panels, until the user explicitly retries.
+  await panelFixture(["limited","waiting"]);
+  await worker.evaluate(()=>{globalThis.lifecycleLimited=true;});
+  await startPanels();
+  await panelReader.locator("#yomu-translation-retry:not([hidden])").waitFor();
+  await panelReader.evaluate(async()=>{
+    const im=document.createElement("img");im.id="appended";im.style.cssText="width:200px;height:278px";
+    im.src="https://en.wikipedia.org/yomu-e2e/panels/appended.png";document.body.append(im);await im.decode();
+  });
+  await panelReader.waitForTimeout(250);
+  assert.deepEqual(await worker.evaluate(()=>globalThis.lifecycleCalls),["limited.png"],"Rate limit did not pause remaining images");
+  await panelReader.locator("#yomu-translation-retry").click();
+  for(const name of ["limited","waiting","appended"])await panelReader.locator('[data-yomu-overlay] [aria-label="Fresh '+name+'.png"]').waitFor();
+  const resumedPanelCalls=await worker.evaluate(()=>globalThis.lifecycleCalls);
+  assert.equal(resumedPanelCalls.filter(name=>name==="limited.png").length,2);
+  assert.equal(resumedPanelCalls.filter(name=>name==="waiting.png").length,1);
+  assert.equal(resumedPanelCalls.filter(name=>name==="appended.png").length,1);
+  assert.equal(await panelReader.locator("#yomu-translation-retry").isVisible(),false);
+  await stopPanels();await panelReader.close();
+  await worker.evaluate(()=>{translateImageText=globalThis.lifecycleOriginal;});
+  console.log("Image source revisions, stale failures, removed panels, cancelled fallback and rate-limit queue verified");
+
   // Long HTML pages use real content-script messages (including worker size
   // validation), while the external translation response is deterministic.
   const longTextReader=await context.newPage();

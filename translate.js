@@ -10,7 +10,8 @@
     mutation = null,
     resize = null,
     frame = 0,
-    textTimer = 0;
+    textTimer = 0,
+    panelLoadHandler = null;
   const originals = new Map(),
     overlays = new Map(),
     processed = new WeakMap();
@@ -31,9 +32,12 @@
         else resolve(result);
       })
     );
-  async function requestPanel(im,source,target,src) {
+  async function requestPanel(im,source,target,src,isCurrent) {
+    const check=()=>{if(!isCurrent())throw new Error("translation_cancelled");};
+    check();
     try {return await request({type:"TRANSLATE_IMAGE_TEXT",url:source,target,src});}
     catch(error) {
+      check();
       // Some image CDNs require the normal page referrer. A content-script fetch
       // uses that referrer and still obeys the CDN's CORS policy.
       if(!["img_403","image_access_required"].includes(error.message) || !/^https?:/.test(source))throw error;
@@ -46,17 +50,20 @@
           canvas.width=im.naturalWidth;canvas.height=im.naturalHeight;
           canvas.getContext("2d").drawImage(im,0,0);
           const local=canvas.toDataURL("image/png");
-          if(local.length<=35*1024*1024)return request({type:"TRANSLATE_IMAGE_TEXT",url:local,target,src});
+          if(local.length<=35*1024*1024){check();return request({type:"TRANSLATE_IMAGE_TEXT",url:local,target,src});}
         }
       }catch{} // Cross-origin pixels require the normal, scoped image access.
+      check();
       let response;
       try {response=await fetch(source,{credentials:"omit",signal:AbortSignal.timeout(15000)});}
       catch {throw new Error("image_access_required");}
+      check();
       if(!response.ok)throw new Error("img_"+response.status);
       const blob=await response.blob();
       if(blob.size>25*1024*1024)throw new Error("image_too_large");
       if(!blob.type.startsWith("image/"))throw new Error("not_an_image");
       const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("image_read_failed"));reader.readAsDataURL(blob);});
+      check();
       return request({type:"TRANSLATE_IMAGE_TEXT",url:dataUrl,target,src});
     }
   }
@@ -105,6 +112,8 @@
     pill = null;
     cancelAnimationFrame(frame);
     clearTimeout(textTimer);textTimer=0;
+    if(panelLoadHandler)window.removeEventListener("load",panelLoadHandler,true);
+    panelLoadHandler=null;
     window.removeEventListener("scroll", schedule, true);
     window.removeEventListener("resize", schedule);
   }
@@ -139,8 +148,8 @@
   function schedule() {
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(() => {
-      overlays.forEach(({ el, width, height }, im) => {
-        if (!im.isConnected) {
+      overlays.forEach(({ el, width, height, source }, im) => {
+        if (!im.isConnected || imageSource(im)!==source || !isPanel(im)) {
           el.remove();
           resize?.unobserve(im);
           overlays.delete(im);
@@ -157,7 +166,7 @@
       });
     });
   }
-  function applyRegions(im, result, target) {
+  function applyRegions(im, result, target, source) {
     overlays.get(im)?.el.remove();
     const el = document.createElement("div");
     el.dataset.yomuOverlay = "";
@@ -206,7 +215,7 @@
       }
     }
     overlays.set(im, {
-      el,
+      el, source,
       width: result.width || im.naturalWidth,
       height: result.height || im.naturalHeight,
     });
@@ -244,17 +253,20 @@
       textActive = false,
       textDone = 0,
       textError = "",
-      textCursor = 0;
+      textCursor = 0,
+      imagesPaused = false;
     const textJobs = [];
     const textEntries = new WeakMap(), dirtyTextRoots = new Set();
     const queue = [];
+    const watchedPanels = new Set();
     const failures = new Set();
     retryFailed = () => {
       if (run !== token || active || textActive) return;
       if(textError){textError="";drainText();}
+      imagesPaused=false;
       const pending = [...failures]; failures.clear(); failed = 0; lastError = "";
       for (const im of pending) { processed.delete(im); if (im.isConnected) enqueue(im); }
-      progress();
+      drain();progress();
     };
     status(wording("Yomu — traduction en cours…", "Yomu — translating…"));
     function eligibleText(node) {
@@ -372,65 +384,98 @@
     function progress() {
       if (run !== token) return;
       const retry = document.getElementById("yomu-translation-retry");
-      if (retry) {retry.hidden = !failures.size && !textError; retry.disabled = !!active || textActive;}
+      if (retry) {retry.hidden = !failures.size && !textError && !imagesPaused; retry.disabled = !!active || textActive;}
       const completed=wording(
         `${textDone} passage(s) de texte et ${done} image(s) traduits.`,
         `${textDone} text passage(s) and ${done} image(s) translated.`
       );
       if(active || textActive)status(wording("Yomu — traduction en cours… ","Yomu — translating… ")+completed);
-      else if(textError || failed)status(completed+" "+[
+      else if(textError || failed || imagesPaused)status(completed+" "+[
         textError,
+        imagesPaused?wording("Images en pause : le service limite les demandes. Patiente avant de réessayer.","Images paused: the service is rate-limited. Wait before retrying."):"",
         failed?wording(`${failed} image(s) en échec (${lastError}).`,`${failed} image(s) failed (${lastError}).`):""
       ].filter(Boolean).join(" "));
       else if(textDone || done)status(completed+" "+wording("Poursuis ta lecture.","Keep reading."));
       else status(wording("Aucun texte lisible détecté pour le moment.","No readable text detected yet."));
     }
+    function invalidatePanel(im) {
+      processed.delete(im);
+      overlays.get(im)?.el.remove();overlays.delete(im);
+      resize?.unobserve(im);
+      failures.delete(im);failed=failures.size;
+    }
+    function currentPanel(job) {
+      return run===token && job.im.isConnected && processed.get(job.im)===job &&
+        imageSource(job.im)===job.source && isPanel(job.im);
+    }
     async function drain() {
-      if (active || run !== token) return;
-      active = 1;
-      while (queue.length && run === token) {
-        const im = queue.shift();
+      if(active || imagesPaused || run!==token)return;
+      active=1;
+      while(queue.length && run===token && !imagesPaused) {
+        const job=queue.shift(),im=job.im;
+        if(!currentPanel(job))continue;
         progress();
         try {
-          const source = imageSource(im);
-          if (!source) continue;
-          const result = await requestPanel(im,source,target,src);
-          if (run !== token) return;
-          if (imageSource(im) !== source) continue;
-          failures.delete(im); failed = failures.size;
-          if (result.blocks?.length) {
-            applyRegions(im, result, target);
-            done++;
-          } else empty++;
-        } catch (e) {
-          if (run === token) {failures.add(im);failed=failures.size;lastError=e.message==="translation_rate_limited"?wording("service temporairement limité, patiente au moins une minute","service temporarily rate-limited, wait at least one minute"):e.message==="image_access_required"?wording("ouvre Yomu puis « Image access and privacy » pour autoriser le domaine des images","open Yomu, then Image access and privacy to allow the image domain"):String(e.message||e).slice(0,120);}
+          const result=await requestPanel(im,job.source,target,src,()=>currentPanel(job));
+          if(!currentPanel(job))continue;
+          failures.delete(im);failed=failures.size;
+          if(result.blocks?.length){applyRegions(im,result,target,job.source);done++;}
+          else empty++;
+        }catch(error){
+          if(!currentPanel(job))continue;
+          failures.add(im);failed=failures.size;
+          if(error.message==="translation_rate_limited")imagesPaused=true;
+          lastError=error.message==="translation_rate_limited"
+            ?wording("service temporairement limité, patiente au moins une minute","service temporarily rate-limited, wait at least one minute")
+            :error.message==="image_access_required"
+              ?wording("ouvre Yomu puis « Image access and privacy » pour autoriser le domaine des images","open Yomu, then Image access and privacy to allow the image domain")
+              :String(error.message||error).slice(0,120);
         }
       }
-      active = 0;
-      progress();
+      active=0;progress();
     }
     function enqueue(im) {
-      const key = `${token}:${imageSource(im)}`;
-      if (processed.get(im) === key) return;
-      overlays.get(im)?.el.remove(); overlays.delete(im);
-      processed.set(im, key);
-      queue.push(im);
-      drain();
+      if(run!==token || !im.isConnected || !isPanel(im))return;
+      const source=imageSource(im),previous=processed.get(im);
+      // currentSrc can still refer to the previous decoded picture while a new
+      // src/srcset is loading. The capture load handler will enqueue it once ready.
+      if(!im.complete && source===(im.currentSrc || im.src))return;
+      if(!source || previous?.token===token && previous.source===source)return;
+      invalidatePanel(im);
+      const job={im,source,token};
+      processed.set(im,job);queue.push(job);drain();
     }
-    observer = new IntersectionObserver(
-      entries =>
-        entries.forEach(e => {
-          if (e.isIntersecting) enqueue(e.target);
-        }),
-      { rootMargin: "250px 0px" }
-    );
+    function nearViewport(im) {
+      const rect=im.getBoundingClientRect();
+      return rect.bottom>=-250 && rect.top<=innerHeight+250;
+    }
+    observer=new IntersectionObserver(entries=>{
+      for(const entry of entries)if(entry.isIntersecting)enqueue(entry.target);
+    },{rootMargin:"250px 0px"});
     function scan() {
-      if (run !== token) return;
-      for (const im of document.images) if (isPanel(im)) observer.observe(im);
+      if(run!==token)return;
+      for(const im of watchedPanels) {
+        if(!im.isConnected || !isPanel(im)){
+          observer.unobserve(im);watchedPanels.delete(im);invalidatePanel(im);
+        } else if(processed.get(im)?.source!==imageSource(im)) {
+          invalidatePanel(im);if(nearViewport(im))enqueue(im);
+        }
+      }
+      for(const im of document.images)if(isPanel(im) && !watchedPanels.has(im)){
+        watchedPanels.add(im);observer.observe(im);
+      }
     }
+    panelLoadHandler=event=>{
+      const im=event.target;
+      if(!(im instanceof HTMLImageElement) || run!==token)return;
+      scan();
+      if(isPanel(im) && nearViewport(im))enqueue(im);
+    };
+    window.addEventListener("load",panelLoadHandler,true);
     mutation = new MutationObserver(records => {
       if(run!==token)return;
       let imagesChanged=false;
+      const changedSources=new Set();
       for(const record of records) {
         const element=record.target.nodeType===Node.TEXT_NODE?record.target.parentElement:record.target;
         if(element?.closest?.("[data-yomu-overlay],#yomu-translation-status"))continue;
@@ -447,15 +492,14 @@
         queueTextRoot(record.target);
         imagesChanged=true;
         const im=record.target;
-        if(!(im instanceof HTMLImageElement) || !isPanel(im))continue;
-        const rect=im.getBoundingClientRect();
-        if(rect.bottom>=-250 && rect.top<=innerHeight+250)enqueue(im);
+        if(im instanceof HTMLImageElement && ["src","srcset","data-src","data-original","data-lazy-src","data-url"].includes(record.attributeName) && record.oldValue!==im.getAttribute(record.attributeName))changedSources.add(im);
       }
-      if(imagesChanged){scan();schedule();}
+      for(const im of changedSources)invalidatePanel(im);
+      if(imagesChanged){scan();for(const im of changedSources)if(nearViewport(im))enqueue(im);schedule();progress();}
     });
     // Watching the document root also survives a site's replacement of <body>.
     mutation.observe(document.documentElement, {
-      childList:true,subtree:true,characterData:true,attributes:true,
+      childList:true,subtree:true,characterData:true,attributes:true,attributeOldValue:true,
       attributeFilter:["src","srcset","data-src","data-original","data-lazy-src","data-url","hidden","aria-hidden","class","style","open","contenteditable"]
     });
     scan();
