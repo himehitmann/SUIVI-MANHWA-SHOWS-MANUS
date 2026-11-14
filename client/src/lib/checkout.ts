@@ -1,51 +1,27 @@
-/**
- * Client-side checkout links — the last unwired piece of the payment flow.
- *
- * The backend webhook already grants the plan (server/lib/billing.ts); all the
- * client needs is to send the buyer to a hosted checkout. We use provider
- * "payment links" (e.g. Stripe Payment Links) configured at build time via env,
- * so there is NO secret in the client and no extra backend code:
- *
- *   VITE_CHECKOUT_PRO_MONTH   → $3.99/mo link
- *   VITE_CHECKOUT_PRO_YEAR    → $29.99/yr link
- *   VITE_CHECKOUT_LIFETIME    → $59 one-time link
- *
- * We append `client_reference_id` (the Dasi user id) and `prefilled_email` so
- * the webhook can map the payment back to the account. When no link is
- * configured (dev, or the unlocked owner build), the Pricing page falls back to
- * a local plan toggle.
- */
+/** Hosted Stripe Payment Links. Prices and products must match the configured checkout. */
 import type { Plan } from "./types";
-
-export interface CheckoutRef {
-  userId?: string;
-  email?: string;
+export interface CheckoutRef { userId?: string; email?: string; }
+export function validCheckoutBase(value: string): boolean {
+  try { const u = new URL(value); return u.protocol === "https:" && u.hostname === "buy.stripe.com" && !u.port && !u.username && !u.password && !u.hash && /^\/[a-zA-Z0-9_]+$/.test(u.pathname); } catch { return false; }
 }
-
-/** Attach the account reference to a hosted checkout URL (pure, testable). */
+/** The account reference is required so a verified webhook can grant the purchase. */
 export function buildCheckoutUrl(baseUrl: string, ref: CheckoutRef): string {
+  if (!validCheckoutBase(baseUrl)) throw new Error("Invalid hosted checkout destination");
+  if (!ref.userId || !/^[a-zA-Z0-9_-]{1,128}$/.test(ref.userId)) throw new Error("Sign in before checkout");
   const u = new URL(baseUrl);
-  if (ref.userId) u.searchParams.set("client_reference_id", ref.userId);
+  u.searchParams.set("client_reference_id", ref.userId);
+  u.searchParams.delete("prefilled_email");
   if (ref.email) u.searchParams.set("prefilled_email", ref.email);
   return u.toString();
 }
-
 const ENV = import.meta.env as unknown as Record<string, string | undefined>;
-
-/** The configured base checkout URL for a plan + billing cadence, if any. */
 export function checkoutBase(plan: Plan, yearly: boolean): string | undefined {
-  if (plan === "lifetime") return ENV.VITE_CHECKOUT_LIFETIME;
-  if (plan === "pro") return yearly ? ENV.VITE_CHECKOUT_PRO_YEAR : ENV.VITE_CHECKOUT_PRO_MONTH;
-  return undefined;
+  const value = plan === "lifetime" ? ENV.VITE_CHECKOUT_LIFETIME : plan === "pro" ? (yearly ? ENV.VITE_CHECKOUT_PRO_YEAR : ENV.VITE_CHECKOUT_PRO_MONTH) : undefined;
+  return value && validCheckoutBase(value) ? value : undefined;
 }
-
-/** Full checkout URL for a plan, or null when no link is configured. */
 export function checkoutUrl(plan: Plan, yearly: boolean, ref: CheckoutRef): string | null {
   const base = checkoutBase(plan, yearly);
-  return base ? buildCheckoutUrl(base, ref) : null;
+  return base && ref.userId ? buildCheckoutUrl(base, ref) : null;
 }
+export const CHECKOUT_CONFIGURED = Boolean(checkoutBase("pro", false) || checkoutBase("pro", true) || checkoutBase("lifetime", false));
 
-/** True when at least one hosted checkout link is configured for this build. */
-export const CHECKOUT_CONFIGURED = Boolean(
-  ENV.VITE_CHECKOUT_PRO_MONTH || ENV.VITE_CHECKOUT_PRO_YEAR || ENV.VITE_CHECKOUT_LIFETIME,
-);

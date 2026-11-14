@@ -23,7 +23,6 @@ export function LanguageSwitch() {
     <div className="lang-switch" ref={ref}>
       <button className="lang-trigger" onClick={() => setOpen((v) => !v)} aria-haspopup="listbox" aria-expanded={open}>
         <Globe size={15} />
-        <span>{active.flag}</span>
         <span className="lang-code">{active.code.toUpperCase()}</span>
       </button>
       {open && (

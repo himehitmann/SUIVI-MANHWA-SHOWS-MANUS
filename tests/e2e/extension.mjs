@@ -1,0 +1,1719 @@
+import { chromium } from "playwright";
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
+const root = process.env.YOMU_EXTENSION_DIR || process.cwd(),
+  profile = await fs.mkdtemp(path.join(os.tmpdir(), "yomu-e2e-"));
+const artifactDir = path.resolve("test-results");
+await fs.mkdir(artifactDir, { recursive: true });
+const context = await chromium.launchPersistentContext(profile, {
+  channel: "chromium",
+  headless: true,
+  args: [`--disable-extensions-except=${root}`, `--load-extension=${root}`],
+  viewport: { width: 1440, height: 1000 },
+});
+try {
+  const worker =
+    context.serviceWorkers()[0] ||
+    (await context.waitForEvent("serviceworker"));
+  const id = new URL(worker.url()).host,
+    base = `chrome-extension://${id}/`;
+  // Service worker visibility precedes completion of asynchronous alarm setup.
+  const alarmDeadline = Date.now() + 5000;
+  let syncAlarmReady = false;
+  while (!syncAlarmReady && Date.now() < alarmDeadline) {
+    syncAlarmReady = await worker.evaluate(async()=>Boolean(await chrome.alarms.get("yomu-sync-retry")));
+    if (!syncAlarmReady) await new Promise(resolve=>setTimeout(resolve,100));
+  }
+  assert(syncAlarmReady,"Durable sync alarm missing after startup");
+  const releaseAlarm=await worker.evaluate(async()=>{
+    await ensureReleaseAlarm();const before=await chrome.alarms.get("dasi-daily");await ensureReleaseAlarm();const after=await chrome.alarms.get("dasi-daily");return {before:before.scheduledTime,after:after.scheduledTime,period:after.periodInMinutes};
+  });
+  assert.equal(releaseAlarm.before,releaseAlarm.after,"Release alarm was postponed");assert.equal(releaseAlarm.period,720);
+  const image = await context.newPage();
+  await image.setViewportSize({ width: 720, height: 1000 });
+  await image.setContent(
+    '<body style="margin:0;background:#dde1e9"><div style="margin:180px 100px;border:3px solid black;border-radius:50%;background:white;height:240px;display:flex;align-items:center;justify-content:center;font:38px Arial;text-align:center">HELLO WORLD<br>WELCOME HOME</div></body>'
+  );
+  const png = await image.screenshot();
+  const dataUrl = "data:image/png;base64," + png.toString("base64");
+  await image.close();
+  await worker.evaluate(async cover => {
+    // Installation migration and fixtures must share the worker write queue.
+    // Otherwise a migration snapshot taken before seeding can erase the fixture.
+    await serializeLibrary(async()=>{
+    await migrateStorage();
+    await chrome.storage.local.set({
+      "dasi.schema": 3,
+      "dasi.settings": { lang: "fr", profile: { name: "Test Reader" } },
+      "dasi.items": [
+        {
+          id: "alchemy-of-souls",
+          title: "Alchemy of Souls",
+          type: "watching",
+          episode: 1,
+          total: 20,
+          enrichedAt: 1,
+          cover,
+          updatedAt: 1,
+        },
+      ],
+      "dasi.lists": [
+        { id: "favorites", name: "À découvrir", itemIds: ["alchemy-of-souls"] },
+      ],
+    });
+    });
+    globalThis.testCover = cover;
+    globalThis.catalogFixtureStarted=[];
+    globalThis.catalogFixtureFinished=[];
+    catalogSearchAll = async query => {
+      globalThis.catalogFixtureStarted.push(query);
+      await new Promise(r => setTimeout(r, query === "old" ? 900 : 30));
+      globalThis.catalogFixtureFinished.push(query);
+      return [
+        {
+          title: query === "old" ? "Old result" : "Aniimo",
+          type: "game",
+          cover: globalThis.testCover,
+          url: "https://store.steampowered.com/app/4126040/Aniimo/",
+          genres: ["RPG"],
+          synopsis: "Catalog fixture.",
+        },
+      ];
+    };
+    getDiscover = async () => ({
+      manga: [],
+      anime: [],
+      manhwa: [],
+      manhua: [],
+      series: [],
+      gamesHot: [],
+      gamesSoon: [],
+    });
+  }, dataUrl);
+  const seeded=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists","dasi.schema"]));
+  assert.equal(seeded["dasi.schema"],3);
+  assert(seeded["dasi.items"].some(item=>item.id==="alchemy-of-souls"),"Seeded work missing after serialized installation");
+  assert(seeded["dasi.lists"].some(list=>list.itemIds.includes("alchemy-of-souls")),"Seeded list lost its work");
+  // Official non-Steam pages use their own media metadata; no invented release date.
+  for (const [url, title] of [
+    ["https://www.aniimo.com/fr", "Aniimo"],
+    ["https://chronoodyssey.kakaogames.com/", "Chrono Odyssey"],
+  ]) {
+    const game = await context.newPage();
+    await game.route("**/*", r =>
+      r.fulfill({
+        contentType: "text/html",
+        body:
+          "<title>" +
+          title +
+          ' | Official</title><meta property="og:title" content="' +
+          title +
+          ' | Official"><h1>' +
+          title +
+          "</h1>",
+      })
+    );
+    await game.goto(url);
+    // Exercise the real DOM detector with a transport stub: automated pages do
+    // not receive Chrome's user-gesture activeTab grant.
+    await game.evaluate(() => {
+      globalThis.chrome = {
+        runtime: {
+          sendMessage: m => {
+            if (m.type === "DETECTION_UPDATED")
+              globalThis.testDetection = m.payload;
+          },
+          onMessage: { addListener() {} },
+        },
+      };
+    });
+    await game.addScriptTag({ path: path.join(root, "content.js") });
+    await game.waitForFunction(() => globalThis.testDetection);
+    const detected = await game.evaluate(() => globalThis.testDetection);
+    assert.equal(detected.title, title);
+    assert.equal(detected.type, "game");
+    assert(!detected.releaseDate);
+    await game.close();
+  }
+
+  for (const [url,label,chapter] of [
+    ["https://reader.example/comic/bonus", "Chapitre 12,75", 12.75],
+    ["https://manganato.com/manga-test/chapter-0.25", "Bonus", 0.25]
+  ]) {
+    const reader=await context.newPage();
+    await reader.route("**/*",route=>route.fulfill({contentType:"text/html",body:"<title>Side Story - "+label+"</title><h1>Side Story</h1>"}));
+    await reader.goto(url);
+    await reader.evaluate(()=>{globalThis.chrome={runtime:{sendMessage:message=>{if(message.type==="DETECTION_UPDATED")globalThis.testDetection=message.payload;},onMessage:{addListener(){}}}};});
+    await reader.addScriptTag({path:path.join(root,"content.js")});
+    await reader.waitForFunction(()=>globalThis.testDetection);
+    const detected=await reader.evaluate(()=>globalThis.testDetection);
+    assert.equal(detected.type,"reading");assert.equal(detected.chapter,chapter);
+    await reader.close();
+  }
+  for (const domain of ["reader-one.example","reader-two.example"]) {
+    const reading=await context.newPage();
+    await reading.route("**/*",r=>r.fulfill({contentType:"text/html",body:'<title>Miraculoushub | Watch online</title><meta property="og:site_name" content="Miraculoushub"><meta property="og:title" content="Miraculoushub"><h1>Miraculous Season 6 Episode 26 English Dub</h1>'}));
+    await reading.goto("https://"+domain+"/miraculous/season-6/episode-26");
+    await reading.evaluate(()=>{globalThis.chrome={runtime:{sendMessage:m=>{if(m.type==="DETECTION_UPDATED")globalThis.testDetection=m.payload;},onMessage:{addListener(){}}}};});
+    await reading.addScriptTag({path:path.join(root,"content.js")});
+    await reading.waitForFunction(()=>globalThis.testDetection);
+    const detection=await reading.evaluate(()=>globalThis.testDetection);
+    assert.equal(detection.title,"Miraculous","Site branding must not replace the series title");
+    assert.equal(detection.season,6);assert.equal(detection.episode,26);
+    await reading.close();
+  }
+  const page = await context.newPage(),
+    errors = [];
+  page.on("pageerror", e => errors.push(e.message));
+  await page.goto(base + "library.html");
+  await page.locator("#avatar").waitFor();
+  // Library counters have the same non-game scope as the library grid.
+  const statsSnapshot=await page.evaluate(()=>{
+    const saved=items;
+    items=[{id:"read",title:"Read",type:"reading",favorite:true,state:"completed"},{id:"watch",title:"Watch",type:"watching"},{id:"game",title:"Game",type:"game",favorite:true,state:"completed"}];
+    renderStats();
+    const counts=[...document.querySelectorAll("#stats .chip b")].map(n=>Number(n.textContent));
+    items=saved;renderStats();
+    return counts;
+  });
+  assert.deepEqual(statsSnapshot,[2,1,1,1,1],"Game favorites/completions inflated the library counters");
+  const listCounts=await page.evaluate(()=>{
+    const savedItems=items,savedLists=lists;
+    items=[{id:"one",title:"One work",type:"reading"}];
+    lists=[{id:"active",name:"Active list",itemIds:["one","one","deleted"]},{id:"archive",name:"Archived list",itemIds:["one"],archived:true}];
+    renderLists();
+    const count=document.querySelector('[data-list="active"] .cnt').textContent;
+    openQuickAdd("one",document.querySelector('[data-list="active"]'));
+    const choices=[...document.querySelectorAll("[data-ql]")].map(n=>n.dataset.ql);
+    const members=listMembers(lists[0]).map(i=>i.id);
+    closeQuickAdd();items=savedItems;lists=savedLists;renderLists();
+    return {count,choices,members};
+  });
+  assert.deepEqual(listCounts,{count:"1",choices:["active"],members:["one"]},"List counts included missing/duplicate works or archived quick-add choices");
+  const sitesBefore=await worker.evaluate(()=>chrome.storage.local.get("dasi.sites"));
+  try {
+    await worker.evaluate(()=>chrome.storage.local.set({"dasi.sites":[{id:"keyboard-site",name:"Keyboard site",url:"https://reader.example/"},{id:"unsafe-site",name:"Invalid imported site",url:"javascript:alert(1)"}]}));
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("library");resolve();})));
+    assert.equal(await page.locator('#site-strip a[href="https://reader.example/"]').count(),1);
+    assert.equal(await page.locator('#site-strip a[href^="javascript:"]').count(),0);
+    await page.evaluate(()=>{
+      globalThis.siteRemoveTransport=api.runtime.sendMessage;
+      api.runtime.sendMessage=function(message,callback){
+        if(message.type==="REMOVE_SITE"){callback({ok:false,error:"test persistence failure"});return;}
+        return globalThis.siteRemoveTransport.call(api.runtime,message,callback);
+      };
+    });
+    try {
+      await page.locator('[data-rmsite="keyboard-site"]').click();
+      assert.equal(await page.locator('[data-rmsite="keyboard-site"]').count(),1,"Failed deletion hid the site");
+      assert.equal(await page.locator('[data-rmsite="keyboard-site"]').isEnabled(),true,"Failed deletion prevented retry");
+      assert.equal((await worker.evaluate(()=>chrome.storage.local.get("dasi.sites")))["dasi.sites"].length,2);
+    } finally {
+      await page.evaluate(()=>{api.runtime.sendMessage=globalThis.siteRemoveTransport;delete globalThis.siteRemoveTransport;});
+    }
+    const remove=page.getByRole("button",{name:/Keyboard site/});
+    await remove.focus();await page.keyboard.press("Enter");
+    await page.waitForFunction(()=>!document.querySelector('[data-rmsite="keyboard-site"]'));
+    assert.equal((await worker.evaluate(()=>chrome.storage.local.get("dasi.sites")))["dasi.sites"].some(s=>s.id==="keyboard-site"),false);
+    assert.equal(await page.locator('[data-rmsite="unsafe-site"]').count(),1);
+  } finally {
+    await worker.evaluate(state=>chrome.storage.local.set({"dasi.sites":state["dasi.sites"]||[]}),sitesBefore);
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("home");resolve();})));
+  }
+  const listJourneyBefore=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
+  try {
+    await worker.evaluate(async()=>{
+      const originals=(await chrome.storage.local.get("dasi.items"))["dasi.items"];
+      if(!originals.some(item=>item.id==="alchemy-of-souls"))throw Error("Baseline work missing before list journey");
+      await chrome.storage.local.set({"dasi.items":[...originals,...Array.from({length:125},(_,n)=>({id:"list-extra-"+n,title:"Library extra "+n,type:"reading",alternativeTitles:n===64?["Étoile secrète"]:[],enrichedAt:1}))],"dasi.lists":[{id:"journey-list",name:"Reading queue",itemIds:["alchemy-of-souls"]}]});
+    });
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("library");openList("journey-list");resolve();})));
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),50,"Large libraries should not render every add button at once");
+    const availableCount=await page.evaluate(()=>items.filter(item=>!lists.find(list=>list.id==="journey-list").itemIds.includes(item.id)).length);
+    const nextId=await page.evaluate(()=>items.filter(item=>!lists.find(list=>list.id==="journey-list").itemIds.includes(item.id))[50].id);
+    await page.locator("#list-add-more").focus();await page.keyboard.press("Enter");
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),100);
+    assert.equal(await page.evaluate(()=>document.activeElement?.dataset.add),nextId,"Keyboard pagination should focus the first newly revealed work");
+    await page.locator("#list-add-more").click();
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),availableCount);
+    assert.equal(await page.locator("#list-add-more").isVisible(),false,"The end of the list must not offer an empty next page");
+    await page.locator('[data-add="list-extra-124"]').click();
+    await page.locator('#list-items [data-open="list-extra-124"]').waitFor();
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),availableCount-1,"Saving a late-page work must keep the expanded choices");
+    assert((await worker.evaluate(()=>chrome.storage.local.get("dasi.lists")))["dasi.lists"][0].itemIds.includes("list-extra-124"));
+    await page.locator("#list-add-search").fill("Library extra");
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),50,"A new query resets the page size");
+    await page.locator("#list-add-search").fill("");
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),50);
+    console.log("PASS: list choices paginate beyond 100 works, focus new choices by keyboard, preserve expansion after a saved addition and reset for a new search");
+
+    await page.evaluate(()=>{
+      globalThis.listJourneyTransport=api.runtime.sendMessage;
+      api.runtime.sendMessage=function(message,callback){
+        if(message.type==="LIST_MEMBERSHIP")return setTimeout(()=>globalThis.listJourneyTransport.call(api.runtime,message,callback),80);
+        return globalThis.listJourneyTransport.call(api.runtime,message,callback);
+      };
+      document.querySelector('[data-add="list-extra-0"]').click();
+      document.querySelector('[data-add="list-extra-1"]').click();
+    });
+    try {
+      await page.waitForFunction(()=>document.querySelector('#list-items [data-id="list-extra-0"]')&&document.querySelector('#list-items [data-id="list-extra-1"]'));
+    } finally {
+      await page.evaluate(()=>{api.runtime.sendMessage=globalThis.listJourneyTransport;delete globalThis.listJourneyTransport;});
+    }
+    const rapidSaved=await worker.evaluate(()=>chrome.storage.local.get("dasi.lists"));
+    assert(rapidSaved["dasi.lists"][0].itemIds.includes("list-extra-0")&&rapidSaved["dasi.lists"][0].itemIds.includes("list-extra-1"),"Rapid additions lost an earlier work");
+
+    await page.locator('#list-add-search').fill("etoile secrete");
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),1);
+    await page.locator('[data-add="list-extra-64"]').click();
+    await page.locator('#list-items [data-open="list-extra-64"]').waitFor();
+    assert.equal(await page.locator('#list-add-search').inputValue(),"etoile secrete","Adding a work must preserve the current list search");
+    assert.equal(await page.locator('#list-add-options [data-add]').count(),0,"The added work must leave the available matches");
+    await page.waitForFunction(()=>document.activeElement===document.getElementById("list-add-search"));
+
+    const listSnapshot=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
+    assert(listSnapshot["dasi.items"].some(item=>item.id==="alchemy-of-souls"),"List operations removed the saved work");
+    assert(listSnapshot["dasi.lists"].find(list=>list.id==="journey-list")?.itemIds.includes("alchemy-of-souls"),"List operations removed the original member");
+    await page.locator('#list-items [data-open="alchemy-of-souls"]').focus();
+    await page.keyboard.press("Enter");
+    await page.locator('#dr-close').waitFor();
+    assert.equal(await page.locator('#drawer .drawer-title').innerText(),"Alchemy of Souls");
+    await page.locator('#dr-close').click();
+    await page.evaluate(()=>{globalThis.viewTransport=api.runtime.sendMessage;api.runtime.sendMessage=function(message,callback){if(message.type==="LIST_UPDATE"&&message.patch?.view){globalThis.pendingView=()=>callback({ok:false});return;}return globalThis.viewTransport.call(api.runtime,message,callback);};});
+    await page.locator("#list-view-btn").click();
+    assert.equal(await page.locator("#list-view-btn").isDisabled(),true);
+    assert.equal(await page.locator("#list-view-btn").getAttribute("aria-busy"),"true");
+    await page.evaluate(()=>{globalThis.pendingView();delete globalThis.pendingView;api.runtime.sendMessage=globalThis.viewTransport;delete globalThis.viewTransport;});
+    assert.equal(await page.locator("#list-view-btn").isEnabled(),true);
+    assert.equal(await page.locator("#list-items.li-grid").count(),0,"Failed view change must retain rows");
+    await page.locator("#list-view-btn").focus();await page.keyboard.press("Enter");
+    await page.locator('#list-items.li-grid').waitFor();
+    await page.waitForFunction(()=>document.activeElement===document.getElementById("list-view-btn"));
+    assert.equal((await worker.evaluate(()=>chrome.storage.local.get("dasi.lists")))["dasi.lists"].find(list=>list.id==="journey-list").view,"grid");
+
+    await page.locator('#list-items [data-open="alchemy-of-souls"]').click();
+    await page.locator('#dr-close').waitFor();await page.locator('#dr-close').click();
+    await page.locator('#list-items [data-remove="list-extra-64"]').click();
+    await page.waitForFunction(()=>!document.querySelector('#list-items [data-id="list-extra-64"]'));
+    assert.equal(await page.locator('#list-add-search').inputValue(),"etoile secrete");
+    assert.equal(await page.locator('#list-add-options [data-add="list-extra-64"]').count(),1,"A removed work returns to matching add options");
+    const retained=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
+    assert(retained["dasi.items"].some(i=>i.id==="list-extra-64"),"Removing list membership deleted the work");
+    assert(!retained["dasi.lists"][0].itemIds.includes("list-extra-64"));
+    await page.reload();
+    await page.waitForFunction(()=>lists.some(list=>list.id==="journey-list"));
+    await page.evaluate(()=>{switchView("library");openList("journey-list");});
+    assert.equal(await page.locator('#list-items [data-id="list-extra-0"]').count(),1);
+    assert.equal(await page.locator('#list-items [data-id="list-extra-1"]').count(),1);
+    assert.equal(await page.locator('#list-items [data-id="list-extra-64"]').count(),0);
+    assert.equal(await page.locator("#list-add-search").inputValue(),"","Reopening a list starts with an unfiltered add search");
+
+  } finally {
+    await worker.evaluate(state=>chrome.storage.local.set(state),listJourneyBefore);
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{currentListId=null;hydrate(state);backToLists();switchView("home");resolve();})));
+  }
+  // Home cards must open their own details, preserve artwork ratios and hide idle arrows.
+  await worker.evaluate(cover=>{
+    getDiscover=async()=>({manga:[{title:"Home fixture",type:"reading",format:"MANGA",cover,genres:["Adventure"],synopsis:"Home preview"}],anime:[],manhwa:[],manhua:[],series:[],gamesHot:[],gamesSoon:[]});
+    catalogDetail=async item=>item;
+  },dataUrl);
+  await page.evaluate(()=>loadDiscover(true));
+  await page.locator('#view-home [data-preview-disco]').first().waitFor();
+  await page.waitForFunction(()=>{const im=document.querySelector('#view-home .disco img.cov');return im&&im.complete&&im.naturalWidth>0;});
+  const artRatio=await page.locator('#view-home .disco img.cov').first().evaluate(im=>({rendered:im.clientWidth/im.clientHeight,native:im.naturalWidth/im.naturalHeight,frameHeight:im.parentElement.clientHeight,height:im.clientHeight,fit:getComputedStyle(im).objectFit}));
+  assert.equal(artRatio.fit,"contain","Artwork must remain complete without stretching or cropping");
+  assert(Math.abs(artRatio.rendered-2/3)<0.02,"Poster frames must have a consistent ratio");
+  assert(Math.abs(artRatio.frameHeight-artRatio.height)<2,"Artificial bands around discovery artwork");
+  assert.equal(await page.locator('#view-home .carousel-arrow:visible').count(),0,"Arrows shown without overflowing content");
+  await page.locator('#view-home [data-preview-disco]').first().click();
+  await page.locator('#preview-close').waitFor();
+  assert.equal(await page.locator('#drawer .drawer-title').innerText(),"Home fixture");
+  await page.locator('#preview-close').click();
+  await page.locator('[data-home-category="manga"]').click();
+  await page.waitForFunction(()=>!document.querySelector('#view-home .disco'));
+  await page.locator('[data-home-category="manga"]').click();
+  await page.locator('#view-home .disco').waitFor();
+  await page.screenshot({path:path.join(artifactDir,"home-discovery.png")});
+
+
+
+
+  // Metadata work belongs to the durable worker, not the settings page lifetime.
+  const beforeMetadata=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
+  await worker.evaluate(()=>{
+    globalThis.metadataOriginalSearch=catalogSearchAll;
+    globalThis.metadataSearchStarted=false;
+    globalThis.metadataSearchReady=new Promise(resolve=>{globalThis.metadataSearchReadyResolve=resolve;});
+    catalogSearchAll=()=>new Promise(resolve=>{globalThis.finishMetadataSearch=resolve;globalThis.metadataSearchStarted=true;globalThis.metadataSearchReadyResolve();});
+    return chrome.storage.local.set({"dasi.items":[{id:"metadata-e2e",title:"Imported fixture",type:"reading",chapter:8,metadataStatus:{state:"failed"}}],"dasi.lists":[]});
+  });
+  await page.evaluate(async()=>{const state=await chrome.runtime.sendMessage({type:"GET_STATE"});items=state.items;lists=state.lists;switchView("settings");});
+  await page.locator("#complete-metadata").click();
+  await page.waitForFunction(async()=>{const state=await chrome.runtime.sendMessage({type:"GET_STATE"});return state.items[0]?.metadataPending?.state==="running";});
+  await page.evaluate(()=>switchView("library"));
+  await page.locator("#library-metadata-status:not([hidden])").waitFor();
+  // Storage persistence and the page storage-change listener finish independently.
+  await page.waitForFunction(()=>/being completed|en cours de recherche/.test(document.querySelector("#library-metadata-status")?.textContent||""));
+  assert.match(await page.locator("#library-metadata-status").innerText(),/being completed|en cours de recherche/);
+  // Persisting "running" precedes the provider call; await the actual mock request.
+  await worker.evaluate(()=>new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(new Error("Metadata provider request did not start within 10 seconds")),10000);
+    globalThis.metadataSearchReady.then(()=>{clearTimeout(timer);resolve();});
+  }));
+  await worker.evaluate(()=>globalThis.finishMetadataSearch([{title:"Imported fixture",type:"reading",cover:"https://example.org/cover.jpg",synopsis:"Recovered description",externalIds:{mal:"77"}}]));
+  await page.waitForFunction(async()=>{const state=await chrome.runtime.sendMessage({type:"GET_STATE"});return state.items[0]?.metadataStatus?.state==="matched";});
+  const completedMetadata=await worker.evaluate(async()=>{await importEnrichmentQueue;return (await chrome.storage.local.get("dasi.items"))["dasi.items"][0];});
+  assert.equal(completedMetadata.chapter,8);assert.equal(completedMetadata.synopsis,"Recovered description");assert.equal(completedMetadata.metadataPending,null);
+  await page.locator("#library-metadata-status").waitFor({state:"hidden"});
+  await worker.evaluate(()=>chrome.storage.local.set({"dasi.items":[{id:"missing-e2e",title:"No match",type:"reading",metadataStatus:{state:"not_found",attempts:3}}]}));
+  await page.locator("#retry-library-metadata").waitFor();
+  assert.match(await page.locator("#library-metadata-status").innerText(),/uncertain match|correspondance certaine/);
+  await worker.evaluate(data=>{catalogSearchAll=globalThis.metadataOriginalSearch;return chrome.storage.local.set(data);},beforeMetadata);
+  await page.waitForFunction(ids=>items.length===ids.length&&ids.every(id=>items.some(item=>item.id===id)),beforeMetadata["dasi.items"].map(item=>item.id));
+  await page.evaluate(()=>switchView("home"));
+
+  // Empty accounts start with discoveries, not a large instruction screen.
+  const homeState=await page.evaluate(()=>({items,discover,settings}));
+  await page.evaluate(()=>{items=[];renderHome();});
+  await page.locator(".home-feature").waitFor();
+  assert.equal(await page.locator("#view-home .onboard, #view-home .value-strip").count(),0);
+  await page.locator("[data-feature-details]").first().click();
+  assert.equal(await page.locator("#drawer .drawer-title").innerText(),"Home fixture");
+  await page.locator("#preview-close").click();
+  await page.evaluate(()=>{
+    items=[{id:"resume-fixture",title:"Continue fixture",type:"reading",chapter:3,total:10,state:"current",status:"in_progress",updatedAt:Date.now(),synopsis:"Continue the story"}];
+    renderHome();
+  });
+  await page.locator("[data-feature-step='1']").click();
+  assert.equal(await page.locator(".home-feature h2").innerText(),"Home fixture");
+  assert.equal(await page.locator("#feature-pause").count(),0);
+  const heroHeight=await page.locator(".home-feature").evaluate(el=>el.getBoundingClientRect().height);
+  await page.locator("[data-feature-step='-1']").click();
+  assert.equal(await page.locator(".home-feature").evaluate(el=>el.getBoundingClientRect().height),heroHeight);
+  await page.locator("[data-feature-step='1']").click();
+  await page.locator("[data-feature-details]").first().click();
+  assert.equal(await page.locator("#drawer .drawer-title").innerText(),"Home fixture");
+  await page.locator("#preview-close").click();
+  const catchUpCards=await page.locator(".home-personal [data-open='resume-fixture']").count();
+  assert.equal(catchUpCards,1,"A work must not repeat across personal rows");
+  await page.evaluate(()=>{items[0].chapter=10;items[0].progress=100;items[0].state="completed";renderHome();});
+  assert.equal(await page.locator(".home-personal [data-open='resume-fixture']").count(),0,"Caught-up work should leave the catch-up row");
+  await page.evaluate(state=>{items=state.items;discover=state.discover;settings=state.settings;spotIdx=0;spotPaused=false;renderHome();},homeState);
+  await page.setViewportSize({width:390,height:844});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Home should fit a narrow viewport");
+  await page.screenshot({path:path.join(artifactDir,"home-mobile.png")});
+  await page.setViewportSize({width:1440,height:1000});
+
+  // A delayed response for the previous season must never overwrite the selected one.
+  await worker.evaluate(()=>{
+    catalogEpisodeGuide=async(item,seasonId)=>{
+      const seasons=[{id:"10",number:1,name:"Origins",episodeCount:2},{id:"20",number:2,name:"Return",episodeCount:1}];
+      if(seasonId===undefined)return {supported:true,seasons};
+      await new Promise(resolve=>setTimeout(resolve,seasonId==="10"?900:20));
+      return {supported:true,seasons,season:seasons.find(s=>s.id===seasonId),episodes:[{id:"100",number:1,name:seasonId==="10"?"Old season episode":"New season episode",airdate:"2028-01-01",runtime:42,special:false}]};
+    };
+  });
+  await page.evaluate(()=>openCatalogPreview({title:"Series guide fixture",type:"watching",format:"SERIES",externalIds:{tvmaze:"7"}}));
+  await page.locator("#guide-season").waitFor();
+  assert((await page.locator("#guide-season").innerText()).includes("Origins"));
+  await page.locator("#guide-season").selectOption("20");
+  await page.getByText("New season episode",{exact:true}).waitFor();
+  await page.waitForTimeout(1000);
+  assert(!(await page.locator("#episode-guide").innerText()).includes("Old season episode"));
+  assert((await page.locator("#episode-guide").innerText()).includes("2028-01-01"));
+  await page.screenshot({path:path.join(artifactDir,"series-episode-guide.png")});
+  await page.locator("#preview-close").click();
+
+
+  // Search labels and previews must use the same identity decisions as saves.
+  const identitySavedState=await worker.evaluate(()=>chrome.storage.local.get('dasi.items'));
+  await worker.evaluate(()=>chrome.storage.local.set({'dasi.items':[{id:'identity-saved',title:'Titre conservé',type:'reading',format:'MANGA',year:2020,chapter:12.5,enrichedAt:1,externalIds:{anilist:'987654'},alternativeTitles:['English fixture']}]}));
+  await page.evaluate(()=>{
+    switchView('library');
+    lastResults=[{title:'English fixture',type:'reading',format:'MANGA',year:2021,externalIds:{anilist:'987654'}},{title:'English fixture',type:'reading',format:'MANGA',year:2021,externalIds:{anilist:'987655'}}];
+    renderSearchResults('identity fixture');
+  });
+  await page.waitForFunction(()=>document.querySelector('[data-saved-label="0"]')?.textContent==='Dans la bibliothèque');
+  assert.equal(await page.locator('[data-saved-label="1"]').innerText(),await page.evaluate(()=>t('details')));
+  await page.locator('[data-saved-label="0"]').click();
+  await page.locator('#dr-close').waitFor();
+  assert.equal(await page.locator('#drawer .drawer-title').innerText(),'Titre conservé');
+  await page.locator('#dr-close').click();
+  await page.locator('[data-saved-label="1"]').click();
+  await page.locator('#preview-add').waitFor();
+  assert.equal(await page.locator('#drawer .drawer-title').innerText(),'English fixture');
+  assert.equal(await page.locator('#preview-add').isDisabled(),true);
+  await page.locator('#preview-close').click();
+  await page.evaluate(()=>openDrawer("identity-saved"));
+  const chapterInput=page.locator('#dr-num');
+  assert.equal(await chapterInput.inputValue(),"12.5");
+  await chapterInput.fill("12.75");
+  assert(await chapterInput.evaluate(input=>input.validity.valid));
+  await chapterInput.press("Enter");
+  await page.waitForFunction(()=>items.find(row=>row.id==="identity-saved")?.chapter===12.75);
+  const fractionalChapter=await worker.evaluate(async()=>(await chrome.storage.local.get("dasi.items"))["dasi.items"].find(row=>row.id==="identity-saved"));
+  assert.equal(fractionalChapter.chapter,12.75);
+  assert.equal(fractionalChapter.latestChapter,12.75);
+  await page.locator('#dr-close').click();
+  await worker.evaluate(state=>chrome.storage.local.set(state),identitySavedState);
+  await page.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:'GET_STATE'},state=>{hydrate(state);resolve();})));
+
+  // Delay actual storage-refresh callbacks to prove older snapshots cannot remove a restored card.
+  const refreshBaseline=await worker.evaluate(()=>chrome.storage.local.get(["dasi.items","dasi.lists"]));
+  await page.evaluate(()=>{
+    globalThis.refreshRaceOriginal=api.runtime.sendMessage;
+    globalThis.refreshRaceCallbacks=[];
+    api.runtime.sendMessage=function(message,callback){
+      if(message.type==="GET_STATE"){globalThis.refreshRaceCallbacks.push(callback);return;}
+      return globalThis.refreshRaceOriginal.call(api.runtime,message,callback);
+    };
+  });
+  try{
+    const original=refreshBaseline["dasi.items"].find(item=>item.id==="alchemy-of-souls");
+    assert(original,"Library fixture missing before refresh race");
+    await worker.evaluate(()=>chrome.storage.local.set({"dasi.items":[{id:"older-refresh",title:"Outdated snapshot",type:"watching",enrichedAt:1}]}));
+    await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=1);
+    const restored={...original,enrichedAt:Date.now(),episode:7};
+    await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[item]}),restored);
+    await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=2);
+    await page.evaluate(({restored,lists})=>{
+      const callbacks=globalThis.refreshRaceCallbacks.splice(0);
+      callbacks.at(-1)({items:[restored],lists});
+      callbacks[0]({items:[{id:"older-refresh",title:"Outdated snapshot",type:"watching",enrichedAt:1}],lists:[]});
+      switchView("library");
+    },{restored,lists:refreshBaseline["dasi.lists"]});
+    assert.equal(await page.locator('#grid article.card[data-open="alchemy-of-souls"]').count(),1,"An older refresh removed the latest library card");
+    assert.equal(await page.evaluate(()=>items.find(item=>item.id==="alchemy-of-souls").episode),7);
+    assert.equal(await page.evaluate(()=>items.some(item=>item.id==="older-refresh")),false);
+
+    // A progress-only storage update must invalidate an in-flight metadata refresh too.
+    await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[{...item,enrichedAt:item.enrichedAt+1}]}),restored);
+    await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=1);
+    const progressVersion=await page.evaluate(()=>{
+      globalThis.refreshRaceOlder=globalThis.refreshRaceCallbacks.splice(0);
+      return storageRefreshVersion;
+    });
+    const progressed={...restored,enrichedAt:restored.enrichedAt+1,episode:9};
+    await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[item]}),progressed);
+    await page.waitForFunction(version=>storageRefreshVersion>version,progressVersion);
+    await page.evaluate(item=>{
+      items=[item];renderGrid();
+      for(const callback of globalThis.refreshRaceOlder.splice(0))callback({items:[{...item,episode:7}],lists:[]});
+    },progressed);
+    assert.equal(await page.evaluate(()=>items[0].episode),9,"An old metadata refresh overwrote a progress-only change");
+    await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=1);
+    await page.evaluate(({item,lists})=>{
+      for(const callback of globalThis.refreshRaceCallbacks.splice(0))callback({items:[{...item,synopsis:"Fresh metadata after progress edit"}],lists});
+    },{item:progressed,lists:refreshBaseline["dasi.lists"]});
+    assert.equal(await page.evaluate(()=>items[0].synopsis),"Fresh metadata after progress edit","A progress edit discarded a pending metadata refresh");
+    assert.equal(await page.evaluate(()=>items[0].episode),9);
+    assert.equal(await page.evaluate(()=>storageRefreshDirty),false);
+
+
+    // Explicit hydration after import/account refresh also supersedes pending background responses.
+    await worker.evaluate(item=>chrome.storage.local.set({"dasi.items":[{...item,enrichedAt:item.enrichedAt+1}]}),progressed);
+    await page.waitForFunction(()=>globalThis.refreshRaceCallbacks.length>=1);
+    await page.evaluate(({item,lists})=>{
+      hydrate({items:[item],lists,sites,notifications,settings});
+      for(const callback of globalThis.refreshRaceCallbacks.splice(0))callback({items:[],lists:[]});
+    },{item:progressed,lists:refreshBaseline["dasi.lists"]});
+    assert.equal(await page.locator('#grid article.card[data-open="alchemy-of-souls"]').count(),1,"A pending refresh overrode explicit hydration");
+  }finally{
+    await page.evaluate(()=>{api.runtime.sendMessage=globalThis.refreshRaceOriginal;delete globalThis.refreshRaceOriginal;delete globalThis.refreshRaceCallbacks;delete globalThis.refreshRaceOlder;});
+    await worker.evaluate(state=>chrome.storage.local.set(state),refreshBaseline);
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);resolve();})));
+  }
+
+  await page.locator("#q").fill("old");
+  await worker.evaluate(async()=>{
+    const deadline=Date.now()+10000;
+    while(!globalThis.catalogFixtureStarted.includes("old")&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,25));
+    if(!globalThis.catalogFixtureStarted.includes("old"))throw Error("Old search did not start");
+  });
+  await page.locator("#q").fill("Aniimo");
+  const aniimoResult=page.locator("#search-results .link-btn[data-preview]").filter({hasText:/^Aniimo$/});
+  await aniimoResult.waitFor();
+  await worker.evaluate(async()=>{
+    const deadline=Date.now()+10000;
+    while(!globalThis.catalogFixtureFinished.includes("old")&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,25));
+    if(!globalThis.catalogFixtureFinished.includes("old"))throw Error("Old search did not finish");
+  });
+  assert(
+    !(await page.locator("#search-results").innerText()).includes("Old result")
+  );
+  await aniimoResult.click();
+  await page.locator("#preview-add").waitFor();
+  assert.equal(
+    await page.locator("#drawer .drawer-title").innerText(),
+    "Aniimo"
+  );
+  await page.locator("#preview-list").selectOption("favorites");
+  await page.locator("#preview-add").click();
+  await page.locator("#dr-close").waitFor();
+  const saved = await worker.evaluate(() =>
+    chrome.storage.local.get(["dasi.items", "dasi.lists"])
+  );
+  assert(saved["dasi.items"].some(i => i.title === "Aniimo"));
+  assert(saved["dasi.lists"][0].itemIds.includes("aniimo"));
+  await page.locator("#dr-close").click();
+
+  // Games remain scannable; manual entry must never save before explicit list selection.
+  await page.locator('[data-v="games"]').click();
+  assert.equal(await page.locator('#add-game').count(),0);
+  assert.equal(await page.locator('#view-games .game-card iframe, #view-games .game-card video, #view-games .game-card a').count(),0);
+  await page.locator('#search-games').click();
+  assert.equal(await page.locator('#view-games').isVisible(),true);
+  assert.equal(await page.locator('#view-games #search-results').count(),1);
+  await page.locator('#q').fill('Unlisted game fixture');
+  await page.locator('#manual-game').waitFor();
+  await page.locator('#manual-game').click();
+  assert.equal(await page.locator('#g-title').inputValue(),'Unlisted game fixture');
+  await page.locator('#g-url').fill('https://example.com/not-a-store');
+  await page.locator('#manual-game-form button[type=submit]').click();
+  assert((await page.locator('#manual-error').innerText()).includes('HTTPS'));
+  assert.equal(await page.locator('#preview-add').count(),0);
+  await page.locator('#g-url').fill('https://store.steampowered.com/app/1234/');
+  await page.locator('#manual-game-form button[type=submit]').click();
+  assert.equal(await page.locator('#preview-add').isDisabled(),true);
+  assert.equal(await page.locator('#preview-status').innerText(),'');
+  const manualBeforeChoice=await worker.evaluate(()=>chrome.storage.local.get('dasi.items'));
+  assert(!manualBeforeChoice['dasi.items'].some(i=>i.title==='Unlisted game fixture'));
+  await page.locator('#preview-list').selectOption('favorites');
+  assert.equal(await page.locator('#preview-add').isEnabled(),true);
+  await page.locator('#preview-close').click();
+  await page.locator('[data-v="games"]').click();
+  await page.setViewportSize({width:390,height:844});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Games should fit a narrow viewport');
+  await page.screenshot({path:path.join(artifactDir,'games-mobile.png')});
+  await page.setViewportSize({width:1440,height:1000});
+
+  await page.locator('[data-v="home"]').click();
+  await page.locator('[data-v="library"]').click();
+  assert.equal(await page.locator("#search-results").innerText(), "");
+  await page.locator('#grid h3 button[data-open="alchemy-of-souls"]').click();
+  await page.locator("#dr-num").fill("847");
+  await page.locator("#dr-num").press("Tab");
+  await page.waitForTimeout(250);
+  assert.equal(await page.locator("#dr-num").inputValue(), "20");
+  await page.locator("#dr-close").click();
+  await page.screenshot({
+    path: path.join(artifactDir, "library-desktop.png"),
+  });
+
+  const libraryTitle=page.locator('#grid button[data-open="alchemy-of-souls"]');
+  await libraryTitle.focus();await libraryTitle.press("Enter");
+  await page.waitForFunction(()=>document.getElementById("drawer").contains(document.activeElement));
+  await page.keyboard.press("Escape");
+  assert(await libraryTitle.evaluate(el=>document.activeElement===el),"Drawer did not restore keyboard focus");
+  assert(await page.locator("#drawer").evaluate(el=>el.inert),"Hidden drawer remained keyboard-accessible");
+  assert(await page.locator("#q").getAttribute("aria-label"));
+  assert.equal(await page.locator('#nav [aria-current="page"]').getAttribute("data-v"),"library");
+  assert((await page.title()).startsWith("Yomu — "));
+  const markupCheck=await page.evaluate(()=>{
+    const id='bad"><img id="injected" src="x" onerror="alert(1)">';
+    const holder=document.createElement("div");holder.innerHTML=cardHtml({id,title:'<script>alert(1)</script>',type:"reading",tags:['<img onerror="alert(1)">'],accent:'red" onmouseover="alert(1)'});
+    return {id:holder.querySelector(".card").dataset.open,bad:holder.querySelectorAll("script,[onerror],[onmouseover],#injected").length,color:holder.querySelector(".cover").style.background,expected:id};
+  });
+  assert.equal(markupCheck.bad,0);assert.equal(markupCheck.id,markupCheck.expected);assert(markupCheck.color);
+  for(const width of [320,375,480]){
+    await page.setViewportSize({width,height:844});
+    for(const target of ["home","library","games"]){
+      await page.locator('[data-v="'+target+'"]').click();
+      const bounds=await page.evaluate(()=>({page:document.documentElement.scrollWidth,width:innerWidth,search:document.getElementById("q").getBoundingClientRect().right,nav:document.getElementById("nav").getBoundingClientRect().right}));
+      assert(bounds.page<=bounds.width&&bounds.search<=bounds.width&&bounds.nav<=bounds.width,"Narrow layout overflow: "+width+" "+target);
+    }
+  }
+  await page.setViewportSize({width:1440,height:1000});await page.locator('[data-v="library"]').click();
+
+  const boxes = await page
+    .locator("img.cov")
+    .evaluateAll(ims =>
+      ims.map(im => ({
+        width: im.clientWidth,
+        height: im.clientHeight,
+        parent: im.offsetParent?.className,
+      }))
+    );
+  assert(
+    boxes.every(b => b.width <= 350 && b.height <= 500),
+    "Cover escaped its frame"
+  );
+  await page.locator("#avatar").click();
+  await page.waitForFunction(
+    () => document.getElementById("view-settings").classList.contains("active"),
+    null,
+    { timeout: 5000 }
+  );
+
+  // Export a real downloaded backup: personal service keys and endpoints stay local.
+  await page.evaluate(()=>new Promise(resolve=>chrome.runtime.sendMessage({type:"SET_SETTINGS",patch:{ocrKey:"export-test-ocr",tmdbKey:"export-test-tmdb",rawgKey:"export-test-rawg",imgServer:"https://service.example?token=export-private"}},result=>{settings=result.settings;resolve(result);})));
+  await page.waitForFunction(()=>settings.ocrKey==="export-test-ocr");
+
+  const invalidLinks=await page.evaluate(()=>{
+    const rejected=[];
+    for(const value of ["javascript:alert(1)","data:text/html,unsafe","file:///private","https://user:pass@reader.example/"]) {
+      const anchor=document.createElement("a");anchor.href=value;document.body.append(anchor);
+      rejected.push(!anchor.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true})));
+      anchor.remove();
+    }
+    return {rejected,valid:safeNavigationUrl("https://reader.example/chapter/1")};
+  });
+  assert(invalidLinks.rejected.every(Boolean),"An unsafe imported link was allowed");assert.equal(invalidLinks.valid,"https://reader.example/chapter/1");
+
+  const backupDownload=page.waitForEvent("download");
+  await page.locator("#export").click();
+  const backup=await backupDownload;
+  const backupText=await fs.readFile(await backup.path(),"utf8"), backupData=JSON.parse(backupText);
+  for(const key of ["ocrKey","tmdbKey","rawgKey","imgServer"])assert.equal(backupData.settings[key],undefined,"Backup exposed "+key);
+  assert(!backupText.includes("export-private"));assert(backupData.items.length>0);assert.equal(backupData.settings.lang,"fr");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  );
+  await page.screenshot({
+    path: path.join(artifactDir, "settings-mobile.png"),
+  });
+  await worker.evaluate(() => {
+    detectTab = async () => ({
+      title: "Alchemy of Souls",
+      type: "watching",
+      season: 1,
+      episode: 2,
+      confidence: 0.6,
+      hasVideo: true,
+      duration: 3600,
+      position: 900,
+      domain: "a-long-streaming-site.example",
+      enrichedAt: 1,
+    });
+  });
+  const popup = await context.newPage();
+  await popup.setViewportSize({ width: 400, height: 600 });
+  await popup.goto(base + "popup.html");
+  await popup.waitForTimeout(600);
+  await popup.locator("#save:not([disabled])").waitFor();
+  await popup.locator("#list-sel").selectOption("__new__");
+  await popup.locator("#list-new").fill("New list");
+  await popup
+    .locator("#title")
+    .evaluate(
+      el =>
+        (el.textContent =
+          "A very long series title that wraps onto two lines in the popup header for this regression")
+    );
+  let bounds = await popup.evaluate(() => ({
+    body: document.body.scrollHeight,
+    page: document.documentElement.scrollHeight,
+  }));
+  assert(bounds.body <= 600, JSON.stringify(bounds));
+  await popup.screenshot({ path: path.join(artifactDir, "popup.png") });
+  assert.equal(await popup.locator("#video-tools").isVisible(),true,"A detected video must keep playback controls");
+  await popup.evaluate(()=>{
+    detection={title:"A webtoon chapter",type:"reading",chapter:1,confidence:1,domain:"comic.naver.com",hasVideo:false};
+    render();
+  });
+  assert.equal(await popup.locator("#video-tools").isVisible(),false,"Reading pages without video must hide playback controls");
+  const readingBounds=await popup.evaluate(()=>({body:document.body.scrollHeight,viewport:innerHeight}));
+  assert(readingBounds.body<=readingBounds.viewport,JSON.stringify(readingBounds));
+  await popup.screenshot({path:path.join(artifactDir,"popup-reading.png")});
+  // Real bundled OCR; only the network translation response is deterministic in CI.
+  const ocr = await worker.evaluate(async d => {
+    await ensureOffscreen();
+    return await ocrViaTesseract(d, "eng");
+  }, dataUrl);
+  assert(ocr.blocks.some(b => b.text.includes("HELLO WORLD")));
+  assert(
+    ocr.blocks.every(b => b.bbox.x1 <= ocr.width && b.bbox.y1 <= ocr.height)
+  );
+  const colored=await context.newPage();await colored.setViewportSize({width:720,height:500});await colored.setContent('<body style="margin:0;background:#f6e6c3"><p style="position:absolute;top:140px;left:120px;font:44px Arial;color:#171923">HELLO WORLD</p></body>');
+  const coloredData='data:image/png;base64,'+(await colored.screenshot()).toString('base64');const coloredOcr=await worker.evaluate(async d=>ocrViaTesseract(d,'eng'),coloredData);const coloredBlock=coloredOcr.blocks.find(b=>b.text.includes('HELLO WORLD'));assert(coloredBlock,'Colored panel OCR failed');assert.equal(coloredBlock.background,'#f6e6c3');await colored.close();
+  const tall = await context.newPage();
+  await tall.setViewportSize({ width: 720, height: 2800 });
+  await tall.setContent(
+    '<body style="margin:0;background:white;font:44px Arial"><p style="position:absolute;top:150px;left:150px">HELLO WORLD</p><p style="position:absolute;top:2400px;left:150px">WELCOME HOME</p></body>'
+  );
+  const tallData =
+    "data:image/png;base64," + (await tall.screenshot()).toString("base64");
+  const tallOcr = await worker.evaluate(
+    async d => ocrViaTesseract(d, "eng"),
+    tallData
+  );
+  assert(
+    tallOcr.blocks.some(
+      b => b.text.includes("WELCOME HOME") && b.bbox.y0 > 2300
+    ),
+    "Tall image lost its bottom text"
+  );
+  // Fixed raster inputs keep OCR assertions independent of OS font substitution.
+  const japanese = "data:image/png;base64," +
+    (await fs.readFile(new URL("../fixtures/japanese-fixture.png", import.meta.url))).toString("base64");
+  const verticalJapanese = "data:image/png;base64," +
+    (await fs.readFile(new URL("../fixtures/japanese-vertical-fixture.png", import.meta.url))).toString("base64");
+  const verticalOcr=await worker.evaluate(async d=>ocrViaTesseract(d,'jpn'),verticalJapanese);
+  console.log('Vertical Japanese OCR:',JSON.stringify(verticalOcr.lines));
+  assert(verticalOcr.lines.join('').includes('世界'),'Japanese vertical text was not recognized');
+  assert(verticalOcr.blocks.some(b=>b.orientation==='vertical'),'Vertical model did not contribute a region');
+  await tall.close();
+  const japaneseOcr = await worker.evaluate(
+    async d => ocrViaTesseract(d, "jpn"),
+    japanese
+  );
+  console.log("Japanese OCR:",JSON.stringify(japaneseOcr.lines));
+  assert(
+    japaneseOcr.lines.join(" ").includes("世界"),
+    "Japanese model did not recognize the sample"
+  );
+  await worker.evaluate(() => {
+    translateTexts = async texts =>
+      texts.map(t =>
+        t.includes("HELLO") ? "BONJOUR LE MONDE" : "BIENVENUE À LA MAISON"
+      );
+  });
+  const reader = await context.newPage();
+  reader.on("pageerror", e => errors.push(e.message));
+  await reader.goto(base + "tests/fixtures/reader.html");
+  await reader.locator("#panel").evaluate((im, src) => {
+    im.src = src;
+  }, dataUrl);
+  await reader.waitForFunction(
+    () => document.querySelector("#panel").naturalWidth > 0
+  );
+  await page.evaluate(() =>
+    chrome.runtime.sendMessage({
+      type: "DASI_TRANSLATE",
+      lang: "fr",
+      src: "eng",
+    })
+  );
+  await reader.locator("[data-yomu-overlay]").waitFor({ timeout: 45000 });
+  assert(
+    (await reader.locator("[data-yomu-overlay]").innerText()).includes(
+      "BONJOUR"
+    )
+  );
+  await reader.screenshot({
+    path: path.join(artifactDir, "translation-in-place.png"),
+  });
+  await reader.locator("#yomu-translation-status button").first().click();
+  assert.equal(await reader.locator("[data-yomu-overlay]").count(), 0);
+  assert.equal(await reader.locator("#panel").getAttribute("src"), dataUrl);
+  // A delayed translation must not overwrite SPA/live text. Restore must leave
+  // a site's newer value intact while reverting paragraphs still owned by Yomu.
+  await reader.evaluate(()=>{
+    const main=document.querySelector("main");
+    for(const [id,text] of [["stable-copy","Stable paragraph"],["dynamic-copy","Old chapter"],["restore-copy","Restore this paragraph"]]) {
+      const p=document.createElement("p");p.id=id;p.textContent=text;main.prepend(p);
+    }
+    window.scrollTo(0,0);
+  });
+  await worker.evaluate(()=>{
+    globalThis.savedTextTranslator=translateTexts;
+    globalThis.releaseDomTranslation=null;
+    translateTexts=async(texts,...args)=>{
+      if(texts.includes("Stable paragraph"))return new Promise(resolve=>{
+        globalThis.releaseDomTranslation=()=>resolve(texts.map(text=>"Translated: "+text));
+      });
+      // New source text may now be queued while the old response is delayed.
+      if(texts.some(text=>text==="Next chapter arrived" || text==="Live status changed"))return texts;
+      return globalThis.savedTextTranslator(texts,...args);
+    };
+  });
+  const startDelayedTranslation=async()=>{
+    await page.evaluate(()=>chrome.runtime.sendMessage({type:"DASI_TRANSLATE",lang:"fr",src:"eng"}));
+    await worker.evaluate(async()=>{
+      const deadline=Date.now()+5000;
+      while(!globalThis.releaseDomTranslation && Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,20));
+      if(!globalThis.releaseDomTranslation)throw Error("DOM translation request did not start");
+    });
+  };
+  await startDelayedTranslation();
+  await reader.locator("#dynamic-copy").evaluate(p=>{p.firstChild.nodeValue="Next chapter arrived";});
+  await worker.evaluate(()=>globalThis.releaseDomTranslation());
+  await reader.waitForFunction(()=>document.querySelector("#stable-copy").textContent==="Translated: Stable paragraph");
+  assert.equal(await reader.locator("#dynamic-copy").textContent(),"Next chapter arrived","Late translation replaced new chapter text");
+  await reader.locator("#stable-copy").evaluate(p=>{p.firstChild.nodeValue="Live status changed";});
+  await reader.locator("#yomu-translation-status button").first().click();
+  assert.equal(await reader.locator("#stable-copy").textContent(),"Live status changed","Restore overwrote a live site update");
+  assert.equal(await reader.locator("#restore-copy").textContent(),"Restore this paragraph","Unchanged translation did not restore");
+
+  // Stopping before the response arrives leaves every paragraph untouched.
+  await reader.locator("#stable-copy").evaluate(p=>{p.firstChild.nodeValue="Stable paragraph";});
+  await worker.evaluate(()=>{globalThis.releaseDomTranslation=null;});
+  await startDelayedTranslation();
+  await reader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>globalThis.releaseDomTranslation());
+  await reader.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  assert.equal(await reader.locator("#stable-copy").textContent(),"Stable paragraph");
+  assert.equal(await reader.locator("#restore-copy").textContent(),"Restore this paragraph");
+  assert.equal(await reader.locator("#yomu-translation-status").count(),0);
+  await reader.evaluate(()=>{for(const id of ["stable-copy","dynamic-copy","restore-copy"])document.getElementById(id).remove();});
+  await worker.evaluate(()=>{translateTexts=globalThis.savedTextTranslator;});
+  console.log("Translation preserves newer site text and ignores stopped requests");
+  // A transient image failure can be retried without restarting the page.
+  await worker.evaluate(() => {
+    globalThis.savedPanelTranslator = translateImageText;
+    globalThis.panelAttempts = 0;
+    translateImageText = async (...args) => {
+      if (++globalThis.panelAttempts === 1) throw new Error("img_503");
+      return globalThis.savedPanelTranslator(...args);
+    };
+  });
+  await page.evaluate(() => chrome.runtime.sendMessage({type:"DASI_TRANSLATE",lang:"fr",src:"eng"}));
+  await reader.locator("#yomu-translation-retry:not([hidden])").waitFor();
+  await reader.locator("#yomu-translation-retry").click();
+  await reader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  assert.equal(await worker.evaluate(()=>globalThis.panelAttempts),2);
+  await reader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
+  // CDN blocks extension downloads; page-origin fetch supplies the image to local OCR.
+  await reader.route("https://reader-images.example/panel.png",r=>r.fulfill({contentType:"image/png",headers:{"access-control-allow-origin":"*"},body:png}));
+  await reader.locator("#panel").evaluate(async im=>{im.src="https://reader-images.example/panel.png";await im.decode();});
+  await worker.evaluate(()=>{
+    globalThis.fallbackCalls=[];
+    translateImageText=async(url,...args)=>{globalThis.fallbackCalls.push(url.startsWith("data:")?"data":"remote");if(url==="https://reader-images.example/panel.png")throw new Error("img_403");return globalThis.savedPanelTranslator(url,...args);};
+  });
+  await page.evaluate(()=>chrome.runtime.sendMessage({type:"DASI_TRANSLATE",lang:"fr",src:"eng"}));
+  await reader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  assert.deepEqual(await worker.evaluate(()=>globalThis.fallbackCalls),["remote","data"]);
+  await reader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
+
+  // CORS-readable pixels can be reused locally when the background has no
+  // access to the image host. No second image download or host grant is needed.
+  let readablePanelRequests=0;
+  await reader.route("https://readable-images.example/cors.png",route=>{
+    readablePanelRequests++;
+    return route.fulfill({contentType:"image/png",headers:{"access-control-allow-origin":"*"},body:png});
+  });
+  await reader.locator("#panel").evaluate(async im=>{
+    im.crossOrigin="anonymous";im.src="https://readable-images.example/cors.png";await im.decode();
+  });
+  readablePanelRequests=0;
+  await worker.evaluate(()=>{
+    globalThis.localPixelCalls=[];
+    translateImageText=async(url,...args)=>{
+      globalThis.localPixelCalls.push(url.startsWith("data:")?"data":"remote");
+      if(url==="https://readable-images.example/cors.png")throw new Error("image_access_required");
+      return globalThis.savedPanelTranslator(url,...args);
+    };
+  });
+  await page.evaluate(()=>chrome.runtime.sendMessage({type:"DASI_TRANSLATE",lang:"fr",src:"eng"}));
+  await reader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  assert.deepEqual(await worker.evaluate(()=>globalThis.localPixelCalls),["remote","data"]);
+  assert.equal(readablePanelRequests,0,"Readable local pixels triggered an unnecessary image download");
+  await reader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>{translateImageText=globalThis.savedPanelTranslator;});
+  console.log("Readable rendered panel translated locally without additional host access");
+  // Long HTML pages use real content-script messages (including worker size
+  // validation), while the external translation response is deterministic.
+  const longTextReader=await context.newPage();
+  longTextReader.on("pageerror",error=>errors.push(error.message));
+  await longTextReader.route("https://en.wikipedia.org/yomu-e2e/long-text",route=>route.fulfill({
+    contentType:"text/html",body:'<!doctype html><html lang="en"><head><title>Text fixture</title></head><body></body></html>'
+  }));
+  await longTextReader.goto("https://en.wikipedia.org/yomu-e2e/long-text");
+  await worker.evaluate(()=>{
+    globalThis.beforeLongTextTranslator=translateTexts;
+    globalThis.longTextCalls=[];globalThis.longTextFailAt=0;globalThis.longTextHold=false;globalThis.longTextHeld=null;globalThis.longTextInvalid=false;
+    translateTexts=async texts=>{
+      globalThis.longTextCalls.push([...texts]);
+      if(globalThis.longTextFailAt===globalThis.longTextCalls.length)throw Error("gtx_503");
+      if(globalThis.longTextInvalid){globalThis.longTextInvalid=false;return [];}
+      if(globalThis.longTextHold)return new Promise(resolve=>{globalThis.longTextHeld=()=>resolve(texts.map(text=>text.replaceAll("Hello","Bonjour")));});
+      return texts.map(text=>text.replaceAll("Hello","Bonjour"));
+    };
+  });
+  const setLongTextFixture=async texts=>{
+    await longTextReader.evaluate(texts=>{
+      document.body.replaceChildren();
+      for(const [index,text] of texts.entries()) {
+        const paragraph=document.createElement("p");paragraph.id="paragraph-"+index;paragraph.textContent=text;document.body.append(paragraph);
+      }
+      const button=document.createElement("button");button.id="untouched-button";button.textContent="Hello button";document.body.append(button);
+      const input=document.createElement("input");input.id="untouched-input";input.value="Hello private input";document.body.append(input);
+      window.scrollTo(0,0);
+    },texts);
+    await worker.evaluate(()=>{globalThis.longTextCalls=[];globalThis.longTextFailAt=0;globalThis.longTextHold=false;globalThis.longTextHeld=null;globalThis.longTextInvalid=false;});
+  };
+  const startLongText=async()=>{
+    await longTextReader.bringToFront();
+    const result=await page.evaluate(()=>chrome.runtime.sendMessage({type:"TRANSLATE_PAGE",lang:"fr",src:"eng"}));
+    assert.equal(result.ok,true);
+  };
+  const normalParagraphs=Array.from({length:325},(_,index)=>"Hello paragraph "+index+" "+("Text to translate. ").repeat(18));
+  const longParagraph=Array.from({length:1700},(_,index)=>"Hello section "+index+" 世界🌸 ").join("")+"LAST SENTINEL";
+  const manyParagraphs=[...normalParagraphs,longParagraph];
+  await setLongTextFixture(manyParagraphs);
+  await startLongText();
+  await longTextReader.waitForFunction(expected=>document.getElementById("paragraph-325").textContent===expected,longParagraph.replaceAll("Hello","Bonjour"));
+  assert.deepEqual(await longTextReader.locator("p").allTextContents(),manyParagraphs.map(text=>text.replaceAll("Hello","Bonjour")));
+  const longCalls=await worker.evaluate(()=>globalThis.longTextCalls);
+  assert(longCalls.length>1);
+  assert(longCalls.every(batch=>batch.length<=20 && batch.every(text=>text.length<=8000) && batch.join("").length<=40000),"Page text exceeded the bounded message size");
+  assert.equal(await longTextReader.locator("#untouched-button").textContent(),"Hello button");
+  assert.equal(await longTextReader.locator("#untouched-input").inputValue(),"Hello private input");
+  assert.equal(await longTextReader.evaluate(()=>scrollY),0,"Translation forced a scroll");
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+  assert.deepEqual(await longTextReader.locator("p").allTextContents(),manyParagraphs);
+
+  // A single huge node is applied only once every piece succeeds. Retrying
+  // resumes the failed batch rather than retranslating the successful prefix.
+  const hugeParagraph=Array.from({length:6500},(_,index)=>"Hello distinct section "+index+" 世界🌸 ").join("");
+  await setLongTextFixture([hugeParagraph]);
+  await worker.evaluate(()=>{globalThis.longTextFailAt=2;});
+  await startLongText();
+  await longTextReader.locator("#yomu-translation-retry:not([hidden]):not([disabled])").waitFor();
+  assert.equal(await longTextReader.locator("#paragraph-0").textContent(),hugeParagraph,"Part of a long paragraph was replaced before completion");
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),2);
+  await longTextReader.locator("#yomu-translation-retry").click();
+  await longTextReader.waitForFunction(expected=>document.getElementById("paragraph-0").textContent===expected,hugeParagraph.replaceAll("Hello","Bonjour"));
+  const retriedCalls=await worker.evaluate(()=>globalThis.longTextCalls);
+  assert.deepEqual(retriedCalls[2],retriedCalls[1],"Retry did not resume the failed batch");
+  assert.notDeepEqual(retriedCalls[2],retriedCalls[0],"Retry restarted an already successful prefix");
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+  assert.equal(await longTextReader.locator("#paragraph-0").textContent(),hugeParagraph);
+
+  // A malformed success response must offer a retry, never erase the text.
+  await setLongTextFixture(["Hello retry paragraph"]);
+  await worker.evaluate(()=>{globalThis.longTextInvalid=true;});
+  await startLongText();
+  await longTextReader.locator("#yomu-translation-retry:not([hidden]):not([disabled])").waitFor();
+  assert.equal(await longTextReader.locator("#paragraph-0").textContent(),"Hello retry paragraph");
+  await longTextReader.locator("#yomu-translation-retry").click();
+  await longTextReader.waitForFunction(()=>document.getElementById("paragraph-0").textContent==="Bonjour retry paragraph");
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+
+  // Stopping cancels the queue even if the first request is already in flight.
+  const stoppedParagraphs=normalParagraphs.slice(0,75);
+  await setLongTextFixture(stoppedParagraphs);
+  await worker.evaluate(()=>{globalThis.longTextHold=true;});
+  await startLongText();
+  await worker.evaluate(async()=>{
+    const deadline=Date.now()+5000;
+    while(!globalThis.longTextHeld && Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,20));
+    if(!globalThis.longTextHeld)throw Error("Held translation did not start");
+  });
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+  await worker.evaluate(()=>globalThis.longTextHeld());
+  await longTextReader.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  assert.deepEqual(await longTextReader.locator("p").allTextContents(),stoppedParagraphs);
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),1,"Stopping still sent the next batch");
+  assert.equal(await longTextReader.locator("#yomu-translation-status").count(),0);
+  // Newly appended and replaced text is translated without restarting the tool.
+  await setLongTextFixture(["Hello initial chapter"]);
+  await startLongText();
+  await longTextReader.waitForFunction(()=>document.getElementById("paragraph-0").textContent==="Bonjour initial chapter");
+  const settleDynamicText=()=>longTextReader.evaluate(()=>new Promise(resolve=>setTimeout(resolve,300)));
+  await longTextReader.evaluate(()=>{
+    const section=document.createElement("section");section.id="appended-section";
+    const p=document.createElement("p");p.id="appended-copy";p.textContent="Hello appended chapter";
+    section.append(p);document.body.append(section);
+  });
+  await longTextReader.waitForFunction(()=>document.getElementById("appended-copy").textContent==="Bonjour appended chapter");
+  await longTextReader.locator("#paragraph-0").evaluate(p=>{p.firstChild.nodeValue="Hello updated chapter";});
+  await longTextReader.waitForFunction(()=>document.getElementById("paragraph-0").textContent==="Bonjour updated chapter");
+  const callsBeforeMove=await worker.evaluate(()=>globalThis.longTextCalls.length);
+  await longTextReader.evaluate(()=>document.getElementById("appended-section").append(document.getElementById("paragraph-0")));
+  await settleDynamicText();
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),callsBeforeMove,"Moving translated nodes caused duplicate requests");
+  assert((await worker.evaluate(()=>globalThis.longTextCalls.flat())).every(text=>!text.includes("Bonjour")),"Yomu sent its own translations back to the provider");
+
+  // Hidden text is queued once revealed; editable content never enters the queue.
+  await longTextReader.evaluate(()=>{
+    const hidden=document.createElement("section");hidden.id="revealed-section";hidden.hidden=true;
+    const p=document.createElement("p");p.id="revealed-copy";p.textContent="Hello revealed chapter";hidden.append(p);document.body.append(hidden);
+    const editor=document.createElement("div");editor.id="private-editor";editor.contentEditable="true";editor.textContent="Hello private editor";document.body.append(editor);
+  });
+  await settleDynamicText();
+  assert.equal(await longTextReader.locator("#revealed-copy").textContent(),"Hello revealed chapter");
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),callsBeforeMove);
+  await longTextReader.locator("#revealed-section").evaluate(section=>{section.hidden=false;});
+  await longTextReader.waitForFunction(()=>document.getElementById("revealed-copy").textContent==="Bonjour revealed chapter");
+  assert(!(await worker.evaluate(()=>globalThis.longTextCalls.flat())).some(text=>text.includes("private editor")));
+  assert.equal(await longTextReader.locator("#private-editor").textContent(),"Hello private editor");
+
+  // DOM activity after a provider error must not automatically retry the service.
+  await worker.evaluate(()=>{globalThis.longTextFailAt=globalThis.longTextCalls.length+1;});
+  await longTextReader.evaluate(()=>{
+    const p=document.createElement("p");p.id="failed-dynamic-copy";p.textContent="Hello failed update";document.body.append(p);
+  });
+  await longTextReader.locator("#yomu-translation-retry:not([hidden]):not([disabled])").waitFor();
+  const failedDynamicCalls=await worker.evaluate(()=>globalThis.longTextCalls.length);
+  await longTextReader.evaluate(()=>{
+    const p=document.createElement("p");p.id="queued-dynamic-copy";p.textContent="Hello queued update";document.body.append(p);
+  });
+  await settleDynamicText();
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),failedDynamicCalls,"DOM mutation silently retried a failed provider");
+  await longTextReader.locator("#yomu-translation-retry").click();
+  await longTextReader.waitForFunction(()=>document.getElementById("queued-dynamic-copy").textContent==="Bonjour queued update");
+  assert.equal(await longTextReader.locator("#failed-dynamic-copy").textContent(),"Bonjour failed update");
+
+  // A removed chapter's late result cannot affect its replacement.
+  await worker.evaluate(()=>{globalThis.longTextHold=true;globalThis.longTextHeld=null;});
+  await longTextReader.evaluate(()=>{
+    const p=document.createElement("p");p.id="obsolete-copy";p.textContent="Hello obsolete chapter";document.body.append(p);
+  });
+  await worker.evaluate(async()=>{
+    const deadline=Date.now()+5000;
+    while(!globalThis.longTextHeld && Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,20));
+    if(!globalThis.longTextHeld)throw Error("Dynamic held translation did not start");
+  });
+  await longTextReader.evaluate(()=>{
+    document.getElementById("obsolete-copy").remove();
+    const p=document.createElement("p");p.id="replacement-copy";p.textContent="Hello replacement chapter";document.body.append(p);
+  });
+  await worker.evaluate(()=>{globalThis.longTextHold=false;globalThis.longTextHeld();});
+  await longTextReader.waitForFunction(()=>document.getElementById("replacement-copy").textContent==="Bonjour replacement chapter");
+  assert.equal(await longTextReader.locator("#obsolete-copy").count(),0);
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+  assert.equal(await longTextReader.locator("#paragraph-0").textContent(),"Hello updated chapter","Restore brought back the obsolete initial chapter");
+  assert.equal(await longTextReader.locator("#appended-copy").textContent(),"Hello appended chapter");
+  assert.equal(await longTextReader.locator("#revealed-copy").textContent(),"Hello revealed chapter");
+  assert.equal(await longTextReader.locator("#replacement-copy").textContent(),"Hello replacement chapter");
+  const callsAfterDynamicStop=await worker.evaluate(()=>globalThis.longTextCalls.length);
+  await longTextReader.evaluate(()=>{
+    const p=document.createElement("p");p.textContent="Hello after stop";document.body.append(p);
+  });
+  await settleDynamicText();
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),callsAfterDynamicStop,"A stopped observer still translated new text");
+
+  // Some single-page readers replace body itself, not just its child elements.
+  await setLongTextFixture(["Hello first body"]);
+  await startLongText();
+  await longTextReader.waitForFunction(()=>document.getElementById("paragraph-0").textContent==="Bonjour first body");
+  await longTextReader.evaluate(()=>{
+    const body=document.createElement("body"),p=document.createElement("p");
+    p.id="new-body-copy";p.textContent="Hello new body";body.append(p);
+    document.body.replaceWith(body);
+  });
+  await longTextReader.waitForFunction(()=>document.getElementById("new-body-copy").textContent==="Bonjour new body");
+  await settleDynamicText();
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),2,"Body replacement caused repeated translation");
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+  assert.equal(await longTextReader.locator("#new-body-copy").textContent(),"Hello new body");
+  console.log("Dynamic text translation: append, replace, reveal, reparent, provider failure, stale removal, body replacement and stop passed");
+
+  await worker.evaluate(()=>{translateTexts=globalThis.beforeLongTextTranslator;});
+  await longTextReader.close();
+  console.log("Long-page translation: 326 text nodes, bounded Unicode batches, complete restoration, failed-batch retry and cancellation passed");
+
+  // Packaged automatic translation on HTTPS documents. Only network translation
+  // is deterministic; permissions, navigation, injection and image OCR are real.
+  const autoReader=await context.newPage();
+  const autoUrl="https://en.wikipedia.org/yomu-e2e/chapter-1";
+  await autoReader.route("https://en.wikipedia.org/yomu-e2e/**",route=>route.fulfill({
+    contentType:"text/html",body:`<!doctype html><html lang="en"><body><p id="copy">HELLO WORLD</p><img id="panel" width="720" height="1000" src="${dataUrl}"></body></html>`
+  }));
+  await autoReader.goto(autoUrl);
+  const ruleMessage=payload=>page.evaluate(message=>chrome.runtime.sendMessage(message),payload);
+  assert.equal(await worker.evaluate(()=>chrome.permissions.contains({origins:["https://en.wikipedia.org/*"]})),true);
+  const deniedRule=await ruleMessage({type:"SET_TRANSLATION_RULE",url:"https://reader.example.org/chapter",enabled:true,target:"fr",source:"eng"});
+  assert.equal(deniedRule.ok,false,"Ungrantable origin must not silently enable translation");
+  // Open the actual toolbar popup, preserving the reader as the active tab.
+  await autoReader.bringToFront();
+  const popupSession=await context.newCDPSession(page);
+  const previousTargets=new Set((await popupSession.send("Target.getTargets")).targetInfos.map(t=>t.targetId));
+  await worker.evaluate(()=>chrome.action.openPopup());
+  // Toolbar popups are extension views, not Playwright page targets.
+  await page.waitForFunction(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    return view&&!view.document.querySelector("#tr-auto")?.disabled;
+  });
+  await page.evaluate(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    for(const [id,value] of [["tr-src","eng"],["tr-lang","fr"]]){
+      const select=view.document.getElementById(id);
+      select.value=value;select.dispatchEvent(new view.Event("change",{bubbles:true}));
+    }
+  });
+  const targets=await popupSession.send("Target.getTargets");
+  const popupTarget=targets.targetInfos.find(t=>t.url===base+"popup.html"&&!previousTargets.has(t.targetId));
+  assert.ok(popupTarget,"The toolbar popup must have its own browser target: "+JSON.stringify(targets.targetInfos.map(t=>({type:t.type,url:t.url}))));
+  const attached=await popupSession.send("Target.attachToTarget",{targetId:popupTarget.targetId,flatten:false});
+  // One-time translation uses the current tab grant, without asking for any
+  // additional host permissions. The explicit image action is separately scoped.
+  await page.evaluate(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    view.originalImagePermissionRequest=view.chrome.permissions.request;
+    view.imagePermissionRequests=[];
+    view.chrome.permissions.request=(request,callback)=>{view.imagePermissionRequests.push(request);callback(false);};
+  });
+  await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
+    id:17,method:"Runtime.evaluate",params:{expression:'document.getElementById("tr-go").click()',userGesture:true}
+  })});
+  await autoReader.waitForFunction(()=>document.querySelector("#copy").textContent==="BONJOUR LE MONDE");
+  assert.deepEqual(await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].imagePermissionRequests),[],"A one-time translation asked for persistent permission");
+  await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
+    id:18,method:"Runtime.evaluate",params:{expression:`
+      globalThis.originalTestOrigins=translationOrigins;
+      translationOrigins=[new URL(translationPageUrl).origin+"/*","https://reader-images.example/*"];
+      document.querySelector(".translation-tools details").open=true;
+      document.getElementById("tr-images").click();
+    `,userGesture:true}
+  })});
+  await page.waitForFunction(()=>chrome.extension.getViews({type:"popup"})[0].document.getElementById("tr-status").textContent==="Image access was not granted. Existing translations are unchanged.");
+  assert.deepEqual(await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].imagePermissionRequests),[{origins:["https://reader-images.example/*"]}]);
+  assert.equal(await autoReader.locator("#copy").textContent(),"BONJOUR LE MONDE","Denied image permission erased a running translation");
+  await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
+    id:19,method:"Runtime.evaluate",params:{expression:`
+      translationOrigins=globalThis.originalTestOrigins;
+      chrome.permissions.request=globalThis.originalImagePermissionRequest;
+      document.querySelector(".translation-tools details").open=false;
+      document.getElementById("tr-stop").click();
+    `,userGesture:true}
+  })});
+  await autoReader.waitForFunction(()=>document.querySelector("#copy").textContent==="HELLO WORLD");
+  console.log("Manual translation requests no persistent permission; denied image access stays scoped and preserves the page");
+  await page.evaluate(()=>{chrome.extension.getViews({type:"popup"})[0].document.getElementById("tr-status").textContent="";});
+  await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
+    id:1,method:"Runtime.evaluate",params:{
+      expression:'document.getElementById("tr-auto").click()',userGesture:true,awaitPromise:true
+    }
+  })});
+  await page.waitForFunction(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    return view&&!view.document.getElementById("tr-auto").disabled&&view.document.getElementById("tr-status").textContent;
+  });
+  assert.equal(await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].document.getElementById("tr-status").textContent),"Automatic translation is on for this site.");
+  const enabledRule=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
+  assert.equal(enabledRule.rule.enabled,true);
+  assert.equal(enabledRule.rule.target,"fr");
+  assert.equal(enabledRule.rule.source,"eng");
+  // Deterministic denial/exception branches in the real popup. The native
+  // permission dialog itself is not simulated as a successful end-to-end check.
+  for(const failure of ["denied","exception"]){
+    const state=await page.evaluate(mode=>{
+      const view=chrome.extension.getViews({type:"popup"})[0];
+      const original=view.chrome.permissions.request;
+      view.chrome.permissions.request=(_options,callback)=>{
+        if(mode==="exception")throw new Error("Synthetic permission failure");
+        callback(false);
+      };
+      try{
+        const target=view.document.getElementById("tr-lang");
+        const source=view.document.getElementById("tr-src");
+        source.value="jpn";target.value="es";
+        target.dispatchEvent(new view.Event("change",{bubbles:true}));
+        return {target:target.value,source:source.value,locked:target.disabled||source.disabled||view.document.getElementById("tr-auto").disabled,
+          enabled:view.document.getElementById("tr-auto").checked,message:view.document.getElementById("tr-status").textContent};
+      }finally{view.chrome.permissions.request=original;}
+    },failure);
+    assert.deepEqual(state,{target:"fr",source:"eng",locked:false,enabled:true,message:"Access was not granted. Automatic translation remains unchanged."});
+    const unchanged=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
+    assert.equal(unchanged.rule.target,"fr");assert.equal(unchanged.rule.source,"eng");
+  }
+  console.log("Popup permission failure: existing language restored and controls unlocked");
+  // A successful language change must replace the old translation, including OCR.
+  await worker.evaluate(()=>{
+    translateTexts=async(texts,target)=>texts.map(t=>target==="es"?(t.includes("HELLO")?"HOLA MUNDO":"BIENVENIDO A CASA"):(t.includes("HELLO")?"BONJOUR LE MONDE":"BIENVENUE À LA MAISON"));
+  });
+  await popupSession.send("Target.sendMessageToTarget",{sessionId:attached.sessionId,message:JSON.stringify({
+    id:2,method:"Runtime.evaluate",params:{
+      expression:'document.getElementById("tr-lang").value="es";document.getElementById("tr-lang").dispatchEvent(new Event("change",{bubbles:true}))',userGesture:true
+    }
+  })});
+  await page.waitForFunction(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    return view&&!view.document.getElementById("tr-auto").disabled&&view.document.getElementById("tr-lang").value==="es";
+  });
+  const spanishRule=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
+  assert.equal(spanishRule.rule.target,"es");
+  await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="HOLA MUNDO");
+  await autoReader.waitForFunction(()=>[...document.querySelectorAll("[data-yomu-overlay]")].some(el=>el.textContent.includes("HOLA")),null,{timeout:45000});
+
+  await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].close());
+  await popupSession.detach();
+  await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="HOLA MUNDO");
+  await autoReader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  assert.equal(await autoReader.locator("#panel").getAttribute("src"),dataUrl);
+  await autoReader.goto("https://en.wikipedia.org/yomu-e2e/chapter-2");
+  await autoReader.waitForFunction(()=>document.querySelector("#copy")?.textContent==="HOLA MUNDO");
+  await autoReader.locator("[data-yomu-overlay]").waitFor({timeout:45000});
+  await autoReader.bringToFront();
+  const stopSession=await context.newCDPSession(page);
+  const beforeStop=new Set((await stopSession.send("Target.getTargets")).targetInfos.map(t=>t.targetId));
+  await worker.evaluate(()=>chrome.action.openPopup());
+  await page.waitForFunction(()=>{
+    const view=chrome.extension.getViews({type:"popup"})[0];
+    return view&&view.document.getElementById("tr-auto")?.checked&&!view.document.getElementById("tr-auto").disabled;
+  });
+  const stopTarget=(await stopSession.send("Target.getTargets")).targetInfos.find(t=>t.url===base+"popup.html"&&!beforeStop.has(t.targetId));
+  assert.ok(stopTarget);
+  const stopAttached=await stopSession.send("Target.attachToTarget",{targetId:stopTarget.targetId,flatten:false});
+  await stopSession.send("Target.sendMessageToTarget",{sessionId:stopAttached.sessionId,message:JSON.stringify({
+    id:1,method:"Runtime.evaluate",params:{expression:'document.getElementById("tr-auto").click()',userGesture:true}
+  })});
+  await page.waitForFunction(()=>chrome.extension.getViews({type:"popup"})[0]?.document.getElementById("tr-status").textContent==="Automatic translation is off for this site.");
+  const disabledRule=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
+  assert.equal(disabledRule.rule.enabled,false);
+  await page.evaluate(()=>chrome.extension.getViews({type:"popup"})[0].close());
+  await stopSession.detach();
+  assert.equal(await autoReader.locator("#copy").textContent(),"HELLO WORLD");
+  assert.equal(await autoReader.locator("[data-yomu-overlay]").count(),0);
+  assert.equal(await autoReader.locator("#yomu-translation-status").count(),0);
+  await autoReader.goto("https://en.wikipedia.org/yomu-e2e/chapter-3");
+  const disabledState=await ruleMessage({type:"GET_TRANSLATION_RULE",url:autoUrl});
+  assert.equal(disabledState.rule.enabled,false);
+  // Explicit start after navigation is a deterministic barrier for the disabled rule.
+  const disabledStart=await worker.evaluate(async url=>{
+    const tabs=await chrome.tabs.query({});
+    const tab=tabs.find(t=>t.url===url);
+    return YomuAutoTranslation.start(tab.id,url);
+  },"https://en.wikipedia.org/yomu-e2e/chapter-3");
+  assert.equal(disabledStart.status,'disabled');
+  assert.equal(await autoReader.locator("#copy").textContent(),"HELLO WORLD");
+  assert.equal(await autoReader.locator("[data-yomu-overlay]").count(),0);
+  await autoReader.close();
+  console.log("Automatic translation: HTTPS permission gate, real OCR, chapter navigation, disable and original restoration passed");
+
+  let trailerRequests=0;
+  await page.route('https://www.youtube-nocookie.com/embed/*',async route=>{trailerRequests++;await route.fulfill({contentType:'text/html',body:'<title>Fixture trailer</title><p>Trailer fixture</p>'});});
+  await page.evaluate(()=>{const probe=document.createElement('div');probe.id='trailer-consent-probe';probe.innerHTML=embeddedTrailer('https://www.youtube.com/watch?v=abcdefghijk');document.body.append(probe);});
+  assert.equal(await page.locator('#trailer-consent-probe iframe').count(),1);
+  assert.equal(await page.locator('#trailer-consent-probe button').count(),0);
+  await page.locator('#trailer-consent-probe iframe').scrollIntoViewIfNeeded();
+  await page.locator('#trailer-consent-probe iframe').waitFor();
+  assert.equal(await page.locator('#trailer-consent-probe iframe').getAttribute('src'),'https://www.youtube-nocookie.com/embed/abcdefghijk');
+  await page.evaluate(()=>document.getElementById('trailer-consent-probe').remove());
+
+  // Search facets: future releases, publication states and preserved selections.
+  await page.evaluate(()=>{
+    switchView("library");query="facet fixture";
+    searchFacets={kind:"all",genre:"all",year:"",release:"all",price:200};
+    lastResults=[
+      {title:"Future free game",type:"game",format:"Game",year:2028,comingSoon:true,price:"Free",genres:["Puzzle"]},
+      {title:"Future paid game",type:"game",format:"Game",year:2028,comingSoon:true,price:"$15",genres:["Action"]},
+      {title:"Released game",type:"game",format:"Game",released:true,genres:["Action"]},
+      {title:"Finished manga",type:"reading",format:"MANGA",releaseStatus:"FINISHED",releaseScope:"work",genres:["Romance"]},
+      {title:"Paused manga",type:"reading",format:"MANGA",releaseStatus:"HIATUS",genres:["Drama"]},
+      {title:"Cancelled manga",type:"reading",format:"MANGA",releaseStatus:"CANCELLED",genres:["Drama"]},
+      {title:"Finished season",type:"watching",format:"ANIME",releaseStatus:"FINISHED",releaseScope:"installment",genres:["Drama"]},
+      {title:"Ended show",type:"watching",format:"SERIES",releaseStatus:"Ended",releaseScope:"series",genres:["Drama"]},
+      {title:"Legacy ending",type:"watching",format:"ANIME",releaseStatus:"FINISHED",genres:["Drama"]}
+    ];renderSearchResults(query);
+  });
+  await page.locator("#sf-kind").selectOption("GAME");
+  assert(!(await page.locator("#sf-genre").innerText()).includes("Romance"));
+  await page.locator("#sf-year").fill("2028");await page.locator("#sf-year").press("Tab");
+  await page.locator("#sf-release").selectOption("upcoming");
+  assert.equal(await page.locator(".sr-row").count(),2);
+  await page.locator("#sf-price").fill("0");await page.locator("#sf-price").dispatchEvent("change");
+  assert.equal(await page.locator(".sr-row").count(),1);
+  assert((await page.locator(".sr-row").innerText()).includes("Future free game"));
+  await page.locator("#sf-reset").click();
+  await page.locator("#sf-release").selectOption("finished");
+  assert.equal(await page.locator(".sr-row").count(),2);
+  assert((await page.locator(".sr-row").allTextContents()).some(text=>text.includes("Finished manga")));
+  assert((await page.locator(".sr-row").allTextContents()).some(text=>text.includes("Ended show")));
+  await page.locator("#sf-release").selectOption("installment_finished");
+  assert.equal(await page.locator(".sr-row").count(),1);
+  assert((await page.locator(".sr-row").innerText()).includes("Finished season"));
+  await page.locator("#sf-release").selectOption("finished_unscoped");
+  assert.equal(await page.locator(".sr-row").count(),1);
+  assert((await page.locator(".sr-row").innerText()).includes("Legacy ending"));
+  await page.locator("#sf-release").selectOption("hiatus");
+  assert((await page.locator(".sr-row").innerText()).includes("Paused manga"));
+  await page.locator("#sf-release").selectOption("cancelled");
+  assert((await page.locator(".sr-row").innerText()).includes("Cancelled manga"));
+  await page.locator("#sf-reset").click();
+  await page.locator("#sf-genre").selectOption("Romance");
+  await page.locator("#sf-kind").selectOption("GAME");
+  assert.equal(await page.locator("#sf-genre").inputValue(),"all");
+  assert.equal(await page.locator(".sr-row").count(),3);
+  await page.locator("#sf-reset").click();
+  await page.locator("#sf-genre").selectOption("Romance");
+  await page.evaluate(()=>{lastResults=lastResults.filter(m=>!m.genres.includes("Romance"));renderSearchResults(query);});
+  assert.equal(await page.locator("#sf-genre").inputValue(),"Romance");
+  assert.equal(await page.locator(".sr-row").count(),0);
+  await page.locator("#sf-reset").click();
+  assert.equal(await page.locator(".sr-row").count(),8);
+
+  // The real add action persists publication scope and catalog themes across reload.
+  await page.evaluate(()=>{
+    settings.lang="fr";
+    openCatalogPreviewResolved({title:"Scoped saved season",type:"watching",format:"ANIME",manual:true,
+      releaseStatus:"FINISHED",releaseScope:"installment",releaseSource:"anilist",
+      tags:["School"],genres:["Drama"],cast:[{name:"Fixture character"}],
+      synopsis:"Fixture synopsis",externalIds:{anilist:"9999998"}});
+  });
+  assert((await page.locator("#preview-info .publication-facts").innerText()).includes("Saison ou partie terminée"));
+  const targetList=await page.locator('#preview-list option').evaluateAll(options=>options.map(x=>x.value).find(v=>v&&v!=="__new"));
+  assert(targetList,"A fixture list must exist before saving");
+  await page.locator("#preview-list").selectOption(targetList);
+  await page.locator("#preview-add").click();
+  await page.waitForFunction(()=>items.some(item=>item.title==="Scoped saved season"));
+  const savedScope=await page.evaluate(()=>items.find(item=>item.title==="Scoped saved season"));
+  assert.equal(savedScope.releaseScope,"installment");
+  assert.equal(savedScope.releaseStatus,"FINISHED");
+  assert.deepEqual(savedScope.catalogTags,["School"]);
+  await page.reload();
+  await page.waitForFunction(id=>items.some(item=>item.id===id),savedScope.id);
+  await page.evaluate(id=>openDrawer(id),savedScope.id);
+  assert((await page.locator("#drawer .publication-facts").innerText()).includes("Saison ou partie terminée"));
+  assert((await page.locator("#drawer").innerText()).includes("School"));
+  await page.locator("#dr-close").click();
+
+
+
+  await page.locator('[data-v="library"]').click();
+  await page.locator('[data-library-section="sites-h"]').click();
+  assert(await page.locator("#sites-h").evaluate(el=>el===document.activeElement));
+  await page.locator('[data-library-section="library-lists-title"]').click();
+  assert(await page.locator("#library-lists-title").evaluate(el=>el===document.activeElement));
+  await page.locator('[data-library-section="collection-title"]').click();
+  assert(await page.locator("#collection-title").evaluate(el=>el===document.activeElement));
+  const actualQuickAdd=page.locator("#grid .card .quick-add").first();
+  await actualQuickAdd.click();
+  await page.locator(".qa-menu").waitFor({state:"visible"});
+  await page.keyboard.press("Escape");
+  assert(await actualQuickAdd.evaluate(el=>el===document.activeElement));
+  // Quick list chooser stays on screen after scrolling and on narrow viewports.
+  await page.setViewportSize({width:320,height:600});
+  await page.evaluate(()=>{
+    globalThis.quickFixture={lists,items};
+    lists=Array.from({length:40},(_,i)=>({id:"quick-"+i,name:"Une très longue liste de séries et webtoons "+i+" "+("Titre".repeat(12)),itemIds:[]}));
+    items=[{id:"quick-work",title:"Fixture work",type:"reading"}];
+    const holder=document.createElement("div");holder.id="quick-fixture";holder.style.cssText="height:1800px;position:relative";
+    const anchor=document.createElement("button");anchor.id="quick-anchor";anchor.className="quick-add";anchor.dataset.quickadd="quick-work";anchor.textContent="Ajouter à une liste";
+    anchor.style.cssText="position:absolute;top:900px;right:8px";
+    holder.append(anchor);document.getElementById("grid").append(holder);anchor.scrollIntoView({block:"center"});
+  });
+  await page.locator("#quick-anchor").click();
+  const menu=page.locator(".qa-menu");
+  await menu.waitFor();
+  const boundsInViewport=()=>page.evaluate(()=>{
+    const m=document.querySelector(".qa-menu"),r=m.getBoundingClientRect();
+    return r.left>=7&&r.top>=7&&r.right<=innerWidth-7&&r.bottom<=innerHeight-7&&m.scrollHeight>m.clientHeight;
+  });
+  assert(await boundsInViewport(),"Long quick-add menu escaped the scrolled mobile viewport");
+  assert.equal(await menu.getAttribute("role"),"dialog");
+  await page.keyboard.press("End");
+  assert(await page.locator("[data-ql-new]").evaluate(el=>el===document.activeElement));
+  await page.keyboard.press("Home");
+  assert(await page.locator('[data-ql="quick-0"]').evaluate(el=>el===document.activeElement));
+  await page.setViewportSize({width:390,height:500});
+  await page.evaluate(()=>window.scrollBy(0,100));
+  assert(await boundsInViewport(),"Quick-add chooser escaped after resize or scrolling");
+  await page.screenshot({path:path.join(artifactDir,"library-quick-add-mobile.png"),fullPage:false});
+  await page.keyboard.press("Escape");
+  assert.equal(await menu.count(),0);
+  assert(await page.locator("#quick-anchor").evaluate(el=>el===document.activeElement));
+  assert.equal(await page.locator("#quick-anchor").getAttribute("aria-expanded"),"false");
+  await page.evaluate(()=>{
+    lists=quickFixture.lists;items=quickFixture.items;delete globalThis.quickFixture;
+    document.getElementById("quick-fixture").remove();window.scrollTo(0,0);
+  });
+  await page.setViewportSize({width:1440,height:1000});
+  console.log("Library quick-add: scrolled mobile bounds, long names, resize, keyboard and restored focus passed");
+
+  // Exercise the actual options controls. Only synthetic local accounts are used.
+  await worker.evaluate(async()=>{
+    autoSync=()=>{};
+    await serializeLibrary(()=>switchSyncAccount({apiUrl:"https://sync.example/api",userId:"transfer-test",email:"transfer@example.com",token:"synthetic-transfer-token"}));
+    await chrome.storage.local.set({
+      "dasi.items":[], "dasi.lists":[], "dasi.sites":[],
+      "dasi.settings":{lang:"fr",profile:{name:"Account profile"}},
+      "yomu.accountCaches.v1":{guest:{
+        "dasi.items":[{id:"guest-series",title:"Guest series",type:"watching",season:2,episode:4,cover:testCover,synopsis:"Fixture",enrichedAt:1}],
+        "dasi.lists":[{id:"guest-favorites",name:"Favorites",itemIds:["guest-series"]}],
+        "dasi.sites":[{id:"guest-site",url:"https://reader.example"}],
+        "dasi.settings":{ocrKey:"not-to-transfer",profile:{name:"Guest profile"}},
+      }},
+    });
+  });
+  const transferPage=await context.newPage();
+  await transferPage.goto(base+"options.html");
+  await transferPage.locator("#guest-preview").click();
+  await transferPage.locator("#guest-confirm").waitFor({state:"visible"});
+  assert((await transferPage.locator("#guest-summary").innerText()).includes("transfer@example.com"));
+  assert((await transferPage.locator("#guest-summary").innerText()).includes("1 œuvres"));
+  await transferPage.locator("#guest-confirm").click();
+  await transferPage.waitForFunction(()=>document.querySelector("#guest-summary").textContent.includes("Copie ajoutée"));
+  const copied=await worker.evaluate(async()=>chrome.storage.local.get(["dasi.items","dasi.lists","dasi.settings","yomu.accountCaches.v1"]));
+  assert.equal(copied["dasi.items"][0].episode,4);
+  assert.deepEqual(copied["dasi.lists"][0].itemIds,["guest-series"]);
+  assert.equal(copied["dasi.settings"].profile.name,"Account profile");
+  assert.equal(copied["dasi.settings"].ocrKey,undefined);
+  assert.equal(copied["yomu.accountCaches.v1"].guest["dasi.items"][0].episode,4);
+  assert((await transferPage.locator("#lastsync").innerText()).includes("attente"));
+  await transferPage.screenshot({path:path.join(artifactDir,"guest-library-transfer.png"),fullPage:true});
+  await worker.evaluate(async()=>{await serializeLibrary(()=>switchSyncAccount(null));await chrome.storage.local.set({"dasi.settings":{lang:"fr"}});});
+  await transferPage.reload();
+  await transferPage.locator("#forgot-password").click();
+  await transferPage.waitForFunction(()=>document.querySelector("#recovery-message").textContent.includes("activation"));
+  assert(!(await transferPage.locator("#recovery-message").innerText()).includes("envoyé"));
+  await transferPage.close();
+  console.log("Guest library transfer: preview, target account, copy, original retention and pending backup passed");
+
+
+  // Exercise the packaged notification API and real tab routing, without replacing chrome.notifications.
+  const notificationProbe=await worker.evaluate(async()=>{
+    const keys=["dasi.items","dasi.settings","yomu.notificationTargets.v1"];
+    const previous=await chrome.storage.local.get(keys);
+    await chrome.storage.local.set({"dasi.items":[{id:"notification-route",title:"Notification route",type:"reading",chapter:4,total:20,notes:"Keep"}],"dasi.settings":{lang:"en",notifyNew:true}});
+    await systemNotify("Yomu notification test","Open the saved work","delivery-probe","notification-route");
+    const targets=(await chrome.storage.local.get("yomu.notificationTargets.v1"))["yomu.notificationTargets.v1"]||[];
+    const target=targets.find(row=>row.itemId==="notification-route");
+    const visible=await chrome.notifications.getAll();
+    return {previous,id:target?.id,registered:!!target&&Object.hasOwn(visible,target.id)};
+  });
+  assert(notificationProbe.id,"Notification target was not retained");
+  assert(notificationProbe.registered,"Chrome did not register the created notification");
+  try{
+    const opened=context.waitForEvent("page");
+    await worker.evaluate(id=>openSystemNotification(id),notificationProbe.id);
+    const targetPage=await opened;
+    await targetPage.waitForURL(base+"library.html?notification=*");
+    await targetPage.locator("#drawer.open #dr-title").waitFor();
+    assert.equal(await targetPage.locator("#dr-title").inputValue(),"Notification route");
+    await targetPage.close();
+    const disabled=await worker.evaluate(async()=>{
+      const before=await chrome.notifications.getAll();
+      await chrome.storage.local.set({"dasi.settings":{lang:"en",notifyNew:false}});
+      await systemNotify("Muted","Must not register","muted-probe","notification-route");
+      const after=await chrome.notifications.getAll();
+      return Object.keys(after).filter(id=>!Object.hasOwn(before,id));
+    });
+    assert.deepEqual(disabled,[]);
+    await worker.evaluate(async id=>{
+      const key="yomu.notificationTargets.v1",rows=(await chrome.storage.local.get(key))[key];
+      await chrome.storage.local.set({[key]:rows.map(row=>row.id===id?{...row,ts:Date.now()-31*86400000}:row)});
+    },notificationProbe.id);
+    const expiredOpened=context.waitForEvent("page");
+    await worker.evaluate(id=>openSystemNotification(id),notificationProbe.id);
+    const expiredPage=await expiredOpened;
+    await expiredPage.waitForURL(base+"library.html?notification=*");
+    await expiredPage.waitForFunction(()=>document.querySelector("#nav")&&typeof items!=="undefined"&&items.some(item=>item.id==="notification-route"));
+    assert.equal(await expiredPage.locator("#drawer.open").count(),0);
+    await expiredPage.close();
+    const retained=await worker.evaluate(async()=> (await chrome.storage.local.get("dasi.items"))["dasi.items"][0]);
+    assert.equal(retained.chapter,4);assert.equal(retained.notes,"Keep");
+    console.log("PASS: packaged Chrome notification registered, real saved-work tab routing, global mute and expired destination");
+  }finally{
+    await worker.evaluate(async probe=>{
+      await chrome.notifications.clear(probe.id);
+      const keys=["dasi.items","dasi.settings","yomu.notificationTargets.v1"];
+      await chrome.storage.local.remove(keys.filter(key=>!Object.hasOwn(probe.previous,key)));
+      await chrome.storage.local.set(probe.previous);
+    },notificationProbe);
+  }
+
+
+  const episodeAlerts=await worker.evaluate(async()=>{
+    const keys=["dasi.items","dasi.settings","dasi.notifications","yomu.notificationTargets.v1"];
+    if(trackedReleaseTask)await trackedReleaseTask;
+    const previous=await chrome.storage.local.get(keys),originalFetch=fetchRemote,previousBatch=lastTrackedReleaseBatch;
+    const now=Date.now(),baseline=now-8*3600000;
+    const cases=[
+      {id:"alert-active"},
+      {id:"alert-muted",notifyUpdates:false},
+      {id:"alert-paused",state:"on_hold"},
+      {id:"alert-dropped",state:"dropped"},
+      {id:"alert-seen",episode:2},
+      {id:"alert-baseline",releaseCheckedAt:undefined}
+    ].map(row=>({title:row.id,type:"watching",externalIds:{tvmaze:"7"},season:1,episode:1,notes:"Keep",releaseCheckedAt:baseline,...row}));
+    let registered=[];
+    try{
+      await chrome.storage.local.set({"dasi.items":cases,"dasi.settings":{lang:"en",notifyNew:true},"dasi.notifications":[],"yomu.notificationTargets.v1":[]});
+      fetchRemote=async(url,options)=>{
+        if(String(url)==="https://api.tvmaze.com/shows/7/episodes")return {ok:true,json:async()=>[
+          {season:1,number:2,airstamp:new Date(now-3600000).toISOString()},
+          {season:1,number:2,airstamp:new Date(now-3600000).toISOString()},
+          {season:1,number:3,airstamp:new Date(now+86400000).toISOString()},
+          {season:1,number:4,airstamp:new Date(now-9*86400000).toISOString()}
+        ]};
+        return originalFetch(url,options);
+      };
+      lastTrackedReleaseBatch=0;await checkTrackedReleases();await notificationDeliveryQueue;
+      const first=await chrome.storage.local.get(keys);
+      registered=(first["yomu.notificationTargets.v1"]||[]).map(row=>row.id);
+      const native=await chrome.notifications.getAll();
+      lastTrackedReleaseBatch=0;await checkTrackedReleases();await notificationDeliveryQueue;
+      const second=await chrome.storage.local.get(keys);
+      return {
+        alerts:first["dasi.notifications"].map(row=>row.itemId),
+        native:registered.length===1&&registered.every(id=>Object.hasOwn(native,id)),
+        noRepeat:second["dasi.notifications"].length===1,
+        progressPreserved:second["dasi.items"].every(row=>row.notes==="Keep"&&row.episode===(row.id==="alert-seen"?2:1)),
+        futureExcluded:second["dasi.items"].filter(row=>row.id!=="alert-dropped").every(row=>Array.isArray(row.recentEpisodes)&&row.recentEpisodes.length===1&&row.recentEpisodes[0].episode===2)
+      };
+    }finally{
+      fetchRemote=originalFetch;lastTrackedReleaseBatch=previousBatch;
+      for(const id of registered)await chrome.notifications.clear(id);
+      await chrome.storage.local.remove(keys.filter(key=>!Object.hasOwn(previous,key)));
+      await chrome.storage.local.set(previous);
+    }
+  });
+  assert.deepEqual(episodeAlerts,{alerts:["alert-active"],native:true,noRepeat:true,progressPreserved:true,futureExcluded:true});
+  console.log("PASS: packaged tracked-episode alerts respect work mute, pause, drop, viewed progress, first-check baseline and duplicate/future/old releases");
+
+
+  // Use the real saved-game controls and the real Steam-news parser, with a
+  // deterministic HTTP fixture; native notification APIs remain unmocked.
+  const gameNewsProbe=await worker.evaluate(async()=>{
+    if(gameNewsTask)await gameNewsTask;
+    if(gameReleaseCheck)await gameReleaseCheck;
+    const keys=["dasi.items","dasi.settings","dasi.notifications","yomu.notificationTargets.v1"];
+    const previous=await chrome.storage.local.get(keys),now=Date.now(),baseline=now-8*3600000;
+    globalThis.newsProbeFetch=fetchRemote;
+    globalThis.newsProbeCalls=0;
+    const games=[
+      {id:"news-all"},{id:"news-updates"},{id:"news-events"},{id:"news-rewards"},
+      {id:"news-muted"},{id:"news-paused",state:"on_hold"},
+      {id:"news-dropped",state:"dropped"},{id:"news-baseline",gameNewsCheckedAt:undefined}
+    ].map(row=>({title:row.id,type:"game",released:true,gameEnrichedAt:now,enrichedAt:now,externalIds:{steam:"620"},gameNewsCheckedAt:baseline,gameNewsSeenIds:["seen"],notes:"Keep",rating:4,...row}));
+    const entries=[
+      {gid:"patch",title:"Patch 2",date:Math.floor(now/1000)-60},
+      {gid:"patch",title:"Patch duplicate",date:Math.floor(now/1000)-60},
+      {gid:"event",title:"Summer festival",date:Math.floor(now/1000)-120},
+      {gid:"reward",title:"Twitch drops rewards",date:Math.floor(now/1000)-180},
+      {gid:"seen",title:"Patch already seen",date:Math.floor(now/1000)-240},
+      {gid:"future",title:"Future festival",date:Math.floor(now/1000)+86400},
+      {gid:"old",title:"Old patch",date:Math.floor(now/1000)-8*86400}
+    ];
+    fetchRemote=async(url,options)=>{
+      if(String(url).startsWith("https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=620&")){
+        globalThis.newsProbeCalls++;
+        return {ok:true,json:async()=>({appnews:{appid:620,newsitems:entries}})};
+      }
+      return globalThis.newsProbeFetch(url,options);
+    };
+    await chrome.storage.local.set({"dasi.items":games,"dasi.settings":{lang:"en",notifyNew:true},"dasi.notifications":[],"yomu.notificationTargets.v1":[]});
+    return {keys,previous,baseline};
+  });
+  try{
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("games");resolve();})));
+    for(const [id,fields] of [
+      ["news-updates",["events","rewards"]],
+      ["news-events",["updates","rewards"]],
+      ["news-rewards",["updates","events"]],
+      ["news-muted",["master"]]
+    ]){
+      await page.evaluate(id=>openDrawer(id),id);
+      for(const field of fields){
+        const selector=field==="master"?"#dr-notify":"#dr-notify-game-"+field;
+        const property=field==="master"?"notifyUpdates":"notifyGame"+field[0].toUpperCase()+field.slice(1);
+        await page.locator(selector).uncheck();
+        await page.waitForFunction(({id,property,selector})=>items.find(row=>row.id===id)?.[property]===false&&!document.querySelector(selector)?.disabled,{id,property,selector});
+      }
+      await page.locator("#dr-close").click();
+      await page.evaluate(id=>openDrawer(id),id);
+      for(const field of fields)assert.equal(await page.locator(field==="master"?"#dr-notify":"#dr-notify-game-"+field).isChecked(),false,"Game alert preference did not survive reopening");
+      await page.locator("#dr-close").click();
+    }
+    const result=await worker.evaluate(async()=>{
+      await Promise.all([checkGameNews(),checkGameNews()]);
+      await notificationDeliveryQueue;
+      const data=await chrome.storage.local.get(["dasi.items","dasi.notifications","yomu.notificationTargets.v1"]);
+      const targets=data["yomu.notificationTargets.v1"],native=await chrome.notifications.getAll();
+      return {
+        alerts:data["dasi.notifications"].map(row=>({id:row.itemId,message:row.message})).sort((a,b)=>a.id.localeCompare(b.id)),
+        native:targets.length===4&&targets.every(row=>Object.hasOwn(native,row.id)),
+        requests:globalThis.newsProbeCalls,
+        preserved:data["dasi.items"].every(row=>row.notes==="Keep"&&row.rating===4),
+        feeds:data["dasi.items"].filter(row=>row.id!=="news-dropped").every(row=>row.news.length===5&&!row.news.some(entry=>entry.id==="future"))
+      };
+    });
+    assert.deepEqual(result,{
+      alerts:[
+        {id:"news-all",message:"Patch 2 — Summer festival — Twitch drops rewards"},
+        {id:"news-events",message:"Summer festival"},
+        {id:"news-rewards",message:"Twitch drops rewards"},
+        {id:"news-updates",message:"Patch 2"}
+      ],
+      native:true,requests:7,preserved:true,feeds:true
+    });
+    const repeated=await worker.evaluate(async baseline=>{
+      const keys=["dasi.items","dasi.notifications","yomu.notificationTargets.v1"];
+      const first=await chrome.storage.local.get(keys);
+      await chrome.storage.local.set({"dasi.items":first["dasi.items"].map(row=>({...row,gameNewsCheckedAt:baseline}))});
+      await checkGameNews();await notificationDeliveryQueue;
+      const second=await chrome.storage.local.get(keys);
+      return {count:second["dasi.notifications"].length,targets:second["yomu.notificationTargets.v1"].map(row=>row.id).sort(),before:first["yomu.notificationTargets.v1"].map(row=>row.id).sort(),requests:globalThis.newsProbeCalls};
+    },gameNewsProbe.baseline);
+    assert.equal(repeated.count,4);
+    assert.deepEqual(repeated.targets,repeated.before);
+    assert.equal(repeated.requests,14,"Repeated check must fetch again to exercise saved announcement deduplication");
+    console.log("PASS: packaged game-news checkbox preferences, category filters, mute/pause/drop, silent baseline, real native registration and repeated-feed deduplication");
+  }finally{
+    await worker.evaluate(async probe=>{
+      if(gameNewsTask)await gameNewsTask;
+      await notificationDeliveryQueue;
+      const targets=(await chrome.storage.local.get("yomu.notificationTargets.v1"))["yomu.notificationTargets.v1"]||[];
+      for(const target of targets)await chrome.notifications.clear(target.id);
+      fetchRemote=globalThis.newsProbeFetch;
+      delete globalThis.newsProbeFetch;delete globalThis.newsProbeCalls;
+      await chrome.storage.local.remove(probe.keys.filter(key=>!Object.hasOwn(probe.previous,key)));
+      await chrome.storage.local.set(probe.previous);
+    },gameNewsProbe);
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);closeDrawer();resolve();})));
+  }
+
+
+  // Reimport via the packaged Settings file input, including overlapping backup files.
+  const importBefore=await worker.evaluate(async()=>{
+    const keys=["dasi.items","dasi.lists","dasi.sites"];
+    const previous=await chrome.storage.local.get(keys);
+    await chrome.storage.local.set({"dasi.items":[{id:"resume-reader",type:"reading",title:"Resume reader",chapter:12.75,page:8,notes:"Personal",favorite:true,rating:4,tags:["Mine"],cover:"https://example.test/cover.png",synopsis:"Book",enrichedAt:1,identityVersion:1}],"dasi.lists":[],"dasi.sites":[]});
+    return {keys,previous};
+  });
+  try{
+    await page.evaluate(()=>new Promise(resolve=>api.runtime.sendMessage({type:"GET_STATE"},state=>{hydrate(state);switchView("settings");resolve();})));
+    const part=(id,pageNumber)=>({name:id+".json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify({version:2,items:[{id:"resume-reader",title:"Resume reader",type:"reading",chapter:12.75,page:pageNumber,notes:"Export note",favorite:false,rating:1,tags:["Imported"]}],lists:[{id,name:id,itemIds:["resume-reader"]}],sites:[{id,name:id,url:"https://"+id+".example/"}]}))});
+    for(let attempt=0;attempt<2;attempt++){
+      await page.locator("#file").setInputFiles([part("part-a",10),part("part-b",4)]);
+      await page.waitForFunction(()=>!importPending&&document.querySelector("#file")?.files.length===0&&items.some(row=>row.id==="resume-reader"&&row.page===10));
+    }
+    const saved=await worker.evaluate(async()=>chrome.storage.local.get(["dasi.items","dasi.lists","dasi.sites"]));
+    assert.equal(saved["dasi.items"].length,1);
+    const read=saved["dasi.items"][0];
+    assert.equal(read.chapter,12.75);assert.equal(read.page,10);assert.equal(read.notes,"Personal");assert.equal(read.favorite,true);assert.equal(read.rating,4);
+    assert.deepEqual([...read.tags].sort(),["Imported","Mine"]);
+    assert.deepEqual(saved["dasi.lists"].map(row=>[row.id,row.itemIds]).sort(),[["part-a",["resume-reader"]],["part-b",["resume-reader"]]]);
+    assert.deepEqual(saved["dasi.sites"].map(row=>row.id).sort(),["part-a","part-b"]);
+    console.log("PASS: packaged multi-file reimport retains personal fields, furthest page, every list and site on repeat");
+  }finally{
+    await worker.evaluate(async probe=>{
+      await chrome.storage.local.remove(probe.keys.filter(key=>!Object.hasOwn(probe.previous,key)));
+      await chrome.storage.local.set(probe.previous);
+    },importBefore);
+  }
+  assert.deepEqual(errors, []);
+  console.log(
+    JSON.stringify(
+      {
+        ok: true,
+        journeys: [
+          "search race",
+          "preview before save",
+          "save to list",
+          "navigation reset",
+          "bounded progress",
+          "profile",
+          "mobile width",
+          "popup <=600px",
+          "real OCR",
+          "tall image OCR",
+          "Japanese OCR",
+          "in-place translation",
+          "restore",
+        ],
+        popup: bounds,
+        covers: boxes.length,
+        ocr: ocr.lines,
+        japanese: japaneseOcr.lines,
+      },
+      null,
+      2
+    )
+  );
+} finally {
+  await context.close();
+  await fs.rm(profile, { recursive: true, force: true });
+}
