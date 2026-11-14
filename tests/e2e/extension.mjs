@@ -957,13 +957,26 @@ try {
     assert.equal((await page.evaluate(()=>chrome.runtime.sendMessage({type:"TRANSLATE_PAGE",lang:"fr",src:"eng"}))).ok,true);
   };
   const stopPanels=()=>panelReader.locator("#yomu-translation-status button").first().click();
+  const waitPanelLabel=async label=>{
+    try{await panelReader.locator('[data-yomu-overlay] [aria-label="'+label+'"]').waitFor({timeout:7000});}
+    catch(error){
+      console.log("Panel lifecycle diagnostic",JSON.stringify({
+        label,calls:await worker.evaluate(()=>globalThis.lifecycleCalls),errors,
+        page:await panelReader.evaluate(()=>({
+          status:document.getElementById("yomu-translation-status")?.textContent,
+          images:[...document.images].map(im=>({id:im.id,src:im.src,current:im.currentSrc,complete:im.complete,rect:im.getBoundingClientRect().toJSON()})),
+          overlays:[...document.querySelectorAll("[data-yomu-overlay]")].map(el=>({html:el.outerHTML,rect:el.getBoundingClientRect().toJSON()}))
+        }))
+      }));throw error;
+    }
+  };
   await panelFixture(["blocker","queued"]);
   await worker.evaluate(()=>{globalThis.lifecycleHold="blocker.png";});
   await startPanels();
   await waitPanelWorker(()=>Boolean(globalThis.lifecycleRelease));
   await panelReader.locator("#queued").evaluate(async im=>{im.src="https://en.wikipedia.org/yomu-e2e/panels/replaced.png";await im.decode();});
   await worker.evaluate(()=>globalThis.lifecycleRelease("Fresh blocker"));
-  await panelReader.locator('[data-yomu-overlay] [aria-label="Fresh replaced.png"]').waitFor();
+  await waitPanelLabel("Fresh replaced.png");
   assert.deepEqual(await worker.evaluate(()=>globalThis.lifecycleCalls),["blocker.png","replaced.png"],"Queued old source or duplicate replacement was translated");
   await stopPanels();
 
@@ -976,7 +989,7 @@ try {
     im.src="https://en.wikipedia.org/yomu-e2e/panels/cycle.png";await im.decode();
   });
   await worker.evaluate(()=>globalThis.lifecycleRelease("Stale cycle"));
-  await panelReader.locator('[data-yomu-overlay] [aria-label="Fresh cycle.png"]').waitFor();
+  await waitPanelLabel("Fresh cycle.png");
   assert.equal(await panelReader.locator('[aria-label="Stale cycle"]').count(),0);
   assert.deepEqual(await worker.evaluate(()=>globalThis.lifecycleCalls),["cycle.png","cycle.png"]);
   // Existing overlays disappear as soon as their source is replaced.
@@ -1016,7 +1029,7 @@ try {
   await panelReader.waitForTimeout(250);
   assert.deepEqual(await worker.evaluate(()=>globalThis.lifecycleCalls),["limited.png"],"Rate limit did not pause remaining images");
   await panelReader.locator("#yomu-translation-retry").click();
-  for(const name of ["limited","waiting","appended"])await panelReader.locator('[data-yomu-overlay] [aria-label="Fresh '+name+'.png"]').waitFor();
+  for(const name of ["limited","waiting","appended"])await waitPanelLabel("Fresh "+name+".png");
   const resumedPanelCalls=await worker.evaluate(()=>globalThis.lifecycleCalls);
   assert.equal(resumedPanelCalls.filter(name=>name==="limited.png").length,2);
   assert.equal(resumedPanelCalls.filter(name=>name==="waiting.png").length,1);
