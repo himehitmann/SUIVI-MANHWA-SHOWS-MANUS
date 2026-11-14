@@ -85,7 +85,8 @@ jobs:
           path: test-results/load-report.json
 
   recovery:
-    runs-on: ubuntu-latest
+    # Match the PostgreSQL 16 tools available in Ubuntu 24.04; latest moved to 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 8
     services:
       postgres:
