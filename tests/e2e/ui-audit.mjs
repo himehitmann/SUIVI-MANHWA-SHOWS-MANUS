@@ -10,7 +10,12 @@ try {
  const worker=context.serviceWorkers()[0]||await context.waitForEvent("serviceworker");
  await worker.evaluate(async()=>{
   getDiscover=async()=>({ts:Date.now(),discoveryVersion:3,manga:[],manhwa:[],manhua:[],anime:[],kdrama:[],cdrama:[],jdrama:[],series:[],gamesSoon:[],gamesHot:[],gamesNew:[]});
+  // Installation and fixture writes must share the same queue. Otherwise an
+  // in-flight legacy migration can overwrite the fixture with its empty snapshot.
+  await serializeLibrary(async()=>{
+   await migrateStorage();
   await chrome.storage.local.set({"dasi.settings":{lang:"en"},"dasi.items":[{id:"audit-work",title:"A saved work with a long title for layout verification",type:"reading",chapter:12,total:30,synopsis:"Saved description",identityVersion:1,enrichedAt:1,metadataStatus:{state:"partial"}}],"dasi.lists":[{id:"audit-list",name:"My long personal reading list",itemIds:["audit-work"]}]});
+  });
  });
  const base=`chrome-extension://${new URL(worker.url()).host}/`;
  const page=await context.newPage();page.on("pageerror",error=>errors.push(error.message));
