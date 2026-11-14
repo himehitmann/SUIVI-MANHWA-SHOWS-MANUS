@@ -9,12 +9,13 @@
     observer = null,
     mutation = null,
     resize = null,
-    frame = 0;
+    frame = 0,
+    textTimer = 0;
   const originals = new Map(),
     overlays = new Map(),
     processed = new WeakMap();
   const SKIP =
-    "script,style,noscript,iframe,code,pre,textarea,input,select,svg,canvas,button,[contenteditable],#yomu-translation-status,[data-yomu-overlay]";
+    "script,style,noscript,iframe,code,pre,textarea,input,select,svg,canvas,button,[contenteditable],[hidden],[aria-hidden=\"true\"],[inert],#yomu-translation-status,[data-yomu-overlay]";
   const isFrench = () =>
     document.documentElement.lang.startsWith("fr") ||
     (navigator.language || "").startsWith("fr");
@@ -103,6 +104,7 @@
     pill?.remove();
     pill = null;
     cancelAnimationFrame(frame);
+    clearTimeout(textTimer);textTimer=0;
     window.removeEventListener("scroll", schedule, true);
     window.removeEventListener("resize", schedule);
   }
@@ -140,6 +142,7 @@
       overlays.forEach(({ el, width, height }, im) => {
         if (!im.isConnected) {
           el.remove();
+          resize?.unobserve(im);
           overlays.delete(im);
           return;
         }
@@ -243,6 +246,7 @@
       textError = "",
       textCursor = 0;
     const textJobs = [];
+    const textEntries = new WeakMap(), dirtyTextRoots = new Set();
     const queue = [];
     const failures = new Set();
     retryFailed = () => {
@@ -253,31 +257,69 @@
       progress();
     };
     status(wording("Yomu — traduction en cours…", "Yomu — translating…"));
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode(node) {
-          const p = node.parentElement;
-          return p &&
-            !p.closest(SKIP) &&
-            (node.nodeValue || "").trim().length > 2 &&
-            p.getClientRects().length
-            ? NodeFilter.FILTER_ACCEPT
-            : NodeFilter.FILTER_REJECT;
-        },
-      }
-    );
-    while(walker.nextNode()) {
-      const node=walker.currentNode,source=node.nodeValue;
+    function eligibleText(node) {
+      const parent=node.parentElement;
+      return node.isConnected && parent && !parent.closest(SKIP) &&
+        (node.nodeValue || "").trim().length>2 && parent.getClientRects().length &&
+        getComputedStyle(parent).visibility==="visible";
+    }
+    function enqueueText(node) {
+      const source=node.nodeValue,owned=originals.get(node),previous=textEntries.get(node);
+      // A mutation caused by our own result (or moving the same translated node)
+      // is not a new source text and must never be sent back to the provider.
+      if(owned && source===owned.translated)return;
+      if(previous && !previous.skipped && previous.remaining>0 && previous.source===source && eligibleText(node))return;
+      if(previous)previous.skipped=true;
+      originals.delete(node);textEntries.delete(node);
+      if(!eligibleText(node))return;
       const parts=splitNodeText(source);
       const entry={node,source,remaining:parts.length,translated:[],skipped:false};
+      textEntries.set(node,entry);
       parts.forEach((part,index)=>textJobs.push({entry,index,...part}));
     }
+    function collectText(root) {
+      if(run!==token || !root.isConnected)return;
+      if(root.nodeType===Node.TEXT_NODE){enqueueText(root);return;}
+      if(root.closest?.(SKIP))return;
+      const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+      while(walker.nextNode())enqueueText(walker.currentNode);
+    }
+    function forgetRemovedText(root) {
+      if(root.isConnected)return; // Moving a node is not deleting its original.
+      const forget=node=>{
+        originals.delete(node);
+        const entry=textEntries.get(node);if(entry)entry.skipped=true;
+        textEntries.delete(node);dirtyTextRoots.delete(node);
+      };
+      if(root.nodeType===Node.TEXT_NODE){forget(root);return;}
+      const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+      while(walker.nextNode())forget(walker.currentNode);
+      dirtyTextRoots.delete(root);
+    }
+    function queueTextRoot(root) {
+      const element=root.nodeType===Node.TEXT_NODE?root.parentElement:root;
+      if(run!==token || !root.isConnected || element?.closest?.(SKIP))return;
+      if(root.nodeType===Node.TEXT_NODE && originals.get(root)?.translated===root.nodeValue)return;
+      dirtyTextRoots.add(root);
+      if(textTimer)return;
+      textTimer=setTimeout(()=>{
+        textTimer=0;
+        if(run!==token)return;
+        const roots=new Set(dirtyTextRoots);dirtyTextRoots.clear();
+        for(const current of roots) {
+          let parent=current.parentNode;
+          while(parent && !roots.has(parent))parent=parent.parentNode;
+          if(!parent)collectText(current);
+        }
+        // A changing site must not turn a service failure into automatic retries.
+        if(!textError)drainText();
+      },120);
+    }
+    collectText(document.body);
     // Text batches and image OCR run independently. A failure leaves completed
     // nodes in place and the cursor on the failed batch for an explicit retry.
     async function drainText() {
-      if(textActive || run!==token || textCursor>=textJobs.length)return;
+      if(textActive || textError || run!==token || textCursor>=textJobs.length)return;
       textActive=true;progress();
       try {
         while(textCursor<textJobs.length && run===token) {
@@ -285,7 +327,7 @@
           let cursor=textCursor,size=0;
           while(cursor<textJobs.length && batch.length<20) {
             const job=textJobs[cursor],entry=job.entry;
-            if(entry.skipped || !entry.node.isConnected || entry.node.nodeValue!==entry.source) {
+            if(entry.skipped || !eligibleText(entry.node) || entry.node.nodeValue!==entry.source) {
               entry.skipped=true;cursor++;continue;
             }
             if(batch.length && size+job.text.length>40000)break;
@@ -300,7 +342,7 @@
           }
           for(let i=0;i<batch.length;i++) {
             const job=batch[i],entry=job.entry;
-            if(!entry.node.isConnected || entry.node.nodeValue!==entry.source){entry.skipped=true;continue;}
+            if(entry.skipped || !eligibleText(entry.node) || entry.node.nodeValue!==entry.source){entry.skipped=true;continue;}
             entry.translated[job.index]=result.translations[i]+job.separator;
             if(--entry.remaining===0) {
               const translated=entry.translated.join("");
@@ -387,22 +429,35 @@
       for (const im of document.images) if (isPanel(im)) observer.observe(im);
     }
     mutation = new MutationObserver(records => {
-      if (
-        records.some(
-          r =>
-            !r.target.closest?.("[data-yomu-overlay],#yomu-translation-status")
-        )
-      ) {
-        scan();
-        for (const record of records) {
-          const im = record.target;
-          if (record.type !== "attributes" || !(im instanceof HTMLImageElement) || !isPanel(im)) continue;
-          const r = im.getBoundingClientRect();
-          if (r.bottom >= -250 && r.top <= innerHeight + 250) enqueue(im);
+      if(run!==token)return;
+      let imagesChanged=false;
+      for(const record of records) {
+        const element=record.target.nodeType===Node.TEXT_NODE?record.target.parentElement:record.target;
+        if(element?.closest?.("[data-yomu-overlay],#yomu-translation-status"))continue;
+        if(record.type==="characterData"){queueTextRoot(record.target);continue;}
+        if(record.type==="childList") {
+          record.removedNodes.forEach(forgetRemovedText);
+          for(const node of record.addedNodes) {
+            if(node.nodeType===Node.ELEMENT_NODE && node.matches("[data-yomu-overlay],#yomu-translation-status"))continue;
+            queueTextRoot(node);imagesChanged=true;
+          }
+          if(record.removedNodes.length)imagesChanged=true;
+          continue;
         }
+        queueTextRoot(record.target);
+        imagesChanged=true;
+        const im=record.target;
+        if(!(im instanceof HTMLImageElement) || !isPanel(im))continue;
+        const rect=im.getBoundingClientRect();
+        if(rect.bottom>=-250 && rect.top<=innerHeight+250)enqueue(im);
       }
+      if(imagesChanged){scan();schedule();}
     });
-    mutation.observe(document.body, { childList: true, subtree: true, attributes:true, attributeFilter:["src","srcset","data-src","data-original","data-lazy-src","data-url"] });
+    // Watching the document root also survives a site's replacement of <body>.
+    mutation.observe(document.documentElement, {
+      childList:true,subtree:true,characterData:true,attributes:true,
+      attributeFilter:["src","srcset","data-src","data-original","data-lazy-src","data-url","hidden","aria-hidden","class","style","open","contenteditable"]
+    });
     scan();
     progress();
   }

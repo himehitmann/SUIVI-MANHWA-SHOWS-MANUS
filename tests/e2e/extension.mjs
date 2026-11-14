@@ -819,6 +819,8 @@ try {
       if(texts.includes("Stable paragraph"))return new Promise(resolve=>{
         globalThis.releaseDomTranslation=()=>resolve(texts.map(text=>"Translated: "+text));
       });
+      // New source text may now be queued while the old response is delayed.
+      if(texts.some(text=>text==="Next chapter arrived" || text==="Live status changed"))return texts;
       return globalThis.savedTextTranslator(texts,...args);
     };
   });
@@ -1003,6 +1005,100 @@ try {
   assert.deepEqual(await longTextReader.locator("p").allTextContents(),stoppedParagraphs);
   assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),1,"Stopping still sent the next batch");
   assert.equal(await longTextReader.locator("#yomu-translation-status").count(),0);
+  // Newly appended and replaced text is translated without restarting the tool.
+  await setLongTextFixture(["Hello initial chapter"]);
+  await startLongText();
+  await longTextReader.waitForFunction(()=>document.getElementById("paragraph-0").textContent==="Bonjour initial chapter");
+  const settleDynamicText=()=>longTextReader.evaluate(()=>new Promise(resolve=>setTimeout(resolve,300)));
+  await longTextReader.evaluate(()=>{
+    const section=document.createElement("section");section.id="appended-section";
+    const p=document.createElement("p");p.id="appended-copy";p.textContent="Hello appended chapter";
+    section.append(p);document.body.append(section);
+  });
+  await longTextReader.waitForFunction(()=>document.getElementById("appended-copy").textContent==="Bonjour appended chapter");
+  await longTextReader.locator("#paragraph-0").evaluate(p=>{p.firstChild.nodeValue="Hello updated chapter";});
+  await longTextReader.waitForFunction(()=>document.getElementById("paragraph-0").textContent==="Bonjour updated chapter");
+  const callsBeforeMove=await worker.evaluate(()=>globalThis.longTextCalls.length);
+  await longTextReader.evaluate(()=>document.getElementById("appended-section").append(document.getElementById("paragraph-0")));
+  await settleDynamicText();
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),callsBeforeMove,"Moving translated nodes caused duplicate requests");
+  assert((await worker.evaluate(()=>globalThis.longTextCalls.flat())).every(text=>!text.includes("Bonjour")),"Yomu sent its own translations back to the provider");
+
+  // Hidden text is queued once revealed; editable content never enters the queue.
+  await longTextReader.evaluate(()=>{
+    const hidden=document.createElement("section");hidden.id="revealed-section";hidden.hidden=true;
+    const p=document.createElement("p");p.id="revealed-copy";p.textContent="Hello revealed chapter";hidden.append(p);document.body.append(hidden);
+    const editor=document.createElement("div");editor.id="private-editor";editor.contentEditable="true";editor.textContent="Hello private editor";document.body.append(editor);
+  });
+  await settleDynamicText();
+  assert.equal(await longTextReader.locator("#revealed-copy").textContent(),"Hello revealed chapter");
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),callsBeforeMove);
+  await longTextReader.locator("#revealed-section").evaluate(section=>{section.hidden=false;});
+  await longTextReader.waitForFunction(()=>document.getElementById("revealed-copy").textContent==="Bonjour revealed chapter");
+  assert(!(await worker.evaluate(()=>globalThis.longTextCalls.flat())).some(text=>text.includes("private editor")));
+  assert.equal(await longTextReader.locator("#private-editor").textContent(),"Hello private editor");
+
+  // DOM activity after a provider error must not automatically retry the service.
+  await worker.evaluate(()=>{globalThis.longTextFailAt=globalThis.longTextCalls.length+1;});
+  await longTextReader.evaluate(()=>{
+    const p=document.createElement("p");p.id="failed-dynamic-copy";p.textContent="Hello failed update";document.body.append(p);
+  });
+  await longTextReader.locator("#yomu-translation-retry:not([hidden]):not([disabled])").waitFor();
+  const failedDynamicCalls=await worker.evaluate(()=>globalThis.longTextCalls.length);
+  await longTextReader.evaluate(()=>{
+    const p=document.createElement("p");p.id="queued-dynamic-copy";p.textContent="Hello queued update";document.body.append(p);
+  });
+  await settleDynamicText();
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),failedDynamicCalls,"DOM mutation silently retried a failed provider");
+  await longTextReader.locator("#yomu-translation-retry").click();
+  await longTextReader.waitForFunction(()=>document.getElementById("queued-dynamic-copy").textContent==="Bonjour queued update");
+  assert.equal(await longTextReader.locator("#failed-dynamic-copy").textContent(),"Bonjour failed update");
+
+  // A removed chapter's late result cannot affect its replacement.
+  await worker.evaluate(()=>{globalThis.longTextHold=true;globalThis.longTextHeld=null;});
+  await longTextReader.evaluate(()=>{
+    const p=document.createElement("p");p.id="obsolete-copy";p.textContent="Hello obsolete chapter";document.body.append(p);
+  });
+  await worker.evaluate(async()=>{
+    const deadline=Date.now()+5000;
+    while(!globalThis.longTextHeld && Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,20));
+    if(!globalThis.longTextHeld)throw Error("Dynamic held translation did not start");
+  });
+  await longTextReader.evaluate(()=>{
+    document.getElementById("obsolete-copy").remove();
+    const p=document.createElement("p");p.id="replacement-copy";p.textContent="Hello replacement chapter";document.body.append(p);
+  });
+  await worker.evaluate(()=>{globalThis.longTextHold=false;globalThis.longTextHeld();});
+  await longTextReader.waitForFunction(()=>document.getElementById("replacement-copy").textContent==="Bonjour replacement chapter");
+  assert.equal(await longTextReader.locator("#obsolete-copy").count(),0);
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+  assert.equal(await longTextReader.locator("#paragraph-0").textContent(),"Hello updated chapter","Restore brought back the obsolete initial chapter");
+  assert.equal(await longTextReader.locator("#appended-copy").textContent(),"Hello appended chapter");
+  assert.equal(await longTextReader.locator("#revealed-copy").textContent(),"Hello revealed chapter");
+  assert.equal(await longTextReader.locator("#replacement-copy").textContent(),"Hello replacement chapter");
+  const callsAfterDynamicStop=await worker.evaluate(()=>globalThis.longTextCalls.length);
+  await longTextReader.evaluate(()=>{
+    const p=document.createElement("p");p.textContent="Hello after stop";document.body.append(p);
+  });
+  await settleDynamicText();
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),callsAfterDynamicStop,"A stopped observer still translated new text");
+
+  // Some single-page readers replace body itself, not just its child elements.
+  await setLongTextFixture(["Hello first body"]);
+  await startLongText();
+  await longTextReader.waitForFunction(()=>document.getElementById("paragraph-0").textContent==="Bonjour first body");
+  await longTextReader.evaluate(()=>{
+    const body=document.createElement("body"),p=document.createElement("p");
+    p.id="new-body-copy";p.textContent="Hello new body";body.append(p);
+    document.body.replaceWith(body);
+  });
+  await longTextReader.waitForFunction(()=>document.getElementById("new-body-copy").textContent==="Bonjour new body");
+  await settleDynamicText();
+  assert.equal(await worker.evaluate(()=>globalThis.longTextCalls.length),2,"Body replacement caused repeated translation");
+  await longTextReader.locator("#yomu-translation-status button").first().click();
+  assert.equal(await longTextReader.locator("#new-body-copy").textContent(),"Hello new body");
+  console.log("Dynamic text translation: append, replace, reveal, reparent, provider failure, stale removal, body replacement and stop passed");
+
   await worker.evaluate(()=>{translateTexts=globalThis.beforeLongTextTranslator;});
   await longTextReader.close();
   console.log("Long-page translation: 326 text nodes, bounded Unicode batches, complete restoration, failed-batch retry and cancellation passed");
