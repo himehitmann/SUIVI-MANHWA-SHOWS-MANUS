@@ -914,6 +914,7 @@ try {
   // Image jobs belong to a particular source revision, not just a reusable DOM
   // element. Mock only OCR/translation; exercise the real injected script/queue.
   const panelReader=await context.newPage();
+  panelReader.on("console",msg=>{if(msg.text().startsWith("YOMU_PANEL_TRACE"))console.log(msg.text());});
   panelReader.on("pageerror",error=>errors.push(error.message));
   let lifecycleDownloads=0;
   await panelReader.route("https://en.wikipedia.org/yomu-e2e/panels/*.png",route=>{
