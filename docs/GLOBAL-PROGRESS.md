@@ -1,12 +1,24 @@
 # Suivi global Yomu
 
-Mise à jour : 10 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 14 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Longues pages HTML : traitement complet et reprise — validation du 14 novembre 2026
+
+Paquet **0.4.26**, code fce940c067d5db9b64a80153d9d2efd258ad9713. La traduction ne s'arrête plus silencieusement aux 300 premiers nœuds de texte sélectionnés au lancement. Le contenu est envoyé par lots de 20 fragments au maximum, chaque fragment restant sous 8 000 unités UTF-16 et chaque message sous 40 000 ; les limites de validation du service worker restent inchangées. Le découpage préserve les séparateurs et les paires Unicode. Un paragraphe fragmenté n'est remplacé que lorsque tous ses morceaux ont réussi.
+
+Les textes et les images progressent indépendamment. Les messages d'état comptent les deux et n'effacent plus une erreur du texte quand le traitement des images avance. Une erreur conserve les passages déjà appliqués et le curseur du lot échoué. « Réessayer » reprend ce lot, sans renvoyer le préfixe réussi. Une réponse vide, mal formée ou avec un nombre incorrect de fragments est un échec explicite. « Restaurer » remet les textes que Yomu possède encore, ignore les réponses tardives et empêche l'envoi des lots suivants ; il n'annule pas une requête déjà reçue par le service externe. Les mises à jour concurrentes du site restent protégées.
+
+**Preuves :** [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42913481373) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42913490579), quatre jobs réussis chacun (verify, capacity, recovery, firebase-recovery). **770 tests unitaires**, parcours web et extension, vérifications d'interface, vidéo, restauration et charge isolée réussis. Aucun problème connu signalé par l'audit des dépendances de cette exécution. Test de mise à jour 0.3.1 vers 0.4.26 réussi avec compte, progression, listes et profil conservés.
+
+Le nouveau parcours Chromium injecte réellement le script de traduction sur une page HTTPS de test et traverse la validation des messages du service worker. Il contrôle 326 passages, le texte après le 300e, un paragraphe dépassant la limite d'un message, les caractères CJK et emoji, les limites des lots, une panne au deuxième lot suivie d'une reprise au même endroit, une réponse incohérente et l'arrêt pendant une réponse en attente. Les boutons et les valeurs des champs de saisie restent intacts, aucune commande de défilement n'est déclenchée et la restauration restitue les textes d'origine. Les réponses de traduction externe sont simulées : il s'agit de tests de comportement et d'intégrité, pas d'une certification linguistique. [Paquet et rapports de test](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/42913481373/artifacts/13809330114).
+
+**Limites :** ce lot traite les nœuds sélectionnés au début de la traduction, hors zones exclues telles que formulaires, code et boutons. La traduction incrémentale du texte ajouté ensuite par un site, la qualité sur les vrais chapitres JP/KR/CN et le premier dialogue natif d'autorisation restent à vérifier. Aucune installation dans le profil utilisateur ni publication. G16/G17 restent partiels : **21/60 = 35 % global vérifié**.
 
 ## Traduction fiable, accès limité et popup de lecture — 10 novembre 2026
 
