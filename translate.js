@@ -112,7 +112,7 @@
     pill = null;
     cancelAnimationFrame(frame);
     clearTimeout(textTimer);textTimer=0;
-    if(panelLoadHandler)window.removeEventListener("load",panelLoadHandler,true);
+    if(panelLoadHandler)document.removeEventListener("load",panelLoadHandler,true);
     panelLoadHandler=null;
     window.removeEventListener("scroll", schedule, true);
     window.removeEventListener("resize", schedule);
@@ -399,7 +399,6 @@
       else status(wording("Aucun texte lisible détecté pour le moment.","No readable text detected yet."));
     }
     function invalidatePanel(im) {
-      console.debug("YOMU_PANEL_TRACE", "invalidate", im.id, imageSource(im));
       processed.delete(im);
       overlays.get(im)?.el.remove();overlays.delete(im);
       resize?.unobserve(im);
@@ -414,8 +413,8 @@
       active=1;
       while(queue.length && run===token && !imagesPaused) {
         const job=queue.shift(),im=job.im;
-        if(!currentPanel(job)){console.debug("YOMU_PANEL_TRACE","skip",im.id,job.source,processed.get(im)?.source,imageSource(im));continue;}
-        console.debug("YOMU_PANEL_TRACE","request",im.id,job.source);progress();
+        if(!currentPanel(job))continue;
+        progress();
         try {
           const result=await requestPanel(im,job.source,target,src,()=>currentPanel(job));
           if(!currentPanel(job))continue;
@@ -436,7 +435,6 @@
       active=0;progress();
     }
     function enqueue(im) {
-      console.debug("YOMU_PANEL_TRACE","enqueue",im.id,im.complete,imageSource(im),processed.get(im)?.source);
       if(run!==token || !im.isConnected || !isPanel(im))return;
       const source=imageSource(im),previous=processed.get(im);
       // currentSrc can still refer to the previous decoded picture while a new
@@ -469,12 +467,11 @@
     }
     panelLoadHandler=event=>{
       const im=event.target;
-      console.debug("YOMU_PANEL_TRACE","load",im?.id,im instanceof HTMLImageElement);
       if(!(im instanceof HTMLImageElement) || run!==token)return;
       scan();
       if(isPanel(im) && nearViewport(im))enqueue(im);
     };
-    window.addEventListener("load",panelLoadHandler,true);
+    document.addEventListener("load",panelLoadHandler,true);
     mutation = new MutationObserver(records => {
       if(run!==token)return;
       let imagesChanged=false;
