@@ -1,8 +1,12 @@
-# Optional sync + auth backend
+# Account synchronization and authentication backend
 
-Dasi works fully offline without this. Deploy it only to offer accounts and
-cross-device sync (and, later, subscriptions). The apps default to local when
-`VITE_SYNC_API_URL` is unset, so the backend is never a single point of failure.
+Local libraries remain available without this server. It provides accounts,
+cross-device synchronization and server-verified subscription rights. Production
+defaults to paid synchronization: new uploads require active rights; existing
+backups remain readable after expiry. Self-hosted personal use can explicitly set
+`YOMU_ACCESS_MODE=personal`. See [COMMERCIAL-ACCESS.md](COMMERCIAL-ACCESS.md)
+before upgrading an existing server. A failed synchronization does not erase
+local edits or turn a valid login into a failed login.
 
 ## What it is
 

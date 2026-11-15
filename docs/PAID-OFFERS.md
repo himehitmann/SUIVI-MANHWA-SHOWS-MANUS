@@ -45,8 +45,10 @@ tax presentation, receipts, cancellation and entitlement delivery in a deployed
 test environment. Existing billing-period changes need a customer-management flow;
 this page deliberately does not sell a second subscription to an active account.
 
-The internal free state and feature access must be reconciled with the paid
-business policy before release. The offer page is not a complete commercial
-access gate. Live provider configuration, deployed backup recovery, operating
+The managed HTTP synchronization server now defaults to paid writes in production,
+while preserving backup retrieval after expiry; see [COMMERCIAL-ACCESS.md](COMMERCIAL-ACCESS.md).
+The internal free state and remaining local, catalog, translation and personal
+Firebase paths still need their commercial policy before release. The offer page
+is not a complete commercial access gate. Live provider configuration, deployed backup recovery, operating
 costs, legal/operator information and Store publication remain separate work.
 No payment, new service subscription or deployment was performed for this change.
