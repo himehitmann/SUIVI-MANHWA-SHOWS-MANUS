@@ -1,3 +1,4 @@
+import {resolveStripeDispute,readCurrentStripeLifetime} from "./lib/stripe-dispute";
 import {readCurrentSubscription} from "./lib/billing-reconcile";
 /**
  * Optional sync + auth API for Dasi. Mounted under /api. It is NOT required for
@@ -166,11 +167,16 @@ export function createApiRouter(
         try { event = await completeStripeCheckout(event, process.env.STRIPE_SECRET_KEY || ""); }
         catch { return res.status(503).json({ error: "billing_lookup_unavailable" }); }
       }
-      const intent=refund?.intent||planFromStripeEvent(event, STRIPE_PRICES);
-      const receipt=refund?.receipt||billingReceipt("stripe",event);
+      let dispute:Awaited<ReturnType<typeof resolveStripeDispute>>=null;
+      try {dispute=await resolveStripeDispute(event,STRIPE_PRICES,process.env.STRIPE_SECRET_KEY||"");}
+      catch {return res.status(503).json({error:"billing_lookup_unavailable"});}
+      const intent=refund?.intent||dispute?.intent||planFromStripeEvent(event, STRIPE_PRICES);
+      const receipt=refund?.receipt||dispute?.receipt||billingReceipt("stripe",event);
       if(intent&&!receipt)return res.status(400).json({error:"invalid_billing_event"});
       const result = await applyPlanIntent(store,intent,receipt||undefined,
-        !refund&&receipt?user=>readCurrentSubscription(receipt,user,STRIPE_PRICES,process.env.STRIPE_SECRET_KEY||""):undefined);
+        !refund&&receipt?user=>receipt.resourceId?.startsWith("cs_")
+          ?readCurrentStripeLifetime(receipt,user,STRIPE_PRICES,process.env.STRIPE_SECRET_KEY||"",fetch,dispute||undefined)
+          :readCurrentSubscription(receipt,user,STRIPE_PRICES,process.env.STRIPE_SECRET_KEY||""):undefined);
       if(result.reason==="user_not_found")return res.status(503).json({error:"billing_account_unavailable"});
       if(result.reason==="billing_order_ambiguous"||result.reason==="billing_resource_conflict"||result.reason==="billing_lookup_unavailable")return res.status(503).json({error:result.reason});
       return res.json({

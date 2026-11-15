@@ -34,7 +34,7 @@ export interface SessionRecord {
   createdAt: number;
   expiresAt: number;
 }
-export interface BillingReceipt { provider: "stripe" | "paddle"; eventId: string; resourceId?: string; occurredAt?: number; revokeLifetime?: boolean; }
+export interface BillingReceipt { provider: "stripe" | "paddle"; eventId: string; resourceId?: string; occurredAt?: number; revokeLifetime?: boolean; reconcileLifetime?: boolean; }
 export interface BillingResult { ok: boolean; plan?: UserRecord["plan"]; unchanged?: boolean; reason?: string; }
 export interface Store {
   applyBillingEvent(userId: string, plan: UserRecord["plan"], receipt: BillingReceipt, resolveAmbiguity?: (user: UserRecord) => Promise<UserRecord["plan"]>): Promise<BillingResult>;
@@ -96,25 +96,27 @@ export function createStore(filePath?: string): Store {
       const ordered=receipt.resourceId!==undefined&&receipt.occurredAt!==undefined;
       const head=ordered?snap.billingHeads.find(h=>h.provider===receipt.provider&&h.resourceId===receipt.resourceId):undefined;
       if(head&&head.userId!==userId)return {ok:false,reason:"billing_resource_conflict"};
-      if(receipt.revokeLifetime&&(!ordered||plan!=="free"||(head&&head.plan!=="lifetime"&&!head.revokeLifetime)))return {ok:false,reason:"billing_resource_conflict"};
+      const lifetimeMode=!receipt.revokeLifetime&&(receipt.reconcileLifetime===true||head?.reconcileLifetime===true);
+      if(lifetimeMode&&(!ordered||receipt.provider!=="stripe"||!/^cs_[A-Za-z0-9_]{1,200}$/.test(receipt.resourceId||"")||!["free","lifetime"].includes(plan)||(head&&head.plan!=="lifetime"&&!head.reconcileLifetime&&!head.revokeLifetime)))return {ok:false,reason:"billing_resource_conflict"};
+      if(receipt.revokeLifetime&&(!ordered||plan!=="free"||(head&&head.plan!=="lifetime"&&!head.revokeLifetime&&!head.reconcileLifetime)))return {ok:false,reason:"billing_resource_conflict"};
       if(head?.revokeLifetime){persist({...snap,billing:[...snap.billing,{...receipt,userId}]});return {ok:true,unchanged:true};}
       let reconciled=false;
-      if(!receipt.revokeLifetime&&head&&((receipt.occurredAt===head.occurredAt&&plan!==head.plan)||(head.reconciled&&receipt.occurredAt!>=head.occurredAt!))){
+      if(lifetimeMode||(!receipt.revokeLifetime&&head&&((receipt.occurredAt===head.occurredAt&&plan!==head.plan)||(head.reconciled&&receipt.occurredAt!>=head.occurredAt!)))){
         if(!resolveAmbiguity)return {ok:false,reason:"billing_order_ambiguous"};
         try{plan=await resolveAmbiguity({...user});}catch{return {ok:false,reason:"billing_lookup_unavailable"};}
         // A provider read yields control in the file store. Never overwrite an intervening account update.
         if(snap.users.find(u=>u.id===userId)!==user||snap.billingHeads.find(h=>h.provider===receipt.provider&&h.resourceId===receipt.resourceId)!==head)return {ok:false,reason:"billing_order_ambiguous"};
-        if(plan!=="pro"&&plan!=="free")return {ok:false,reason:"billing_lookup_unavailable"};
+        if(plan!=="free"&&plan!==(lifetimeMode?"lifetime":"pro"))return {ok:false,reason:"billing_lookup_unavailable"};
         reconciled=true;
       }
       const stale=!reconciled&&!receipt.revokeLifetime&&head&&receipt.occurredAt!<=head.occurredAt!;
       if(stale){persist({...snap,billing:[...snap.billing,{...receipt,userId}]});return {ok:true,unchanged:true};}
       const preserveLifetime=head?.preserveLifetime||(user.plan==="lifetime"&&!snap.billingHeads.some(h=>h.userId===userId&&h.plan==="lifetime"));
-      const billingHeads=ordered?[...snap.billingHeads.filter(h=>h.provider!==receipt.provider||h.resourceId!==receipt.resourceId),{...receipt,userId,plan,preserveLifetime,reconciled:reconciled||head?.reconciled}]:snap.billingHeads;
+      const billingHeads=ordered?[...snap.billingHeads.filter(h=>h.provider!==receipt.provider||h.resourceId!==receipt.resourceId),{...receipt,userId,plan,preserveLifetime,reconcileLifetime:receipt.reconcileLifetime||head?.reconcileLifetime,reconciled:reconciled||head?.reconciled}]:snap.billingHeads;
       const active=billingHeads.filter(h=>h.userId===userId);
       const entitled=ordered?(active.some(h=>h.plan==="lifetime"||h.preserveLifetime)?"lifetime":active.some(h=>h.plan==="pro")?"pro":"free"):plan;
       // An untracked lifetime grant remains protected; only this recorded purchase can be revoked.
-      const nextPlan=user.plan==="lifetime"&&!(receipt.revokeLifetime&&head?.plan==="lifetime")?user.plan:entitled;
+      const nextPlan=user.plan==="lifetime"&&!((receipt.revokeLifetime||lifetimeMode)&&head?.plan==="lifetime")?user.plan:entitled;
       persist({...snap,users:snap.users.map(u=>u.id===userId?{...u,plan:nextPlan}:u),billing:[...snap.billing,{...receipt,userId}],billingHeads});
       return user.plan===nextPlan?{ok:true,unchanged:true}:{ok:true,plan:nextPlan};
     },

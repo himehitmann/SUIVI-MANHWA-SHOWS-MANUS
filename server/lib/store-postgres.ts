@@ -56,6 +56,7 @@ export async function ensureSchema(client: SqlClient): Promise<void> {
   await client.query("ALTER TABLE billing_heads ADD COLUMN IF NOT EXISTS revoked BOOLEAN NOT NULL DEFAULT FALSE");
   await client.query("ALTER TABLE billing_heads ADD COLUMN IF NOT EXISTS preserve_lifetime BOOLEAN NOT NULL DEFAULT FALSE");
   await client.query("ALTER TABLE billing_heads ADD COLUMN IF NOT EXISTS reconciled BOOLEAN NOT NULL DEFAULT FALSE");
+  await client.query("ALTER TABLE billing_heads ADD COLUMN IF NOT EXISTS lifetime_reconciled BOOLEAN NOT NULL DEFAULT FALSE");
   await client.query("CREATE INDEX IF NOT EXISTS billing_heads_user_id_idx ON billing_heads (user_id)");
 }
 
@@ -86,24 +87,26 @@ export function createPostgresStore(client: SqlClient): Store {
         if(!recorded.rows.length){await connection.query("COMMIT");return {ok:true,unchanged:true};}
         const head=ordered?(await connection.query("SELECT * FROM billing_heads WHERE provider=$1 AND resource_id=$2",[receipt.provider,receipt.resourceId])).rows[0]:undefined;
         if(head&&head.user_id!==userId){await connection.query("ROLLBACK");return {ok:false,reason:"billing_resource_conflict"};}
-        if(receipt.revokeLifetime&&(!ordered||plan!=="free"||(head&&head.plan!=="lifetime"&&!head.revoked))){await connection.query("ROLLBACK");return {ok:false,reason:"billing_resource_conflict"};}
+        const lifetimeMode=!receipt.revokeLifetime&&(receipt.reconcileLifetime===true||head?.lifetime_reconciled===true);
+        if(lifetimeMode&&(!ordered||receipt.provider!=="stripe"||!/^cs_[A-Za-z0-9_]{1,200}$/.test(receipt.resourceId||"")||!["free","lifetime"].includes(plan)||(head&&head.plan!=="lifetime"&&!head.lifetime_reconciled&&!head.revoked))){await connection.query("ROLLBACK");return {ok:false,reason:"billing_resource_conflict"};}
+        if(receipt.revokeLifetime&&(!ordered||plan!=="free"||(head&&head.plan!=="lifetime"&&!head.revoked&&!head.lifetime_reconciled))){await connection.query("ROLLBACK");return {ok:false,reason:"billing_resource_conflict"};}
         if(head?.revoked){await connection.query("COMMIT");return {ok:true,unchanged:true};}
         let reconciled=false;
-        if(!receipt.revokeLifetime&&head&&((receipt.occurredAt===Number(head.occurred_at)&&plan!==head.plan)||(head.reconciled&&receipt.occurredAt!>=Number(head.occurred_at)))){
+        if(lifetimeMode||(!receipt.revokeLifetime&&head&&((receipt.occurredAt===Number(head.occurred_at)&&plan!==head.plan)||(head.reconciled&&receipt.occurredAt!>=Number(head.occurred_at))))){
           if(!resolveAmbiguity){await connection.query("ROLLBACK");return {ok:false,reason:"billing_order_ambiguous"};}
           // Resource/account locks keep another delivery from committing while the bounded provider read runs.
           try{plan=await resolveAmbiguity(toUser(locked.rows[0]));}
           catch{await connection.query("ROLLBACK");return {ok:false,reason:"billing_lookup_unavailable"};}
-          if(plan!=="pro"&&plan!=="free"){await connection.query("ROLLBACK");return {ok:false,reason:"billing_lookup_unavailable"};}
+          if(plan!=="free"&&plan!==(lifetimeMode?"lifetime":"pro")){await connection.query("ROLLBACK");return {ok:false,reason:"billing_lookup_unavailable"};}
           reconciled=true;
         }
         if(!reconciled&&!receipt.revokeLifetime&&head&&receipt.occurredAt!<=Number(head.occurred_at)){await connection.query("COMMIT");return {ok:true,unchanged:true};}
         const previous=ordered?(await connection.query("SELECT plan,preserve_lifetime FROM billing_heads WHERE user_id=$1",[userId])).rows:[];
         const preserveLifetime=head?.preserve_lifetime||(locked.rows[0].plan==="lifetime"&&!previous.some(h=>h.plan==="lifetime"));
-        if(ordered)await connection.query("INSERT INTO billing_heads (provider,resource_id,user_id,occurred_at,plan,revoked,preserve_lifetime,reconciled) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (provider,resource_id) DO UPDATE SET occurred_at=EXCLUDED.occurred_at,plan=EXCLUDED.plan,revoked=EXCLUDED.revoked,preserve_lifetime=EXCLUDED.preserve_lifetime,reconciled=EXCLUDED.reconciled",[receipt.provider,receipt.resourceId,userId,receipt.occurredAt,plan,receipt.revokeLifetime===true,!!preserveLifetime,reconciled||head?.reconciled===true]);
+        if(ordered)await connection.query("INSERT INTO billing_heads (provider,resource_id,user_id,occurred_at,plan,revoked,preserve_lifetime,reconciled,lifetime_reconciled) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (provider,resource_id) DO UPDATE SET occurred_at=EXCLUDED.occurred_at,plan=EXCLUDED.plan,revoked=EXCLUDED.revoked,preserve_lifetime=EXCLUDED.preserve_lifetime,reconciled=EXCLUDED.reconciled,lifetime_reconciled=EXCLUDED.lifetime_reconciled",[receipt.provider,receipt.resourceId,userId,receipt.occurredAt,plan,receipt.revokeLifetime===true,!!preserveLifetime,reconciled||head?.reconciled===true,receipt.reconcileLifetime===true||head?.lifetime_reconciled===true]);
         const active=ordered?(await connection.query("SELECT plan,preserve_lifetime FROM billing_heads WHERE user_id=$1",[userId])).rows:[];
         const entitled=ordered?(active.some(h=>h.plan==="lifetime"||h.preserve_lifetime)?"lifetime":active.some(h=>h.plan==="pro")?"pro":"free"):plan;
-        const oldPlan=locked.rows[0].plan,nextPlan=oldPlan==="lifetime"&&!(receipt.revokeLifetime&&head?.plan==="lifetime")?oldPlan:entitled;
+        const oldPlan=locked.rows[0].plan,nextPlan=oldPlan==="lifetime"&&!((receipt.revokeLifetime||lifetimeMode)&&head?.plan==="lifetime")?oldPlan:entitled;
         if(oldPlan!==nextPlan)await connection.query("UPDATE users SET plan = $2 WHERE id = $1",[userId,nextPlan]);
         await connection.query("COMMIT");
         return oldPlan===nextPlan?{ok:true,unchanged:true}:{ok:true,plan:nextPlan};

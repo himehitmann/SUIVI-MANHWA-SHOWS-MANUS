@@ -204,6 +204,35 @@ try {
     assert.equal(Number((await tieReader.query("SELECT count(*) AS n FROM billing_events WHERE event_id='evt_tie_retry'")).rows[0].n),1);
    }finally{await tieReader.end();}
    report.results.push({name:'postgres-subscription-reconciliation',providerFailureRolledBack:true,equalTimeConflictResolved:true,concurrentDeliveries:true,intermediateStateCannotRestore:true,persistedAcrossConnections:true});
+
+   await billingStore.createUser({id:'dispute-probe',email:'dispute-probe@example.test',passwordHash:'synthetic',plan:'free',createdAt:1});
+   const dr=(eventId,reconcileLifetime=true,resourceId='cs_dispute_probe',occurredAt=1000)=>({provider:'stripe',eventId,resourceId,occurredAt,reconcileLifetime});
+   await billingStore.setSync('dispute-probe',{blob:{items:[{id:'saved',chapter:12,updatedAt:1}],updatedAt:1},updatedAt:1});
+   await billingStore.applyBillingEvent('dispute-probe','pro',dr('dispute-pro',false,'sub_dispute_other'));
+   await billingStore.applyBillingEvent('dispute-probe','lifetime',dr('dispute-purchase',false));
+   assert.equal((await billingStore.applyBillingEvent('dispute-probe','lifetime',dr('dispute-retry'),async()=>{throw Error('upstream down');})).reason,'billing_lookup_unavailable');
+   assert.equal((await billingStore.getUserById('dispute-probe')).plan,'lifetime');
+   let disputeReads=0;
+   await Promise.all(Array.from({length:6},()=>billingStore.applyBillingEvent('dispute-probe','lifetime',dr('dispute-retry'),async()=>{disputeReads++;return 'free';})));
+   assert.equal(disputeReads,1);assert.equal((await billingStore.getUserById('dispute-probe')).plan,'pro');
+   const disputeReader=new pg.Pool({...poolConfig,options:'-c search_path='+schema});
+   try{
+    const restarted=createPostgresStore(disputeReader);
+    assert.equal((await disputeReader.query("SELECT lifetime_reconciled FROM billing_heads WHERE resource_id='cs_dispute_probe'")).rows[0].lifetime_reconciled,true);
+    await restarted.applyBillingEvent('dispute-probe','lifetime',dr('dispute-late-purchase',false,undefined,3000),async()=>'free');
+    assert.equal((await restarted.getUserById('dispute-probe')).plan,'pro');
+    await restarted.applyBillingEvent('dispute-probe','lifetime',dr('dispute-win',true,undefined,500),async()=>'lifetime');
+    assert.equal((await restarted.getUserById('dispute-probe')).plan,'lifetime');
+    await restarted.applyBillingEvent('dispute-probe','lifetime',dr('dispute-loss-again'),async()=>'free');
+    await restarted.applyBillingEvent('dispute-probe','free',{...dr('dispute-refund'),revokeLifetime:true});
+    await restarted.applyBillingEvent('dispute-probe','lifetime',dr('dispute-win-refunded'),async()=>{throw Error('must not restore a refund');});
+    assert.equal((await restarted.getUserById('dispute-probe')).plan,'pro');
+    assert.deepEqual((await restarted.getSync('dispute-probe')).blob.items,[{id:'saved',chapter:12,updatedAt:1}]);
+    assert.equal(Number((await disputeReader.query("SELECT count(*) AS n FROM billing_events WHERE event_id='dispute-retry'")).rows[0].n),1);
+    assert.equal((await restarted.applyBillingEvent('account-0','lifetime',dr('dispute-other-owner'),async()=>'lifetime')).reason,'billing_resource_conflict');
+   }finally{await disputeReader.end();}
+   report.results.push({name:'postgres-lifetime-disputes',providerFailureRolledBack:true,concurrentDuplicateReadOnce:true,delayedPurchaseReconciled:true,lateWinRestores:true,fullRefundStaysTerminal:true,subscriptionAndLibraryPreserved:true,ownershipChecked:true,persistedAcrossConnections:true});
+
    const rights=createPostgresAccessStore(pool),owners=new Set(['account-0']),request={requestId:'gift-duplicate',expectedVersion:0,kind:'gift',days:30,reason:'Isolated persistence probe'};
    const duplicate=await Promise.all([rights.change('account-0','account-1',request,owners),rights.change('account-0','account-1',request,owners)]);
    assert.deepEqual(duplicate[0],duplicate[1]);assert.equal((await rights.audit()).length,1);

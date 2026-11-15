@@ -206,3 +206,68 @@ it("does not let later delivery of an intermediate state override a reconciled c
     expect(reads).toBe(1);expect((await restarted.getUserById(user.id))?.plan).toBe("free");
   }finally{rmSync(dir,{recursive:true,force:true});}
 });
+
+describe("reversible lifetime dispute reconciliation",()=>{
+  const r=(eventId:string,resourceId="cs_disputed",reconcileLifetime=true,occurredAt=1000)=>({provider:"stripe" as const,eventId,resourceId,occurredAt,reconcileLifetime});
+  it("persists loss, blocks delayed purchase activation, restores a win and preserves library and subscription",async()=>{
+    const dir=mkdtempSync(join(tmpdir(),"yomu-dispute-"));
+    try{
+      const file=join(dir,"accounts.json"),store=createStore(file);await store.createUser(user);
+      await store.setSync(user.id,{blob:{items:[{id:"kept",chapter:12,updatedAt:1}],updatedAt:1},updatedAt:1});
+      await store.applyBillingEvent(user.id,"pro",r("pro","sub_other",false));
+      await store.applyBillingEvent(user.id,"lifetime",r("buy","cs_disputed",false));
+      await store.applyBillingEvent(user.id,"lifetime",r("lost"),async()=>"free");
+      expect((await store.getUserById(user.id))?.plan).toBe("pro");
+      const restarted=createStore(file);let reads=0;
+      await restarted.applyBillingEvent(user.id,"lifetime",r("late-buy","cs_disputed",false,2000),async()=>{reads++;return "free";});
+      expect(reads).toBe(1);expect((await restarted.getUserById(user.id))?.plan).toBe("pro");
+      await restarted.applyBillingEvent(user.id,"lifetime",r("win","cs_disputed",true,500),async()=>"lifetime");
+      expect((await restarted.getUserById(user.id))?.plan).toBe("lifetime");
+      await restarted.applyBillingEvent(user.id,"lifetime",r("win"),async()=>{throw Error("duplicate must not re-read");});
+      expect((await restarted.getSync(user.id))?.blob.items).toEqual([{id:"kept",chapter:12,updatedAt:1}]);
+      await restarted.applyBillingEvent(user.id,"free",{...r("refund"),revokeLifetime:true});
+      await restarted.applyBillingEvent(user.id,"lifetime",r("win-after-refund"),async()=>{throw Error("refund remains terminal");});
+      expect((await restarted.getUserById(user.id))?.plan).toBe("pro");
+    }finally{rmSync(dir,{recursive:true,force:true});}
+  });
+  it("rolls back failed or invalid provider state and retries the same event",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"lifetime",r("buy","cs_disputed",false));
+    for(const read of [async()=>{throw Error("down");},async()=>"pro" as const]){
+      expect((await store.applyBillingEvent(user.id,"lifetime",r("retry"),read)).reason).toBe("billing_lookup_unavailable");
+      expect((await store.getUserById(user.id))?.plan).toBe("lifetime");
+    }
+    await store.applyBillingEvent(user.id,"lifetime",r("retry"),async()=>"free");
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+    await store.applyBillingEvent(user.id,"free",{...r("refund-after-loss"),revokeLifetime:true});
+    await store.applyBillingEvent(user.id,"lifetime",r("won-after-refund"),async()=>"lifetime");
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+  });
+  it("handles a loss before purchase delivery and protects another purchase and a legacy grant",async()=>{
+    const store=createStore();await store.createUser(user);
+    await store.applyBillingEvent(user.id,"lifetime",r("loss-first"),async()=>"free");
+    expect((await store.applyBillingEvent(user.id,"lifetime",r("late","cs_disputed",false))).reason).toBe("billing_order_ambiguous");
+    await store.applyBillingEvent(user.id,"lifetime",r("late","cs_disputed",false),async()=>"free");
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+    await store.applyBillingEvent(user.id,"lifetime",r("second-buy","cs_other",false));
+    await store.applyBillingEvent(user.id,"lifetime",r("loss-again"),async()=>"free");
+    expect((await store.getUserById(user.id))?.plan).toBe("lifetime");
+    await store.createUser({...user,id:"legacy",email:"legacy@example.test",plan:"lifetime"});
+    await store.applyBillingEvent("legacy","lifetime",r("legacy-loss","cs_legacy"),async()=>"free");
+    expect((await store.getUserById("legacy"))?.plan).toBe("lifetime");
+  });
+  it("rejects a changed owner, recurring resource and concurrent account update",async()=>{
+    const store=createStore();await store.createUser(user);await store.createUser({...user,id:"other",email:"other@example.test"});
+    await store.applyBillingEvent(user.id,"lifetime",r("buy","cs_disputed",false));
+    expect((await store.applyBillingEvent("other","lifetime",r("foreign"),async()=>"free")).reason).toBe("billing_resource_conflict");
+    expect((await store.applyBillingEvent(user.id,"lifetime",r("bad-kind","sub_other"),async()=>"free")).reason).toBe("billing_resource_conflict");
+    let finish!:(plan:"free")=>void;
+    const pending=store.applyBillingEvent(user.id,"lifetime",r("race"),()=>new Promise(resolve=>{finish=resolve;}));
+    await store.updateUser({...user,plan:"lifetime",passwordHash:"changed"});
+    finish("free");expect((await pending).reason).toBe("billing_order_ambiguous");
+    expect((await store.getUserById(user.id))?.passwordHash).toBe("changed");
+    expect((await store.getUserById(user.id))?.plan).toBe("lifetime");
+    await store.applyBillingEvent(user.id,"lifetime",r("race"),async()=>"free");
+    expect((await store.getUserById(user.id))?.plan).toBe("free");
+  });
+});
