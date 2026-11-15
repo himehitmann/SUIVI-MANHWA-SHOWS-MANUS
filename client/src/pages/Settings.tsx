@@ -36,50 +36,53 @@ export default function Settings() {
   const [canAdmin,setCanAdmin]=useState(false);
   useEffect(()=>{let live=true;if(session)syncProvider.adminRequest("me").then(()=>{if(live)setCanAdmin(true);}).catch(()=>{if(live)setCanAdmin(false);});else setCanAdmin(false);return()=>{live=false;};},[session?.userId]);
 
-  const authenticate = async () => {
-    setBusy(true);
-    try {
-      const s =
-        mode === "in"
-          ? await syncProvider.signIn(email, password)
-          : await syncProvider.signUp(email, password);
-      setSession(s);
-      setPassword("");
-      // Only this account's cache is synchronized. Guest data stays available after sign-out.
-      const accountState = store.activateAccount(currentAccountScope());
-      await syncProvider.push(accountState);
-      const remote = await syncProvider.pull();
-      if (remote) store.applyState(remote);
-      toast.success(
-        t(mode === "in" ? "toast.signedIn" : "toast.accountCreated")
-      );
-    } catch {
-      // If activation failed, no library from the previous account may be uploaded.
-      await syncProvider.signOut();
-      setSession(null);
-      try {
-        store.activateAccount(null);
-      } catch {
-        /* Keep the unreadable cache intact. */
-      }
-      toast.error(t("toast.authFailed"));
-    } finally {
-      setBusy(false);
+  const [syncProblem,setSyncProblem]=useState<"subscription"|"network"|null>(null);
+  const syncAccount=async(snapshot=store.snapshot())=>{
+    let denied=false;
+    try {await syncProvider.push(snapshot);}
+    catch(error){
+      if(!(error instanceof Error)||error.message!=="subscription_required")throw error;
+      denied=true;
     }
+    // A lapsed plan must not prevent recovery of an existing server backup.
+    const remote=await syncProvider.pull();
+    if(remote)store.applyState(remote);
+    const fresh=await syncProvider.refreshSession();
+    setSession(fresh);store.setPlan(fresh.plan==="pro"||fresh.plan==="lifetime"?fresh.plan:"free");
+    setSyncProblem(denied?"subscription":null);
+    return !denied;
+  };
+  const authenticate = async () => {
+    setBusy(true);setSyncProblem(null);
+    try {
+      const s=mode==="in"?await syncProvider.signIn(email,password):await syncProvider.signUp(email,password);
+      // Activation must succeed before any data from this account is uploaded.
+      let accountState;
+      try {accountState=store.activateAccount(currentAccountScope());}
+      catch(error){
+        await syncProvider.signOut().catch(()=>{});
+        setSession(null);
+        try {store.activateAccount(null);} catch {/* Preserve unreadable caches. */}
+        throw error;
+      }
+      setSession(s);setPassword("");
+      toast.success(t(mode==="in"?"toast.signedIn":"toast.accountCreated"));
+      // Authentication and backup are separate outcomes. Keep the authenticated
+      // account and its local edits even if the backup service is unavailable.
+      try {await syncAccount(accountState);}
+      catch {setSyncProblem("network");}
+    } catch {
+      toast.error(t("toast.authFailed"));
+    } finally {setBusy(false);}
   };
 
   const syncNow = async () => {
     setBusy(true);
     try {
-      await syncProvider.push(store.snapshot());
-      const remote = await syncProvider.pull();
-      if (remote) store.applyState(remote);
-      toast.success(t("toast.synced"));
+      if(await syncAccount())toast.success(t("toast.synced"));
     } catch {
-      toast.error(t("toast.syncFailed"));
-    } finally {
-      setBusy(false);
-    }
+      setSyncProblem("network");toast.error(t("toast.syncFailed"));
+    } finally {setBusy(false);}
   };
 
   const signOut = async () => {
@@ -184,7 +187,11 @@ export default function Settings() {
                     {t("settings.signOut")}
                   </button>
                 </div>
-                <small>{t("settings.syncSignedIn")}</small>
+                {syncProblem==="network"&&<p role="alert">{fr?"Le compte reste connecté. La sauvegarde en ligne n’est pas confirmée ; tes modifications restent sur cet appareil.":"You remain signed in. Online backup is unconfirmed; your changes remain on this device."}</p>}
+                {(syncProblem==="subscription"||session.syncAccess==="read_only")?<div className="sync-access-note" role="status">
+                  <p>{fr?"La sauvegarde de nouvelles modifications en ligne nécessite un accès Pro actif. Tes données locales restent disponibles. Tu peux récupérer une sauvegarde existante et l’exporter sans renouveler.":"Saving new changes online requires active Pro access. Your local data remains available. You can retrieve an existing backup and export it without renewing."}</p>
+                  <Link href="/pricing" className="heart-button">{fr?"Voir les offres":"View plans"}</Link>
+                </div>:syncProblem!=="network"?<small>{t("settings.syncSignedIn")}</small>:null}
                 <div className="auth-form" style={{ marginTop: 20 }}>
                   <label>
                     {fr ? "Mot de passe actuel" : "Current password"}

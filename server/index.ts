@@ -1,4 +1,5 @@
 import express from "express";
+import {accessMode} from "./lib/commercial-access";
 import {readFileSync} from "node:fs";
 import { createServer } from "http";
 import path from "path";
@@ -57,6 +58,7 @@ async function resolveStore(): Promise<{store:Store;access:AccessStore}> {
 }
 
 async function startServer() {
+  const mode=accessMode();
   const app = express();
   const server = createServer(app);
 
@@ -102,7 +104,7 @@ async function startServer() {
 
   // Optional sync + auth API. Harmless when unused; the apps default to local.
   const services=await resolveStore();
-  app.use("/api", createApiRouter(services.store,services.access));
+  app.use("/api", createApiRouter(services.store,services.access,undefined,mode));
 
   // Serve static files from dist/public in production
   const staticPath =
@@ -125,4 +127,4 @@ async function startServer() {
   });
 }
 
-startServer().catch(console.error);
+startServer().catch(error=>{console.error(error);process.exitCode=1;});

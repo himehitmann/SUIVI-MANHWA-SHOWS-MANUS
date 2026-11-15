@@ -8,7 +8,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 const probe=createServer();await new Promise(r=>probe.listen(0,'127.0.0.1',r));const port=probe.address().port;await new Promise(r=>probe.close(r));
 const temp=await fs.mkdtemp(path.join(os.tmpdir(),'yomu-web-')),base='http://127.0.0.1:'+port;
-const server=spawn(process.execPath,['dist/index.js'],{env:{...process.env,NODE_ENV:'production',PORT:String(port),SYNC_JWT_SECRET:randomBytes(32).toString('hex'),SYNC_DB_FILE:path.join(temp,'test.json'),FORCE_HTTPS:'false'},stdio:['ignore','pipe','pipe'],windowsHide:true});
+const server=spawn(process.execPath,['dist/index.js'],{env:{...process.env,NODE_ENV:'production',YOMU_ACCESS_MODE:'personal',PORT:String(port),SYNC_JWT_SECRET:randomBytes(32).toString('hex'),SYNC_DB_FILE:path.join(temp,'test.json'),FORCE_HTTPS:'false'},stdio:['ignore','pipe','pipe'],windowsHide:true});
 let log='';server.stderr.on('data',d=>log+=d);server.stdout.on('data',d=>log+=d);
 let browser;
 try{

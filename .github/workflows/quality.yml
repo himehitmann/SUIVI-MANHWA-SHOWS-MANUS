@@ -32,6 +32,7 @@ jobs:
       - run: pnpm audit --audit-level=moderate
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:web
+      - run: node tests/e2e/paid-web.mjs
       - run: pnpm build:extension
       - run: pnpm test:package
       - run: node tests/e2e/crop.mjs

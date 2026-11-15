@@ -44,6 +44,7 @@ function errorText(code) {
     invalid_credentials: "Wrong email or password.",
     not_signed_in: "Sign in first.",
     unauthorized: "Session expired — sign in again.",
+    subscription_required: guestLang==="fr"?"La sauvegarde de nouvelles modifications nécessite un accès Pro actif. Les données récupérées et tes modifications locales sont conservées ; tu peux les exporter.":"Saving new changes requires active Pro access. Retrieved data and local edits are retained; you can export them.",
     session_expired: "Session expired — sign in again. Your saved library is retained.",
     quota_exceeded: "Backup quota reached. Your changes remain on this device; try again later.",
     sync_conflict: "Another device updated your library. Sync again to merge the changes.",

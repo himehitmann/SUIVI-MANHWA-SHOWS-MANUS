@@ -415,7 +415,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let active = true;
     const timer = setTimeout(async () => {
       try {
-        await syncProvider.push(snapshot());
+        try {await syncProvider.push(snapshot());}
+        catch(error){
+          if(!(error instanceof Error)||error.message!=="subscription_required")throw error;
+          // Reading an existing backup remains available after access expires.
+        }
         const remote = await syncProvider.pull();
         if (active && remote) applyState(remote);
       } catch {

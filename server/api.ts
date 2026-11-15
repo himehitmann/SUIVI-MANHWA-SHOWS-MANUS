@@ -1,3 +1,4 @@
+import {accessMode,canWriteSync,type AccessMode} from "./lib/commercial-access";
 import {resolveStripeDispute,readCurrentStripeLifetime} from "./lib/stripe-dispute";
 import {readCurrentSubscription} from "./lib/billing-reconcile";
 /**
@@ -122,8 +123,10 @@ export function createRequestLimiter(now=()=>Date.now(),capacity=10000) {
 export function createApiRouter(
   store: Store = createStore(process.env.SYNC_DB_FILE),
   access: AccessStore = createMemoryAccessStore(),
-  owners: ReadonlySet<string> = new Set((process.env.YOMU_OWNER_IDS || "").split(",").map(s=>s.trim()).filter(Boolean))
+  owners: ReadonlySet<string> = new Set((process.env.YOMU_OWNER_IDS || "").split(",").map(s=>s.trim()).filter(Boolean)),
+  mode: AccessMode = accessMode()
 ): Router {
+  if(mode!=="paid"&&mode!=="personal")throw new Error("invalid_access_mode");
   const router = express.Router();
   const limiter=createRequestLimiter();
   const rateLimited=(req:Request,res:Response,max=20,windowMs=60000,scope?:string):boolean=>{
@@ -277,7 +280,8 @@ export function createApiRouter(
   }));
   const accountView = async (u: { id: string; email: string; plan: "free"|"pro"|"lifetime" }) => {
     const rights = await access.get(u.id);
-    return {id:u.id,email:u.email,plan:effectivePlan(u.plan,u.id,rights,owners),role:effectiveRole(u.id,rights,owners),giftUntil:rights.giftUntil,accessVersion:rights.version};
+    const plan=effectivePlan(u.plan,u.id,rights,owners);
+    return {id:u.id,email:u.email,plan,role:effectiveRole(u.id,rights,owners),giftUntil:rights.giftUntil,accessVersion:rights.version,syncAccess:canWriteSync(mode,plan)?"read_write" as const:"read_only" as const};
   };
   const adminSession = async (req:Request,res:Response) => {
     const session=await auth(req);
@@ -525,6 +529,8 @@ export function createApiRouter(
         });
       const user = await store.getUserById(session.id);
       if (!user) return res.status(401).json({ error: "unauthorized" });
+      const account=await accountView(user);
+      if(!canWriteSync(mode,account.plan))return res.status(403).json({error:"subscription_required",syncAccess:"read_only"});
       const incoming = {
         ...parsed.data,
         plan: user.plan,

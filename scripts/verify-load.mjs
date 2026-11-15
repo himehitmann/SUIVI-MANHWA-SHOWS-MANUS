@@ -71,7 +71,8 @@ try {
   const accountVolume=await pool.query('SELECT count(*)::int AS accounts FROM users');
   const volume=await pool.query("SELECT sum(jsonb_array_length(blob->'items'))::int AS items, sum(pg_column_size(blob))::bigint AS stored_bytes FROM sync");
   assert.equal(volume.rows[0].items,scenario.total);
-  const app=express();app.set('trust proxy','loopback');app.get('/healthz',(_req,res)=>res.json({ok:true}));app.use('/api',createApiRouter(store,createPostgresAccessStore(pool),new Set(["account-0"])));
+  const app=express();app.set('trust proxy','loopback');app.get('/healthz',(_req,res)=>res.json({ok:true}));app.use('/api',createApiRouter(store,createPostgresAccessStore(pool),new Set(["account-0"]),"personal"));
+  app.use('/paid',createApiRouter(store,createPostgresAccessStore(pool),new Set(["account-0"]),"paid"));
   await new Promise(resolve=>{server=app.listen(0,'127.0.0.1',resolve);});
   const base='http://127.0.0.1:'+server.address().port;
   const headers=(a)=>({'Content-Type':'application/json',Authorization:'Bearer '+tokens[a], 'X-Forwarded-For':'192.0.2.'+(a+1)});
@@ -83,6 +84,28 @@ try {
    assert(result.p95Ms<5000,'Read p95 exceeded the CI regression budget of 5 seconds');
   }
   if(scenario.total===100000)await measure("sync-steady-200-clients-30-rounds",200,6000,i=>get(i%scenario.accounts),1000);
+
+  if(scenario.total===100000){
+   const id=accountIds[8],read=()=>store.getSync(id);
+   const write=()=>fetch(base+'/paid/sync',{method:'PUT',headers:headers(8),body:JSON.stringify({blob:{items:[],plan:'lifetime'}})});
+   const initial=await read();
+   let response=await write();assert.equal(response.status,403);assert.equal((await response.json()).error,'subscription_required');
+   assert.deepEqual(await read(),initial);
+   await store.updateUser({...await store.getUserById(id),plan:'pro'});
+   response=await write();assert.equal(response.status,200);await response.json();
+   await store.updateUser({...await store.getUserById(id),plan:'free'});
+   const preserved=await read();
+   response=await write();assert.equal(response.status,403);await response.json();assert.deepEqual(await read(),preserved);
+   response=await fetch(base+'/paid/sync',{headers:headers(8)});assert.equal(response.status,200);assert.equal((await response.json()).blob.items.length,itemsPerAccount);
+   const rights=createPostgresAccessStore(pool),owners=new Set(['account-0']);
+   await rights.change('account-0',id,{requestId:'paid-gift',expectedVersion:0,kind:'gift',days:1,reason:'Paid policy fixture'},owners);
+   response=await write();assert.equal(response.status,200);await response.json();
+   await rights.change('account-0',id,{requestId:'paid-gift-revoke',expectedVersion:1,kind:'gift',days:0,reason:'End gift fixture'},owners);
+   response=await write();assert.equal(response.status,403);await response.json();
+   response=await fetch(base+'/paid/sync',{method:'PUT',headers:headers(0),body:JSON.stringify({blob:{items:[]}})});assert.equal(response.status,200);await response.json();
+   report.results.push({name:'commercial-sync-access',unpaidDenied:true,clientPlanIgnored:true,paidAccepted:true,revocationReadFresh:true,backupRetained:true,expiredReadAllowed:true,giftAcceptedAndRevoked:true,ownerExempt:true});
+  }
+
   const writeCount=20;
   await measure('same-account-concurrent-write-'+scenario.total,writeCount,writeCount,async(i)=>{
    const r=await fetch(base+'/api/sync',{method:'PUT',headers:headers(0),signal:AbortSignal.timeout(15000),body:JSON.stringify({blob:{items:[{id:'acknowledged-'+i,title:'Concurrent update '+i,updatedAt:100+i}],updatedAt:100+i}})});await r.json();assert.equal(r.status,200);return r.status;

@@ -554,7 +554,10 @@ async function syncNow() {
     if(firebaseClient)await firebaseClient.save(firebaseSnapshot,blob);
     else{
       const putRes=await apiCall(cfg,'/sync',{method:'PUT',body:JSON.stringify({blob})});
-      if(!putRes.ok)throw Error(`push_${putRes.status}`);
+      if(!putRes.ok){
+        const error=await putRes.json().catch(()=>({}));
+        throw Error(putRes.status===403&&error.error==="subscription_required"?"subscription_required":`push_${putRes.status}`);
+      }
     }
     const status=await serializeLibrary(async()=>{
       if(!await current())throw Error('account_changed');

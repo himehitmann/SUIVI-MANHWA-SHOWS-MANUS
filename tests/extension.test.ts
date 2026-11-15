@@ -3463,3 +3463,36 @@ it("reports image access failures distinctly without masking invalid panel URLs"
   await expect(w.run('fetchBlob("https://image.example/panel.png")')).rejects.toThrow("image_access_required");
   await expect(w.run('fetchBlob("http://127.0.0.1/private")')).rejects.toThrow("invalid_image_url");
 });
+
+describe("commercial sync refusal preserves extension data",()=>{
+ it("retains local edits and downloaded backups without claiming a successful upload",async()=>{
+  const w=worker({
+   "dasi.items":[{id:"local",title:"Local work",type:"reading",chapter:9,updatedAt:20}],
+   "dasi.sync.config":{apiUrl:"https://sync.example.test/api",token:"test-token",userId:"reader",email:"reader@example.test"},
+   "dasi.sync.meta":{confirmedFingerprint:"older-backup",lastSyncAt:10},
+  });
+  let paid=false,uploads=0;
+  w.ctx.fetch=async(_url:string,init:any)=>{
+   if(init.method==="PUT"){uploads++;return {ok:paid,status:paid?200:403,json:async()=>paid?{}:{error:"subscription_required"}};}
+   return {ok:true,json:async()=>({blob:{items:[{id:"remote",title:"Old backup",type:"reading",chapter:4,updatedAt:10}]}})};
+  };
+  const refused=await w.call({type:"SYNC_NOW"});
+  expect(refused).toEqual({ok:false,error:"subscription_required"});
+  expect(w.data["dasi.items"].map((i:any)=>i.id).sort()).toEqual(["local","remote"]);
+  expect(w.data["dasi.items"].find((i:any)=>i.id==="local").chapter).toBe(9);
+  expect(w.data["dasi.sync.config"].token).toBe("test-token");
+  expect(w.data["dasi.sync.meta"]).toMatchObject({lastError:"subscription_required",confirmedFingerprint:"older-backup",lastSyncAt:10});
+  expect((await w.call({type:"SYNC_STATUS"})).state).toBe("error");
+  paid=true;expect((await w.call({type:"SYNC_NOW"})).ok).toBe(true);
+  expect(w.data["dasi.sync.meta"].lastError).toBeNull();
+  expect((await w.call({type:"SYNC_STATUS"})).state).toBe("saved");
+  expect(uploads).toBe(2);
+ });
+ it("does not mistake any other forbidden response for a subscription failure",async()=>{
+  const w=worker({"dasi.sync.config":{apiUrl:"https://sync.example.test/api",token:"test-token",userId:"reader"}});
+  w.ctx.fetch=async(_url:string,init:any)=>init.method==="PUT"
+   ?{ok:false,status:403,json:async()=>({error:"origin_not_allowed"})}
+   :{ok:true,json:async()=>({blob:null})};
+  expect(await w.call({type:"SYNC_NOW"})).toEqual({ok:false,error:"push_403"});
+ });
+});

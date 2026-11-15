@@ -14,6 +14,7 @@ export interface SyncSession {
   userId: string;
   email: string;
   plan?: string;
+  syncAccess?: "read_write"|"read_only";
   role?: "owner"|"admin"|"member";
 }
 
@@ -119,7 +120,7 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
     }
     const data = (await res.json()) as {
       token: string;
-      user: { id: string; email: string; plan: string; role?: "owner"|"admin"|"member" };
+      user: { id: string; email: string; plan: string; role?: "owner"|"admin"|"member"; syncAccess?: "read_write"|"read_only" };
     };
     token = data.token;
     session = {
@@ -127,6 +128,7 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
       email: data.user.email,
       plan: data.user.plan,
       role: data.user.role,
+      ...(data.user.syncAccess?{syncAccess:data.user.syncAccess}:{}),
     };
     persist();
     return session;
@@ -146,7 +148,8 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
       if (user?.id!==requestUser || typeof user.email!=="string" ||
           !["free","pro","lifetime"].includes(user.plan) ||
           !["member","admin","owner"].includes(user.role)) throw new Error("account_check_failed");
-      session={userId:user.id,email:user.email,plan:user.plan,role:user.role};
+      if(user.syncAccess!==undefined&&!["read_write","read_only"].includes(user.syncAccess))throw new Error("account_check_failed");
+      session={userId:user.id,email:user.email,plan:user.plan,role:user.role,...(user.syncAccess?{syncAccess:user.syncAccess}:{})};
       persist();
       return {...session};
     },
@@ -201,7 +204,11 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
         method: "PUT",
         body: JSON.stringify({ blob }),
       });
-      if (!res.ok) throw new Error(`sync_push_${res.status}`);
+      if (!res.ok) {
+        const body=await res.json().catch(()=>({}));
+        if(res.status===403&&body.error==="subscription_required")throw new Error("subscription_required");
+        throw new Error(`sync_push_${res.status}`);
+      }
     },
     async pull() {
       if (!token) return null;
