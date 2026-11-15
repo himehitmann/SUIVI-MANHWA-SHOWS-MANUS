@@ -257,13 +257,15 @@ try {
    report.results.push({name:'postgres-lifetime-disputes',providerFailureRolledBack:true,concurrentDuplicateReadOnce:true,delayedPurchaseReconciled:true,lateWinRestores:true,fullRefundStaysTerminal:true,subscriptionAndLibraryPreserved:true,ownershipChecked:true,persistedAcrossConnections:true});
 
    const rights=createPostgresAccessStore(pool),owners=new Set(['account-0']),request={requestId:'gift-duplicate',expectedVersion:0,kind:'gift',days:30,reason:'Isolated persistence probe'};
+   const priorAuditCount=(await rights.audit()).length;
    const duplicate=await Promise.all([rights.change('account-0','account-1',request,owners),rights.change('account-0','account-1',request,owners)]);
-   assert.deepEqual(duplicate[0],duplicate[1]);assert.equal((await rights.audit()).length,1);
+   assert.deepEqual(duplicate[0],duplicate[1]);
+   const afterDuplicate=await rights.audit();assert.equal(afterDuplicate.length,priorAuditCount+1);assert.equal(afterDuplicate.filter(event=>event.targetId==='account-1').length,1);
    const races=await Promise.allSettled([rights.change('account-0','account-1',{...request,requestId:'race-a',expectedVersion:1,days:0},owners),rights.change('account-0','account-1',{...request,requestId:'race-b',expectedVersion:1,days:0},owners)]);
    assert.equal(races.filter(r=>r.status==='fulfilled').length,1);
    await rights.change('account-0','account-1',request,owners);assert.equal((await rights.get('account-1')).giftUntil,0);
    await assert.rejects(()=>rights.change('account-0','account-2',{...request,requestId:'invalid-session'},owners,async()=>false),{code:'actor_session_invalid'});
-   const independent=new pg.Pool({...poolConfig,options:'-c search_path='+schema});try{assert.equal((await createPostgresAccessStore(independent).get('account-1')).version,2);assert.equal((await createPostgresAccessStore(independent).audit()).length,2);}finally{await independent.end();}
+   const independent=new pg.Pool({...poolConfig,options:'-c search_path='+schema});try{assert.equal((await createPostgresAccessStore(independent).get('account-1')).version,2);const persistedAudit=await createPostgresAccessStore(independent).audit();assert.equal(persistedAudit.length,priorAuditCount+2);assert.equal(persistedAudit.filter(event=>event.targetId==='account-1').length,2);}finally{await independent.end();}
    report.results.push({name:'postgres-administration',duplicateAppliedOnce:true,staleVersionRejected:true,replayDoesNotRestoreGift:true,sessionRechecked:true,durableAudit:true});
   }
 
