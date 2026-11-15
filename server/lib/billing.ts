@@ -28,10 +28,45 @@ export interface PlanIntent {
   plan: Plan;
 }
 
-function safeEqualHex(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
+interface SignatureOptions { toleranceSec?: number; now?: number; }
+interface SignatureFormat {
+  delimiter: "," | ";";
+  timestampKey: "t" | "ts";
+  signatureKey: "v1" | "h1";
+  separator: "." | ":";
+  toleranceSec: number;
+}
+
+/** Both providers can send several signatures while an endpoint key rotates.
+ * Keep all supported signatures; unknown diagnostic/version fields are ignored.
+ * A duplicated timestamp is ambiguous and must never select a different payload.
+ */
+function verifyWebhookSignature(
+  raw: string, header: string, secret: string,
+  format: SignatureFormat, opts: SignatureOptions,
+): boolean {
+  if (typeof raw !== "string" || typeof header !== "string" ||
+      !header || header.length > 8192 || typeof secret !== "string" || !secret) return false;
+  let timestamp: string | undefined;
+  const signatures: string[] = [];
+  for (const part of header.split(format.delimiter)) {
+    const split = part.indexOf("=");
+    if (split < 1) continue;
+    const key = part.slice(0, split).trim(), value = part.slice(split + 1).trim();
+    if (key === format.timestampKey) {
+      if (timestamp !== undefined) return false;
+      timestamp = value;
+    } else if (key === format.signatureKey && /^[a-f0-9]{64}$/i.test(value)) {
+      signatures.push(value);
+    }
+  }
+  if (!timestamp || !/^\d{1,16}$/.test(timestamp) || !signatures.length) return false;
+  const time = Number(timestamp), now = opts.now ?? Math.floor(Date.now() / 1000);
+  const tolerance = opts.toleranceSec ?? format.toleranceSec;
+  if (!Number.isSafeInteger(time) || time < 0 || !Number.isFinite(now) || now < 0 ||
+      !Number.isFinite(tolerance) || tolerance < 0 || Math.abs(now - time) > tolerance) return false;
+  const expected = createHmac("sha256", secret).update(timestamp + format.separator + raw).digest();
+  return signatures.some(signature => timingSafeEqual(expected, Buffer.from(signature, "hex")));
 }
 
 /** Map a provider price id to a Dasi plan, or null if it isn't one we sell. */
@@ -47,49 +82,22 @@ export function resolvePlan(priceId: string | undefined, map: PriceMap): Plan | 
  * is SHA-256 of `${t}.${rawBody}` keyed by the endpoint's signing secret.
  */
 export function verifyStripeSignature(
-  raw: string,
-  header: string,
-  secret: string,
-  opts: { toleranceSec?: number; now?: number } = {},
+  raw: string, header: string, secret: string, opts: SignatureOptions = {},
 ): boolean {
-  if (!header || !secret) return false;
-  const parts: Record<string, string> = {};
-  for (const kv of header.split(",")) {
-    const i = kv.indexOf("=");
-    if (i > 0) parts[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
-  }
-  const { t, v1 } = parts;
-  if (!t || !v1) return false;
-  const now = opts.now ?? Math.floor(Date.now() / 1000);
-  const tolerance = opts.toleranceSec ?? 300;
-  if (!Number.isFinite(Number(t)) || Math.abs(now - Number(t)) > tolerance) return false;
-  const expected = createHmac("sha256", secret).update(`${t}.${raw}`).digest("hex");
-  return safeEqualHex(expected, v1);
+  return verifyWebhookSignature(raw, header, secret, {
+    delimiter: ",", timestampKey: "t", signatureKey: "v1", separator: ".", toleranceSec: 300,
+  }, opts);
 }
 
-/**
- * Verify a Paddle Billing `Paddle-Signature` header: `ts=<ts>;h1=<hmac>` where
- * the HMAC is SHA-256 of `${ts}:${rawBody}` keyed by the endpoint secret.
+/** Paddle uses ts:rawBody and may include multiple h1 signatures.
+ * Match its SDK's five-second default window; the server clock must be synced.
  */
 export function verifyPaddleSignature(
-  raw: string,
-  header: string,
-  secret: string,
-  opts: { toleranceSec?: number; now?: number } = {},
+  raw: string, header: string, secret: string, opts: SignatureOptions = {},
 ): boolean {
-  if (!header || !secret) return false;
-  const parts: Record<string, string> = {};
-  for (const kv of header.split(";")) {
-    const i = kv.indexOf("=");
-    if (i > 0) parts[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
-  }
-  const { ts, h1 } = parts;
-  if (!ts || !h1) return false;
-  const now = opts.now ?? Math.floor(Date.now() / 1000);
-  const tolerance = opts.toleranceSec ?? 300;
-  if (!Number.isFinite(Number(ts)) || Math.abs(now - Number(ts)) > tolerance) return false;
-  const expected = createHmac("sha256", secret).update(`${ts}:${raw}`).digest("hex");
-  return safeEqualHex(expected, h1);
+  return verifyWebhookSignature(raw, header, secret, {
+    delimiter: ";", timestampKey: "ts", signatureKey: "h1", separator: ":", toleranceSec: 5,
+  }, opts);
 }
 
 /** Extract a user reference from provider metadata/customer fields. */
@@ -127,6 +135,7 @@ export function planFromStripeEvent(event: any, map: PriceMap): PlanIntent | nul
     case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
+      if (obj?.items?.has_more === true) return null;
       const plan = itemPlan(obj?.items?.data, map);
       if (plan !== "pro") return null;
       if (event.type === "customer.subscription.deleted") return { ...ref, plan: "free" };

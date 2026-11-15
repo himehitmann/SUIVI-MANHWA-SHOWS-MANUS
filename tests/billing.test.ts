@@ -152,3 +152,57 @@ describe("recurring Paddle access",()=>{
     expect(planFromPaddleEvent({event_type:"subscription.updated",data:{status:"active",items:[{price:{id:"price_month"}}]}},MAP)?.plan).toBe("pro");
   });
 });
+
+describe.each([
+  {name:"Stripe",verify:verifyStripeSignature,delimiter:",",timestamp:"t",signature:"v1",separator:".",window:300},
+  {name:"Paddle",verify:verifyPaddleSignature,delimiter:";",timestamp:"ts",signature:"h1",separator:":",window:5},
+])("$name signature rotation and strict envelope",({verify,delimiter,timestamp,signature,separator,window})=>{
+  const raw='{\n  "title": "épisode 日本語 🌸", "amount": 1200\n}', secret="synthetic-current-key", now=1_700_000_000;
+  const hash=(body=raw,key=secret,time=String(now))=>createHmac("sha256",key).update(time+separator+body).digest("hex");
+  const header=(values:string[],time=String(now))=>[timestamp+"="+time,...values.map(value=>signature+"="+value)].join(delimiter);
+  it.each([0,1,2])("accepts a matching signature at position %s during rotation",index=>{
+    const values=[hash(raw,"old-key"),hash(raw,"other-key")];values.splice(index,0,hash());
+    expect(verify(raw,header(values),secret,{now})).toBe(true);
+  });
+  it("accepts either configured key while both signatures are present",()=>{
+    const old="synthetic-old-key",both=header([hash(),hash(raw,old)]);
+    expect(verify(raw,both,secret,{now})).toBe(true);
+    expect(verify(raw,both,old,{now})).toBe(true);
+    expect(verify(raw,both,"unrelated-key",{now})).toBe(false);
+  });
+  it("ignores unknown fields and invalid signatures without discarding a valid candidate",()=>{
+    expect(verify(raw,["payload=debug","v0="+hash(),header(["not-hex",hash().toUpperCase(),"a".repeat(63)]),"future=ignored"].join(delimiter),secret,{now})).toBe(true);
+    expect(verify(raw,timestamp+"="+now+delimiter+"v0="+hash(),secret,{now})).toBe(false);
+  });
+  it("checks the exact raw body, including whitespace and Unicode",()=>{
+    const signed=header([hash()]);
+    expect(verify(raw+" ",signed,secret,{now})).toBe(false);
+    expect(verify(JSON.stringify(JSON.parse(raw)),signed,secret,{now})).toBe(false);
+    expect(verify(raw.replace("日本語","français"),signed,secret,{now})).toBe(false);
+  });
+  it.each(["", "123", "g".repeat(64), "a".repeat(63), "a".repeat(65), "ab".repeat(32)+"zz"])("rejects a malformed digest %s",value=>{
+    expect(verify(raw,header([value]),secret,{now})).toBe(false);
+  });
+  it.each(["1700000000.0","1.7e9","+1700000000","0x6553f100","NaN","Infinity","9007199254740992"])("rejects a noncanonical timestamp %s even with a matching HMAC",time=>{
+    expect(verify(raw,header([hash(raw,secret,time)],time),secret,{now})).toBe(false);
+  });
+  it.each([String(now),String(now-1)])("rejects a duplicated timestamp %s",duplicate=>{
+    expect(verify(raw,header([hash()])+delimiter+timestamp+"="+duplicate,secret,{now})).toBe(false);
+  });
+  it("bounds old and future delivery timestamps with the provider's default tolerance",()=>{
+    const signed=header([hash()]);
+    for(const delta of [-window,window])expect(verify(raw,signed,secret,{now:now+delta})).toBe(true);
+    for(const delta of [-window-1,window+1])expect(verify(raw,signed,secret,{now:now+delta})).toBe(false);
+  });
+  it("fails closed for invalid clock/tolerance overrides and oversized headers",()=>{
+    const signed=header([hash()]);
+    for(const toleranceSec of [-1,NaN,Infinity])expect(verify(raw,signed,secret,{now,toleranceSec})).toBe(false);
+    for(const time of [-1,NaN,Infinity])expect(verify(raw,signed,secret,{now:time})).toBe(false);
+    expect(verify(raw,signed+delimiter+"ignored="+"x".repeat(8192),secret,{now})).toBe(false);
+    expect(verify(raw,signed,"",{now})).toBe(false);
+  });
+});
+
+it.each(["customer.subscription.created","customer.subscription.updated","customer.subscription.deleted"])("does not change access from truncated Stripe subscription items: %s",type=>{
+  expect(planFromStripeEvent({type,data:{object:{status:"active",metadata:{userId:"u1"},items:{has_more:true,data:[{price:{id:"price_month"}}]}}}},MAP)).toBeNull();
+});
