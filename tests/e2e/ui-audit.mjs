@@ -41,6 +41,25 @@ try {
    if(width===320)await page.screenshot({path:"test-results/audit-"+target+"-320.png",fullPage:true});
   }
  }
+
+ // Both billing periods use the shared translated catalogue; no fake checkout.
+ await page.locator("#go-pro").click();
+ for(const language of ["en","fr","es","de","pt","ja","ko","zh-CN"]){
+  await page.evaluate(lang=>{settings.lang=lang;renderPlans();},language);
+  assert.equal(await page.locator("#view-plans .plan").count(),2);
+  assert.equal(await page.locator("#view-plans .cta:enabled").count(),0);
+  assert.equal(await page.locator("#view-plans .plan-benefits li").count(),6);
+  assert.equal(await page.locator("#view-plans h1").innerText(),await page.evaluate(()=>YomuPricing.pricingCopy(settings.lang).title));
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ }
+ await page.evaluate(()=>{settings.lang="en";userPlan="lifetime";renderPlans();});
+ await page.getByRole("status").filter({hasText:"already has Pro access"}).waitFor();
+ assert.equal(await page.locator("#view-plans .cta:enabled").count(),0);
+ await page.locator("#plans-library").click();
+ await page.locator("#view-library").waitFor({state:"visible"});
+ await page.evaluate(()=>{userPlan="free";});
+ console.log("PASS: extension paid offers in eight languages, no free tier or fake checkout, Lifetime access and library navigation");
+
  // Long unbroken provider labels must not widen a mobile drawer.
  await page.setViewportSize({width:320,height:900});
  await page.evaluate(()=>{

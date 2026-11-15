@@ -7,6 +7,7 @@ const required = [
   "manifest.json",
   "background.js",
   "sync-core.js",
+  "pricing-catalog.js",
   "content.js",
   "edition.js",
   "translate.js",

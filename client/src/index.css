@@ -526,3 +526,23 @@ a.profile{display:grid;place-items:center;text-decoration:none}
 .tour-navigation button:disabled{opacity:.45;cursor:default;}
 @media(max-width:600px){.tour-content{grid-template-columns:1fr;gap:20px;}.tour-steps{display:grid;grid-template-columns:1fr 1fr;}.tour-steps button{text-align:left;font-size:13px;}.tour-preview{padding:18px;}.quick-tour{padding-block:24px;}}
 
+
+/* Paid offers share one comparison, with no overlapping promotional badges. */
+.paid-pricing{max-width:1040px}
+.paid-pricing .pricing-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+.paid-pricing .pricing-card{display:flex;flex-direction:column;min-width:0;box-shadow:none;border-radius:16px;background:var(--dasi-card,#fff)}
+.paid-pricing .pricing-card h2{font-size:20px;margin:0}
+.paid-pricing .pricing-card p{font-size:14px;line-height:1.6}
+.paid-pricing .pricing-saving{min-height:3.2em;color:#126343;font-weight:600}
+.paid-pricing .pricing-card button{margin-top:auto;white-space:normal}
+.paid-pricing .pricing-price{flex-wrap:wrap}
+.pricing-status{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;min-height:64px;margin-bottom:20px;text-align:center;line-height:1.6}
+.pricing-currency{font-size:13px;line-height:1.6;margin:20px 0 32px}
+.pricing-benefits h2{font-size:21px}
+.pricing-benefits ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;padding:0;list-style:none}
+.pricing-benefits li{display:flex;align-items:flex-start;gap:10px;line-height:1.6;min-width:0}
+.pricing-benefits li svg{flex:none;margin-top:4px;color:#126343}
+.pricing-benefits p{line-height:1.7;font-size:13px}
+.pricing-actions{display:flex;gap:12px;flex-wrap:wrap;margin:28px 0}
+.paid-pricing button:disabled{cursor:default;opacity:.65}
+@media(max-width:650px){.paid-pricing .pricing-grid,.pricing-benefits ul{grid-template-columns:1fr}.paid-pricing .pricing-head h1{font-size:30px;line-height:1.2}}

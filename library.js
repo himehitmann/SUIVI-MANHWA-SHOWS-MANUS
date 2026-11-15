@@ -38,7 +38,6 @@ function paintListCreation() {
 let spotIdx = 0, spotItems = [], spotTimer = null;
 let discover = null, discoverTried = false, discoverLoading = false; // fresh recommendations pulled from the background
 let discoCat = "all"; // active Discover category tab (webtoon-style)
-let planCycle = "year"; // billing cycle shown on the Plans page ("year" | "month")
 let userPlan = null; // "pro" | "lifetime" | null, from the sync backend
 const isPro = () => UNLOCK_ALL || userPlan === "pro" || userPlan === "lifetime";
 // Premium-sounding subtitle for the profile menu (never "local-first").
@@ -1897,37 +1896,24 @@ function showGameForm(title="") {
 
 /* ================= PLANS ================= */
 function renderPlans() {
-  const el = document.getElementById("view-plans");
-  const feat = (arr) => arr.map((x) => `<li>${I.check} ${esc(x)}</li>`).join("");
-  const cur = isPro() ? (userPlan === "lifetime" ? "lifetime" : "pro") : "free";
-  const label = (plan, cta) => (UNLOCK_ALL ? (plan === "free" ? "" : t("currentPlan")) : cur === plan ? t("currentPlan") : cta);
-  el.innerHTML = `
-    <h1>${t("plansTitle")}</h1><p class="sub">${t("plansSub")}</p>
-    ${UNLOCK_ALL ? `<div class="unlocked-banner">${I.crown} ${t("unlocked")}</div>` : ""}
-    <div class="cycle-toggle" role="tablist">
-      <button data-cycle="month" class="${planCycle === "month" ? "on" : ""}">${t("monthly")}</button>
-      <button data-cycle="year" class="${planCycle !== "month" ? "on" : ""}">${t("yearly")}</button>
-    </div>
-    <div class="plan-grid two">
-      <div class="plan">
-        <h3>Free</h3><div class="price">$0</div><div class="per">${t("planFreePer")}</div>
-        <ul>${feat(tArr("freeFeatures"))}</ul>
-        <button class="cta" data-plan="free"${cur === "free" || UNLOCK_ALL ? " disabled" : ""}>${label("free", t("getStarted")) || t("currentPlan")}</button>
-      </div>
-      <div class="plan feat"><span class="ptag">${t("mostPopular")}</span>
-        <h3>Pro</h3>
-        <div class="price">${planCycle === "month" ? "$3.49<small>/mo</small>" : "$29.99<small>/yr</small>"}</div>
-        <div class="per">${planCycle === "month" ? t("perMonthNote") : t("perYearNote")}</div>
-        <ul>${feat(tArr("proFeatures"))}</ul>
-        <button class="cta" data-plan="pro"${cur === "pro" ? " disabled" : ""}>${label("pro", t("goPro"))}</button>
-      </div>
-    </div>
-    <p class="sub" style="margin-top:18px">${t("planFoot")}</p>`;
-  el.querySelectorAll("[data-cycle]").forEach((b) => (b.onclick = () => { planCycle = b.dataset.cycle; renderPlans(); }));
-  el.querySelectorAll("[data-plan]").forEach((b) => (b.onclick = () => {
-    if (UNLOCK_ALL) { toast(t("unlocked")); return; }
-    api.runtime.openOptionsPage();
-  }));
+  const el=document.getElementById("view-plans");
+  const copy=YomuPricing.pricingCopy(settings.lang),covered=isPro();
+  el.innerHTML='<h1>'+esc(copy.title)+'</h1><p class="sub">'+esc(copy.subtitle)+'</p>'+
+    '<p class="sub" role="status">'+esc(covered?copy.active:copy.unavailable)+'</p>'+
+    '<div class="plan-grid two">'+YomuPricing.OFFERS.map(offer=>
+      '<section class="plan"><h2>Pro '+esc(copy[offer.id])+'</h2>'+
+      '<div class="price">'+esc(YomuPricing.money(offer.amount,settings.lang))+'</div>'+
+      '<p>'+esc(offer.id==="year"?copy.yearlyCharge:copy.monthlyCharge)+'</p>'+
+      '<p class="plan-saving">'+(offer.id==="year"?esc(copy.saving.replace("{amount}",YomuPricing.money(YomuPricing.annualSaving(),settings.lang))):"")+'</p>'+
+      '<button class="cta" disabled>'+esc(covered?copy.current:copy.closed)+'</button></section>'
+    ).join("")+'</div><p class="sub">'+esc(copy.currency)+'</p>'+
+    '<section class="plan-benefits"><h2>'+esc(copy.benefits)+'</h2><ul>'+
+    copy.features.map(text=>'<li>'+I.check+' <span>'+esc(text)+'</span></li>').join("")+
+    '</ul><p class="sub">'+esc(copy.limits)+'</p></section>'+
+    '<div class="plan-actions"><button class="btn" id="plans-account">'+esc(copy.settings)+'</button>'+
+    '<button class="btn" id="plans-library">'+esc(copy.library)+'</button></div>';
+  document.getElementById("plans-account").onclick=()=>api.runtime.openOptionsPage();
+  document.getElementById("plans-library").onclick=()=>switchView("library");
 }
 
 /* ================= LISTS ================= */

@@ -130,5 +130,43 @@ try{
  }
  assert.deepEqual(errors,[]);
  console.log('PASS: web multi-file collision imports retain distinct works, list membership and real API persistence after repeat');
+
+ // Paid catalogue: real /me verification, unavailable checkout, localization and small-screen layout.
+ await page.goto(base+'/pricing');
+ await page.getByRole('status').filter({hasText:'Sales are not open'}).waitFor();
+ assert.equal(await page.locator('.pricing-card').count(),2);
+ assert.equal(await page.locator('.pricing-card button:enabled').count(),0);
+ assert.equal(await page.locator('.pricing-card').filter({hasText:'$0'}).count(),0);
+ await page.getByText('Save $11.89 per year compared with 12 monthly payments.',{exact:true}).waitFor();
+ const pricingSession=await page.evaluate(()=>JSON.parse(localStorage.getItem('dasi.sync.session:'+encodeURIComponent('/api'))));
+ for(const rights of [{plan:'pro',role:'member'},{plan:'lifetime',role:'member'},{plan:'pro',role:'owner'},{plan:'pro',role:'admin'}]){
+  await page.route('**/api/me',route=>route.fulfill({json:{user:{id:pricingSession.userId,email:pricingSession.email,...rights}}}));
+  await page.reload();await page.getByRole('status').filter({hasText:'already has Pro access'}).waitFor();
+  assert.equal(await page.locator('.pricing-card button:enabled').count(),0);
+  await page.unroute('**/api/me');
+ }
+ await page.route('**/api/me',route=>route.fulfill({status:503,json:{error:'unavailable'}}));
+ await page.reload();await page.getByRole('alert').filter({hasText:'could not be verified'}).waitFor();
+ assert.equal(await page.locator('.pricing-card button:enabled').count(),0);
+ await page.unroute('**/api/me');
+ await page.getByRole('button',{name:'Try again',exact:true}).click();
+ await page.getByRole('status').filter({hasText:'Sales are not open'}).waitFor();
+ await page.evaluate(()=>localStorage.setItem('dasi.language','fr'));await page.reload();
+ await page.getByRole('heading',{name:'Choisis ton abonnement Pro',exact:true}).waitFor();
+ await page.getByText('Organiser mangas, webtoons, séries, films et jeux',{exact:true}).waitFor();
+ await page.getByRole('status').filter({hasText:'vente n’est pas encore ouverte'}).waitFor();
+ await page.setViewportSize({width:320,height:900});
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await page.screenshot({path:'test-results/pricing-fr-mobile.png',fullPage:true});
+ await page.getByRole('button',{name:'Ouvrir ma bibliothèque',exact:true}).click();
+ await page.waitForURL(base+'/collections');
+ await page.evaluate(()=>localStorage.setItem('dasi.language','en'));
+ await page.setViewportSize({width:1440,height:1000});
+ await page.goto(base+'/pricing');
+ await page.getByRole('status').filter({hasText:'Sales are not open'}).waitFor();
+ await page.screenshot({path:'test-results/pricing-en-desktop.png',fullPage:true});
+ assert.deepEqual(errors,[]);
+ console.log('PASS: paid pricing, fresh Pro/Lifetime/admin rights, failed verification retry, FR copy and mobile layout');
+
  console.log('Web browser journeys passed: account creation, extension backup import, bounded progress, notes, real API sync, sign-out isolation, sign-in restoration, mobile game detail.');
 }finally{if(browser)await browser.close();server.kill();await new Promise(r=>server.exitCode!==null?r():server.once('exit',r));await fs.rm(temp,{recursive:true,force:true});}

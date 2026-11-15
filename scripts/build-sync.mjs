@@ -10,3 +10,9 @@ await build({
   },
   target: "chrome109",
 });
+
+await build({
+  entryPoints:["shared/pricing.ts"],bundle:true,format:"iife",
+  globalName:"YomuPricing",outfile:"pricing-catalog.js",target:"chrome109",
+  banner:{js:"// Generated from shared/pricing.ts by pnpm build:sync. Do not edit."},
+});

@@ -24,6 +24,7 @@ export interface SyncProvider {
   readonly id: string;
   isConfigured(): boolean;
   getSession(): SyncSession | null;
+  refreshSession(): Promise<SyncSession>;
   signUp(email: string, password: string): Promise<SyncSession>;
   signIn(email: string, password: string): Promise<SyncSession>;
   signOut(): Promise<void>;
@@ -44,6 +45,7 @@ export function createLocalProvider(): SyncProvider {
     id: "local",
     isConfigured: () => false,
     getSession: () => null,
+    refreshSession: notAvailable,
     accountAction: notAvailable,
     adminRequest: notAvailable,
     signUp: notAvailable,
@@ -134,6 +136,20 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
     id: "http",
     isConfigured: () => true,
     getSession: () => session,
+    async refreshSession() {
+      if (!token || !session) throw new Error("unauthorized");
+      const requestToken=token,requestUser=session.userId;
+      const response=await authFetch("/me");
+      if (!response.ok) throw new Error("account_check_failed");
+      const data=await response.json(),user=data?.user;
+      if (token!==requestToken || session?.userId!==requestUser) throw new Error("account_changed");
+      if (user?.id!==requestUser || typeof user.email!=="string" ||
+          !["free","pro","lifetime"].includes(user.plan) ||
+          !["member","admin","owner"].includes(user.role)) throw new Error("account_check_failed");
+      session={userId:user.id,email:user.email,plan:user.plan,role:user.role};
+      persist();
+      return {...session};
+    },
     signUp: (email, password) => authenticate("/auth/signup", email, password),
     signIn: (email, password) => authenticate("/auth/login", email, password),
     async adminRequest(path, data) {

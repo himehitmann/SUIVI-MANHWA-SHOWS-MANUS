@@ -786,6 +786,15 @@ main:focus{outline:none}
       @media(max-width:1100px){.library-layout{grid-template-columns:1fr;gap:0}.library-sidebar{display:grid;grid-template-columns:1fr 1fr;gap:28px}.library-sidebar #list-strip{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}.library-sidebar>.library-section{margin-top:14px}}
       @media(max-width:640px){#grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 14px}.library-sidebar{grid-template-columns:1fr;gap:0}.library-shortcuts{gap:8px}.library-shortcuts button{font-size:13px}.library-controls{gap:10px}.library-controls>label{max-width:100%;min-width:0}.library-controls select{max-width:100%}#list-add-options{grid-template-columns:1fr}.drawer-hero,.drawer-body{padding:22px 20px}.drawer-title{font-size:23px}#view-home .home-heading h1{font-size:27px}.dash-body{padding-inline:8px}}
 
+.plan-grid.two .plan{min-width:0;display:flex;flex-direction:column}
+.plan-grid.two .plan .cta{margin-top:auto;white-space:normal}
+.plan-grid.two .plan h2{font-size:20px}
+.plan-saving{min-height:3.2em;line-height:1.6;color:#126343}
+.plan-benefits{margin-top:28px}.plan-benefits ul{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.plan-benefits li{display:flex;align-items:flex-start;gap:10px;line-height:1.6;min-width:0}
+.plan-benefits li svg{flex:none;margin-top:4px}
+.plan-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+@media(max-width:650px){.plan-benefits ul{grid-template-columns:1fr}}
 </style>
   </head>
   <body>
@@ -857,6 +866,7 @@ main:focus{outline:none}
     <script src="vendor/fflate.min.js"></script>
     <script src="import-position.js"></script>
     <script src="import-parse.js"></script>
+    <script src="pricing-catalog.js"></script>
     <script src="library.js"></script>
   </body>
 </html>
