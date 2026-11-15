@@ -8,6 +8,10 @@ Le vérificateur conserve tous les `v1` de Stripe et tous les `h1` de Paddle. Un
 
 Le serveur utilise toujours un seul secret configuré par fournisseur (`STRIPE_WEBHOOK_SECRET`, `PADDLE_WEBHOOK_SECRET`). Cette modification ne crée, ne change et ne révoque aucune clé chez les prestataires. Lors d'une rotation, remplacer le secret côté serveur pendant le chevauchement permis par le fournisseur, puis vérifier une livraison signée avant d'expirer l'ancien secret. Aucun secret ne doit être placé dans le paquet extension.
 
+## Produits incomplets
+
+Les notifications Stripe de création, modification ou suppression d'abonnement dont les articles indiquent `has_more: true` ne modifient pas le compte. Un produit configuré dans un fragment ne prouve pas que l'abonnement contient uniquement cette offre. Ce rejet ne déclenche pas une récupération automatique de la liste complète ; la couverture des paniers multi-produits reste hors de ce mécanisme.
+
 ## Rejets et limites
 
 - Une date répétée est refusée, même identique, pour éviter une interprétation ambiguë du contenu signé.

@@ -1,12 +1,30 @@
 # Suivi global Yomu
 
-Mise à jour : 14 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 15 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Paiements : signatures multiples et produits tronqués — 15 novembre 2026
+
+Code : f851daae15212b543130e967e9c43c199c84d8c2. Modification côté serveur ; le paquet extension reste en version **0.4.28**.
+
+Le vérificateur de webhook ne conserve plus uniquement la dernière signature reçue. Il accepte une correspondance parmi les signatures du schéma attendu (`v1` chez Stripe, `h1` chez Paddle), quelle que soit sa position, avec le secret configuré du serveur. Les champs diagnostiques inconnus sont ignorés. Le corps brut reste signé sans transformation ; chaque candidat possède exactement 64 caractères hexadécimaux et la comparaison des condensats utilise `timingSafeEqual`.
+
+Le contrôle refuse les dates répétées ou mal formées, les entiers non représentables, les horloges/tolérances invalides et les en-têtes dépassant 8 Kio. La fenêtre est bornée dans les deux sens : 300 secondes pour Stripe et **5 secondes pour Paddle**, valeur par défaut documentée de son SDK. Le serveur doit donc avoir une horloge synchronisée. Cette modification ne gère pas les secrets chez les prestataires : le remplacement du secret configuré et sa rotation réelle restent des opérations de déploiement.
+
+Une liste Stripe d'articles d'abonnement marquée `has_more: true` ne modifie plus les droits, même si son seul article visible correspond à une offre Pro. La validation d'un produit unique n'est plus faite sur une liste explicitement incomplète.
+
+**Preuves :** [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/43707376292) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/43707380906). Quatre jobs réussis sur chaque exécution (verify, capacity, recovery, firebase-recovery). **824 tests unitaires réussis, dont 54 nouveaux** ; cinq nouveaux parcours HTTP de signatures et de produits incomplets. Compilation, audit des dépendances sans vulnérabilité connue signalée, paquet Chrome, interface, vidéo, charge et restauration isolées réussis. La mise à jour 0.3.1 vers 0.4.28 conserve compte, progression, listes et profil dans le test Chromium.
+
+Les tests de signatures couvrent les positions des signatures, les deux secrets de chevauchement, les champs inconnus, Unicode et espaces, les schémas non reconnus, les valeurs mal formées et les limites temporelles. Les tests HTTP traversent les véritables routes Express et un stockage isolé : activation, annulation, livraison répétée sans réactivation, refus avant toute mutation et réception valide après un rejet. Les trois événements d'abonnement Stripe refusent une liste tronquée ; le parcours HTTP vérifie l'absence de mutation et l'acceptation de produits complets ensuite.
+
+Références : [Stripe — signatures et rotation](https://docs.stripe.com/events/manage-webhook-endpoints), [Paddle — vérification des signatures](https://developer.paddle.com/webhooks/about/signature-verification/). Voir [détails et limites du vérificateur](WEBHOOK-SIGNATURES.md).
+
+**Limites :** signatures synthétiques, aucune facturation ni rotation de clé réelle, aucun compte prestataire créé et aucun déploiement effectué. Contestations, parcours de paiement déployé et mise en vente restent à vérifier. G20 reste partiel ; **21/60 = 35 % global vérifié**.
 
 ## Images remplacées en cours de lecture : file et reprise — 14 novembre 2026
 
@@ -1171,7 +1189,7 @@ Les scénarios de panne RAWG/Steam, les fusions de plateformes/boutiques et les 
 | G17 | Traduction automatique par site, arrêt/restauration et permissions | P | CI #618 : paquet Chrome sur page HTTPS, permission réelle, OCR image réel, navigation entre chapitres, désactivation et restauration texte/images vérifiés. CI #628 : activation depuis le véritable popup Chrome et langues choisies vérifiées sans simuler les API de permissions. Première demande native sur site non autorisé encore à vérifier. |
 | G18 | Rôles propriétaires/admin et cadeaux contrôlés côté serveur | V | Tests HTTP, rôle revérifié, expiration, rejeu, transaction PostgreSQL et journal durable. Activation du propriétaire réel distincte. |
 | G19 | Console admin utilisable : recherche exacte, confirmation, motif et mobile | V | Parcours web annulation/confirmation et écran étroit ; API simulée pour ce parcours, tests serveur séparés. |
-| G20 | Paiement, renouvellement, annulation, remboursement et droits de bout en bout | P | CI #642 : produits/états reconnus exigés, détails Stripe manquants récupérés côté serveur, panne réessayable et réponses bornées. CI #646 : reçus durables et rejeu atomique vérifiés sur PostgreSQL. CI #652 : ordre d’événements distincts d’un même abonnement vérifié. CI #771 : agrégation multi-abonnements vérifiée avec persistance PostgreSQL et événements simultanés. CI #775 : remboursements intégraux Stripe Lifetime vérifiés en HTTP simulé et PostgreSQL réel isolé. CI #779 : remboursement intégral Paddle Lifetime vérifié. CI #783 : réconciliation des dates égales Stripe/Paddle, reprise après panne et concurrence vérifiées. CI #787 : cumul borné des remboursements partiels Paddle vérifié. Contestations et cycle déployé restent ouverts ; cas dépassant les bornes de lecture à réconcilier par un opérateur. |
+| G20 | Paiement, renouvellement, annulation, remboursement et droits de bout en bout | P | CI #642 : produits/états reconnus exigés, détails Stripe manquants récupérés côté serveur, panne réessayable et réponses bornées. CI #646 : reçus durables et rejeu atomique vérifiés sur PostgreSQL. CI #652 : ordre d’événements distincts d’un même abonnement vérifié. CI #771 : agrégation multi-abonnements vérifiée avec persistance PostgreSQL et événements simultanés. CI #775 : remboursements intégraux Stripe Lifetime vérifiés en HTTP simulé et PostgreSQL réel isolé. CI #779 : remboursement intégral Paddle Lifetime vérifié. CI #783 : réconciliation des dates égales Stripe/Paddle, reprise après panne et concurrence vérifiées. CI #787 : cumul borné des remboursements partiels Paddle vérifié. 15 novembre : signatures multiples Stripe/Paddle, contrôle strict de date/corps brut et refus des produits tronqués vérifiés en HTTP ; 824 tests réussis. Contestations et cycle déployé restent ouverts ; cas dépassant les bornes de lecture à réconcilier par un opérateur. |
 | G21 | Prix et avantages cohérents, coûts bornés et marge mesurée | P | Recherche tarifaire réalisée ; droits gratuits/Pro à réconcilier, frais réels et consommation à instrumenter avant engagement commercial. |
 | G22 | Guide de prise en main accessible depuis accueil et réglages | V | Guide illustré FR/EN et parcours web navigation/mobile. Il est étiqueté comme exemple ; aucune fausse vidéo de démonstration. |
 | G23 | Déploiement robuste, conformité, sauvegarde restaurable et charge prolongée | P | Sonde CI PostgreSQL réussie ; ce n’est pas une capacité de production. Informations exploitant, droits sources/images, sauvegarde/restore, endurance et coûts réels restent ouverts. |
