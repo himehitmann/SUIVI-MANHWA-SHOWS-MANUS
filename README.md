@@ -97,17 +97,18 @@ encrypted, and decoupled from the core so the product keeps working offline.
 
 ## Monetization
 
-Free forever for local use. Optional **Pro** ($2.99/mo or $24.99/yr) adds
-encrypted cross-device sync and update alerts; a **$49 Lifetime** option fits the
-extension-buyer model. The full competitor survey and cost/margin analysis is in
-[`docs/PRICING.md`](docs/PRICING.md).
-
+The planned public offers are **Pro USD 3.49/month** and **Pro USD 29.99/year**,
+with the same features and no free trial. The shared catalogue, availability
+checks and remaining release requirements are documented in
+[docs/PAID-OFFERS.md](docs/PAID-OFFERS.md). Sales remain closed until real payment
+products, deployed account access and recovery have been verified. Legacy
+Lifetime rights are preserved, but Lifetime is not currently offered for sale.
 ## Docs
 
 - [INSTALL.md](INSTALL.md) — install the extension + where data is stored.
 - [docs/UPDATING.md](docs/UPDATING.md) — ship updates without losing user data or subscriptions.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — detection pipeline, storage, sync interface, permissions.
-- [docs/PRICING.md](docs/PRICING.md) — competitor survey, cost model, tiers.
+- [docs/PAID-OFFERS.md](docs/PAID-OFFERS.md) — paid offers, checkout controls and launch requirements.
 - [docs/BACKEND.md](docs/BACKEND.md) — optional sync + auth backend (deploy + env).
 - [docs/QA.md](docs/QA.md) — verification record and how to reproduce it.
 
