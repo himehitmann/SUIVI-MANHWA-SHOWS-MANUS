@@ -1,6 +1,8 @@
 import {chromium} from "playwright";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import path from "node:path";
+import {pathToFileURL} from "node:url";
 const browser=await chromium.launch({channel:"chromium",headless:true});
 try{
  const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
@@ -34,6 +36,42 @@ try{
  assert.equal(await page.getByRole("button").count(),0);
  await fs.mkdir("test-results",{recursive:true});
  await page.screenshot({path:"test-results/billing-portal-unconfigured-fr.png",fullPage:true});
+
+ // Load the real extension options document with a transport fixture.
+ const options=await browser.newPage();options.on("pageerror",error=>errors.push(error.message));
+ await options.addInitScript(url=>{
+  window.portalRequests=0;
+  window.accountStatus={configured:true,provider:"http",apiUrl:"https://sync.example.test/api",email:"a@example.test",lang:"fr",plan:"free",state:"pending",meta:{}};
+  globalThis.chrome={
+   runtime:{sendMessage(message,reply){
+    if(message.type==="SYNC_STATUS"){queueMicrotask(()=>reply(window.accountStatus));return;}
+    if(message.type==="SYNC_BILLING_PORTAL"){
+     window.portalRequests++;
+     if(window.portalRequests===1)window.finishPortal=()=>reply({ok:true,url});
+     else queueMicrotask(()=>reply({ok:true,url}));
+     return;
+    }
+    queueMicrotask(()=>reply({ok:false,error:"unexpected_test_message"}));
+   }},
+   storage:{onChanged:{addListener(listener){window.notifyStorage=listener;}}}
+  };
+ },url);
+ await options.goto(pathToFileURL(path.resolve("options.html")).href);
+ await options.waitForFunction(()=>window.portalRequests===1);
+ await options.evaluate(()=>{
+  for(let i=0;i<6;i++)window.notifyStorage({"dasi.items":{newValue:[]}},"local");
+ });
+ await options.waitForFunction(()=>document.getElementById("who").textContent==="a@example.test");
+ await options.evaluate(()=>window.finishPortal());
+ const optionsLink=options.getByRole("link",{name:"Gérer ou résilier l’abonnement",exact:true});
+ await optionsLink.waitFor();assert.equal(await options.evaluate(()=>window.portalRequests),1);
+ await options.evaluate(()=>{window.accountStatus={...window.accountStatus,email:"b@example.test"};window.notifyStorage({"dasi.sync.config":{}},"local");});
+ await options.waitForFunction(()=>document.getElementById("who").textContent==="b@example.test");
+ await optionsLink.waitFor();assert.equal(await options.evaluate(()=>window.portalRequests),2);
+ await options.evaluate(()=>{window.accountStatus={...window.accountStatus,configured:false};window.notifyStorage({"dasi.sync.config":{}},"local");});
+ await options.locator("#signed-out").waitFor({state:"visible"});
+ assert.equal(await optionsLink.count(),0);
+ assert.equal(await options.evaluate(()=>window.portalRequests),2);
  assert.deepEqual(errors,[]);
  console.log("PASS: extension billing UI retries safely, rejects unsafe links, ignores stale renders and fits a mobile viewport; no Stripe request made");
 }finally{await browser.close();}

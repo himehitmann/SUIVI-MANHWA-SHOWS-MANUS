@@ -71,10 +71,10 @@ function backupLabel(s, lang=s.lang) {
 }
 
 let guestPreview=null, guestBusy=false, guestLang="en";
-let renderVersion=0;
+let renderVersion=0,billingKey="",clearBilling=()=>{};
+function resetBilling(){clearBilling();billingKey="";clearBilling=()=>{};}
 async function render() {
   const version=++renderVersion;
-  $("billing-management").replaceChildren();
   const s = await send({ type: "SYNC_STATUS" });
   if(version!==renderVersion)return;
   if(s.ok===false){showMsg($("signed-in").classList.contains("hidden")?$("msg-out"):$("msg-in"),errorText(s.error),"err");return;}
@@ -89,15 +89,20 @@ async function render() {
     $("signed-out").classList.add("hidden");
     $("signed-in").classList.remove("hidden");
     $("who").textContent = s.email || "Signed in";
-    const portal=$("billing-management"),copy=YomuBilling.billingPortalCopy(guestLang);
-    portal.setAttribute("aria-label",copy.title);
-    YomuBilling.mountBillingPortal(portal,guestLang,()=>send({type:"SYNC_BILLING_PORTAL"}),()=>version===renderVersion);
+    const key=JSON.stringify([s.provider,s.projectId,s.apiUrl,s.email,guestLang]);
+    if(key!==billingKey){
+      resetBilling();billingKey=key;
+      const portal=$("billing-management"),copy=YomuBilling.billingPortalCopy(guestLang);
+      portal.setAttribute("aria-label",copy.title);
+      clearBilling=YomuBilling.mountBillingPortal(portal,guestLang,()=>send({type:"SYNC_BILLING_PORTAL"}),()=>billingKey===key);
+    }
     $("plan").textContent = (s.plan || "free").toUpperCase();
     $("endpoint").textContent = s.provider==="firebase" ? "Firebase — "+s.projectId : (s.apiUrl || "").replace(/^https?:\/\//, "");
     $("lastsync").textContent = backupLabel(s) + (s.meta?.lastSyncAt ? " — " + fmtTime(s.meta.lastSyncAt) : "");
     if (s.meta && s.meta.lastError) showMsg($("msg-in"), errorText(s.meta.lastError), "err");
     else showMsg($("msg-in"),backupLabel(s),s.state==="saved"?"ok":"");
   } else {
+    resetBilling();
     $("signed-in").classList.add("hidden");
     $("signed-out").classList.remove("hidden");
     // Prefill last-used backend URL for convenience.
@@ -133,7 +138,11 @@ async function authenticate(type) {
 
 document.addEventListener("DOMContentLoaded", () => {
   render();
-  api.storage.onChanged.addListener((_changes,area)=>{if(area==="local")render();});
+  api.storage.onChanged.addListener((changes,area)=>{
+    if(area!=="local")return;
+    if(Object.hasOwn(changes,"dasi.sync.config"))resetBilling();
+    void render();
+  });
 
   $("guest-preview").addEventListener("click",async()=>{
     if(guestBusy)return;
