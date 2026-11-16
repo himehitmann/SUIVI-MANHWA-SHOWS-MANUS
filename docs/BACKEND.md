@@ -15,7 +15,11 @@ dependencies** — passwords use Node `scrypt`, sessions are HMAC-signed tokens,
 and storage is behind a `Store` interface.
 
 Endpoints: `POST /api/auth/signup`, `POST /api/auth/login`, `GET /api/me`,
-`GET /api/license`, `GET /api/sync`, `PUT /api/sync`.
+`GET /api/license`, `GET /api/sync`, `PUT /api/sync`, `GET /api/billing/portal`.
+
+Billing management uses a configured Stripe portal login link, including after
+subscription expiry. See [BILLING-PORTAL.md](BILLING-PORTAL.md) for activation,
+email verification, cancellation settings and account-deletion limitations.
 
 ## Run it
 

@@ -42,8 +42,11 @@ An uninstall cannot be recovered from a local copy alone.
 These prices are not proof that the payment provider has matching active products.
 Before opening sales, verify the actual checkout currency, amounts, cadence,
 tax presentation, receipts, cancellation and entitlement delivery in a deployed
-test environment. Existing billing-period changes need a customer-management flow;
-this page deliberately does not sell a second subscription to an active account.
+test environment. [Billing management](BILLING-PORTAL.md) is available through a
+configured Stripe portal login link in Settings, Pricing and the extension.
+Actual cancellation and plan-change operations depend on the seller’s Stripe
+portal settings; no real seller portal has been activated by this change.
+The pricing page does not sell a second subscription to an active account.
 
 The managed HTTP synchronization server now defaults to paid writes in production,
 while preserving backup retrieval after expiry; see [COMMERCIAL-ACCESS.md](COMMERCIAL-ACCESS.md).

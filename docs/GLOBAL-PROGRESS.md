@@ -1,12 +1,28 @@
 # Suivi global Yomu
 
-Mise à jour : 15 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 16 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Gestion et résiliation de l’abonnement — 16 novembre 2026
+
+Code : fb37db202500306a50cdb0721295ab4eac17bef5. Extension **0.4.31**.
+
+Un accès à la facturation Stripe est intégré aux réglages du site, à la page des offres, aux options de l’extension et au panneau de compte de la bibliothèque. L’accès reste possible avec un abonnement expiré ; il n’accorde aucun droit Pro. Stripe vérifie séparément l’adresse utilisée lors du paiement. Le compte Yomu et le compte de paiement peuvent avoir des adresses différentes.
+
+Le serveur expose `GET /api/billing/portal`, authentifié et limité à 30 lectures par minute par compte. Seul un lien générique `https://billing.stripe.com/p/login/…` configuré côté serveur est accepté. Les liens de session client, autres hôtes, paramètres, fragments, identifiants dans l’URL et chemins transformés sont refusés par le serveur et les deux clients. Aucun jeton Yomu, e-mail ni identifiant client Stripe n’est ajouté au lien. Aucun paiement ou changement d’abonnement n’est exécuté par ce endpoint.
+
+Configuration absente : message explicite sans faux bouton utilisable. Panne temporaire : nouvelle tentative possible. Les réponses d’un ancien compte ou rendu sont ignorées. Les mises à jour ordinaires du stockage de l’extension ne redemandent plus le lien ; un changement de compte le recharge. Les textes couvrent les huit langues de l’extension. La suppression du compte indique qu’elle ne résilie pas un abonnement externe.
+
+**Preuves :** [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/43901903006) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/43901918646). **935 tests unitaires réussis, dont 46 nouveaux.** Les quatre jobs de chaque exécution réussissent : verify, capacity, recovery et firebase-recovery. Compilation, vérification TypeScript, audit des dépendances sans vulnérabilité connue signalée, tests navigateur web personnel/commercial, contrôles du paquet Chrome, charge et restaurations isolées réussis. Mise à jour Chromium **0.3.1 → 0.4.31** : compte, progression, listes et profil conservés. Les tests du nouveau parcours vérifient les liens, l’authentification, les comptes expirés/propriétaires, la limitation des appels, les réponses tardives, les erreurs et la reprise. Le document réel des options de l’extension est chargé dans Chromium avec un transport simulé : absence d’appels supplémentaires après modification de bibliothèque, rechargement au changement de compte et retrait du lien après déconnexion. Aucun portail Stripe réel n’est contacté par ces tests.
+
+**Limites :** aucun portail vendeur réel n’a été activé ni paiement réalisé. Les opérations effectivement proposées (factures, carte, résiliation, changement de formule) dépendent des réglages Stripe. Le cycle déployé paiement–résiliation–webhook–droits reste à valider. Le fournisseur personnel Firebase n’est pas relié à cette facturation ; le portail Paddle reste à traiter avant toute promesse de gestion multi-fournisseurs. Ce lot fait avancer **G20**, qui reste partiel : **21/60 = 35 %**.
+
+Configuration et limites : [BILLING-PORTAL.md](BILLING-PORTAL.md).
 
 ## Accès commercial à la synchronisation et récupération préservée — 15 novembre 2026
 
