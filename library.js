@@ -2998,7 +2998,12 @@ function renderAccountPanel() {
       <div class="row"><div class="grow"><b>${esc(s.email || "")}</b><small>${t("signedInAs")} — ${esc(s.plan || "free")}</small><small role="status" id="account-backup-state">${esc(backupLabel(s,settings.lang))}</small></div><button class="btn" id="acc-manage">${t("manageSync")}</button></div>
       <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changeEmail")}</b></div><input class="field" id="acc-email" type="email" placeholder="new@email.com" style="max-width:200px" /><input class="field" id="acc-email-current" type="password" autocomplete="current-password" placeholder="${t("currentPassword")}" style="max-width:150px" /><button class="btn" id="acc-email-btn">${t("save")}</button></div>
       <div class="row" style="flex-wrap:wrap;gap:8px"><div class="grow"><b>${t("changePassword")}</b></div><input class="field" id="acc-pw-cur" type="password" placeholder="${t("currentPassword")}" style="max-width:150px" /><input class="field" id="acc-pw-new" type="password" placeholder="${t("newPassword")}" style="max-width:150px" /><button class="btn" id="acc-pw-btn">${t("save")}</button></div>
+      <section id="account-billing" style="margin:20px 0;overflow-wrap:anywhere"></section>
+      <p>${esc(YomuBilling.billingPortalCopy(settings.lang).deletion)}</p>
       <div class="row"><button class="btn" id="acc-logout-all">${settings.lang==='fr'?'Déconnecter tous les appareils':'Sign out all devices'}</button><button class="btn" id="acc-delete">${settings.lang==='fr'?'Supprimer mon compte':'Delete my account'}</button></div>`;
+    const billing=document.getElementById("account-billing");
+    billing.setAttribute("aria-label",YomuBilling.billingPortalCopy(settings.lang).title);
+    YomuBilling.mountBillingPortal(billing,settings.lang,()=>new Promise(resolve=>requestMetadata({type:"SYNC_BILLING_PORTAL"},resolve,20000)),()=>!accountChanging);
     document.getElementById('acc-logout-all').onclick=()=>sendLibraryMessage({type:'SYNC_LOGOUT_ALL'},r=>{if(r?.ok){sendLibraryMessage({type:'GET_STATE'},hydrate);renderAccountPanel();}else toast(r?.error||'Try again');});
     document.getElementById('acc-delete').onclick=()=>{
       const current=document.getElementById('acc-pw-cur').value;

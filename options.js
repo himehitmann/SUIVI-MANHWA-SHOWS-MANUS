@@ -74,6 +74,7 @@ let guestPreview=null, guestBusy=false, guestLang="en";
 let renderVersion=0;
 async function render() {
   const version=++renderVersion;
+  $("billing-management").replaceChildren();
   const s = await send({ type: "SYNC_STATUS" });
   if(version!==renderVersion)return;
   if(s.ok===false){showMsg($("signed-in").classList.contains("hidden")?$("msg-out"):$("msg-in"),errorText(s.error),"err");return;}
@@ -88,6 +89,9 @@ async function render() {
     $("signed-out").classList.add("hidden");
     $("signed-in").classList.remove("hidden");
     $("who").textContent = s.email || "Signed in";
+    const portal=$("billing-management"),copy=YomuBilling.billingPortalCopy(guestLang);
+    portal.setAttribute("aria-label",copy.title);
+    YomuBilling.mountBillingPortal(portal,guestLang,()=>send({type:"SYNC_BILLING_PORTAL"}),()=>version===renderVersion);
     $("plan").textContent = (s.plan || "free").toUpperCase();
     $("endpoint").textContent = s.provider==="firebase" ? "Firebase — "+s.projectId : (s.apiUrl || "").replace(/^https?:\/\//, "");
     $("lastsync").textContent = backupLabel(s) + (s.meta?.lastSyncAt ? " — " + fmtTime(s.meta.lastSyncAt) : "");

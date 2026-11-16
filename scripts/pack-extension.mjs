@@ -8,6 +8,7 @@ const required = [
   "background.js",
   "sync-core.js",
   "pricing-catalog.js",
+  "billing-portal.js",
   "content.js",
   "edition.js",
   "translate.js",

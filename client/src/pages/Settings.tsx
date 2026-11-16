@@ -18,6 +18,8 @@ import { useStore } from "@/store/StoreContext";
 import { UNLOCK_ALL } from "@/lib/edition";
 import { syncProvider, currentAccountScope } from "@/lib/sync";
 import {ProfileEditor} from "@/components/ProfileEditor";
+import {billingPortalCopy} from "@shared/billing-portal";
+import {BillingManagement} from "@/components/BillingManagement";
 import {LibraryImport} from "@/components/LibraryImport";
 
 export default function Settings() {
@@ -258,6 +260,7 @@ export default function Settings() {
                   >
                     {fr ? "Supprimer mon compte" : "Delete my account"}
                   </button>
+                  <small>{billingPortalCopy(lang).deletion}</small>
                 </div>
               </>
             ) : (
@@ -334,6 +337,7 @@ export default function Settings() {
             <Link href="/pricing" className="heart-button center">
               {t("settings.managePlan")}
             </Link>
+            <BillingManagement session={session} lang={lang} />
           </section>
 
           <section className="settings-card">

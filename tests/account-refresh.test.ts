@@ -66,3 +66,40 @@ describe("fresh account rights before checkout",()=>{
   expect(request).not.toHaveBeenCalled();
  });
 });
+
+describe("billing access from the web account",()=>{
+ const url="https://billing.stripe.com/p/login/test_4gw6oJchs69w47e7ss";
+ it("requests a safe link without appending account data",async()=>{
+  const {provider,request}=await signedIn();request.mockResolvedValueOnce(Response.json({url}));
+  expect(await provider.billingPortal()).toBe(url);
+  const [endpoint,init]=request.mock.calls[1];
+  expect(endpoint).toBe(base+"/billing/portal");expect(init.headers.Authorization).toBe("Bearer test-token");
+  expect(init.redirect).toBe("error");expect(init.credentials).toBe("omit");
+  expect(init.signal).toBeInstanceOf(AbortSignal);
+ });
+ it.each([404,503])("reports unconfigured or legacy services without a broken link (%s)",async status=>{
+  const {provider,request}=await signedIn();request.mockResolvedValueOnce(Response.json({error:"billing_portal_unavailable"},{status}));
+  expect(await provider.billingPortal()).toBeNull();
+ });
+ it.each([{url:"https://evil.test"},{url:"https://billing.stripe.com/p/session/private"},{url:url+"?email=reader@example.test"},{}])("rejects an unsafe backend reply %j",async reply=>{
+  const {provider,request}=await signedIn();request.mockResolvedValueOnce(Response.json(reply));
+  await expect(provider.billingPortal()).rejects.toThrow("billing_portal_failed");
+ });
+ it("supports retry after an outage",async()=>{
+  const {provider,request}=await signedIn();request.mockResolvedValueOnce(Response.json({},{status:503}));
+  await expect(provider.billingPortal()).rejects.toThrow("billing_portal_failed");
+  request.mockResolvedValueOnce(Response.json({url}));expect(await provider.billingPortal()).toBe(url);
+ });
+ it("discards late billing access after an account change",async()=>{
+  const {provider,request}=await signedIn();let finish!:(value:Response)=>void;
+  request.mockImplementationOnce(()=>new Promise<Response>(resolve=>{finish=resolve;}));
+  const pending=provider.billingPortal();const rejected=expect(pending).rejects.toThrow("account_changed");
+  request.mockResolvedValueOnce(Response.json({token:"second-token",user:{...original,id:"user2"}}));
+  await provider.signIn(original.email,"test-password");finish(Response.json({url}));await rejected;
+ });
+ it("does not contact billing when signed out",async()=>{
+  const request=vi.fn();vi.stubGlobal("fetch",request);
+  await expect(createHttpProvider(base).billingPortal()).rejects.toThrow("unauthorized");
+  expect(request).not.toHaveBeenCalled();
+ });
+});

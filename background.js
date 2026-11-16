@@ -1,4 +1,4 @@
-importScripts("sync-core.js", "auto-translation.js", "import-position.js", "import-parse.js");
+importScripts("billing-portal.js", "sync-core.js", "auto-translation.js", "import-position.js", "import-parse.js");
 async function fetchRemote(input, init = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -2854,6 +2854,21 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     case "SYNC_IMPORT_GUEST":
       mutateAndReply(()=>importGuestTransfer(message.token),sendResponse);
+      return true;
+    case "SYNC_BILLING_PORTAL":
+      (async () => {
+        const epoch=accountEpoch,cfg=await getSyncConfig();
+        if (!cfg?.token) throw Error("not_signed_in");
+        if (cfg.provider==="firebase") throw Error("billing_portal_unavailable");
+        const response=await apiCall(cfg,"/billing/portal"),body=await response.json().catch(()=>null);
+        const current=await getSyncConfig();
+        if (epoch!==accountEpoch || current?.token!==cfg.token || scopeOf(current)!==scopeOf(cfg)) throw Error("account_changed");
+        if (response.status===404 || (response.status===503 && body?.error==="billing_portal_unavailable")) throw Error("billing_portal_unavailable");
+        if (!response.ok) throw Error("billing_portal_failed");
+        const url=YomuBilling.stripePortalLoginUrl(body?.url);
+        if (!url) throw Error("billing_portal_failed");
+        return {ok:true,url};
+      })().then(sendResponse,error=>sendResponse({ok:false,error:String(error.message)}));
       return true;
     case "SYNC_STATUS":
       serializeLibrary(syncStatusUnlocked).then(sendResponse).catch(()=>sendResponse({configured:false,state:'error',meta:{lastError:'status_unavailable'}}));

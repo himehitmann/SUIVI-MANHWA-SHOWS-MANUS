@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { Check } from "lucide-react";
+import { BillingManagement } from "@/components/BillingManagement";
 import { AppHeader } from "@/components/AppHeader";
 import { useI18n } from "@/i18n/I18nContext";
 import { UNLOCK_ALL } from "@/lib/edition";
@@ -72,6 +73,7 @@ export default function Pricing() {
         <ul>{copy.features.map(feature=><li key={feature}><Check size={18} aria-hidden="true"/><span>{feature}</span></li>)}</ul>
         <p>{copy.limits}</p>
       </section>
+      <BillingManagement session={syncProvider.getSession()} lang={lang} />
       <nav className="pricing-actions" aria-label={copy.settings}>
         <button className="heart-button" onClick={()=>navigate("/settings")}>{copy.settings}</button>
         <button className="heart-button" onClick={()=>navigate("/collections")}>{copy.library}</button>

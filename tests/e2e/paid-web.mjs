@@ -7,9 +7,10 @@ import os from "node:os";
 import path from "node:path";
 import assert from "node:assert/strict";
 const probe=createServer();await new Promise(r=>probe.listen(0,"127.0.0.1",r));const port=probe.address().port;await new Promise(r=>probe.close(r));
+const portalUrl="https://billing.stripe.com/p/login/test_4gw6oJchs69w47e7ss";
 const temp=await fs.mkdtemp(path.join(os.tmpdir(),"yomu-paid-web-")),base="http://127.0.0.1:"+port;
 // No personal-mode opt-out: verify the actual production default.
-const server=spawn(process.execPath,["dist/index.js"],{env:{...process.env,NODE_ENV:"production",YOMU_ACCESS_MODE:"",YOMU_OWNER_IDS:"",DATABASE_URL:"",PORT:String(port),SYNC_JWT_SECRET:randomBytes(32).toString("hex"),SYNC_DB_FILE:path.join(temp,"accounts.json"),FORCE_HTTPS:"false"},stdio:["ignore","pipe","pipe"],windowsHide:true});
+const server=spawn(process.execPath,["dist/index.js"],{env:{...process.env,NODE_ENV:"production",YOMU_ACCESS_MODE:"",STRIPE_PORTAL_LOGIN_URL:portalUrl,YOMU_OWNER_IDS:"",DATABASE_URL:"",PORT:String(port),SYNC_JWT_SECRET:randomBytes(32).toString("hex"),SYNC_DB_FILE:path.join(temp,"accounts.json"),FORCE_HTTPS:"false"},stdio:["ignore","pipe","pipe"],windowsHide:true});
 let log="",browser;server.stdout.on("data",d=>log+=d);server.stderr.on("data",d=>log+=d);
 try{
  for(let i=0;i<100;i++){if(await fetch(base+"/healthz").then(r=>r.ok).catch(()=>false))break;if(i===99)throw Error("Server unavailable: "+log);await new Promise(r=>setTimeout(r,100));}
@@ -23,6 +24,21 @@ try{
  await page.getByRole("button",{name:"Create account",exact:true}).click();
  await page.getByRole("button",{name:"Sign out",exact:true}).waitFor();
  await page.getByRole("status").filter({hasText:"Saving new changes online requires active Pro access"}).waitFor();
+
+ const billingLink=page.getByRole("link",{name:"Manage billing or cancel",exact:true});
+ await billingLink.waitFor();assert.equal(await billingLink.getAttribute("href"),portalUrl);
+ assert.equal(await billingLink.getAttribute("target"),"_blank");
+ assert.equal(await billingLink.getAttribute("rel"),"noopener noreferrer");
+ await page.route("**/api/billing/portal",route=>route.fulfill({status:503,json:{error:"unavailable"}}));
+ await page.reload();await page.getByRole("status").filter({hasText:"Billing management could not be loaded"}).waitFor();
+ assert.equal(await billingLink.count(),0);
+ await page.unroute("**/api/billing/portal");
+ await page.getByRole("button",{name:"Try again",exact:true}).click();await billingLink.waitFor();
+ await page.route("**/api/billing/portal",route=>route.fulfill({status:503,json:{error:"billing_portal_unavailable"}}));
+ await page.reload();await page.getByRole("status").filter({hasText:"Billing management is not configured"}).waitFor();
+ assert.equal(await billingLink.count(),0);
+ await page.unroute("**/api/billing/portal");await page.reload();await billingLink.waitFor();
+
  const session=await page.evaluate(()=>({token:localStorage.getItem("dasi.sync.token:"+encodeURIComponent("/api")),session:JSON.parse(localStorage.getItem("dasi.sync.session:"+encodeURIComponent("/api")))}));
  assert(session.token);assert.equal(session.session.syncAccess,"read_only");
  const me=await(await fetch(base+"/api/me",{headers:{Authorization:"Bearer "+session.token}})).json();
@@ -56,12 +72,14 @@ try{
  assert.equal(exported.items.find(item=>item.id==="retained").chapter,12.5);
  await page.getByRole("link",{name:"View plans",exact:true}).click();await page.waitForURL(base+"/pricing");
  await page.getByRole("status").filter({hasText:"Sales are not open"}).waitFor();
+ await billingLink.waitFor();assert.equal(await billingLink.getAttribute("href"),portalUrl);
  await page.goto(base+"/settings");await page.evaluate(()=>localStorage.setItem("dasi.language","fr"));await page.reload();
  await page.getByRole("status").filter({hasText:"La sauvegarde de nouvelles modifications"}).waitFor();
+ await page.getByRole("link",{name:"Gérer ou résilier l’abonnement",exact:true}).waitFor();
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await fs.mkdir("test-results",{recursive:true});await page.screenshot({path:"test-results/paid-sync-fr-mobile.png",fullPage:true});
  assert.deepEqual(errors,[]);
- console.log("PASS: production default denies unpaid sync writes, retains login and local edits, survives backup outage, permits export and offers navigation");
+ console.log("PASS: production default denies unpaid sync writes, retains login and local edits, survives backup outage, permits export, offers navigation and billing access with failure recovery");
 }finally{
  if(browser)await browser.close();server.kill();
  await new Promise(r=>server.exitCode!==null?r():server.once("exit",r));

@@ -1,3 +1,4 @@
+import {stripePortalLoginUrl} from "../shared/billing-portal";
 import {accessMode,canWriteSync,type AccessMode} from "./lib/commercial-access";
 import {resolveStripeDispute,readCurrentStripeLifetime} from "./lib/stripe-dispute";
 import {readCurrentSubscription} from "./lib/billing-reconcile";
@@ -487,6 +488,17 @@ export function createApiRouter(
       return res.json({ user: await accountView(user) });
     })
   );
+
+  // Read-only entry point: Stripe authenticates the payer separately.
+  // Expired subscribers must still be able to manage their payments.
+  router.get("/billing/portal", asyncRoute(async (req: Request, res: Response) => {
+    const session = await auth(req);
+    if (!session || !await store.getUserById(session.id)) return res.status(401).json({error:"unauthorized"});
+    if (rateLimited(req,res,30,60000,"billing-portal:"+session.id)) return;
+    const url = stripePortalLoginUrl(process.env.STRIPE_PORTAL_LOGIN_URL);
+    if (!url) return res.status(503).json({error:"billing_portal_unavailable"});
+    return res.json({url});
+  }));
 
   // License/subscription status — decoupled from extension version; a real
   // deployment sets user.plan from the payment provider webhook (Paddle/Stripe).

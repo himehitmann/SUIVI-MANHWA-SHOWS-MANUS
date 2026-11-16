@@ -8,6 +8,7 @@
  * the app keeps working entirely on local data — sync can never be a single
  * point of failure.
  */
+import {stripePortalLoginUrl} from "@shared/billing-portal";
 import type { DasiState } from "./types";
 
 export interface SyncSession {
@@ -26,6 +27,7 @@ export interface SyncProvider {
   isConfigured(): boolean;
   getSession(): SyncSession | null;
   refreshSession(): Promise<SyncSession>;
+  billingPortal(): Promise<string | null>;
   signUp(email: string, password: string): Promise<SyncSession>;
   signIn(email: string, password: string): Promise<SyncSession>;
   signOut(): Promise<void>;
@@ -47,6 +49,7 @@ export function createLocalProvider(): SyncProvider {
     isConfigured: () => false,
     getSession: () => null,
     refreshSession: notAvailable,
+    async billingPortal() { return null; },
     accountAction: notAvailable,
     adminRequest: notAvailable,
     signUp: notAvailable,
@@ -138,6 +141,18 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
     id: "http",
     isConfigured: () => true,
     getSession: () => session,
+    async billingPortal() {
+      if (!token || !session) throw new Error("unauthorized");
+      const requestToken=token,requestUser=session.userId;
+      const response=await authFetch("/billing/portal");
+      const data=await response.json().catch(()=>null);
+      if (token!==requestToken || session?.userId!==requestUser) throw new Error("account_changed");
+      if (response.status===404 || (response.status===503 && data?.error==="billing_portal_unavailable")) return null;
+      if (!response.ok) throw new Error("billing_portal_failed");
+      const url=stripePortalLoginUrl(data?.url);
+      if (!url) throw new Error("billing_portal_failed");
+      return url;
+    },
     async refreshSession() {
       if (!token || !session) throw new Error("unauthorized");
       const requestToken=token,requestUser=session.userId;

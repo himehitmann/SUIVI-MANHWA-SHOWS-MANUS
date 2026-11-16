@@ -21,7 +21,7 @@ function worker(seed: Record<string, any> = {}, syncSeed:Record<string,any>={}) 
     console,
     crypto:globalThis.crypto,
     importScripts:(...names:string[])=>{
-      for(const name of names.filter(name=>name==="sync-core.js"||name==="import-position.js"||name==="import-parse.js"))
+      for(const name of names.filter(name=>name==="billing-portal.js"||name==="sync-core.js"||name==="import-position.js"||name==="import-parse.js"))
         vm.runInContext(readFileSync(new URL("../"+name,import.meta.url),"utf8"),ctx);
     },
     URL,
@@ -3494,5 +3494,45 @@ describe("commercial sync refusal preserves extension data",()=>{
    ?{ok:false,status:403,json:async()=>({error:"origin_not_allowed"})}
    :{ok:true,json:async()=>({blob:null})};
   expect(await w.call({type:"SYNC_NOW"})).toEqual({ok:false,error:"push_403"});
+ });
+});
+
+describe("extension billing management",()=>{
+ const url="https://billing.stripe.com/p/login/test_4gw6oJchs69w47e7ss";
+ const cfg={apiUrl:"https://sync.example.test/api",userId:"reader",token:"test-token",email:"reader@example.test"};
+ it("gets the safe portal link for an unpaid account without changing saved data",async()=>{
+  const w=worker({"dasi.sync.config":cfg,"dasi.items":[{id:"saved",chapter:12}]});const calls:any[]=[];
+  w.ctx.fetch=async(endpoint:any,options:any)=>{calls.push([endpoint,options]);return Response.json({url});};
+  expect(await w.call({type:"SYNC_BILLING_PORTAL",url:"https://evil.test",email:"other@example.test"})).toEqual({ok:true,url});
+  expect(calls[0][0]).toBe(cfg.apiUrl+"/billing/portal");
+  expect(calls[0][1].headers.Authorization).toBe("Bearer test-token");
+  expect(calls[0][1].redirect).toBe("error");
+  expect(w.data["dasi.items"]).toEqual([{id:"saved",chapter:12}]);
+ });
+ it("denies messages from web pages before any network request",async()=>{
+  const w=worker({"dasi.sync.config":cfg});let requests=0;w.ctx.fetch=async()=>{requests++;return Response.json({url});};
+  const response=await w.call({type:"SYNC_BILLING_PORTAL"},{id:"test",url:"https://reader.example",tab:{id:1}});
+  expect(response.ok).toBe(false);expect(requests).toBe(0);
+ });
+ it.each(["https://evil.test",url+"?email=other@example.test","https://billing.stripe.com/p/session/private"])("refuses unsafe response %s",async value=>{
+  const w=worker({"dasi.sync.config":cfg});w.ctx.fetch=async()=>Response.json({url:value});
+  expect(await w.call({type:"SYNC_BILLING_PORTAL"})).toEqual({ok:false,error:"billing_portal_failed"});
+ });
+ it.each([404,503])("reports unavailable billing on %s",async status=>{
+  const w=worker({"dasi.sync.config":cfg});w.ctx.fetch=async()=>Response.json({error:"billing_portal_unavailable"},{status});
+  expect(await w.call({type:"SYNC_BILLING_PORTAL"})).toEqual({ok:false,error:"billing_portal_unavailable"});
+ });
+ it("does not use a Firebase or signed-out account for Stripe billing",async()=>{
+  const a=worker(),b=worker({"dasi.sync.config":{...cfg,provider:"firebase"}});
+  expect(await a.call({type:"SYNC_BILLING_PORTAL"})).toEqual({ok:false,error:"not_signed_in"});
+  expect(await b.call({type:"SYNC_BILLING_PORTAL"})).toEqual({ok:false,error:"billing_portal_unavailable"});
+ });
+ it("discards a reply when the account changes during the request",async()=>{
+  const w=worker({"dasi.sync.config":cfg});let finish!:(value:Response)=>void,started!:()=>void;
+  const ready=new Promise<void>(resolve=>{started=resolve;});
+  w.ctx.fetch=()=>{started();return new Promise<Response>(resolve=>{finish=resolve;});};
+  const pending=w.call({type:"SYNC_BILLING_PORTAL"});await ready;
+  w.run("accountEpoch++");finish(Response.json({url}));
+  expect(await pending).toEqual({ok:false,error:"account_changed"});
  });
 });
