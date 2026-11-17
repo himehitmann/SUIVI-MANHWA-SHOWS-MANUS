@@ -6,6 +6,7 @@ const SearchPage=lazy(()=>import("@/pages/Search"));
 import Home from "@/pages/Home";
 const Collections=lazy(()=>import("@/pages/Collections"));
 const ListDetail=lazy(()=>import("@/pages/ListDetail"));
+const CheckoutReturn=lazy(()=>import("@/pages/CheckoutReturn"));
 const Pricing=lazy(()=>import("@/pages/Pricing"));
 const WorkDetail=lazy(()=>import("@/pages/WorkDetail"));
 const Admin=lazy(()=>import("@/pages/Admin"));
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/work/:id" component={WorkDetail} />
       <Route path="/collections" component={Collections} />
       <Route path="/list/:id" component={ListDetail} />
+      <Route path="/billing/return" component={CheckoutReturn} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/admin" component={Admin} />
       <Route path="/settings" component={Settings} />
