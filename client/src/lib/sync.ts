@@ -8,6 +8,8 @@
  * the app keeps working entirely on local data — sync can never be a single
  * point of failure.
  */
+import {checkoutSessionUrl} from "@shared/checkout-session";
+import type {OfferId} from "@shared/pricing";
 import {stripePortalLoginUrl} from "@shared/billing-portal";
 import type { DasiState } from "./types";
 
@@ -28,6 +30,9 @@ export interface SyncProvider {
   getSession(): SyncSession | null;
   refreshSession(): Promise<SyncSession>;
   billingPortal(): Promise<string | null>;
+  checkoutOffers(): Promise<OfferId[]>;
+  beginCheckout(offer:OfferId): Promise<string>;
+  expireCheckout(): Promise<void>;
   signUp(email: string, password: string): Promise<SyncSession>;
   signIn(email: string, password: string): Promise<SyncSession>;
   signOut(): Promise<void>;
@@ -50,6 +55,9 @@ export function createLocalProvider(): SyncProvider {
     getSession: () => null,
     refreshSession: notAvailable,
     async billingPortal() { return null; },
+    async checkoutOffers(){return [];},
+    beginCheckout:notAvailable,
+    expireCheckout:notAvailable,
     accountAction: notAvailable,
     adminRequest: notAvailable,
     signUp: notAvailable,
@@ -139,6 +147,33 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
 
   return {
     id: "http",
+    async checkoutOffers(){
+      const response=await authFetch("/billing/offers");
+      if(response.status===404)return [];
+      const data=await response.json();
+      if(!response.ok||!Array.isArray(data?.offers)||data.offers.some((v:unknown)=>v!=="month"&&v!=="year"))throw Error("checkout_unavailable");
+      return [...new Set(data.offers)] as OfferId[];
+    },
+    async beginCheckout(offer){
+      if(!token||!session)throw Error("unauthorized");
+      const requestToken=token,requestUser=session.userId;
+      const response=await authFetch("/billing/checkout",{method:"POST",body:JSON.stringify({offer})});
+      const data=await response.json().catch(()=>({}));
+      if(token!==requestToken||session?.userId!==requestUser)throw Error("account_changed");
+      if(!response.ok)throw Error(data.error||"checkout_unavailable");
+      const url=checkoutSessionUrl(data.url);
+      if(!url||data.offer!==offer)throw Error("checkout_unavailable");
+      return url;
+    },
+    async expireCheckout(){
+      if(!token||!session)throw Error("unauthorized");
+      const requestToken=token,requestUser=session.userId;
+      const response=await authFetch("/billing/checkout/expire",{method:"POST",body:"{}"});
+      const data=await response.json().catch(()=>({}));
+      if(token!==requestToken||session?.userId!==requestUser)throw Error("account_changed");
+      if(!response.ok||data.ok!==true)throw Error(data.error||"checkout_unavailable");
+    },
+
     isConfigured: () => true,
     getSession: () => session,
     async billingPortal() {

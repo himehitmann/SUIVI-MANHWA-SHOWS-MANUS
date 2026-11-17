@@ -1,4 +1,6 @@
 import express from "express";
+import {checkoutConfig,createManagedCheckout,type ManagedCheckout} from "./lib/managed-checkout";
+import {ensureCheckoutSchema,createPostgresCheckoutStore} from "./lib/checkout-store";
 import {accessMode} from "./lib/commercial-access";
 import {readFileSync} from "node:fs";
 import { createServer } from "http";
@@ -22,7 +24,7 @@ const __dirname = path.dirname(__filename);
  * dynamically via a non-literal specifier so it stays an optional dependency —
  * it is only required when DATABASE_URL is actually configured.
  */
-async function resolveStore(): Promise<{store:Store;access:AccessStore}> {
+async function resolveStore(): Promise<{store:Store;access:AccessStore;checkout?:ManagedCheckout}> {
   const url = process.env.DATABASE_URL;
   if (!url) {
     if(process.env.NODE_ENV==="production"&&process.env.YOMU_OWNER_IDS)throw new Error("Administrative accounts require DATABASE_URL for durable roles, gifts and audit history.");
@@ -53,8 +55,10 @@ async function resolveStore(): Promise<{store:Store;access:AccessStore}> {
   const store = createPostgresStore(pool);
   await ensureSchema(pool);
   await ensureAccessSchema(pool);
+  await ensureCheckoutSchema(pool);
   console.log("Using Postgres store");
-  return {store,access:createPostgresAccessStore(pool)};
+  const config=checkoutConfig();
+  return {store,access:createPostgresAccessStore(pool),...(config?{checkout:createManagedCheckout(createPostgresCheckoutStore(pool),config)}:{})};
 }
 
 async function startServer() {
@@ -104,7 +108,7 @@ async function startServer() {
 
   // Optional sync + auth API. Harmless when unused; the apps default to local.
   const services=await resolveStore();
-  app.use("/api", createApiRouter(services.store,services.access,undefined,mode));
+  app.use("/api", createApiRouter(services.store,services.access,undefined,mode,services.checkout));
 
   // Serve static files from dist/public in production
   const staticPath =

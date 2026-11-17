@@ -1,3 +1,4 @@
+import {CheckoutError,type ManagedCheckout} from "./lib/managed-checkout";
 import {bindStripeSubscription} from "./lib/stripe-subscription-account";
 import {stripePortalLoginUrl} from "../shared/billing-portal";
 import {accessMode,canWriteSync,type AccessMode} from "./lib/commercial-access";
@@ -126,7 +127,8 @@ export function createApiRouter(
   store: Store = createStore(process.env.SYNC_DB_FILE),
   access: AccessStore = createMemoryAccessStore(),
   owners: ReadonlySet<string> = new Set((process.env.YOMU_OWNER_IDS || "").split(",").map(s=>s.trim()).filter(Boolean)),
-  mode: AccessMode = accessMode()
+  mode: AccessMode = accessMode(),
+  checkout: ManagedCheckout | null = null
 ): Router {
   if(mode!=="paid"&&mode!=="personal")throw new Error("invalid_access_mode");
   const router = express.Router();
@@ -499,6 +501,35 @@ export function createApiRouter(
       return res.json({ user: await accountView(user) });
     })
   );
+
+  router.get("/billing/offers", (_req,res)=>res.json({offers:checkout?.offers()||[]}));
+  const checkoutFailure=(res:Response,error:unknown)=>{
+    const code=error instanceof CheckoutError?error.message:"checkout_unavailable";
+    return res.status(["checkout_pending","checkout_expired","checkout_review_required"].includes(code)?409:503).json({error:code});
+  };
+  router.post("/billing/checkout",asyncRoute(async(req,res)=>{
+    const session=await auth(req);
+    if(!session)return res.status(401).json({error:"unauthorized"});
+    if(rateLimited(req,res,10,60000,"checkout:"+session.id))return;
+    const body=z.object({offer:z.enum(["month","year"])}).strict().safeParse(req.body);
+    if(!body.success)return res.status(400).json({error:"invalid_checkout"});
+    const user=await store.getUserById(session.id);
+    if(!user)return res.status(401).json({error:"unauthorized"});
+    const rights=await accountView(user);
+    if(rights.plan!=="free"||rights.role!=="member")return res.status(409).json({error:"access_already_active"});
+    if(!checkout)return res.status(503).json({error:"checkout_unavailable"});
+    try{return res.json(await checkout.begin(user,body.data.offer));}
+    catch(error){return checkoutFailure(res,error);}
+  }));
+  router.post("/billing/checkout/expire",asyncRoute(async(req,res)=>{
+    const session=await auth(req);
+    if(!session)return res.status(401).json({error:"unauthorized"});
+    if(rateLimited(req,res,10,60000,"checkout-expire:"+session.id))return;
+    if(!z.object({}).strict().safeParse(req.body).success)return res.status(400).json({error:"invalid_checkout"});
+    if(!checkout)return res.json({ok:true,managed:false});
+    try{await checkout.expire(session.id);return res.json({ok:true,managed:true});}
+    catch(error){return checkoutFailure(res,error);}
+  }));
 
   // Read-only entry point: Stripe authenticates the payer separately.
   // Expired subscribers must still be able to manage their payments.

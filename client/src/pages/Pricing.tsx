@@ -5,7 +5,6 @@ import { BillingManagement } from "@/components/BillingManagement";
 import { AppHeader } from "@/components/AppHeader";
 import { useI18n } from "@/i18n/I18nContext";
 import { UNLOCK_ALL } from "@/lib/edition";
-import { checkoutBase, checkoutUrl } from "@/lib/checkout";
 import { syncProvider, currentAccountScope, type SyncSession } from "@/lib/sync";
 import {checkoutPending,rememberCheckout,forgetCheckout,hasProAccess,checkoutFollowupCopy} from "@/lib/checkout-followup";
 import { OFFERS, annualSaving, money, pricingCopy, type OfferId } from "@shared/pricing";
@@ -14,17 +13,20 @@ export default function Pricing() {
   const { lang } = useI18n();
   const [, navigate] = useLocation();
   const copy=pricingCopy(lang),followup=checkoutFollowupCopy(lang);
+  const [offers,setOffers]=useState<OfferId[]>([]);
   const [account,setAccount]=useState<SyncSession|null>(null);
   const [status,setStatus]=useState<"checking"|"ready"|"error">("checking");
   const busy=useRef(false),mounted=useRef(true);
   const covered=UNLOCK_ALL || hasProAccess(account);
   const pending=Boolean(account)&&checkoutPending(currentAccountScope());
-  const configured=OFFERS.some(offer=>Boolean(checkoutBase("pro",offer.id==="year")));
+  const configured=offers.length>0;
   const checkAccount=async()=>{
     if(busy.current)return;
     busy.current=true;setStatus("checking");
     try {
+      const available=await syncProvider.checkoutOffers();
       const next=syncProvider.getSession()?await syncProvider.refreshSession():null;
+      if(mounted.current)setOffers(available);
       if(mounted.current){if(hasProAccess(next))forgetCheckout(currentAccountScope());setAccount(next);setStatus("ready");}
     } catch {if(mounted.current){setAccount(null);setStatus("error");}}
     finally{busy.current=false;}
@@ -38,7 +40,7 @@ export default function Pricing() {
     return ()=>{mounted.current=false;window.removeEventListener("pageshow",recheck);window.removeEventListener("focus",recheck);document.removeEventListener("visibilitychange",recheck);};
   },[]);
   const subscribe=async(id:OfferId)=>{
-    if(busy.current || covered || !checkoutBase("pro",id==="year"))return;
+    if(busy.current || covered || !offers.includes(id))return;
     if(!syncProvider.getSession()){navigate("/settings");return;}
     if(checkoutPending(currentAccountScope())){navigate("/billing/return");return;}
     busy.current=true;setStatus("checking");
@@ -49,11 +51,18 @@ export default function Pricing() {
       if(!mounted.current)return;
       setAccount(fresh);
       if(hasProAccess(fresh)){forgetCheckout(currentAccountScope());setStatus("ready");return;}
-      const url=checkoutUrl("pro",id==="year",fresh);
-      if(!url)throw new Error("checkout_unavailable");
       rememberCheckout(currentAccountScope());
+      const url=await syncProvider.beginCheckout(id);
+      if(!mounted.current)return;
       window.location.assign(url);
-    } catch {if(mounted.current)setStatus("error");}
+    } catch(error){
+      if(!mounted.current)return;
+      const code=error instanceof Error?error.message:"";
+      if(code==="access_already_active"){forgetCheckout(currentAccountScope());navigate("/billing/return");return;}
+      if(code==="checkout_expired"){forgetCheckout(currentAccountScope());setStatus("error");return;}
+      if(code==="checkout_pending"){navigate("/billing/return");return;}
+      setStatus("error");
+    }
     finally {busy.current=false;}
   };
   return <div className="dasi-app">
@@ -61,7 +70,7 @@ export default function Pricing() {
     <main className="dasi-main paid-pricing">
       <header className="pricing-head"><h1>{copy.title}</h1><p>{copy.subtitle}</p></header>
       <div className="pricing-status" role={status==="error"?"alert":"status"} aria-live="polite">
-        {status==="checking"?copy.checking:status==="error"?copy.checkFailed:covered?copy.active:configured?copy.available:copy.unavailable}
+        {status==="checking"?copy.checking:status==="error"?(pending?followup.failed:copy.checkFailed):covered?copy.active:configured?copy.available:copy.unavailable}
         {status==="error"&&<button className="heart-button" onClick={()=>void checkAccount()}>{copy.retry}</button>}
       </div>
       {pending&&!covered&&<section aria-label={followup.review}>
@@ -74,8 +83,8 @@ export default function Pricing() {
           <div className="pricing-price"><strong>{money(offer.amount,lang)}</strong><span>{offer.id==="year"?copy.perYear:copy.perMonth}</span></div>
           <p>{offer.id==="year"?copy.yearlyCharge:copy.monthlyCharge}</p>
           <p className="pricing-saving">{offer.id==="year"?copy.saving.replace("{amount}",money(annualSaving(),lang)):""}</p>
-          <button className="primary-cta full" disabled={status!=="ready"||covered||pending||!checkoutBase("pro",offer.id==="year")} onClick={()=>void subscribe(offer.id)}>
-            {covered?copy.current:!checkoutBase("pro",offer.id==="year")?copy.closed:account?copy.subscribe:copy.signIn}
+          <button className="primary-cta full" disabled={status!=="ready"||covered||pending||!offers.includes(offer.id)} onClick={()=>void subscribe(offer.id)}>
+            {covered?copy.current:!offers.includes(offer.id)?copy.closed:account?copy.subscribe:copy.signIn}
           </button>
         </section>)}
       </div>

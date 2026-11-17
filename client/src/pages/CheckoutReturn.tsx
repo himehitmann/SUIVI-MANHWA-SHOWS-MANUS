@@ -1,4 +1,4 @@
-import {useEffect,useState} from "react";
+import {useEffect,useRef,useState} from "react";
 import {Link,useLocation} from "wouter";
 import {AppHeader} from "@/components/AppHeader";
 import {BillingManagement} from "@/components/BillingManagement";
@@ -11,6 +11,9 @@ type Status="checking"|"active"|"pending"|"failed"|"changed"|"unavailable"|"sign
 export default function CheckoutReturn(){
  const {lang}=useI18n(),copy=checkoutFollowupCopy(lang),store=useStore();
  const [,navigate]=useLocation();
+ const mounted=useRef(true);
+ useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;};},[]);
+ const [closing,setClosing]=useState(false);
  const [attempt,setAttempt]=useState(0),[status,setStatus]=useState<Status>("checking");
  const [account,setAccount]=useState<SyncSession|null>(syncProvider.getSession());
  const setPlan=store.setPlan;
@@ -51,9 +54,15 @@ export default function CheckoutReturn(){
   void check(0);
   return ()=>{live=false;clearTimeout(timer);if(waiting)document.removeEventListener("visibilitychange",waiting);};
  },[attempt,setPlan]);
- const restart=()=>{
-  if(!window.confirm(copy.confirm))return;
-  forgetCheckout(currentAccountScope());navigate("/pricing");
+ const restart=async()=>{
+  if(closing||!window.confirm(copy.confirm))return;
+  setClosing(true);
+  try{
+   await syncProvider.expireCheckout();
+   if(!mounted.current)return;
+   forgetCheckout(currentAccountScope());navigate("/pricing");
+  }catch{if(mounted.current)setStatus("failed");}
+  finally{if(mounted.current)setClosing(false);}
  };
  return <div className="dasi-app">
   <AppHeader/>
@@ -68,7 +77,7 @@ export default function CheckoutReturn(){
     <Link href="/settings" className="heart-button">{copy.settings}</Link>
    </div>
    <BillingManagement session={account} lang={lang}/>
-   {["pending","failed"].includes(status)&&<button className="ghost" style={{marginTop:24}} onClick={restart}>{copy.stop}</button>}
+   {["pending","failed"].includes(status)&&<button className="ghost" disabled={closing} style={{marginTop:24}} onClick={()=>void restart()}>{copy.stop}</button>}
   </main>
  </div>;
 }

@@ -34,6 +34,7 @@ jobs:
       - run: pnpm test:web
       - run: node tests/e2e/paid-web.mjs
       - run: node tests/e2e/checkout-return.mjs
+      - run: node tests/e2e/managed-checkout.mjs
       - run: node tests/e2e/billing-portal.mjs
       - run: pnpm build:extension
       - run: pnpm test:package
@@ -79,6 +80,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Isolated PostgreSQL capacity probe
         run: node --import tsx scripts/verify-load.mjs
+        env:
+          LOAD_DATABASE_URL: postgresql://postgres:synthetic-ci-fixture@127.0.0.1:5432/yomu_load
+      - name: Persistent checkout race and recovery probe
+        run: node --import tsx scripts/verify-checkout.mjs
         env:
           LOAD_DATABASE_URL: postgresql://postgres:synthetic-ci-fixture@127.0.0.1:5432/yomu_load
       - uses: actions/upload-artifact@v4

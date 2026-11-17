@@ -103,3 +103,43 @@ describe("billing access from the web account",()=>{
   expect(request).not.toHaveBeenCalled();
  });
 });
+
+describe("managed checkout client",()=>{
+ const url="https://checkout.stripe.com/c/pay/cs_fixture#test";
+ it("sends only an offer identifier with the current token",async()=>{
+  const {provider,request}=await signedIn();request.mockResolvedValueOnce(Response.json({url,offer:"month"}));
+  expect(await provider.beginCheckout("month")).toBe(url);
+  const [endpoint,init]=request.mock.calls[1];
+  expect(endpoint).toBe(base+"/billing/checkout");expect(JSON.parse(init.body)).toEqual({offer:"month"});
+  expect(init.headers.Authorization).toBe("Bearer test-token");expect(init.redirect).toBe("error");
+ });
+ it.each([{url:"https://evil.test",offer:"month"},{url,offer:"year"},{}])("rejects unsafe or incorrect checkout replies %j",async reply=>{
+  const {provider,request}=await signedIn();request.mockResolvedValueOnce(Response.json(reply));
+  await expect(provider.beginCheckout("month")).rejects.toThrow("checkout_unavailable");
+ });
+ it("only clears a pending attempt after the server confirms expiry",async()=>{
+  const {provider,request}=await signedIn();request.mockResolvedValueOnce(Response.json({error:"checkout_pending"},{status:409}));
+  await expect(provider.expireCheckout()).rejects.toThrow("checkout_pending");
+  request.mockResolvedValueOnce(Response.json({ok:true}));await provider.expireCheckout();
+  expect(request.mock.calls[2][0]).toBe(base+"/billing/checkout/expire");expect(request.mock.calls[2][1].body).toBe("{}");
+ });
+ it.each(["begin","expire"])("rejects late %s responses after account change",async operation=>{
+  const {provider,request}=await signedIn();let finish!:(value:Response)=>void;
+  request.mockImplementationOnce(()=>new Promise<Response>(resolve=>{finish=resolve;}));
+  const pending=operation==="begin"?provider.beginCheckout("month"):provider.expireCheckout();
+  const rejected=expect(pending).rejects.toThrow("account_changed");
+  request.mockResolvedValueOnce(Response.json({ok:true}));await provider.signOut();
+  finish(Response.json({url,offer:"month",ok:true}));await rejected;
+ });
+ it("reports only supported offers and handles an older backend",async()=>{
+  const {provider,request}=await signedIn();request.mockResolvedValueOnce(Response.json({offers:["month","year","month"]}));
+  expect(await provider.checkoutOffers()).toEqual(["month","year"]);
+  request.mockResolvedValueOnce(Response.json({offers:["lifetime"]}));await expect(provider.checkoutOffers()).rejects.toThrow();
+  request.mockResolvedValueOnce(new Response("",{status:404}));expect(await provider.checkoutOffers()).toEqual([]);
+ });
+ it("never contacts checkout without a session",async()=>{
+  const request=vi.fn();vi.stubGlobal("fetch",request);const provider=createHttpProvider(base);
+  await expect(provider.beginCheckout("month")).rejects.toThrow("unauthorized");
+  await expect(provider.expireCheckout()).rejects.toThrow("unauthorized");expect(request).not.toHaveBeenCalled();
+ });
+});

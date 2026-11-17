@@ -1,0 +1,98 @@
+import {describe,it,expect} from "vitest";
+import {createManagedCheckout,checkoutConfig} from "../server/lib/managed-checkout";
+import {createMemoryCheckoutStore} from "../server/lib/checkout-store";
+import {checkoutSessionUrl} from "../shared/checkout-session";
+import {checkoutProvider} from "./fixtures/checkout-provider";
+const config={key:"synthetic-fixture",origin:"https://yomu.example",month:"price_month",year:"price_year"};
+const user={id:"reader",email:"reader@example.test"};
+const setup=()=>{const store=createMemoryCheckoutStore(),provider=checkoutProvider();return {store,provider,service:createManagedCheckout(store,config,provider.request)};};
+describe("persistent managed checkout",()=>{
+ it("shares one attempt across concurrent devices and restarted services",async()=>{
+  const {store,provider,service}=setup(),other=createManagedCheckout(store,config,provider.request);
+  const replies=await Promise.all(Array.from({length:20},(_,i)=>(i%2?service:other).begin(user,"month")));
+  expect(new Set(replies.map(r=>r.url)).size).toBe(1);expect(provider.sessions.size).toBe(1);
+  expect(new Set(provider.posts.map(p=>p.key)).size).toBe(1);
+  const body=new URLSearchParams(provider.posts[0].body);
+  expect(body.get("client_reference_id")).toBe(user.id);expect(body.get("subscription_data[metadata][userId]")).toBe(user.id);
+  expect(body.get("adaptive_pricing[enabled]")).toBe("false");
+  expect(body.get("success_url")).toBe(config.origin+"/billing/return");
+  expect(await createManagedCheckout(store,config,provider.request).begin(user,"month")).toEqual(replies[0]);
+ });
+ it("reuses the immutable request after a lost response, even when the email changes",async()=>{
+  const {store,provider,service}=setup();provider.loseNext();
+  await expect(service.begin(user,"month")).rejects.toThrow("response lost");
+  await createManagedCheckout(store,config,provider.request).begin({...user,email:"new@example.test"},"month");
+  expect(provider.sessions.size).toBe(1);expect(provider.posts[1]).toEqual(provider.posts[0]);
+ });
+ it("recovers after session persistence fails without creating a second provider session",async()=>{
+  const {store,provider,service}=setup(),attach=store.attach;store.attach=async()=>{throw Error("database unavailable");};
+  await expect(service.begin(user,"month")).rejects.toThrow("database unavailable");store.attach=attach;
+  await service.begin(user,"month");expect(provider.sessions.size).toBe(1);
+ });
+ it("does not change the offer of an existing attempt",async()=>{
+  const {service,provider}=setup();await service.begin(user,"month");
+  await expect(service.begin(user,"year")).rejects.toThrow("checkout_pending");expect(provider.sessions.size).toBe(1);
+ });
+ it("keeps separate accounts isolated",async()=>{
+  const {service,provider}=setup();await service.begin(user,"month");await service.begin({id:"other",email:"other@example.test"},"year");
+  expect(provider.sessions.size).toBe(2);expect([...provider.sessions.values()][1].client_reference_id).toBe("other");
+ });
+ it("never retries an unknown creation beyond the idempotency safety window",async()=>{
+  const {store,provider,service}=setup();provider.loseNext();await expect(service.begin(user,"month")).rejects.toThrow();
+  const attempt=(await store.read(user.id))!;
+  await expect(createManagedCheckout(store,config,provider.request,()=>attempt.createdAt+23*3600000).begin(user,"month")).rejects.toThrow("checkout_review_required");
+  await expect(createManagedCheckout(store,config,provider.request,()=>attempt.createdAt-1).expire(user.id)).rejects.toThrow("checkout_review_required");
+  expect(provider.posts.length).toBe(1);
+ });
+ it("requires review after a credential change on an existing attempt",async()=>{
+  const {store,provider,service}=setup();await service.begin(user,"month");
+  await expect(createManagedCheckout(store,{...config,key:"rotated-fixture"},provider.request).begin(user,"month")).rejects.toThrow("checkout_review_required");
+ });
+ it.each([{unit_amount:1},{currency:"eur"},{active:false},{type:"one_time"},{recurring:{interval:"year",interval_count:1}},{recurring:{interval:"month",interval_count:2}}])("rejects a mismatched price before reserving or creating a session: %j",async patch=>{
+  const {store,provider,service}=setup();provider.patchPrice(patch);
+  await expect(service.begin(user,"month")).rejects.toThrow("checkout_price_mismatch");
+  expect(await store.read(user.id)).toBeNull();expect(provider.posts).toHaveLength(0);
+ });
+ it.each(["active","past_due","incomplete","unpaid","trialing","paused"])("blocks a second purchase when a completed session has a %s subscription",async status=>{
+  const {service,provider}=setup();await service.begin(user,"month");[...provider.sessions.values()][0].status="complete";provider.subscription(status);
+  await expect(service.begin(user,"year")).rejects.toThrow("checkout_pending");expect(provider.sessions.size).toBe(1);
+  await expect(service.expire(user.id)).rejects.toThrow("checkout_pending");
+ });
+ it.each(["canceled","incomplete_expired"])("requires an explicit retry after terminal subscription %s",async status=>{
+  const {service,provider,store}=setup();await service.begin(user,"month");[...provider.sessions.values()][0].status="complete";provider.subscription(status);
+  await expect(service.begin(user,"year")).rejects.toThrow("checkout_expired");expect(await store.read(user.id)).toBeNull();
+  await service.begin(user,"year");expect(provider.sessions.size).toBe(2);
+ });
+ it("expires the unpaid provider session before releasing the account slot",async()=>{
+  const {service,provider,store}=setup();await service.begin(user,"month");await service.expire(user.id);
+  expect([...provider.sessions.values()][0].status).toBe("expired");expect(await store.read(user.id)).toBeNull();
+  await service.begin(user,"year");expect(provider.sessions.size).toBe(2);
+ });
+ it("does not let a stale request clear or attach to a replacement attempt",async()=>{
+  const {service,store}=setup();await service.begin(user,"month");const old=(await store.read(user.id))!;
+  await service.expire(user.id);await service.begin(user,"year");const next=await store.read(user.id);
+  expect(await store.clear(user.id,old.id)).toBe(false);expect(await store.attach(user.id,old.id,"cs_stale")).toBe(false);
+  expect(await store.read(user.id)).toEqual(next);
+ });
+ it.each([{client_reference_id:"other"},{metadata:{userId:"other"}},{id:"cs_other"},{url:"https://evil.test"},{url:"https://checkout.stripe.com/c/pay/cs_other"},{mode:"payment"}])("rejects mismatched or unsafe provider responses: %j",async patch=>{
+  const {service,provider}=setup();await service.begin(user,"month");provider.patchResponse(patch);
+  await expect(service.begin(user,"month")).rejects.toThrow();
+ });
+ it("retains the guard on malformed provider replies",async()=>{
+  const {store,provider,service}=setup();await service.begin(user,"month");
+  for(const response of [new Response("bad"),new Response("{}",{status:503}),new Response("x".repeat(65537))]){
+   await expect(createManagedCheckout(store,config,async()=>response).begin(user,"month")).rejects.toThrow();
+   expect(await store.read(user.id)).not.toBeNull();
+  }
+ });
+});
+describe("checkout destination and configuration",()=>{
+ it.each(["https://evil.test/c/pay/cs_a","http://checkout.stripe.com/c/pay/cs_a","https://user@checkout.stripe.com/c/pay/cs_a","https://checkout.stripe.com:444/c/pay/cs_a","https://checkout.stripe.com/c/pay/cs_a?next=evil","https://checkout.stripe.com\\evil","javascript:alert(1)",null])("rejects unsafe destination %s",v=>expect(checkoutSessionUrl(v)).toBeNull());
+ it("accepts the hosted session hash",()=>expect(checkoutSessionUrl("https://checkout.stripe.com/c/pay/cs_test_a#hash")).toContain("#hash"));
+ it.each(["", "http://yomu.example", "https://user@yomu.example", "https://yomu.example/path","https://yomu.example/?next=x"])("closes sales for invalid public origin %s",origin=>expect(checkoutConfig({YOMU_PUBLIC_URL:origin,STRIPE_SECRET_KEY:"fixture",STRIPE_PRICE_PRO_MONTH:"price_month"})).toBeNull());
+ it("requires valid prices and a server key",()=>{
+  expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin})).toBeNull();
+  expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin,STRIPE_SECRET_KEY:"fixture",STRIPE_PRICE_PRO_MONTH:"price_same",STRIPE_PRICE_PRO_YEAR:"price_same"})).toBeNull();
+  expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin,STRIPE_SECRET_KEY:"fixture",STRIPE_PRICE_PRO_MONTH:"price_month"})).toMatchObject({month:"price_month",origin:config.origin});
+ });
+});
