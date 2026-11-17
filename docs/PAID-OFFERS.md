@@ -37,6 +37,14 @@ An uninstall cannot be recovered from a local copy alone.
   signed webhooks, server authorization or provider-side duplicate-subscription
   controls, and cannot prevent a separate direct payment-link visit.
 
+## Recurring purchase identity
+
+[Payment Link subscription binding](STRIPE-SUBSCRIPTION-ACCOUNT.md) resolves the
+Checkout account reference when subscription events do not carry userId metadata.
+The payer email is not used as a fallback account identity. Missing or ambiguous
+provider evidence is retried without granting rights; existing event-order and
+resource ownership rules remain authoritative.
+
 ## Remaining release requirements
 
 These prices are not proof that the payment provider has matching active products.

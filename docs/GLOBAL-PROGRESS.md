@@ -1,12 +1,28 @@
 # Suivi global Yomu
 
-Mise à jour : 16 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
+Mise à jour : 17 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi remplace toute interprétation du précédent « 39 % » comme avancement du produit entier.
 
 ## Mesure fixe
 
 60 critères de réception : les 36 contrôles de docs/DELIVERY-AUDIT-2026-09-16.md, plus les 24 critères produit et lancement ci-dessous. Chaque critère a le même poids. V = entièrement vérifié dans le périmètre défini ; P = partiel ; NV = non vérifié ou absent. Seuls les V comptent. Ce score est une couverture des exigences validées, pas une estimation des heures, de la qualité perçue ou du nombre de lignes de code.
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
+
+## Rattachement des abonnements Stripe au compte Yomu — 17 novembre 2026
+
+Code : 722253182bf65dcaeab6d3788abc791d651c6c5e. Correction du serveur ; l’extension reste en version **0.4.31**.
+
+Les liens de paiement Yomu placent la référence de compte sur la session Checkout. Cette référence n’est pas automatiquement disponible dans les notifications d’abonnement. Le serveur sait désormais la retrouver pour un produit reconnu, après vérification de la signature Stripe : une seule session Checkout complète doit correspondre exactement à l’abonnement et au client Stripe. Les réponses partielles, ambiguës, mal formées ou contradictoires sont refusées.
+
+Le rattachement repose sur l’identifiant du compte, pas sur l’adresse e-mail saisie au paiement. Un compte peut donc changer d’adresse sans perdre ce rattachement. Une référence explicite valide déjà présente dans les métadonnées de l’abonnement reste compatible. Les règles existantes de déduplication, d’ordre des événements et de propriété de la ressource empêchent qu’un abonnement déjà attribué soit transféré à un autre compte. La résolution d’événements contradictoires de même date utilise la même vérification d’identité.
+
+En cas de panne ou de preuve encore absente, la notification reçoit une réponse réessayable sans être consommée et sans attribuer l’accès au compte associé à l’e-mail du payeur. Aucun paiement, résiliation ou changement de métadonnées Stripe n’est exécuté par ce correctif ; il lit les informations du fournisseur et applique les droits localement.
+
+**Preuves :** [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44024922777) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44024929717) : **969 tests réussis, dont 34 nouveaux**. Les quatre jobs de chaque exécution réussissent : verify, capacity, recovery et firebase-recovery. Compilation, TypeScript, audit des dépendances sans vulnérabilité connue signalée, parcours web, paquet Chrome et contrôles d’interface réussis. Le test de mise à jour **0.3.1 → 0.4.31** conserve compte, progression, listes et profil. Les nouveaux tests signent des notifications HTTP avec des réponses Stripe simulées et vérifient activation, résiliation, retard/doublon, changement d’e-mail, reprise après preuve absente, identité différente, signature invalide, produit inconnu et événements contradictoires de même date.
+
+**Limites :** tests avec réponses Stripe simulées ; aucun paiement réel, webhook déployé ou activation commerciale vérifiée. Une notification d’abonnement reçue avant la fin de Checkout peut attendre une nouvelle livraison. Chaque notification sans métadonnée de compte ajoute une lecture Stripe bornée ; aucun cache persistant n’est introduit. La clé serveur doit autoriser la lecture des sessions Checkout et des abonnements. La création du paiement côté serveur et la prévention complète des abonnements multiples restent à traiter. **G20 reste partiel : 21/60 = 35 %.**
+
+Détails : [STRIPE-SUBSCRIPTION-ACCOUNT.md](STRIPE-SUBSCRIPTION-ACCOUNT.md).
 
 ## Gestion et résiliation de l’abonnement — 16 novembre 2026
 
