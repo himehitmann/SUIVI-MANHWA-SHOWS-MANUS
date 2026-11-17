@@ -8,6 +8,22 @@ Mise à jour : 17 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi rem
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Paiement créé côté serveur et protection persistante contre les doublons — 17 novembre 2026
+
+Code : 70dcb0fbbbbcf260dc38eee7618d8db236685dc0. Parcours web et serveur ; extension **0.4.31** inchangée. Ce lot remplace la limitation au même onglet du lot précédent pour les achats passant par le nouveau parcours géré.
+
+Le serveur réserve une seule tentative de paiement par compte dans PostgreSQL. Plusieurs appareils ou processus retrouvent la même session Stripe. La demande et sa clé d’idempotence sont conservées avant l’appel fournisseur : une réponse perdue ou une panne lors de son enregistrement ne provoque pas la création volontaire d’un second paiement. Une création dont le résultat reste inconnu après 23 heures, ou une modification de la clé fournisseur, bloque un nouvel achat et demande une vérification.
+
+Les offres viennent du serveur. Seuls les comptes authentifiés sans accès Pro, Lifetime, cadeau actif ou rôle administrateur/propriétaire peuvent demander un achat. Le serveur vérifie le prix Stripe actif, son montant exact, sa devise USD et sa périodicité avant la première réservation. La conversion automatique de devise est désactivée. Sans PostgreSQL, origine publique, prix, clé serveur et secret de webhook, les ventes restent fermées.
+
+Une session ouverte est réutilisée pour la même offre. Une session complète empêche un deuxième achat tant que l’abonnement fournisseur n’est pas confirmé définitivement terminé, même si la notification d’activation est en retard. Le bouton de retour aux offres expire d’abord la session impayée auprès du fournisseur ; un paiement terminé ne peut pas être annulé par ce bouton. Les réponses concernant un autre compte et les destinations de navigation non valides sont refusées.
+
+**Preuves :** [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44127878465) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44127892412). **1 044 tests réussis, dont 66 nouveaux**. TypeScript, compilation, audit des dépendances, parcours Chromium et paquet Chrome vérifiés. Le test PostgreSQL utilise deux pools indépendants et 20 demandes simultanées : une seule session créée, reprise après reconnexion et réponse perdue, refus des écritures obsolètes, progression et listes inchangées. Les restaurations isolées PostgreSQL et Firebase réussissent. La mise à jour **0.3.1 → 0.4.31** conserve compte, progression, listes et profil.
+
+**Limites :** réponses Stripe simulées, aucun paiement réel ni service marchand configuré. La protection concerne un compte Yomu utilisant ce parcours ; elle ne couvre pas des comptes distincts ou des achats externes/directs. Désactiver les anciens Payment Links avant ouverture et rapprocher les éventuels abonnements existants. L’activation réelle, les taxes, les reçus, les renouvellements et la résiliation doivent encore être validés sur le service déployé. **G20 reste partiel ; avancement global : 21/60 = 35 %.**
+
+Détails : [MANAGED-CHECKOUT.md](MANAGED-CHECKOUT.md).
+
 ## Retour de paiement et vérification de l’accès — 17 novembre 2026
 
 Code : e06fe5d5a63d818f85fb0f0205a6ead535470842. Parcours web ; l’extension reste en version **0.4.31**.

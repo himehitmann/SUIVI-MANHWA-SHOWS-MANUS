@@ -29,28 +29,34 @@ An uninstall cannot be recovered from a local copy alone.
   subscription purchase. An active gift appears as Pro via the server.
 - A failed, malformed, foreign-account or stale response blocks navigation.
   Retrying is possible. Signing out or changing accounts invalidates an old read.
-- A missing payment link disables that period. An anonymous visitor with a valid
-  configured link is directed to account settings to sign in first.
+- The server advertises configured periods through `/api/billing/offers`. A missing
+  managed checkout configuration closes sales. Anonymous visitors are directed to
+  account settings before purchasing. Public VITE Payment Links are no longer used.
 - The extension has no configured checkout flow yet. Its purchase controls say
   that sales are not open; account settings and library navigation remain usable.
-- The browser check reduces accidental duplicate purchases. It does not replace
-  signed webhooks, server authorization or provider-side duplicate-subscription
-  controls, and cannot prevent a separate direct payment-link visit.
+- [Managed Checkout](MANAGED-CHECKOUT.md) creates one persistent attempt per
+  account in PostgreSQL. Different devices reuse the same Stripe session. Current
+  rights and exact active price/currency/cadence are checked server-side. Unknown
+  creation results older than 23 hours require review instead of a new purchase.
+- Deactivate legacy direct Payment Links before opening sales; external/direct
+  purchases and separate Yomu accounts are outside this per-account protection.
 
 ## Returning from payment
 
 The [checkout follow-up page](CHECKOUT-FOLLOWUP.md) at /billing/return verifies
-current account rights. Configure the Stripe Payment Link to redirect to that
-route on the deployed Yomu origin. A redirect or query string never grants Pro.
+current account rights. The server derives return URLs from `YOMU_PUBLIC_URL`;
+a redirect or query string never grants Pro.
 
 A tab-local pending marker prevents starting another purchase from Pricing
 while that attempt is unresolved. Users can verify access, retry a failed check,
-or explicitly return to offers if they did not complete payment. This does not
-cancel a payment and does not prevent duplicates across tabs or direct links.
+or explicitly return to offers if they did not complete payment. Managed checkout
+expires an unpaid Stripe session before clearing its persistent attempt. Completed
+payments and subscriptions cannot be canceled by this action.
 
 ## Recurring purchase identity
 
-[Payment Link subscription binding](STRIPE-SUBSCRIPTION-ACCOUNT.md) resolves the
+Managed Checkout writes the account reference to both session and subscription
+metadata. For legacy events, [Payment Link subscription binding](STRIPE-SUBSCRIPTION-ACCOUNT.md) resolves the
 Checkout account reference when subscription events do not carry userId metadata.
 The payer email is not used as a fallback account identity. Missing or ambiguous
 provider evidence is retried without granting rights; existing event-order and

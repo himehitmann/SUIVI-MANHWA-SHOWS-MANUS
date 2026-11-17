@@ -1,6 +1,6 @@
 # Managed web checkout — 17 November 2026
 
-Implementation prepared on fix/yomu-p0-reliability. This does not activate sales, provision infrastructure, charge a card or publish the extension. G20 remains partial; global accepted progress stays 21/60 (35%).
+Implementation on fix/yomu-p0-reliability, code 70dcb0fbbbbcf260dc38eee7618d8db236685dc0. This does not activate sales, provision infrastructure, charge a card or publish the extension. G20 remains partial; global accepted progress stays 21/60 (35%).
 
 ## Purchase path
 The web pricing page gets offer identifiers from GET /api/billing/offers and sends only month/year to authenticated POST /api/billing/checkout. The server checks current effective account rights. Owners, administrators, gifts, Pro and lifetime accounts do not need another purchase.
@@ -30,4 +30,4 @@ References: [Stripe session creation](https://docs.stripe.com/api/checkout/sessi
 
 ## Verification
 The added tests use synthetic provider responses; no Stripe requests or charges. They cover concurrency, lost creation responses, store failure, stale conditional writes, wrong amounts/currencies/intervals, malformed and foreign provider replies, unknown-attempt expiry, current account rights, request tampering and account changes. A separate CI probe uses real isolated PostgreSQL and two connection pools, including reconnects and preserved saved progress. Chromium checks the web purchase entry, navigation guard and explicit expiry failure/success.
-CI results are recorded in GLOBAL-PROGRESS.md after execution.
+The code passed 1,044 tests (66 new), the Chromium managed-checkout journey, package upgrade retention, the PostgreSQL concurrency probe and isolated recovery checks. Evidence: [push run](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44127878465), [PR run](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44127892412). See GLOBAL-PROGRESS.md for the fixed acceptance score.
