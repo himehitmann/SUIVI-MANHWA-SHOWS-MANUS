@@ -12,7 +12,7 @@ export function checkoutConfig(env:Record<string,string|undefined>=process.env):
   if(u.username||u.password||u.search||u.hash||u.pathname!=="/"||
    !(u.protocol==="https:"||(u.protocol==="http:"&&["localhost","127.0.0.1","[::1]"].includes(u.hostname))))return null;
   const key=env.STRIPE_SECRET_KEY||"";
-  if(!key)return null;
+  if(!key||!env.STRIPE_WEBHOOK_SECRET)return null;
   const price=(value:string|undefined)=>value&&/^price_[A-Za-z0-9_]+$/.test(value)?value:undefined;
   const month=price(env.STRIPE_PRICE_PRO_MONTH),year=price(env.STRIPE_PRICE_PRO_YEAR);
   if(!month&&!year||month&&month===year)return null;
@@ -54,7 +54,7 @@ export function createManagedCheckout(store:CheckoutStore,config:CheckoutConfig,
   offers:()=>OFFERS.filter(o=>config[o.id]).map(o=>o.id),
   async begin(user:{id:string;email:string},offer:OfferId){
    const priceId=config[offer],advertised=OFFERS.find(o=>o.id===offer);
-   if(!priceId||!advertised)fail();
+   if(!priceId||!advertised)return fail();
    let attempt=await store.read(user.id);
    if(!attempt){
     const price=await readStripeJson("prices/"+priceId,config.key,request);
@@ -88,7 +88,7 @@ export function createManagedCheckout(store:CheckoutStore,config:CheckoutConfig,
    if(session.status!=="open")fail();
    if(attempt.offer!==offer)fail("checkout_pending");
    const url=checkoutSessionUrl(session.url);
-   if(!url||new URL(url).pathname!=="/c/pay/"+session.id)fail();
+   if(!url||new URL(url).pathname!=="/c/pay/"+session.id)return fail();
    return {url,offer:attempt.offer};
   },
   async expire(userId:string){

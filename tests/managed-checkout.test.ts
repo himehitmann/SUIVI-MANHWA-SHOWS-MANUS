@@ -89,10 +89,11 @@ describe("persistent managed checkout",()=>{
 describe("checkout destination and configuration",()=>{
  it.each(["https://evil.test/c/pay/cs_a","http://checkout.stripe.com/c/pay/cs_a","https://user@checkout.stripe.com/c/pay/cs_a","https://checkout.stripe.com:444/c/pay/cs_a","https://checkout.stripe.com/c/pay/cs_a?next=evil","https://checkout.stripe.com\\evil","javascript:alert(1)",null])("rejects unsafe destination %s",v=>expect(checkoutSessionUrl(v)).toBeNull());
  it("accepts the hosted session hash",()=>expect(checkoutSessionUrl("https://checkout.stripe.com/c/pay/cs_test_a#hash")).toContain("#hash"));
- it.each(["", "http://yomu.example", "https://user@yomu.example", "https://yomu.example/path","https://yomu.example/?next=x"])("closes sales for invalid public origin %s",origin=>expect(checkoutConfig({YOMU_PUBLIC_URL:origin,STRIPE_SECRET_KEY:"fixture",STRIPE_PRICE_PRO_MONTH:"price_month"})).toBeNull());
+ it.each(["", "http://yomu.example", "https://user@yomu.example", "https://yomu.example/path","https://yomu.example/?next=x"])("closes sales for invalid public origin %s",origin=>expect(checkoutConfig({YOMU_PUBLIC_URL:origin,STRIPE_SECRET_KEY:"fixture",STRIPE_WEBHOOK_SECRET:"synthetic-webhook",STRIPE_PRICE_PRO_MONTH:"price_month"})).toBeNull());
  it("requires valid prices and a server key",()=>{
   expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin})).toBeNull();
-  expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin,STRIPE_SECRET_KEY:"fixture",STRIPE_PRICE_PRO_MONTH:"price_same",STRIPE_PRICE_PRO_YEAR:"price_same"})).toBeNull();
-  expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin,STRIPE_SECRET_KEY:"fixture",STRIPE_PRICE_PRO_MONTH:"price_month"})).toMatchObject({month:"price_month",origin:config.origin});
+  expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin,STRIPE_SECRET_KEY:"fixture",STRIPE_PRICE_PRO_MONTH:"price_month"})).toBeNull();
+  expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin,STRIPE_SECRET_KEY:"fixture",STRIPE_WEBHOOK_SECRET:"synthetic-webhook",STRIPE_PRICE_PRO_MONTH:"price_same",STRIPE_PRICE_PRO_YEAR:"price_same"})).toBeNull();
+  expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin,STRIPE_SECRET_KEY:"fixture",STRIPE_WEBHOOK_SECRET:"synthetic-webhook",STRIPE_PRICE_PRO_MONTH:"price_month"})).toMatchObject({month:"price_month",origin:config.origin});
  });
 });
