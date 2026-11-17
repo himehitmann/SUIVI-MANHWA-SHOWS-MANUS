@@ -5,7 +5,7 @@ import type {CheckoutAttempt,CheckoutStore} from "./checkout-store";
 import {readStripeJson} from "./stripe-checkout";
 
 export class CheckoutError extends Error {}
-export interface CheckoutConfig {key:string;origin:string;month?:string;year?:string;}
+export interface CheckoutConfig {enabled:boolean;key:string;origin:string;month?:string;year?:string;}
 export function checkoutConfig(env:Record<string,string|undefined>=process.env):CheckoutConfig|null{
  try{
   const u=new URL(env.YOMU_PUBLIC_URL||"");
@@ -16,7 +16,7 @@ export function checkoutConfig(env:Record<string,string|undefined>=process.env):
   const price=(value:string|undefined)=>value&&/^price_[A-Za-z0-9_]+$/.test(value)?value:undefined;
   const month=price(env.STRIPE_PRICE_PRO_MONTH),year=price(env.STRIPE_PRICE_PRO_YEAR);
   if(!month&&!year||month&&month===year)return null;
-  return {key,origin:u.origin,month,year};
+  return {enabled:env.YOMU_CHECKOUT_ENABLED==="true",key,origin:u.origin,month,year};
  }catch{return null;}
 }
 export function createManagedCheckout(store:CheckoutStore,config:CheckoutConfig,request:typeof fetch=fetch,now=()=>Date.now()){
@@ -51,8 +51,10 @@ export function createManagedCheckout(store:CheckoutStore,config:CheckoutConfig,
   return validate(await readStripeJson("checkout/sessions/"+id,config.key,request),{...attempt,sessionId:id});
  };
  return {
-  offers:()=>OFFERS.filter(o=>config[o.id]).map(o=>o.id),
+  offers:()=>config.enabled===true?OFFERS.filter(o=>config[o.id]).map(o=>o.id):[],
   async begin(user:{id:string;email:string},offer:OfferId){
+   // Closing new sales must not disable existing account, webhook or expiry routes.
+   if(config.enabled!==true)return fail("checkout_closed");
    const priceId=config[offer],advertised=OFFERS.find(o=>o.id===offer);
    if(!priceId||!advertised)return fail();
    let attempt=await store.read(user.id);

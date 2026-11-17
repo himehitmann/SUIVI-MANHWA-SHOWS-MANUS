@@ -23,15 +23,24 @@ try{
   localStorage.setItem("dasi.sync.session:"+encodeURIComponent("/api"),JSON.stringify({userId:account.user.id,email:account.user.email,plan:"free",role:"member"}));
  },{account});
  await page.route("**/api/billing/offers",r=>r.fulfill({json:{offers:["month","year"]}}));
- let purchases=0;
+ let purchases=0,closed=true;
  await page.route("**/api/billing/checkout",r=>{
-  purchases++;assert.deepEqual(r.request().postDataJSON(),{offer:"month"});
+  assert.deepEqual(r.request().postDataJSON(),{offer:"month"});
+  if(closed)return r.fulfill({status:503,json:{error:"checkout_closed"}});
+  purchases++;
   return r.fulfill({json:{url:"https://checkout.stripe.com/c/pay/cs_fixture#test",offer:"month"}});
  });
  // No real Stripe navigation: fulfill the destination entirely inside Playwright.
  await page.route("https://checkout.stripe.com/**",r=>r.fulfill({contentType:"text/html",body:"<h1>Synthetic checkout</h1>"}));
  await page.reload();await page.locator(".pricing-card button").first().waitFor();
  await page.waitForFunction(()=>!document.querySelector(".pricing-card button")?.disabled);
+ await page.locator(".pricing-card button").first().click();
+ await page.getByRole("status").filter({hasText:"Sales are not open"}).waitFor();
+ assert.equal(await page.locator(".pricing-card button:enabled").count(),0);
+ assert.equal(await page.evaluate(guard=>sessionStorage.getItem(guard),guard),null);
+ assert.equal(purchases,0);
+ closed=false;await page.reload();
+ await page.waitForFunction(()=>document.querySelector(".pricing-card button")&&!document.querySelector(".pricing-card button").disabled);
  await page.locator(".pricing-card button").first().click();
  await page.getByRole("heading",{name:"Synthetic checkout"}).waitFor();assert.equal(purchases,1);
  await page.goto(base+"/pricing");
@@ -61,5 +70,5 @@ try{
  await page.getByRole("status").filter({hasText:"already"}).waitFor();
  assert.equal(purchases,1);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  assert.deepEqual(errors,[]);
- console.log("PASS: browser uses authenticated checkout, preserves repeat guard, refuses unsafe reset, clears only after expiry and blocks purchases for fresh administrator access.");
+ console.log("PASS: browser handles server sale closure without a false pending payment, uses authenticated checkout, preserves repeat guard, refuses unsafe reset, clears only after expiry and blocks purchases for fresh administrator access.");
 }finally{if(browser)await browser.close();server.kill();await new Promise(r=>server.exitCode!==null?r():server.once("exit",r));await fs.rm(temp,{recursive:true,force:true});}

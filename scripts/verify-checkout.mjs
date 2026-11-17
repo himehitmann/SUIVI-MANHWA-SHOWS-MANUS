@@ -13,7 +13,7 @@ globalThis.fetch=async()=>{throw Error("External traffic is forbidden");};
 const options={connectionString:url.toString(),max:4,connectionTimeoutMillis:5000,statement_timeout:10000,query_timeout:12000};
 let a=new pg.Pool(options),b=new pg.Pool(options);
 const user={id:"checkout-fixture-"+randomUUID(),email:randomUUID()+"@example.test",passwordHash:"synthetic",plan:"free",createdAt:Date.now()};
-const config={key:"synthetic-fixture",origin:"https://yomu.example",month:"price_month",year:"price_year"};
+const config={enabled:true,key:"synthetic-fixture",origin:"https://yomu.example",month:"price_month",year:"price_year"};
 const provider=checkoutProvider();
 try{
  await ensureSchema(a);await ensureCheckoutSchema(a);

@@ -15,12 +15,12 @@ export function checkoutProvider(){
    if(entry&&entry.body!==body)throw Error("idempotency body mismatch");
    if(!entry){
     const id="cs_test_"+(sessions.size+1);entry={body,id};keys.set(key,entry);
-    sessions.set(id,{id,object:"checkout.session",mode:"subscription",status:"open",client_reference_id:params.get("client_reference_id"),metadata:{userId:params.get("metadata[userId]")},url:"https://checkout.stripe.com/c/pay/"+id+"#synthetic",subscription:"sub_test"});
+    sessions.set(id,{id,object:"checkout.session",mode:"subscription",status:"open",client_reference_id:params.get("client_reference_id"),metadata:{userId:params.get("metadata[userId]")},url:"https://checkout.stripe.com/c/pay/"+id+"#synthetic",subscription:"sub_test_"+sessions.size});
    }
    if(lost){lost=false;throw Error("response lost after provider creation");}
    return json({...sessions.get(entry.id),...responsePatch});
   }
-  if(p.startsWith("subscriptions/"))return json({id:p.slice(14),object:"subscription",status:subscriptionStatus,metadata:{userId:[...sessions.values()][0]?.metadata.userId}});
+  if(p.startsWith("subscriptions/"))return json({id:p.slice(14),object:"subscription",status:subscriptionStatus,metadata:{userId:[...sessions.values()].find(s=>s.subscription===p.slice(14))?.metadata.userId}});
   const match=/^checkout\/sessions\/(cs_[A-Za-z0-9_]+)(\/expire)?$/.exec(p);
   if(match){
    const session=sessions.get(match[1]);if(!session)throw Error("unknown session");

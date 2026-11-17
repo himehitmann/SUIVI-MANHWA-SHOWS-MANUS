@@ -30,7 +30,7 @@ An uninstall cannot be recovered from a local copy alone.
 - A failed, malformed, foreign-account or stale response blocks navigation.
   Retrying is possible. Signing out or changing accounts invalidates an old read.
 - The server advertises configured periods through `/api/billing/offers`. A missing
-  managed checkout configuration closes sales. Anonymous visitors are directed to
+  managed checkout configuration or YOMU_CHECKOUT_ENABLED value other than true closes sales. Anonymous visitors are directed to
   account settings before purchasing. Public VITE Payment Links are no longer used.
 - The extension has no configured checkout flow yet. Its purchase controls say
   that sales are not open; account settings and library navigation remain usable.

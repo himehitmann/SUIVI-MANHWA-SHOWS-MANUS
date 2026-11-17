@@ -59,6 +59,7 @@ export default function Pricing() {
       if(!mounted.current)return;
       const code=error instanceof Error?error.message:"";
       if(code==="access_already_active"){forgetCheckout(currentAccountScope());navigate("/billing/return");return;}
+      if(code==="checkout_closed"){forgetCheckout(currentAccountScope());setOffers([]);setStatus("ready");return;}
       if(code==="checkout_expired"){forgetCheckout(currentAccountScope());setStatus("error");return;}
       if(code==="checkout_pending"){navigate("/billing/return");return;}
       setStatus("error");

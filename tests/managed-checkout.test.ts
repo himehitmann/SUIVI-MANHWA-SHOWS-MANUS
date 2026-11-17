@@ -3,7 +3,7 @@ import {createManagedCheckout,checkoutConfig} from "../server/lib/managed-checko
 import {createMemoryCheckoutStore} from "../server/lib/checkout-store";
 import {checkoutSessionUrl} from "../shared/checkout-session";
 import {checkoutProvider} from "./fixtures/checkout-provider";
-const config={key:"synthetic-fixture",origin:"https://yomu.example",month:"price_month",year:"price_year"};
+const config={enabled:true,key:"synthetic-fixture",origin:"https://yomu.example",month:"price_month",year:"price_year"};
 const user={id:"reader",email:"reader@example.test"};
 const setup=()=>{const store=createMemoryCheckoutStore(),provider=checkoutProvider();return {store,provider,service:createManagedCheckout(store,config,provider.request)};};
 describe("persistent managed checkout",()=>{
@@ -95,5 +95,35 @@ describe("checkout destination and configuration",()=>{
   expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin,STRIPE_SECRET_KEY:"fixture",STRIPE_PRICE_PRO_MONTH:"price_month"})).toBeNull();
   expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin,STRIPE_SECRET_KEY:"fixture",STRIPE_WEBHOOK_SECRET:"synthetic-webhook",STRIPE_PRICE_PRO_MONTH:"price_same",STRIPE_PRICE_PRO_YEAR:"price_same"})).toBeNull();
   expect(checkoutConfig({YOMU_PUBLIC_URL:config.origin,STRIPE_SECRET_KEY:"fixture",STRIPE_WEBHOOK_SECRET:"synthetic-webhook",STRIPE_PRICE_PRO_MONTH:"price_month"})).toMatchObject({month:"price_month",origin:config.origin});
+ });
+});
+
+describe("server-controlled sale closure",()=>{
+ const env={YOMU_PUBLIC_URL:config.origin,STRIPE_SECRET_KEY:"fixture",STRIPE_WEBHOOK_SECRET:"synthetic-webhook",STRIPE_PRICE_PRO_MONTH:"price_month"};
+ it.each([undefined,"","false","TRUE","1"," true "])("defaults to closed for switch %s",value=>{
+  const parsed=checkoutConfig({...env,YOMU_CHECKOUT_ENABLED:value})!;
+  expect(parsed.enabled).toBe(false);
+  const provider=checkoutProvider(),service=createManagedCheckout(createMemoryCheckoutStore(),parsed,provider.request);
+  expect(service.offers()).toEqual([]);
+ });
+ it("requires explicit true even when all provider configuration exists",()=>{
+  expect(checkoutConfig({...env,YOMU_CHECKOUT_ENABLED:"true"})?.enabled).toBe(true);
+ });
+ it("rejects direct purchase attempts before database or provider access",async()=>{
+  const store=createMemoryCheckoutStore(),provider=checkoutProvider();
+  store.read=async()=>{throw Error("must not read attempts");};
+  const service=createManagedCheckout(store,{...config,enabled:false},provider.request);
+  await expect(service.begin(user,"month")).rejects.toThrow("checkout_closed");
+  expect(provider.posts).toHaveLength(0);
+ });
+ it("allows expiry while sales are closed and retains completed attempts",async()=>{
+  const {store,provider,service}=setup();await service.begin(user,"month");
+  const closed=createManagedCheckout(store,{...config,enabled:false},provider.request);
+  expect(closed.offers()).toEqual([]);
+  await closed.expire(user.id);expect(await store.read(user.id)).toBeNull();
+  await service.begin(user,"month");[...provider.sessions.values()][1].status="complete";
+  await expect(closed.expire(user.id)).rejects.toThrow("checkout_pending");
+  expect(await store.read(user.id)).not.toBeNull();
+  await expect(closed.begin(user,"month")).rejects.toThrow("checkout_closed");
  });
 });
