@@ -1,3 +1,4 @@
+import {bindStripeSubscription} from "./lib/stripe-subscription-account";
 import {stripePortalLoginUrl} from "../shared/billing-portal";
 import {accessMode,canWriteSync,type AccessMode} from "./lib/commercial-access";
 import {resolveStripeDispute,readCurrentStripeLifetime} from "./lib/stripe-dispute";
@@ -174,6 +175,16 @@ export function createApiRouter(
       let dispute:Awaited<ReturnType<typeof resolveStripeDispute>>=null;
       try {dispute=await resolveStripeDispute(event,STRIPE_PRICES,process.env.STRIPE_SECRET_KEY||"");}
       catch {return res.status(503).json({error:"billing_lookup_unavailable"});}
+      // A Payment Link identifies the buyer on its Checkout Session. Resolve
+      // that reference before applying recurring rights; payment email is not ownership.
+      const recurring=event as {type?:string;data?:{object?:unknown}};
+      if(["customer.subscription.created","customer.subscription.updated","customer.subscription.deleted"].includes(recurring?.type||"") &&
+         planFromStripeEvent(event,STRIPE_PRICES)){
+        try{
+          const object=await bindStripeSubscription(recurring.data?.object,process.env.STRIPE_SECRET_KEY||"");
+          event={...recurring,data:{...recurring.data,object}};
+        }catch{return res.status(503).json({error:"billing_lookup_unavailable"});}
+      }
       const intent=refund?.intent||dispute?.intent||planFromStripeEvent(event, STRIPE_PRICES);
       const receipt=refund?.receipt||dispute?.receipt||billingReceipt("stripe",event);
       if(intent&&!receipt)return res.status(400).json({error:"invalid_billing_event"});
