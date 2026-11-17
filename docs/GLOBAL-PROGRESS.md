@@ -8,6 +8,22 @@ Mise à jour : 17 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi rem
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Retour de paiement et vérification de l’accès — 17 novembre 2026
+
+Code : e06fe5d5a63d818f85fb0f0205a6ead535470842. Parcours web ; l’extension reste en version **0.4.31**.
+
+La route `/billing/return` vérifie les droits du compte connecté auprès du serveur. Les paramètres d’URL, le retour de Stripe et le plan en cache ne constituent pas une confirmation de paiement. Le message positif confirme uniquement l’accès Pro du compte : cet accès peut aussi provenir d’un cadeau, d’un rôle administrateur ou d’un achat antérieur.
+
+La vérification automatique est limitée à quatre lectures par visite ou nouvelle tentative, avec attente progressive. Elle attend que la page soit visible avant la lecture suivante ; quitter la page supprime les vérifications planifiées et ignore les réponses tardives. Un compte non activé reçoit un message d’attente ; une panne ne se présente pas comme un paiement refusé. L’utilisateur peut réessayer ou accéder à ses réglages et à la facturation.
+
+Avant d’ouvrir un lien de paiement configuré, la page des offres conserve un indicateur de tentative dans `sessionStorage`, séparé par service et compte. Cet indicateur bloque une nouvelle ouverture depuis cette page dans le même onglet et propose de vérifier l’accès. Il n’expire pas automatiquement. Un accès actif le retire ; l’utilisateur peut aussi revenir explicitement aux offres s’il n’a pas terminé le paiement, après un avertissement précisant que cela n’annule aucun paiement ni abonnement. Si l’indicateur ne peut pas être conservé, le paiement n’est pas ouvert.
+
+**Preuves :** [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44026801959) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44026812191) : **978 tests réussis, dont 9 nouveaux**. Les quatre jobs de chaque exécution réussissent : verify, capacity, recovery et firebase-recovery. Compilation, TypeScript, audit des dépendances sans vulnérabilité connue signalée, parcours web, paquet Chrome, interface, charge et restaurations isolées réussis. Le nouveau parcours Chromium vérifie les paramètres de succès falsifiés, les quatre lectures bornées, l’arrêt en quittant la page, la reprise après panne, la confirmation différée, le refus d’une réponse concernant un autre compte, l’indicateur de tentative et le retour explicite aux offres. Affichage français testé à 375 px sans débordement horizontal. La mise à jour **0.3.1 → 0.4.31** conserve compte, progression, listes et profil.
+
+**Limites :** indicateur local à l’onglet, sans garantie contre un achat dans un autre onglet/appareil, après effacement du stockage ou par visite directe d’un lien Stripe. Le contrôle persistant des doublons et la création du paiement côté serveur restent à traiter. Aucun paiement réel ni redirection Stripe déployée n’a été configuré. Le retour doit être réglé dans le portail vendeur sur l’origine Yomu publiée. **G20 reste partiel : 21/60 = 35 %.**
+
+Détails : [CHECKOUT-FOLLOWUP.md](CHECKOUT-FOLLOWUP.md).
+
 ## Rattachement des abonnements Stripe au compte Yomu — 17 novembre 2026
 
 Code : 722253182bf65dcaeab6d3788abc791d651c6c5e. Correction du serveur ; l’extension reste en version **0.4.31**.

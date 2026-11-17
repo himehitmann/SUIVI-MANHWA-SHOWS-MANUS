@@ -37,6 +37,17 @@ An uninstall cannot be recovered from a local copy alone.
   signed webhooks, server authorization or provider-side duplicate-subscription
   controls, and cannot prevent a separate direct payment-link visit.
 
+## Returning from payment
+
+The [checkout follow-up page](CHECKOUT-FOLLOWUP.md) at /billing/return verifies
+current account rights. Configure the Stripe Payment Link to redirect to that
+route on the deployed Yomu origin. A redirect or query string never grants Pro.
+
+A tab-local pending marker prevents starting another purchase from Pricing
+while that attempt is unresolved. Users can verify access, retry a failed check,
+or explicitly return to offers if they did not complete payment. This does not
+cancel a payment and does not prevent duplicates across tabs or direct links.
+
 ## Recurring purchase identity
 
 [Payment Link subscription binding](STRIPE-SUBSCRIPTION-ACCOUNT.md) resolves the
