@@ -36,7 +36,16 @@ export interface SessionRecord {
 }
 export interface BillingReceipt { provider: "stripe" | "paddle"; eventId: string; resourceId?: string; occurredAt?: number; revokeLifetime?: boolean; reconcileLifetime?: boolean; }
 export interface BillingResult { ok: boolean; plan?: UserRecord["plan"]; unchanged?: boolean; reason?: string; }
+export interface CredentialProof { userId: string; passwordHash: string; sessionId: string; }
+export type CredentialChange =
+  | { kind: "email"; email: string }
+  | { kind: "password"; passwordHash: string; replacement: SessionRecord };
+export type AccountRemoval = "deleted" | "unauthorized" | "subscription_active";
 export interface Store {
+  // Commit against the credentials/session actually verified by the request.
+  createVerifiedSession(user: Pick<UserRecord,"id"|"email"|"passwordHash">, session: SessionRecord): Promise<UserRecord | null>;
+  changeCredentials(proof: CredentialProof, change: CredentialChange): Promise<UserRecord | null>;
+  deleteAuthenticatedUser(proof: CredentialProof): Promise<AccountRemoval>;
   applyBillingEvent(userId: string, plan: UserRecord["plan"], receipt: BillingReceipt, resolveAmbiguity?: (user: UserRecord) => Promise<UserRecord["plan"]>): Promise<BillingResult>;
   createSession(session: SessionRecord): Promise<void>;
   getSession(id: string): Promise<SessionRecord | null>;
@@ -119,6 +128,31 @@ export function createStore(filePath?: string): Store {
       const nextPlan=user.plan==="lifetime"&&!((receipt.revokeLifetime||lifetimeMode)&&head?.plan==="lifetime")?user.plan:entitled;
       persist({...snap,users:snap.users.map(u=>u.id===userId?{...u,plan:nextPlan}:u),billing:[...snap.billing,{...receipt,userId}],billingHeads});
       return user.plan===nextPlan?{ok:true,unchanged:true}:{ok:true,plan:nextPlan};
+    },
+    async createVerifiedSession(expected, session) {
+      const user=snap.users.find(u=>u.id===expected.id);
+      if(!user||user.passwordHash!==expected.passwordHash||user.email!==norm(expected.email)||session.userId!==user.id)return null;
+      persist({...snap,sessions:[...snap.sessions.filter(s=>s.expiresAt>Date.now()),session]});
+      return {...user};
+    },
+    async changeCredentials(proof, change) {
+      const user=snap.users.find(u=>u.id===proof.userId);
+      if(!user||user.passwordHash!==proof.passwordHash||!snap.sessions.some(s=>s.id===proof.sessionId&&s.userId===user.id&&s.expiresAt>Date.now()))return null;
+      if(change.kind==="email"&&snap.users.some(u=>u.id!==user.id&&u.email===norm(change.email)))throw Error("email_exists");
+      if(change.kind==="password"&&change.replacement.userId!==user.id)throw Error("invalid_replacement_session");
+      const next=change.kind==="email"?{...user,email:norm(change.email)}:{...user,passwordHash:change.passwordHash};
+      persist({...snap,users:snap.users.map(u=>u.id===user.id?next:u),
+        sessions:change.kind==="password"?[...snap.sessions.filter(s=>s.userId!==user.id),change.replacement]:snap.sessions});
+      return {...next};
+    },
+    async deleteAuthenticatedUser(proof) {
+      const user=snap.users.find(u=>u.id===proof.userId);
+      if(!user||user.passwordHash!==proof.passwordHash||!snap.sessions.some(s=>s.id===proof.sessionId&&s.userId===user.id&&s.expiresAt>Date.now()))return "unauthorized";
+      if(user.plan==="pro")return "subscription_active";
+      const sync={...snap.sync};delete sync[user.id];
+      persist({...snap,users:snap.users.filter(u=>u.id!==user.id),sessions:snap.sessions.filter(s=>s.userId!==user.id),
+        billing:snap.billing.filter(r=>r.userId!==user.id),billingHeads:snap.billingHeads.filter(r=>r.userId!==user.id),sync});
+      return "deleted";
     },
     async createSession(session) {
       persist({

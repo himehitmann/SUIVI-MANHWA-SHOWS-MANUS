@@ -278,17 +278,11 @@ export function createApiRouter(
       : null;
   };
 
-  const issueToken = async (userId: string) => {
-    const id = randomUUID(),
-      now = Date.now();
-    await store.createSession({
-      id,
-      userId,
-      createdAt: now,
-      expiresAt: now + 30 * 86400000,
-    });
-    return signToken({ sub: userId, jti: id }, SECRET);
+  const newSession = (userId:string) => {
+    const now=Date.now();
+    return {id:randomUUID(),userId,createdAt:now,expiresAt:now+30*86400000};
   };
+  const sessionToken=(session:{id:string;userId:string})=>signToken({sub:session.userId,jti:session.id},SECRET);
   const catalog=createCatalog();
   router.get('/catalog',asyncRoute(async(req,res)=>{
     if(rateLimited(req,res,60))return;
@@ -372,10 +366,9 @@ export function createApiRouter(
         createdAt: Date.now(),
       };
       await store.createUser(user);
-      return res.json({
-        token: await issueToken(user.id),
-        user: await accountView(user),
-      });
+      const session=newSession(user.id),fresh=await store.createVerifiedSession(user,session);
+      if(!fresh)return res.status(401).json({error:"invalid_credentials"});
+      return res.json({token:sessionToken(session),user:await accountView(fresh)});
     })
   );
 
@@ -393,10 +386,9 @@ export function createApiRouter(
       const user = await store.getUserByEmail(email);
       if (!user || !(await verifyPasswordAsync(password || "", user.passwordHash)))
         return res.status(401).json({ error: "invalid_credentials" });
-      return res.json({
-        token: await issueToken(user.id),
-        user: await accountView(user),
-      });
+      const session=newSession(user.id),fresh=await store.createVerifiedSession(user,session);
+      if(!fresh)return res.status(401).json({error:"invalid_credentials"});
+      return res.json({token:sessionToken(session),user:await accountView(fresh)});
     })
   );
 
@@ -425,8 +417,9 @@ export function createApiRouter(
       const clash = await store.getUserByEmail(email);
       if (clash && clash.id !== user.id)
         return res.status(409).json({ error: "email_taken" });
-      await store.updateUser({ ...user, email });
-      return res.json({ user: await accountView({ ...user, email }) });
+      const fresh=await store.changeCredentials({userId:user.id,passwordHash:user.passwordHash,sessionId:session.sessionId},{kind:"email",email});
+      if(!fresh)return res.status(401).json({error:"unauthorized"});
+      return res.json({ user: await accountView(fresh) });
     })
   );
 
@@ -450,9 +443,10 @@ export function createApiRouter(
       if (!user) return res.status(401).json({ error: "unauthorized" });
       if (!(await verifyPasswordAsync(current || "", user.passwordHash)))
         return res.status(401).json({ error: "invalid_credentials" });
-      await store.updateUser({ ...user, passwordHash: await hashPasswordAsync(next) });
-      await store.revokeUserSessions(user.id);
-      return res.json({ ok: true, token: await issueToken(user.id) });
+      const replacement=newSession(user.id),passwordHash=await hashPasswordAsync(next);
+      const fresh=await store.changeCredentials({userId:user.id,passwordHash:user.passwordHash,sessionId:session.sessionId},{kind:"password",passwordHash,replacement});
+      if(!fresh)return res.status(401).json({error:"unauthorized"});
+      return res.json({ok:true,token:sessionToken(replacement)});
     })
   );
 
@@ -499,7 +493,9 @@ export function createApiRouter(
         if(scoped.checkout)await scoped.checkout.assertDeletable(session.id);
         else if(await scoped.attempts?.read(session.id))return res.status(503).json({error:"billing_check_unavailable"});
         deletionStarted=true;
-        await scoped.store.deleteUser(session.id);
+        const result=await scoped.store.deleteAuthenticatedUser({userId:session.id,passwordHash:user.passwordHash,sessionId:session.sessionId});
+        if(result==="unauthorized")return res.status(401).json({error:"unauthorized"});
+        if(result==="subscription_active")return res.status(409).json({error:"billing_subscription_active"});
         return res.json({ok:true});
       });}catch(error){
         if(deletionStarted)return res.status(503).json({error:"account_delete_unconfirmed"});
@@ -626,6 +622,7 @@ export function createApiRouter(
       res: Response,
       _next: express.NextFunction
     ) => {
+      if(error instanceof Error&&error.message==="email_exists")return res.status(409).json({error:"email_taken"});
       if(error instanceof AccessError)return res.status(error.status).json({error:error.code});
       if(error instanceof PasswordBusyError){res.setHeader("Retry-After","2");return res.status(503).json({error:"auth_busy"});}
       if(error instanceof Error&&error.message==="catalog_busy"){res.setHeader("Retry-After","5");return res.status(503).json({error:"catalog_busy"});}

@@ -73,7 +73,58 @@ function toUser(row: any): UserRecord {
 }
 
 export function createPostgresStore(client: SqlClient): Store {
+  // The billing-account runner supplies a dedicated, non-transactional client.
+  // Otherwise acquire exactly one pool connection for each atomic operation.
+  const accountTransaction=async<T>(work:(tx:SqlClient)=>Promise<T>):Promise<T>=>{
+    const owned=client.connect?await client.connect():null,tx=owned||client;
+    let discard:Error|undefined;
+    try{await tx.query("BEGIN");const result=await work(tx);await tx.query("COMMIT");return result;}
+    catch(error){try{await tx.query("ROLLBACK");}catch{discard=new Error("Account transaction rollback failed");}throw error;}
+    finally{owned?.release(discard);}
+  };
+  const lockedProof=async(tx:SqlClient,proof:{userId:string;passwordHash:string;sessionId:string})=>{
+    const {rows}=await tx.query("SELECT * FROM users WHERE id=$1 FOR UPDATE",[proof.userId]);
+    if(!rows[0]||rows[0].password_hash!==proof.passwordHash)return null;
+    const session=await tx.query("SELECT id FROM sessions WHERE id=$1 AND user_id=$2 AND expires_at>$3 FOR UPDATE",[proof.sessionId,proof.userId,Date.now()]);
+    return session.rows.length?toUser(rows[0]):null;
+  };
   return {
+    async createVerifiedSession(expected,s) {
+      return accountTransaction(async tx=>{
+        const {rows}=await tx.query("SELECT * FROM users WHERE id=$1 FOR UPDATE",[expected.id]);
+        const user=rows[0]?toUser(rows[0]):null;
+        if(!user||user.passwordHash!==expected.passwordHash||user.email!==normEmail(expected.email)||s.userId!==user.id)return null;
+        await tx.query("DELETE FROM sessions WHERE user_id=$1 AND expires_at<=$2",[user.id,Date.now()]);
+        await tx.query("INSERT INTO sessions (id,user_id,created_at,expires_at) VALUES ($1,$2,$3,$4)",[s.id,s.userId,s.createdAt,s.expiresAt]);
+        return user;
+      });
+    },
+    async changeCredentials(proof,change) {
+      try{return await accountTransaction(async tx=>{
+        const user=await lockedProof(tx,proof);if(!user)return null;
+        if(change.kind==="email"){
+          const {rows}=await tx.query("UPDATE users SET email=$2 WHERE id=$1 RETURNING *",[user.id,normEmail(change.email)]);
+          return toUser(rows[0]);
+        }
+        const s=change.replacement;
+        if(s.userId!==user.id)throw Error("invalid_replacement_session");
+        const {rows}=await tx.query("UPDATE users SET password_hash=$2 WHERE id=$1 RETURNING *",[user.id,change.passwordHash]);
+        await tx.query("DELETE FROM sessions WHERE user_id=$1",[user.id]);
+        await tx.query("INSERT INTO sessions (id,user_id,created_at,expires_at) VALUES ($1,$2,$3,$4)",[s.id,s.userId,s.createdAt,s.expiresAt]);
+        return toUser(rows[0]);
+      });}catch(error){
+        if((error as {code?:string}).code==="23505"&&change.kind==="email")throw Error("email_exists");
+        throw error;
+      }
+    },
+    async deleteAuthenticatedUser(proof) {
+      return accountTransaction(async tx=>{
+        const user=await lockedProof(tx,proof);if(!user)return "unauthorized";
+        if(user.plan==="pro")return "subscription_active";
+        await tx.query("DELETE FROM users WHERE id=$1",[user.id]);
+        return "deleted";
+      });
+    },
     async applyBillingEvent(userId, plan, receipt, resolveAmbiguity) {
       if(!client.connect)throw new Error("Billing transactions require a connection pool");
       const connection=await client.connect();
@@ -141,7 +192,10 @@ export function createPostgresStore(client: SqlClient): Store {
       await client.query("DELETE FROM sessions WHERE id = $1", [id]);
     },
     async revokeUserSessions(userId) {
-      await client.query("DELETE FROM sessions WHERE user_id = $1", [userId]);
+      await accountTransaction(async tx=>{
+        await tx.query("SELECT id FROM users WHERE id=$1 FOR UPDATE",[userId]);
+        await tx.query("DELETE FROM sessions WHERE user_id = $1",[userId]);
+      });
     },
     async deleteUser(userId) {
       await client.query("DELETE FROM users WHERE id = $1", [userId]);
