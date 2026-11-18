@@ -8,6 +8,18 @@ Mise à jour : 18 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi rem
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Modifications du compte sans perte de droits — 18 novembre 2026
+
+Code : 5b930222080d1b6617eebf745228bd836c096b1e. Service de comptes ; extension **0.4.31** inchangée.
+
+Les changements d’adresse et de mot de passe écrivent uniquement les champs concernés : un abonnement activé entre-temps ne peut plus être remplacé par un ancien état gratuit. La rotation du mot de passe, la révocation des anciennes sessions et la création de la session de remplacement sont atomiques. Une connexion retardée avec l’ancien mot de passe et une modification dont la session a été révoquée sont refusées. Les conflits d’adresse sont renvoyés sans écriture partielle. La suppression du compte revérifie aussi les identifiants, la session et l’absence d’un abonnement récurrent au moment de l’effacement, après la consultation du fournisseur.
+
+**Preuves :** [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44347450957) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44347462031) : **1 105 tests réussis dans 47 fichiers, dont 20 nouveaux**. Lint, TypeScript, compilation, parcours navigateur, paquet Chrome et mise à jour **0.3.1 → 0.4.31** réussis. Les jobs capacity, recovery et firebase-recovery sont réussis dans les deux exécutions ; verify échoue uniquement sur l’audit obligatoire picomatch (GHSA-fc5q-39xc-vjpf). Les tests PostgreSQL utilisent deux serveurs HTTP avec une connexion chacun et une panne d’insertion simulée : après l’échec, ancien mot de passe et session restent valides, sans perte de bibliothèque. La concurrence avec un paiement ou une modification des identifiants est également testée pendant la suppression.
+
+**Limites :** validation isolée, pas de déploiement ni de parcours marchand réel. La récupération d’un mot de passe oublié et la configuration des services/support restent à réceptionner. L’audit de dépendances demeure obligatoire et bloquant. Aucun encaissement ni publication. **Avancement global : 21/60 = 35 %**, car aucun critère global partiel n’est entièrement clos par ce seul correctif.
+
+Détails : [ACCOUNT-CREDENTIAL-SAFETY.md](ACCOUNT-CREDENTIAL-SAFETY.md).
+
 ## Suppression de compte et conditions de publication — 18 novembre 2026
 
 Code : 1e49a2b36550a0808db6058e15fe3e4d3f055d7b. Parcours web et serveur ; extension **0.4.31** inchangée.
