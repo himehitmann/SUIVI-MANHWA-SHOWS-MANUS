@@ -8,6 +8,24 @@ Mise à jour : 18 novembre 2026. Branche : fix/yomu-p0-reliability. Ce suivi rem
 
 **21 / 60 = 35 % global vérifié.** Les contrôles historiques comptent 14 V et les critères supplémentaires 7 V. G03 est rouvert après les captures utilisateur du 10 octobre. Le périmètre élargi explique la différence avec l’ancien 14/36 (39 %), qui concernait un lot d’audit uniquement. Tout changement de dénominateur devra être explicite.
 
+## Suppression de compte et conditions de publication — 18 novembre 2026
+
+Code : 1e49a2b36550a0808db6058e15fe3e4d3f055d7b. Parcours web et serveur ; extension **0.4.31** inchangée.
+
+Conformément à la priorité donnée par l’utilisateur, les indispensables de lancement sont suivis dans [PUBLICATION-GATES.md](PUBLICATION-GATES.md). Décision actuelle : **ne pas publier et ne pas ouvrir les ventes**. L’utilisateur publiera lui-même après réception explicite des points nécessaires ; les enrichissements facultatifs passent ensuite.
+
+La suppression vérifie le mot de passe et conserve le compte en présence d’un abonnement récurrent, d’une session de paiement ouverte, d’une création inconnue ou d’une vérification fournisseur impossible. La consultation du fournisseur est en lecture seule : elle ne crée ni paiement ni résiliation. Les cadeaux et rôles administratifs sont distincts du plan d’abonnement ; le propriétaire reste protégé. Les réglages FR/EN expliquent le refus et proposent l’accès à la facturation ou à la vérification de la tentative. Un résultat de suppression incertain est signalé comme tel.
+
+Les routes d’achat, d’expiration et de suppression sont coordonnées par compte dans PostgreSQL. Elles relisent le compte, les droits et la session après l’attente. Le test fait agir deux serveurs avec une seule connexion de base chacun, dans les deux ordres : un achat en cours bloque la suppression ; une suppression effectuée bloque un achat arrivé entre-temps. Une session révoquée pendant l’attente est refusée. Les réservations sont persistées avant l’appel fournisseur et survivent à sa panne, sans transaction qui annulerait cette preuve. Les réponses tardives de modification du compte ne déconnectent pas un autre compte nouvellement connecté.
+
+**Preuves fonctionnelles :** [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44247068834) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44247076350) : **1 085 tests réussis, dont 32 nouveaux**. TypeScript, compilation, parcours web, paquet Chrome et contrôles d’interface réussis. Les jobs capacity, recovery et firebase-recovery réussissent dans les deux exécutions. Le test de mise à jour **0.3.1 → 0.4.31** conserve compte, progression, listes et profil.
+
+**Audit bloquant :** le job verify échoue dans les deux exécutions sur le contrôle obligatoire des dépendances : picomatch 4.0.7, [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf), niveau élevé, via les outils de compilation. Le registre consulté le 18 novembre annonce encore 4.0.7 et ne fournit pas la version 4.0.8 indiquée par l’audit. Aucun correctif fictif ni exception n’est appliqué. L’audit est placé après les parcours fonctionnels pour en obtenir les résultats, mais son échec reste un échec de la CI. **Ce lot n’est donc pas une validation de publication.**
+
+**Limites :** fournisseur simulé et PostgreSQL isolé. Connexion PostgreSQL directe ou pool conservant les sessions nécessaire ; ne pas utiliser un pool transactionnel pour ces verrous. Achats externes/anciens et Paddle doivent être rapprochés avant lancement. Un support opérationnel est encore nécessaire pour la facturation ambiguë et les demandes de suppression. Aucun paiement réel ni publication. **G20, G23 et G24 restent ouverts ; avancement global : 21/60 = 35 %.**
+
+Détails : [ACCOUNT-DELETION-BILLING.md](ACCOUNT-DELETION-BILLING.md).
+
 ## Fermeture des ventes et restauration des paiements — validation du 18 novembre 2026
 
 Code : cf330f1515be286e226b6fc0cdd00047243cd75c. Extension **0.4.31** inchangée.

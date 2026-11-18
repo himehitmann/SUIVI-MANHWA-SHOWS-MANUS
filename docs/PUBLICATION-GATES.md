@@ -30,3 +30,6 @@ L’hébergement, le compte marchand et le compte éditeur réels ne sont pas ce
 Les enrichissements facultatifs (fonctions sociales supplémentaires, personnalisation avancée, nouveaux fournisseurs au-delà du périmètre annoncé, raffinements visuels secondaires) passent après les blocages ci-dessus. Les demandes restent dans GLOBAL-PROGRESS.md ; elles ne sont pas marquées réalisées pour accélérer artificiellement le lancement.
 
 Quand tous les points indispensables disposent de preuves sur la version et les services réels, annoncer clairement à l’utilisateur que Yomu est prêt, avec les étapes de publication et les éventuelles limites explicitement acceptées. Jusqu’à cette réception, rester en état « non prêt à publier ».
+
+## Dernière réception partielle
+Code 1e49a2b36550a0808db6058e15fe3e4d3f055d7b : 1 085 tests réussis, parcours navigateur et restauration/concurrence réussis. [CI push](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44247068834) et [CI PR](https://github.com/himehitmann/SUIVI-MANHWA-SHOWS-MANUS/actions/runs/44247076350) restent en échec à cause de l’audit picomatch. Le correctif de suppression de compte est détaillé dans [ACCOUNT-DELETION-BILLING.md](ACCOUNT-DELETION-BILLING.md). Décision inchangée : **non prêt à publier**.
