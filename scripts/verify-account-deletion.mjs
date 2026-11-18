@@ -19,7 +19,7 @@ globalThis.fetch=(input,init)=>{assert.equal(new URL(String(input)).hostname,"12
 const options={connectionString:url.toString(),max:1,connectionTimeoutMillis:5000,statement_timeout:10000,query_timeout:12000};
 const pools=[new pg.Pool(options),new pg.Pool(options)],observer=new pg.Pool(options),servers=[],bases=[],users=[];
 const provider=checkoutProvider(),config={enabled:true,key:"synthetic-deletion-fixture",origin:"https://yomu.example",month:"price_month",year:"price_year"};
-let gate=null;
+let gate=null;const holds=[];
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 const request=async(input,init)=>{
  if(gate&&((gate.kind==="post"&&init?.method==="POST"&&String(input).endsWith("/checkout/sessions"))||(gate.kind==="read"&&!init?.method&&String(input).includes("/checkout/sessions/cs_")))){
@@ -46,7 +46,7 @@ try{
  }
  const u=await account(),accounts=createPostgresStore(observer),attempts=createPostgresCheckoutStore(observer);
  await accounts.setSync(u.id,{blob:{items:[{id:"keep",chapter:24}],updatedAt:1},updatedAt:1});
- const before=await accounts.getSync(u.id),hold={kind:"post",entered:deferred(),release:deferred()};gate=hold;
+ const before=await accounts.getSync(u.id),hold={kind:"post",entered:deferred(),release:deferred()};holds.push(hold);gate=hold;
  const buying=call(0,"/billing/checkout",u.token,{offer:"month"});await hold.entered.promise;
  // The reservation must already be committed while the provider response is pending.
  assert(await attempts.read(u.id));
@@ -57,7 +57,7 @@ try{
  assert.deepEqual(await accounts.getSync(u.id),before);
  // Reverse the race: deletion holds the same lock while checking an expired session.
  const attempt=await attempts.read(u.id);provider.sessions.get(attempt.sessionId).status="expired";
- const readHold={kind:"read",entered:deferred(),release:deferred()};gate=readHold;
+ const readHold={kind:"read",entered:deferred(),release:deferred()};holds.push(readHold);gate=readHold;
  const removal=call(0,"/auth/delete",u.token,{current:password});await readHold.entered.promise;
  const posts=provider.posts.length;let purchaseDone=false;
  const latePurchase=call(1,"/billing/checkout",u.token,{offer:"year"}).then(r=>{purchaseDone=true;return r;});
@@ -75,6 +75,7 @@ try{
  assert.equal((await call(0,"/me",lost.token)).status,200);assert.equal((await call(1,"/me",lost.token)).status,200);
  console.log("PASS: two HTTP workers with one database connection each serialize checkout/delete in both orders; reservations survive provider failure; rejected deletion preserves library; deleted accounts cannot start a late checkout; locks are released.");
 }finally{
+ for(const hold of holds)hold.release.resolve();
  for(const server of servers)await new Promise((r,j)=>server.close(e=>e?j(e):r()));
  for(const id of users)await observer.query("DELETE FROM users WHERE id=$1",[id]);
  await Promise.all([...pools,observer].map(p=>p.end()));

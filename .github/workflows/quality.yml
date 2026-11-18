@@ -29,7 +29,6 @@ jobs:
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
-      - run: pnpm audit --audit-level=moderate
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:web
       - run: node tests/e2e/paid-web.mjs
@@ -45,6 +44,8 @@ jobs:
       - name: Observe live homepage catalogs
         if: github.event_name == 'pull_request'
         run: node tests/e2e/live-discovery.mjs
+      - name: Release-blocking dependency audit
+        run: pnpm audit --audit-level=moderate
       - uses: actions/upload-artifact@v4
         if: always()
         with:
