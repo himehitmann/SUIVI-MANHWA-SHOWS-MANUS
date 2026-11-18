@@ -491,6 +491,7 @@ export function createApiRouter(
       if(owners.has(session.id))return res.status(409).json({error:"owner_account_protected"});
       let deletionStarted=false;
       try{return await withBillingAccount(session.id,async scoped=>{
+      if((await scoped.store.getSession(session.sessionId))?.userId!==session.id)return res.status(401).json({error:"unauthorized"});
         const fresh=await scoped.store.getUserById(session.id);
         if(!fresh)return res.status(401).json({error:"unauthorized"});
         // Raw recurring access is separate from gifts and administrator access.
@@ -531,6 +532,7 @@ export function createApiRouter(
     const body=z.object({offer:z.enum(["month","year"])}).strict().safeParse(req.body);
     if(!body.success)return res.status(400).json({error:"invalid_checkout"});
     try{return await withBillingAccount(session.id,async scoped=>{
+      if((await scoped.store.getSession(session.sessionId))?.userId!==session.id)return res.status(401).json({error:"unauthorized"});
       const user=await scoped.store.getUserById(session.id);
       if(!user)return res.status(401).json({error:"unauthorized"});
       const rights=await accountView(user,scoped.access);
@@ -545,6 +547,7 @@ export function createApiRouter(
     if(rateLimited(req,res,10,60000,"checkout-expire:"+session.id))return;
     if(!z.object({}).strict().safeParse(req.body).success)return res.status(400).json({error:"invalid_checkout"});
     try{return await withBillingAccount(session.id,async scoped=>{
+      if((await scoped.store.getSession(session.sessionId))?.userId!==session.id)return res.status(401).json({error:"unauthorized"});
       if(!await scoped.store.getUserById(session.id))return res.status(401).json({error:"unauthorized"});
       if(!scoped.checkout)return res.json({ok:true,managed:false});
       await scoped.checkout.expire(session.id);return res.json({ok:true,managed:true});

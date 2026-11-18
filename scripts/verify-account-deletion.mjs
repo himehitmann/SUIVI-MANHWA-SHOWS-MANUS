@@ -71,6 +71,16 @@ try{
  assert.equal((await call(1,"/auth/delete",lost.token,{current:password})).data.error,"billing_review_required");
  const count=provider.sessions.size;assert.equal((await call(1,"/billing/checkout",lost.token,{offer:"month"})).status,200);
  assert.equal(provider.sessions.size,count);
+ // A queued purchase must recheck a session revoked while waiting for its lock.
+ const revoked=await account(),sessionHold={entered:deferred(),release:deferred()};holds.push(sessionHold);
+ const locked=createPostgresBillingAccountRunner(pools[0],config,request)(revoked.id,async()=>{sessionHold.entered.resolve();await sessionHold.release.promise;});
+ await sessionHold.entered.promise;
+ let queuedDone=false;const beforeRevoked=provider.posts.length;
+ const queued=call(1,"/billing/checkout",revoked.token,{offer:"month"}).then(r=>{queuedDone=true;return r;});
+ await new Promise(r=>setTimeout(r,100));assert.equal(queuedDone,false);
+ await accounts.revokeUserSessions(revoked.id);
+ sessionHold.release.resolve();await locked;assert.equal((await queued).status,401);
+ assert.equal(provider.posts.length,beforeRevoked);
  // Both max=1 pools can still serve requests: no nested acquisition or leaked lock.
  assert.equal((await call(0,"/me",lost.token)).status,200);assert.equal((await call(1,"/me",lost.token)).status,200);
  console.log("PASS: two HTTP workers with one database connection each serialize checkout/delete in both orders; reservations survive provider failure; rejected deletion preserves library; deleted accounts cannot start a late checkout; locks are released.");
