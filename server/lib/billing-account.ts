@@ -16,7 +16,7 @@ export function createPostgresBillingAccountRunner(pool:SqlClient,config:Checkou
   try{
    await connection.query("SELECT pg_advisory_lock(hashtextextended($1,0))",[key]);locked=true;
    const attempts=createPostgresCheckoutStore(connection);
-   return await operation({store:createPostgresStore(connection),access:createPostgresAccessStore(connection),attempts,checkout:config?createManagedCheckout(attempts,config,request):null});
+   return await operation({store:createPostgresStore({query:(text,params)=>connection.query(text,params)}),access:createPostgresAccessStore(connection),attempts,checkout:config?createManagedCheckout(attempts,config,request):null});
   }catch(error){discard=error instanceof Error?error:new Error("billing_operation_failed");throw error;}
   finally{
    if(locked)try{

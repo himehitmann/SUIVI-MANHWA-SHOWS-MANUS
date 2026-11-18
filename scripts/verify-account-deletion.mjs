@@ -64,6 +64,29 @@ try{
  await new Promise(r=>setTimeout(r,100));assert.equal(purchaseDone,false);
  readHold.release.resolve();assert.equal((await removal).status,200);assert.equal((await latePurchase).status,401);
  assert.equal(provider.posts.length,posts);assert.equal(await accounts.getUserById(u.id),null);assert.equal(await attempts.read(u.id),null);
+ // Password rotation during a provider read invalidates the pending deletion.
+ const secured=await account();
+ await accounts.setSync(secured.id,{blob:{items:[{id:"keep-after-rotation",chapter:18}],updatedAt:1},updatedAt:1});
+ assert.equal((await call(0,"/billing/checkout",secured.token,{offer:"month"})).status,200);
+ provider.sessions.get((await attempts.read(secured.id)).sessionId).status="expired";
+ const passwordHold={kind:"read",entered:deferred(),release:deferred()};holds.push(passwordHold);gate=passwordHold;
+ const staleDelete=call(0,"/auth/delete",secured.token,{current:password});
+ await passwordHold.entered.promise;
+ const rotated=await call(1,"/auth/password",secured.token,{current:password,next:"synthetic-new-deletion-password"});
+ assert.equal(rotated.status,200);
+ passwordHold.release.resolve();assert.equal((await staleDelete).status,401);
+ assert.equal((await accounts.getSync(secured.id)).blob.items[0].chapter,18);
+ assert.equal((await call(1,"/me",rotated.data.token)).status,200);
+ // A subscription activated during the same read must also block the final delete.
+ const paidLate=await account();
+ assert.equal((await call(0,"/billing/checkout",paidLate.token,{offer:"month"})).status,200);
+ provider.sessions.get((await attempts.read(paidLate.id)).sessionId).status="expired";
+ const paymentHold={kind:"read",entered:deferred(),release:deferred()};holds.push(paymentHold);gate=paymentHold;
+ const paidDelete=call(0,"/auth/delete",paidLate.token,{current:password});
+ await paymentHold.entered.promise;
+ await accounts.applyBillingEvent(paidLate.id,"pro",{provider:"stripe",eventId:randomUUID()});
+ paymentHold.release.resolve();assert.equal((await paidDelete).data.error,"billing_subscription_active");
+ assert.equal((await call(1,"/me",paidLate.token)).status,200);
  // A failed provider POST must not roll back its persistent evidence when releasing the lock.
  const lost=await account();provider.loseNext();
  assert.equal((await call(0,"/billing/checkout",lost.token,{offer:"month"})).status,503);
