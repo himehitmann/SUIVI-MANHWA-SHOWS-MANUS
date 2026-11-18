@@ -1,0 +1,105 @@
+import {chromium} from "playwright";
+import {spawn} from "node:child_process";
+import {createServer} from "node:net";
+import {randomBytes} from "node:crypto";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import assert from "node:assert/strict";
+const probe=createServer();await new Promise(r=>probe.listen(0,"127.0.0.1",r));const port=probe.address().port;await new Promise(r=>probe.close(r));
+const portalUrl="https://billing.stripe.com/p/login/test_4gw6oJchs69w47e7ss";
+const temp=await fs.mkdtemp(path.join(os.tmpdir(),"yomu-paid-web-")),base="http://127.0.0.1:"+port;
+// No personal-mode opt-out: verify the actual production default.
+const server=spawn(process.execPath,["dist/index.js"],{env:{...process.env,NODE_ENV:"production",YOMU_ACCESS_MODE:"",STRIPE_PORTAL_LOGIN_URL:portalUrl,YOMU_OWNER_IDS:"",DATABASE_URL:"",PORT:String(port),SYNC_JWT_SECRET:randomBytes(32).toString("hex"),SYNC_DB_FILE:path.join(temp,"accounts.json"),FORCE_HTTPS:"false"},stdio:["ignore","pipe","pipe"],windowsHide:true});
+let log="",browser;server.stdout.on("data",d=>log+=d);server.stderr.on("data",d=>log+=d);
+try{
+ for(let i=0;i<100;i++){if(await fetch(base+"/healthz").then(r=>r.ok).catch(()=>false))break;if(i===99)throw Error("Server unavailable: "+log);await new Promise(r=>setTimeout(r,100));}
+ browser=await chromium.launch({channel:"chromium",headless:true});
+ const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+ page.on("pageerror",error=>errors.push(error.message));
+ await page.goto(base+"/settings");
+ await page.getByRole("button",{name:"New here? Create an account",exact:true}).click();
+ await page.getByPlaceholder("Email",{exact:true}).fill("paid-web@example.test");
+ await page.getByPlaceholder("Password",{exact:true}).fill("paid-web-test-password");
+ await page.getByRole("button",{name:"Create account",exact:true}).click();
+ await page.getByRole("button",{name:"Sign out",exact:true}).waitFor();
+ await page.getByRole("status").filter({hasText:"Saving new changes online requires active Pro access"}).waitFor();
+
+ const billingLink=page.getByRole("link",{name:"Manage billing or cancel",exact:true});
+ await billingLink.waitFor();assert.equal(await billingLink.getAttribute("href"),portalUrl);
+ assert.equal(await billingLink.getAttribute("target"),"_blank");
+ assert.equal(await billingLink.getAttribute("rel"),"noopener noreferrer");
+ await page.route("**/api/billing/portal",route=>route.fulfill({status:503,json:{error:"unavailable"}}));
+ await page.reload();await page.getByRole("status").filter({hasText:"Billing management could not be loaded"}).waitFor();
+ assert.equal(await billingLink.count(),0);
+ await page.unroute("**/api/billing/portal");
+ await page.getByRole("button",{name:"Try again",exact:true}).click();await billingLink.waitFor();
+ await page.route("**/api/billing/portal",route=>route.fulfill({status:503,json:{error:"billing_portal_unavailable"}}));
+ await page.reload();await page.getByRole("status").filter({hasText:"Billing management is not configured"}).waitFor();
+ assert.equal(await billingLink.count(),0);
+ await page.unroute("**/api/billing/portal");await page.reload();await billingLink.waitFor();
+
+ const session=await page.evaluate(()=>({token:localStorage.getItem("dasi.sync.token:"+encodeURIComponent("/api")),session:JSON.parse(localStorage.getItem("dasi.sync.session:"+encodeURIComponent("/api")))}));
+ assert(session.token);assert.equal(session.session.syncAccess,"read_only");
+ const me=await(await fetch(base+"/api/me",{headers:{Authorization:"Bearer "+session.token}})).json();
+ assert.equal(me.user.syncAccess,"read_only");
+ const denied=await fetch(base+"/api/sync",{method:"PUT",headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.token},body:JSON.stringify({blob:{items:[{id:"forged",title:"Injected"}],plan:"lifetime"}})});
+ assert.equal(denied.status,403);assert.equal((await denied.json()).error,"subscription_required");
+ const backup={version:2,items:[{id:"retained",title:"Retained after expiry",type:"reading",chapter:12.5}]};
+ await page.locator("input[type=file]").last().setInputFiles({name:"local.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(backup))});
+ await page.getByRole("status").filter({hasText:"1 added"}).waitFor();
+ await page.getByRole("button",{name:"Sync now",exact:true}).click();
+ await page.getByRole("button",{name:"Sync now",exact:true}).waitFor({state:"visible"});
+ await page.getByRole("status").filter({hasText:"Saving new changes online requires active Pro access"}).waitFor();
+ assert.equal((await(await fetch(base+"/api/sync",{headers:{Authorization:"Bearer "+session.token}})).json()).blob,null);
+ await page.goto(base+"/work/retained");await page.getByRole("heading",{name:"Retained after expiry",exact:true}).waitFor();
+ assert.equal(await page.getByLabel("Chapter",{exact:true}).inputValue(),"12.5");
+ await page.goto(base+"/settings");
+ // A backup outage must not turn a valid sign-in into an authentication error.
+ await page.getByRole("button",{name:"Sign out",exact:true}).click();await page.getByRole("button",{name:"Sign in",exact:true}).waitFor();
+ await page.route("**/api/sync",route=>route.fulfill({status:503,json:{error:"unavailable"}}));
+ await page.getByPlaceholder("Email",{exact:true}).fill("paid-web@example.test");
+ await page.getByPlaceholder("Password",{exact:true}).fill("paid-web-test-password");
+ await page.getByRole("button",{name:"Sign in",exact:true}).click();
+ await page.getByRole("button",{name:"Sign out",exact:true}).waitFor();
+ await page.getByRole("alert").filter({hasText:"You remain signed in"}).waitFor();
+ await page.unroute("**/api/sync");
+ await page.getByRole("button",{name:"Sync now",exact:true}).click();
+ await page.getByRole("status").filter({hasText:"Saving new changes online requires active Pro access"}).waitFor();
+ const downloadPromise=page.waitForEvent("download");
+ await page.getByRole("button",{name:"Export backup",exact:true}).click();
+ const download=await downloadPromise;const exported=JSON.parse(await fs.readFile(await download.path(),"utf8"));
+ assert.equal(exported.items.find(item=>item.id==="retained").chapter,12.5);
+ await page.getByRole("link",{name:"View plans",exact:true}).click();await page.waitForURL(base+"/pricing");
+ await page.getByRole("status").filter({hasText:"Sales are not open"}).waitFor();
+ await billingLink.waitFor();assert.equal(await billingLink.getAttribute("href"),portalUrl);
+ await page.goto(base+"/settings");await page.evaluate(()=>localStorage.setItem("dasi.language","fr"));await page.reload();
+ await page.getByRole("status").filter({hasText:"La sauvegarde de nouvelles modifications"}).waitFor();
+ await page.getByRole("link",{name:"Gérer ou résilier l’abonnement",exact:true}).waitFor();
+ // Failed deletion remains signed in and explains billing instead of blaming the password.
+ const deletionToken=await page.evaluate(()=>localStorage.getItem("dasi.sync.token:"+encodeURIComponent("/api")));
+ let deletionCode="billing_subscription_active";
+ await page.route("**/api/auth/delete",route=>route.fulfill({status:409,json:{error:deletionCode}}));
+ await page.getByLabel("Mot de passe actuel",{exact:true}).fill("paid-web-test-password");
+ page.once("dialog",dialog=>dialog.accept());
+ await page.getByRole("button",{name:"Supprimer mon compte",exact:true}).click();
+ await page.getByRole("alert").filter({hasText:"Ton abonnement doit être terminé"}).waitFor();
+ await page.getByRole("link",{name:"Accéder à la facturation",exact:true}).click();
+ assert(page.url().endsWith("#account-billing"));
+ deletionCode="billing_checkout_pending";
+ page.once("dialog",dialog=>dialog.accept());
+ await page.getByRole("button",{name:"Supprimer mon compte",exact:true}).click();
+ await page.getByRole("alert").filter({hasText:"Une session de paiement est encore ouverte"}).waitFor();
+ assert.equal(await page.getByRole("link",{name:"Vérifier la tentative de paiement",exact:true}).getAttribute("href"),"/billing/return");
+ assert.equal(await page.evaluate(()=>localStorage.getItem("dasi.sync.token:"+encodeURIComponent("/api"))),deletionToken);
+ const retained=await fetch(base+"/api/me",{headers:{Authorization:"Bearer "+deletionToken}});assert.equal(retained.status,200);
+ await page.unroute("**/api/auth/delete");
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await fs.mkdir("test-results",{recursive:true});await page.screenshot({path:"test-results/paid-sync-fr-mobile.png",fullPage:true});
+ assert.deepEqual(errors,[]);
+ console.log("PASS: production default denies unpaid sync writes, retains login and local edits, survives backup outage, permits export, offers navigation and billing access with failure recovery");
+}finally{
+ if(browser)await browser.close();server.kill();
+ await new Promise(r=>server.exitCode!==null?r():server.once("exit",r));
+ await fs.rm(temp,{recursive:true,force:true});
+}

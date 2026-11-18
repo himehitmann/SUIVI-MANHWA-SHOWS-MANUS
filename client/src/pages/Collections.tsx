@@ -8,8 +8,10 @@ import { useI18n } from "@/i18n/I18nContext";
 import { useStore, LIST_COLORS } from "@/store/StoreContext";
 
 export default function Collections() {
-  const { t } = useI18n();
+  const { t,lang } = useI18n();
   const store = useStore();
+  const fr=lang==="fr";
+  const [archived,setArchived]=useState(false);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [color, setColor] = useState(LIST_COLORS[0]);
@@ -57,11 +59,12 @@ export default function Collections() {
           </div>
         )}
 
+        <div className="catalog-filters"><button className="refresh-button" aria-pressed={!archived} onClick={()=>setArchived(false)}>{fr?"Actives":"Active"}</button><button className="refresh-button" aria-pressed={archived} onClick={()=>setArchived(true)}>{fr?"Archivées":"Archived"}</button></div>
         <div className="list-grid">
-          {store.lists.map((list) => {
+          {store.lists.filter(l=>Boolean(l.archived)===archived).map((list) => {
             const items = list.itemIds.map((id) => store.items.find((i) => i.id === id)).filter(Boolean);
             return (
-              <Link key={list.id} href={`/list/${list.id}`} className="list-card">
+              <article key={list.id} className="list-card">
                 <div className="list-card-cap" style={{ background: list.color }}>
                   <div className="list-card-covers">
                     {items.slice(0, 3).map((it) => (
@@ -73,9 +76,11 @@ export default function Collections() {
                   </div>
                 </div>
                 <div className="list-card-body">
-                  <strong>{list.name}</strong>
+                  <Link href={`/list/${list.id}`}><strong>{list.name}</strong></Link>
                   <div className="list-card-foot">
                     <small>{t("lists.count", { n: list.itemIds.length })}</small>
+                    <button onClick={e=>{e.preventDefault();store.duplicateList(list.id);toast.success(fr?"Liste dupliquée":"List duplicated");}}>{fr?"Dupliquer":"Duplicate"}</button>
+                    <button onClick={e=>{e.preventDefault();store.updateList(list.id,{archived:!list.archived});}}>{archived?(fr?"Restaurer":"Restore"):(fr?"Archiver":"Archive")}</button>
                     <button
                       className="list-del"
                       onClick={(e) => {
@@ -89,7 +94,7 @@ export default function Collections() {
                   </div>
                 </div>
                 <ChevronRight size={16} className="list-card-arrow" />
-              </Link>
+              </article>
             );
           })}
         </div>

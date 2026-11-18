@@ -1,80 +1,35 @@
-# Publishing updates without losing user data or subscriptions
+# Mises à jour de Yomu
 
-Short answer: **yes**. You can keep improving the extension and ship updates,
-and existing users keep their libraries and their subscriptions — as long as you
-follow the rules below.
+Le manifeste actif est `manifest.json` à la racine du dépôt.
+Le paquet est produit par `pnpm build:extension` sous le nom
+`yomu-extension.zip`.
 
-## How extension updates work
+## Installation manuelle actuelle
 
-- You raise the `version` in `extension/manifest.json` (e.g. `0.3.0` → `0.4.0`)
-  and upload the new package to the Chrome Web Store (and/or Firefox AMO).
-- Chrome **auto-updates** installed extensions in the background. Users don't
-  reinstall.
-- **An update does NOT clear `chrome.storage`.** Local and synced data survive
-  updates. Storage is only wiped by a **full uninstall** (or the user clearing
-  it). So progress, lists, favorites and saved sites are preserved across
-  updates automatically.
+Suivre [INSTALL.md](../INSTALL.md). Une mise à jour GitHub ne recharge pas
+l’extension installée. Remplacer les fichiers du même dossier puis utiliser
+**Recharger** dans Chrome. Vérifier la version avant d’annoncer une installation
+réussie. Ne pas désinstaller pour actualiser.
 
-## Rules to never lose data on update
+## Conservation des données
 
-1. **Never rename or delete storage keys** in a breaking way. Dasi uses stable
-   keys: `dasi.items`, `dasi.sites`, `dasi.notifications`.
-2. **Migrate, don't reset.** `background.js` has a `runtime.onInstalled` hook and
-   a `SCHEMA_VERSION`. If a future version changes the data shape, add a
-   migration branch there that transforms old data into the new shape — it runs
-   once on update. The library store also carries a `version` field for the same
-   reason.
-3. **Keep reads backward-compatible.** New optional fields are fine; old items
-   without them must still load (they do — every field is optional except id).
-4. **Test the update path before publishing:** load the old version, create
-   data, then load the new version over the same profile and confirm the data is
-   intact.
+Conserver les clés `dasi.*` malgré le nom Yomu. Toute évolution de schéma doit
+préserver les données existantes, les appartenances aux listes et les suppressions
+synchronisées. Tester la migration dans un profil persistant et garder une
+sauvegarde exportée avant une intervention sur un profil réel.
 
-## Subscriptions survive updates too
+La suite `pnpm test:package` vérifie notamment une mise à jour dans un profil
+Chromium persistant. Ce résultat ne prouve pas qu’une mise à jour a été effectuée
+sur le Chrome personnel de l’utilisateur.
 
-Subscriptions are **not stored in the extension package**, so shipping new code
-can't erase them:
+## Livraison
 
-- Payments live in your **payment provider** (Paddle or Stripe) and, once built,
-  your **sync/licensing backend** — both independent of the extension version.
-- On launch the extension will check licence/subscription status from that
-  backend (behind the `SyncProvider` interface in `client/src/lib/sync.ts`), so
-  an updated extension simply re-checks and sees the same active subscription.
-- **Rule:** never change the licence-check contract in a breaking way without a
-  fallback. Treat "backend unreachable" as "keep last known state / stay in local
-  mode", never as "downgrade to free and wipe data".
+1. Modifier et tester les fonctions.
+2. Incrémenter la version du manifeste pour une nouvelle livraison de l’extension.
+3. Exécuter le workflow Yomu quality jusqu’à réussite de toutes ses étapes.
+4. Distribuer le paquet de ce workflow réussi.
+5. Recharger l’installation cible et vérifier sa version séparément.
 
-> Today there is no live payment backend, so "plan" is local demo state. When you
-> add the backend (see `docs/PRICING.md`), keep subscription state server-side
-> and keyed to the user's account — then it is fully decoupled from extension
-> updates and from the device.
-
-## Recommended release checklist
-
-1. Bump `manifest.json` `version`.
-2. If the data shape changed, add a migration in the `onInstalled` hook.
-3. Run `pnpm check`, `pnpm test`, `pnpm build`.
-4. Load unpacked over an existing profile with real data → confirm data intact.
-5. Zip `extension/` (the CI workflow does this) and upload to the store.
-6. Bump `docs`/changelog and tag the release.
-
-## Confirmed after the "Yomu" rebrand (data-safe)
-
-The rename from "Dasi" to "Yomu" changed **only display strings** — every
-storage key stayed `dasi.*` (`dasi.items`, `dasi.sites`, `dasi.lists`,
-`dasi.settings`, `dasi.notifications`, `dasi.sync.config`, `dasi.schema`). So an
-existing user who updates keeps their whole library, lists, settings and signed
--in account untouched. Verified: `background.js` has no `.clear()`/`.remove()`,
-its `onInstalled` migration is additive and now wrapped in try/catch, and it
-never writes an empty list over a non-empty one.
-
-### Pre-publish checklist (every store update)
-1. Bump `version` in `manifest.json`.
-2. `pnpm check && pnpm test` green.
-3. Confirm no storage key was renamed (`grep -n "dasi\." background.js`).
-4. If you added a breaking data shape, add an **additive** migration under a new
-   `SCHEMA_VERSION` (never delete old fields).
-5. `git checkout main && bash scripts/pack-extension.sh` → upload
-   `yomu-extension.zip`.
-6. Existing users auto-update in the background; their data and Pro plan persist
-   (plan lives on the backend, keyed by account — see docs/DEPLOY-PAYMENTS.md).
+Une publication Chrome Web Store et sa distribution automatique ne sont pas
+confirmées pour ce projet. Les comptes, paiements et abonnements en production
+demandent leur propre validation; les tests de code ne prouvent pas leur déploiement.

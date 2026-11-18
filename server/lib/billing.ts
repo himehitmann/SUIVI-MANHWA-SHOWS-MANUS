@@ -10,7 +10,7 @@
  * the resulting plan.
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { Store } from "./store";
+import type { Store, BillingReceipt, UserRecord } from "./store";
 
 export type Plan = "free" | "pro" | "lifetime";
 
@@ -28,10 +28,45 @@ export interface PlanIntent {
   plan: Plan;
 }
 
-function safeEqualHex(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
+interface SignatureOptions { toleranceSec?: number; now?: number; }
+interface SignatureFormat {
+  delimiter: "," | ";";
+  timestampKey: "t" | "ts";
+  signatureKey: "v1" | "h1";
+  separator: "." | ":";
+  toleranceSec: number;
+}
+
+/** Both providers can send several signatures while an endpoint key rotates.
+ * Keep all supported signatures; unknown diagnostic/version fields are ignored.
+ * A duplicated timestamp is ambiguous and must never select a different payload.
+ */
+function verifyWebhookSignature(
+  raw: string, header: string, secret: string,
+  format: SignatureFormat, opts: SignatureOptions,
+): boolean {
+  if (typeof raw !== "string" || typeof header !== "string" ||
+      !header || header.length > 8192 || typeof secret !== "string" || !secret) return false;
+  let timestamp: string | undefined;
+  const signatures: string[] = [];
+  for (const part of header.split(format.delimiter)) {
+    const split = part.indexOf("=");
+    if (split < 1) continue;
+    const key = part.slice(0, split).trim(), value = part.slice(split + 1).trim();
+    if (key === format.timestampKey) {
+      if (timestamp !== undefined) return false;
+      timestamp = value;
+    } else if (key === format.signatureKey && /^[a-f0-9]{64}$/i.test(value)) {
+      signatures.push(value);
+    }
+  }
+  if (!timestamp || !/^\d{1,16}$/.test(timestamp) || !signatures.length) return false;
+  const time = Number(timestamp), now = opts.now ?? Math.floor(Date.now() / 1000);
+  const tolerance = opts.toleranceSec ?? format.toleranceSec;
+  if (!Number.isSafeInteger(time) || time < 0 || !Number.isFinite(now) || now < 0 ||
+      !Number.isFinite(tolerance) || tolerance < 0 || Math.abs(now - time) > tolerance) return false;
+  const expected = createHmac("sha256", secret).update(timestamp + format.separator + raw).digest();
+  return signatures.some(signature => timingSafeEqual(expected, Buffer.from(signature, "hex")));
 }
 
 /** Map a provider price id to a Dasi plan, or null if it isn't one we sell. */
@@ -47,49 +82,22 @@ export function resolvePlan(priceId: string | undefined, map: PriceMap): Plan | 
  * is SHA-256 of `${t}.${rawBody}` keyed by the endpoint's signing secret.
  */
 export function verifyStripeSignature(
-  raw: string,
-  header: string,
-  secret: string,
-  opts: { toleranceSec?: number; now?: number } = {},
+  raw: string, header: string, secret: string, opts: SignatureOptions = {},
 ): boolean {
-  if (!header || !secret) return false;
-  const parts: Record<string, string> = {};
-  for (const kv of header.split(",")) {
-    const i = kv.indexOf("=");
-    if (i > 0) parts[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
-  }
-  const { t, v1 } = parts;
-  if (!t || !v1) return false;
-  const now = opts.now ?? Math.floor(Date.now() / 1000);
-  const tolerance = opts.toleranceSec ?? 300;
-  if (!Number.isFinite(Number(t)) || Math.abs(now - Number(t)) > tolerance) return false;
-  const expected = createHmac("sha256", secret).update(`${t}.${raw}`).digest("hex");
-  return safeEqualHex(expected, v1);
+  return verifyWebhookSignature(raw, header, secret, {
+    delimiter: ",", timestampKey: "t", signatureKey: "v1", separator: ".", toleranceSec: 300,
+  }, opts);
 }
 
-/**
- * Verify a Paddle Billing `Paddle-Signature` header: `ts=<ts>;h1=<hmac>` where
- * the HMAC is SHA-256 of `${ts}:${rawBody}` keyed by the endpoint secret.
+/** Paddle uses ts:rawBody and may include multiple h1 signatures.
+ * Match its SDK's five-second default window; the server clock must be synced.
  */
 export function verifyPaddleSignature(
-  raw: string,
-  header: string,
-  secret: string,
-  opts: { toleranceSec?: number; now?: number } = {},
+  raw: string, header: string, secret: string, opts: SignatureOptions = {},
 ): boolean {
-  if (!header || !secret) return false;
-  const parts: Record<string, string> = {};
-  for (const kv of header.split(";")) {
-    const i = kv.indexOf("=");
-    if (i > 0) parts[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
-  }
-  const { ts, h1 } = parts;
-  if (!ts || !h1) return false;
-  const now = opts.now ?? Math.floor(Date.now() / 1000);
-  const tolerance = opts.toleranceSec ?? 300;
-  if (!Number.isFinite(Number(ts)) || Math.abs(now - Number(ts)) > tolerance) return false;
-  const expected = createHmac("sha256", secret).update(`${ts}:${raw}`).digest("hex");
-  return safeEqualHex(expected, h1);
+  return verifyWebhookSignature(raw, header, secret, {
+    delimiter: ";", timestampKey: "ts", signatureKey: "h1", separator: ":", toleranceSec: 5,
+  }, opts);
 }
 
 /** Extract a user reference from provider metadata/customer fields. */
@@ -100,50 +108,67 @@ function stripeRef(obj: Record<string, any>): { userId?: string; email?: string 
   };
 }
 
-/** Map a Stripe event to a plan change, or null if it isn't billing-relevant. */
+/** Only a single, explicitly configured product may change account access.
+ * Checkout payloads without expanded line items must be resolved by the caller
+ * before fulfillment; missing details never imply a paid plan.
+ */
+function itemPlan(items: any, map: PriceMap): Plan | null {
+  if (!Array.isArray(items) || items.length !== 1) return null;
+  return resolvePlan(items[0]?.price?.id, map);
+}
+
+/** Map a verified Stripe event to a known product, never a default upgrade. */
 export function planFromStripeEvent(event: any, map: PriceMap): PlanIntent | null {
   const obj = event?.data?.object ?? {};
   const ref = stripeRef(obj);
   switch (event?.type) {
-    case "checkout.session.completed": {
-      if (obj.mode === "payment") return { ...ref, plan: "lifetime" };
-      if (obj.mode === "subscription") {
-        const priceId = obj?.line_items?.data?.[0]?.price?.id;
-        return { ...ref, plan: resolvePlan(priceId, map) ?? "pro" };
-      }
+    case "checkout.session.completed":
+    case "checkout.session.async_payment_succeeded": {
+      if (obj.payment_status !== "paid" && obj.payment_status !== "no_payment_required") return null;
+      if (obj?.line_items?.has_more === true) return null;
+      const plan = itemPlan(obj?.line_items?.data, map);
+      if (!plan) return null;
+      if (obj.mode === "payment" && plan === "lifetime") return { ...ref, plan };
+      // Subscription state is authoritative for recurring access.
       return null;
     }
     case "customer.subscription.created":
-    case "customer.subscription.updated": {
-      const priceId = obj?.items?.data?.[0]?.price?.id;
-      const active = obj?.status === "active" || obj?.status === "trialing";
-      return active ? { ...ref, plan: resolvePlan(priceId, map) ?? "pro" } : { ...ref, plan: "free" };
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted": {
+      if (obj?.items?.has_more === true) return null;
+      const plan = itemPlan(obj?.items?.data, map);
+      if (plan !== "pro") return null;
+      if (event.type === "customer.subscription.deleted") return { ...ref, plan: "free" };
+      if (obj.status === "active" || obj.status === "trialing") return { ...ref, plan };
+      if (["canceled", "unpaid", "past_due", "paused", "incomplete", "incomplete_expired"].includes(obj.status)) return { ...ref, plan: "free" };
+      return null;
     }
-    case "customer.subscription.deleted":
-      return { ...ref, plan: "free" };
     default:
       return null;
   }
 }
 
-/** Map a Paddle Billing event to a plan change, or null if not relevant. */
+/** Map a verified Paddle event only when the product and status are known. */
 export function planFromPaddleEvent(event: any, map: PriceMap): PlanIntent | null {
   const data = event?.data ?? {};
   const ref = {
     userId: data?.custom_data?.userId || undefined,
     email: data?.customer?.email || data?.billing_details?.email || undefined,
   };
-  const priceId = data?.items?.[0]?.price?.id;
+  const plan = itemPlan(data?.items, map);
+  if (!plan) return null;
   switch (event?.event_type) {
     case "transaction.completed":
-      return { ...ref, plan: resolvePlan(priceId, map) ?? "pro" };
+      // Recurring access follows subscription state, not a late transaction receipt.
+      return data.status === "completed" && plan === "lifetime" ? { ...ref, plan } : null;
     case "subscription.created":
-    case "subscription.updated": {
-      const active = data?.status === "active" || data?.status === "trialing";
-      return active ? { ...ref, plan: resolvePlan(priceId, map) ?? "pro" } : { ...ref, plan: "free" };
-    }
+    case "subscription.updated":
+      if (plan !== "pro") return null;
+      if (data.status === "active" || data.status === "trialing") return { ...ref, plan };
+      if (["canceled", "past_due", "paused"].includes(data.status)) return { ...ref, plan: "free" };
+      return null;
     case "subscription.canceled":
-      return { ...ref, plan: "free" };
+      return plan === "pro" ? { ...ref, plan: "free" } : null;
     default:
       return null;
   }
@@ -161,7 +186,7 @@ export interface ApplyResult {
  * downgraded by a later subscription/cancel event. Resolves the user by id
  * first, then email.
  */
-export async function applyPlanIntent(store: Store, intent: PlanIntent | null): Promise<ApplyResult> {
+export async function applyPlanIntent(store: Store, intent: PlanIntent | null, receipt?: BillingReceipt, resolveAmbiguity?: (user:UserRecord)=>Promise<Plan>): Promise<ApplyResult> {
   if (!intent) return { ok: false, reason: "no_intent" };
   const user = intent.userId
     ? await store.getUserById(intent.userId)
@@ -169,8 +194,21 @@ export async function applyPlanIntent(store: Store, intent: PlanIntent | null): 
       ? await store.getUserByEmail(intent.email)
       : null;
   if (!user) return { ok: false, reason: "user_not_found" };
+  if (receipt) return store.applyBillingEvent(user.id, intent.plan, receipt, resolveAmbiguity);
   if (user.plan === "lifetime" && intent.plan !== "lifetime") return { ok: true, unchanged: true };
   if (user.plan === intent.plan) return { ok: true, unchanged: true };
   await store.updateUser({ ...user, plan: intent.plan });
   return { ok: true, plan: intent.plan };
+}
+
+/** Event identity is taken only from the signature-verified provider envelope. */
+export function billingReceipt(provider: "stripe"|"paddle", event: any): BillingReceipt | null {
+  const eventId=provider==="stripe"?event?.id:event?.event_id;
+  const object=provider==="stripe"?event?.data?.object:event?.data;
+  const resourceId=provider==="paddle"?(object?.subscription_id||object?.id):object?.id;
+  const occurredAt=provider==="stripe"?(typeof event?.created==="number"?event.created*1000:NaN):
+    (typeof event?.occurred_at==="string"&&/^\d{4}-\d{2}-\d{2}T/.test(event.occurred_at)?Date.parse(event.occurred_at):NaN);
+  const validId=(value:unknown)=>typeof value==="string"&&value.length<=255&&/^[A-Za-z0-9_-]+$/.test(value);
+  if(!validId(eventId)||!validId(resourceId)||!Number.isSafeInteger(occurredAt)||occurredAt<0)return null;
+  return {provider,eventId,resourceId,occurredAt};
 }

@@ -56,7 +56,7 @@ describe("verifyPaddleSignature", () => {
 
 describe("planFromStripeEvent", () => {
   it("grants lifetime on a one-time checkout", () => {
-    const e = { type: "checkout.session.completed", data: { object: { mode: "payment", client_reference_id: "u1" } } };
+    const e = { type: "checkout.session.completed", data: { object: { mode: "payment", payment_status: "paid", line_items: { data: [{ price: { id: "price_life" } }] }, client_reference_id: "u1" } } };
     expect(planFromStripeEvent(e, MAP)).toEqual({ userId: "u1", email: undefined, plan: "lifetime" });
   });
   it("grants pro on an active subscription and reads the price", () => {
@@ -67,7 +67,7 @@ describe("planFromStripeEvent", () => {
     expect(planFromStripeEvent(e, MAP)?.plan).toBe("pro");
   });
   it("downgrades to free on cancel/delete", () => {
-    const e = { type: "customer.subscription.deleted", data: { object: { customer_email: "a@b.c" } } };
+    const e = { type: "customer.subscription.deleted", data: { object: { customer_email: "a@b.c", items: { data: [{ price: { id: "price_month" } }] } } } };
     expect(planFromStripeEvent(e, MAP)).toEqual({ userId: undefined, email: "a@b.c", plan: "free" });
   });
   it("ignores unrelated events", () => {
@@ -77,9 +77,9 @@ describe("planFromStripeEvent", () => {
 
 describe("planFromPaddleEvent", () => {
   it("maps transaction and cancellation", () => {
-    const paid = { event_type: "transaction.completed", data: { custom_data: { userId: "u9" }, items: [{ price: { id: "price_life" } }] } };
+    const paid = { event_type: "transaction.completed", data: { status: "completed", custom_data: { userId: "u9" }, items: [{ price: { id: "price_life" } }] } };
     expect(planFromPaddleEvent(paid, MAP)).toEqual({ userId: "u9", email: undefined, plan: "lifetime" });
-    const canceled = { event_type: "subscription.canceled", data: { custom_data: { userId: "u9" } } };
+    const canceled = { event_type: "subscription.canceled", data: { custom_data: { userId: "u9" }, items: [{ price: { id: "price_month" } }] } };
     expect(planFromPaddleEvent(canceled, MAP)?.plan).toBe("free");
   });
 });
@@ -117,4 +117,92 @@ describe("applyPlanIntent", () => {
     expect((await applyPlanIntent(store, { userId: "nope", plan: "pro" })).reason).toBe("user_not_found");
     expect((await applyPlanIntent(store, null)).ok).toBe(false);
   });
+});
+
+describe("billing rejects unrecognized or incomplete purchases", () => {
+  it.each([undefined, "unpaid"])("does not grant lifetime before payment (%s)", payment_status => {
+    expect(planFromStripeEvent({type:"checkout.session.completed",data:{object:{mode:"payment",payment_status,line_items:{data:[{price:{id:"price_life"}}]}}}},MAP)).toBeNull();
+  });
+  it.each([undefined, [], [{price:{id:"unrelated"}}], [{price:{id:"price_life"}},{price:{id:"unrelated"}}]])("rejects missing, unknown and ambiguous Stripe line items", items => {
+    expect(planFromStripeEvent({type:"checkout.session.completed",data:{object:{mode:"payment",payment_status:"paid",line_items:{data:items}}}},MAP)).toBeNull();
+  });
+  it("accepts delayed payment only for the configured lifetime product", () => {
+    const event={type:"checkout.session.async_payment_succeeded",data:{object:{mode:"payment",payment_status:"paid",line_items:{data:[{price:{id:"price_life"}}]},metadata:{userId:"u1"}}}};
+    expect(planFromStripeEvent(event,MAP)?.plan).toBe("lifetime");
+    expect(planFromStripeEvent(event,{})).toBeNull();
+  });
+  it.each(["customer.subscription.created","customer.subscription.updated","customer.subscription.deleted"])("ignores unrelated Stripe subscriptions (%s)",type=>{
+    expect(planFromStripeEvent({type,data:{object:{status:"active",items:{data:[{price:{id:"other_product"}}]}}}},MAP)).toBeNull();
+  });
+  it("does not grant recurring access from checkout before subscription state",()=>{
+    expect(planFromStripeEvent({type:"checkout.session.completed",data:{object:{mode:"subscription",payment_status:"paid",line_items:{data:[{price:{id:"price_month"}}]}}}},MAP)).toBeNull();
+  });
+  it.each(["transaction.completed","subscription.updated","subscription.canceled"])("ignores unrelated Paddle products (%s)",event_type=>{
+    expect(planFromPaddleEvent({event_type,data:{status:"completed",items:[{price:{id:"other_product"}}]}},MAP)).toBeNull();
+  });
+  it("ignores incomplete Paddle transactions and unknown subscription states",()=>{
+    expect(planFromPaddleEvent({event_type:"transaction.completed",data:{status:"ready",items:[{price:{id:"price_month"}}]}},MAP)).toBeNull();
+    expect(planFromPaddleEvent({event_type:"subscription.updated",data:{status:"unknown",items:[{price:{id:"price_month"}}]}},MAP)).toBeNull();
+  });
+});
+
+describe("recurring Paddle access",()=>{
+  it("does not reactivate an ended subscription from a delayed transaction",()=>{
+    expect(planFromPaddleEvent({event_type:"transaction.completed",data:{status:"completed",subscription_id:"sub_1",items:[{price:{id:"price_month"}}]}},MAP)).toBeNull();
+    expect(planFromPaddleEvent({event_type:"subscription.updated",data:{status:"active",items:[{price:{id:"price_month"}}]}},MAP)?.plan).toBe("pro");
+  });
+});
+
+describe.each([
+  {name:"Stripe",verify:verifyStripeSignature,delimiter:",",timestamp:"t",signature:"v1",separator:".",window:300},
+  {name:"Paddle",verify:verifyPaddleSignature,delimiter:";",timestamp:"ts",signature:"h1",separator:":",window:5},
+])("$name signature rotation and strict envelope",({verify,delimiter,timestamp,signature,separator,window})=>{
+  const raw='{\n  "title": "épisode 日本語 🌸", "amount": 1200\n}', secret="synthetic-current-key", now=1_700_000_000;
+  const hash=(body=raw,key=secret,time=String(now))=>createHmac("sha256",key).update(time+separator+body).digest("hex");
+  const header=(values:string[],time=String(now))=>[timestamp+"="+time,...values.map(value=>signature+"="+value)].join(delimiter);
+  it.each([0,1,2])("accepts a matching signature at position %s during rotation",index=>{
+    const values=[hash(raw,"old-key"),hash(raw,"other-key")];values.splice(index,0,hash());
+    expect(verify(raw,header(values),secret,{now})).toBe(true);
+  });
+  it("accepts either configured key while both signatures are present",()=>{
+    const old="synthetic-old-key",both=header([hash(),hash(raw,old)]);
+    expect(verify(raw,both,secret,{now})).toBe(true);
+    expect(verify(raw,both,old,{now})).toBe(true);
+    expect(verify(raw,both,"unrelated-key",{now})).toBe(false);
+  });
+  it("ignores unknown fields and invalid signatures without discarding a valid candidate",()=>{
+    expect(verify(raw,["payload=debug","v0="+hash(),header(["not-hex",hash().toUpperCase(),"a".repeat(63)]),"future=ignored"].join(delimiter),secret,{now})).toBe(true);
+    expect(verify(raw,timestamp+"="+now+delimiter+"v0="+hash(),secret,{now})).toBe(false);
+  });
+  it("checks the exact raw body, including whitespace and Unicode",()=>{
+    const signed=header([hash()]);
+    expect(verify(raw+" ",signed,secret,{now})).toBe(false);
+    expect(verify(JSON.stringify(JSON.parse(raw)),signed,secret,{now})).toBe(false);
+    expect(verify(raw.replace("日本語","français"),signed,secret,{now})).toBe(false);
+  });
+  it.each(["", "123", "g".repeat(64), "a".repeat(63), "a".repeat(65), "ab".repeat(32)+"zz"])("rejects a malformed digest %s",value=>{
+    expect(verify(raw,header([value]),secret,{now})).toBe(false);
+  });
+  it.each(["1700000000.0","1.7e9","+1700000000","0x6553f100","NaN","Infinity","9007199254740992"])("rejects a noncanonical timestamp %s even with a matching HMAC",time=>{
+    expect(verify(raw,header([hash(raw,secret,time)],time),secret,{now})).toBe(false);
+  });
+  it.each([String(now),String(now-1)])("rejects a duplicated timestamp %s",duplicate=>{
+    expect(verify(raw,header([hash()])+delimiter+timestamp+"="+duplicate,secret,{now})).toBe(false);
+  });
+  it("bounds old and future delivery timestamps with the provider's default tolerance",()=>{
+    const signed=header([hash()]);
+    for(const delta of [-window,window])expect(verify(raw,signed,secret,{now:now+delta})).toBe(true);
+    for(const delta of [-window-1,window+1])expect(verify(raw,signed,secret,{now:now+delta})).toBe(false);
+  });
+  it("fails closed for invalid clock/tolerance overrides and oversized headers",()=>{
+    const signed=header([hash()]);
+    for(const toleranceSec of [-1,NaN,Infinity])expect(verify(raw,signed,secret,{now,toleranceSec})).toBe(false);
+    for(const time of [-1,NaN,Infinity])expect(verify(raw,signed,secret,{now:time})).toBe(false);
+    expect(verify(raw,signed+delimiter+"ignored="+"x".repeat(8192),secret,{now})).toBe(false);
+    expect(verify(raw,signed,"",{now})).toBe(false);
+  });
+});
+
+it.each(["customer.subscription.created","customer.subscription.updated","customer.subscription.deleted"])("does not change access from truncated Stripe subscription items: %s",type=>{
+  expect(planFromStripeEvent({type,data:{object:{status:"active",metadata:{userId:"u1"},items:{has_more:true,data:[{price:{id:"price_month"}}]}}}},MAP)).toBeNull();
 });

@@ -13,9 +13,10 @@ const LEADING_ARTICLE = /^(the|a|an|le|la|les|un|une|el|los|las|der|die|das)\s+/
  */
 export function normalizeTitle(title: string): string {
   let t = (title || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
-  t = t.replace(/\b(chapter|chap|ch|episode|epi|ep|season|saison|vol|volume|page|part|arc|cour)\s*\d+\b/g, " ");
+  t = t.replace(/\b(?:chapter|chapitre|chap|ch)\.?\s*\d+(?:[.,]\d+)?\b/g, " ");
+  t = t.replace(/\b(episode|epi|ep|season|saison|vol|volume|page|part|arc|cour)\s*\d+\b/g, " ");
   t = t.replace(/\bs\s*\d+\s*e\s*\d+\b/g, " "); // s01e02 style
-  t = t.replace(/第?\s*\d+\s*[화話话巻卷章回]/g, " "); // CJK/KR counters: 第12話, 12화, 3章…
+  t = t.replace(/第?\s*\d+(?:[.,]\d+)?\s*[화話话巻卷章回]/g, " "); // CJK/KR counters: 第12話, 12화, 3章…
   // Strip general / CJK / fullwidth punctuation (em dash, 、。！…) then keep
   // digits, Latin letters and any non-ASCII letter (Hangul, Kana, Han…);
   // collapse the rest. Avoids \p{} so it works on the ES5 target.
@@ -57,6 +58,8 @@ export function sameWork(a: string, b: string): boolean {
   const na = normalizeTitle(a), nb = normalizeTitle(b);
   if (!na || !nb) return false;
   if (na === nb) return true;
+  // Numbered sequels and remakes must never be auto-merged as a spelling variant.
+  if ((na.match(/\d+|\b[ivx]+\b/g) || []).join(',') !== (nb.match(/\d+|\b[ivx]+\b/g) || []).join(',')) return false;
   const ta = new Set(na.split(" ").filter(Boolean));
   const tb = new Set(nb.split(" ").filter(Boolean));
   if (ta.size === tb.size && Array.from(ta).every((x) => tb.has(x))) return true; // same tokens, any order
@@ -64,7 +67,7 @@ export function sameWork(a: string, b: string): boolean {
   if (small.size >= 2) {
     let inter = 0;
     small.forEach((x) => big.has(x) && inter++);
-    if (inter === small.size && small.size / big.size >= 0.6) return true; // subtitle superset
+    if (inter === small.size && small.size / big.size >= 0.6) return false; // subtitle superset
   }
   return editRatio(na, nb) >= 0.9; // spelling / romanization variants
 }
@@ -84,7 +87,12 @@ function domainOf(url?: string): string {
   }
 }
 
-export interface ItemInput {
+export interface ItemInput extends Partial<LibraryItem> {
+  year?:number;
+  format?:string;
+  total?:number;
+  synopsis?:string;
+  externalIds?:Record<string,string|number>;
   title: string;
   type?: ContentType;
   chapter?: number;
@@ -105,16 +113,19 @@ export function createItem(input: ItemInput): LibraryItem {
   const title = (input.title || "").trim() || "Untitled";
   const domain = domainOf(input.url);
   const now = Date.now();
+  const chapter = Number(input.chapter);
   const progress =
     input.progress ?? (input.status === "completed" ? 100 : 0);
   return {
+    ...input,
     id: workId(title),
+    year:input.year,format:input.format,total:input.total,synopsis:input.synopsis,externalIds:input.externalIds,
     title,
     type: input.type ?? "reading",
-    chapter: input.chapter,
+    chapter: input.chapter===undefined?undefined:Math.min(input.total||Infinity,Math.max(0,Number.isFinite(chapter)?chapter:0)),
     volume: input.volume,
     season: input.season,
-    episode: input.episode,
+    episode: input.episode===undefined?undefined:Math.min(input.total||Infinity,Math.max(0,Math.floor(Number(input.episode)||0))),
     page: input.page,
     totalPages: input.totalPages,
     progress: Math.min(100, Math.max(0, progress)),

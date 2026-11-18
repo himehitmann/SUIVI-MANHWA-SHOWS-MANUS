@@ -1,145 +1,105 @@
-import { useState } from "react";
-import { Check, Cloud, Star } from "lucide-react";
-import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "wouter";
+import { Check } from "lucide-react";
+import { BillingManagement } from "@/components/BillingManagement";
 import { AppHeader } from "@/components/AppHeader";
-import { ShareBar } from "@/components/ShareBar";
 import { useI18n } from "@/i18n/I18nContext";
-import { useStore } from "@/store/StoreContext";
 import { UNLOCK_ALL } from "@/lib/edition";
-import { checkoutUrl } from "@/lib/checkout";
-import { syncProvider } from "@/lib/sync";
-import type { Plan } from "@/lib/types";
-
-interface Tier {
-  plan: Plan;
-  icon: typeof Star;
-  price: { monthly: string; yearly: string };
-  featured?: boolean;
-  features: string[];
-}
-
-const tiers: Tier[] = [
-  {
-    plan: "free",
-    icon: Star,
-    price: { monthly: "$0", yearly: "$0" },
-    features: [
-      "Unlimited library — manga, webtoons, anime, series, films & games",
-      "One-click save & resume on any site",
-      "Import from Trakt, TV Time, IMDb, Letterboxd & MyAnimeList",
-      "Custom lists, tags, ratings & drag-and-drop",
-      "Built-in page & image translation",
-      "Video speed & Picture-in-Picture",
-      "Export / import backups",
-    ],
-  },
-  {
-    plan: "pro",
-    icon: Cloud,
-    price: { monthly: "$3.49", yearly: "$29.99" },
-    featured: true,
-    features: [
-      "Everything in Free",
-      "Encrypted cloud sync across unlimited devices",
-      "New chapter, episode & release alerts",
-      "Full stats — streaks, trends, calendar & forecasts",
-      "Unlimited translation, every language",
-      "Custom list covers & profile",
-      "Priority support & early features",
-    ],
-  },
-];
+import { syncProvider, currentAccountScope, type SyncSession } from "@/lib/sync";
+import {checkoutPending,rememberCheckout,forgetCheckout,hasProAccess,checkoutFollowupCopy} from "@/lib/checkout-followup";
+import { OFFERS, annualSaving, money, pricingCopy, type OfferId } from "@shared/pricing";
 
 export default function Pricing() {
-  const { t } = useI18n();
-  const store = useStore();
-  const [yearly, setYearly] = useState(true);
-
-  const ctaLabel = (plan: Plan) => (plan === "free" ? t("pricing.cta.free") : t("pricing.cta.pro"));
-
-  const subscribe = (plan: Plan) => {
-    if (plan === "free") {
-      store.setPlan("free");
-      return;
-    }
-    // Real payment path: redirect to the configured hosted checkout, tagging the
-    // account so the backend webhook can grant the plan.
-    const session = syncProvider.getSession();
-    const url = checkoutUrl(plan, yearly, { userId: session?.userId, email: session?.email });
-    if (url) {
-      window.location.href = url;
-      return;
-    }
-    // No checkout configured (dev / unlocked owner build): local plan toggle.
-    store.setPlan(plan);
-    toast.success(ctaLabel(plan));
+  const { lang } = useI18n();
+  const [, navigate] = useLocation();
+  const copy=pricingCopy(lang),followup=checkoutFollowupCopy(lang);
+  const [offers,setOffers]=useState<OfferId[]>([]);
+  const [account,setAccount]=useState<SyncSession|null>(null);
+  const [status,setStatus]=useState<"checking"|"ready"|"error">("checking");
+  const busy=useRef(false),mounted=useRef(true);
+  const covered=UNLOCK_ALL || hasProAccess(account);
+  const pending=Boolean(account)&&checkoutPending(currentAccountScope());
+  const configured=offers.length>0;
+  const checkAccount=async()=>{
+    if(busy.current)return;
+    busy.current=true;setStatus("checking");
+    try {
+      const available=await syncProvider.checkoutOffers();
+      const next=syncProvider.getSession()?await syncProvider.refreshSession():null;
+      if(mounted.current)setOffers(available);
+      if(mounted.current){if(hasProAccess(next))forgetCheckout(currentAccountScope());setAccount(next);setStatus("ready");}
+    } catch {if(mounted.current){setAccount(null);setStatus("error");}}
+    finally{busy.current=false;}
   };
-
-  return (
-    <div className="dasi-app">
-      <AppHeader />
-      <main className="dasi-main">
-        <div className="pricing-head">
-          <span className="eyebrow pastel-label">{t("pricing.eyebrow")}</span>
-          <h1>{t("pricing.title")}</h1>
-          <p>{t("pricing.subtitle")}</p>
-          {UNLOCK_ALL && <div className="owner-banner">{t("pricing.ownerUnlocked")}</div>}
-          <div className="billing-toggle" role="tablist">
-            <button className={!yearly ? "active" : ""} onClick={() => setYearly(false)} role="tab" aria-selected={!yearly}>
-              {t("pricing.billing.monthly")}
-            </button>
-            <button className={yearly ? "active" : ""} onClick={() => setYearly(true)} role="tab" aria-selected={yearly}>
-              {t("pricing.billing.yearly")} <em>{t("pricing.yearlyNote")}</em>
-            </button>
-          </div>
-        </div>
-
-        <div className="pricing-grid">
-          {tiers.map((tier) => {
-            const Icon = tier.icon;
-            const isCurrent = store.plan === tier.plan;
-            const price = yearly ? tier.price.yearly : tier.price.monthly;
-            const suffix = tier.plan === "free" ? "" : yearly ? t("pricing.perYear") : t("pricing.perMonth");
-            return (
-              <div key={tier.plan} className={`pricing-card ${tier.featured ? "featured" : ""} ${isCurrent ? "current" : ""}`}>
-                {tier.featured && <span className="pricing-flag">{t("pricing.pro")}</span>}
-                <div className="pricing-icon" style={{ color: tier.featured ? "#6CBE9E" : "#9B86DA" }}>
-                  <Icon size={20} />
-                </div>
-                <h3>{t(`pricing.${tier.plan}`)}</h3>
-                <div className="pricing-price">
-                  <strong>{price}</strong>
-                  <span>{suffix}</span>
-                </div>
-                <ul>
-                  {tier.features.map((f) => (
-                    <li key={f}>
-                      <Check size={15} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  className={tier.featured ? "primary-cta full" : "heart-button full"}
-                  disabled={isCurrent}
-                  onClick={() => subscribe(tier.plan)}
-                >
-                  {isCurrent ? t("pricing.cta.free") : ctaLabel(tier.plan)}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="account-note">
-          <div>
-            <span className="eyebrow">{t("account.eyebrow")}</span>
-            <p>{t("account.syncNote")}</p>
-          </div>
-        </div>
-
-        <ShareBar />
-      </main>
-    </div>
-  );
+  useEffect(()=>{
+    mounted.current=true;void checkAccount();
+    const recheck=()=>{if(document.visibilityState!=="hidden")void checkAccount();};
+    window.addEventListener("pageshow",recheck);
+    window.addEventListener("focus",recheck);
+    document.addEventListener("visibilitychange",recheck);
+    return ()=>{mounted.current=false;window.removeEventListener("pageshow",recheck);window.removeEventListener("focus",recheck);document.removeEventListener("visibilitychange",recheck);};
+  },[]);
+  const subscribe=async(id:OfferId)=>{
+    if(busy.current || covered || !offers.includes(id))return;
+    if(!syncProvider.getSession()){navigate("/settings");return;}
+    if(checkoutPending(currentAccountScope())){navigate("/billing/return");return;}
+    busy.current=true;setStatus("checking");
+    try {
+      // Read current server rights again at the moment of purchase. Cached plans
+      // may predate a gift, an administrator role or another completed purchase.
+      const fresh=await syncProvider.refreshSession();
+      if(!mounted.current)return;
+      setAccount(fresh);
+      if(hasProAccess(fresh)){forgetCheckout(currentAccountScope());setStatus("ready");return;}
+      rememberCheckout(currentAccountScope());
+      const url=await syncProvider.beginCheckout(id);
+      if(!mounted.current)return;
+      window.location.assign(url);
+    } catch(error){
+      if(!mounted.current)return;
+      const code=error instanceof Error?error.message:"";
+      if(code==="access_already_active"){forgetCheckout(currentAccountScope());navigate("/billing/return");return;}
+      if(code==="checkout_closed"){forgetCheckout(currentAccountScope());setOffers([]);setStatus("ready");return;}
+      if(code==="checkout_expired"){forgetCheckout(currentAccountScope());setStatus("error");return;}
+      if(code==="checkout_pending"){navigate("/billing/return");return;}
+      setStatus("error");
+    }
+    finally {busy.current=false;}
+  };
+  return <div className="dasi-app">
+    <AppHeader />
+    <main className="dasi-main paid-pricing">
+      <header className="pricing-head"><h1>{copy.title}</h1><p>{copy.subtitle}</p></header>
+      <div className="pricing-status" role={status==="error"?"alert":"status"} aria-live="polite">
+        {status==="checking"?copy.checking:status==="error"?(pending?followup.failed:copy.checkFailed):covered?copy.active:configured?copy.available:copy.unavailable}
+        {status==="error"&&<button className="heart-button" onClick={()=>void checkAccount()}>{copy.retry}</button>}
+      </div>
+      {pending&&!covered&&<section aria-label={followup.review}>
+        <p role="status">{followup.inProgress}</p>
+        <Link href="/billing/return" className="heart-button">{followup.review}</Link>
+      </section>}
+      <div className="pricing-grid">
+        {OFFERS.map(offer=><section className="pricing-card" key={offer.id} aria-labelledby={"offer-"+offer.id}>
+          <h2 id={"offer-"+offer.id}>Pro {copy[offer.id]}</h2>
+          <div className="pricing-price"><strong>{money(offer.amount,lang)}</strong><span>{offer.id==="year"?copy.perYear:copy.perMonth}</span></div>
+          <p>{offer.id==="year"?copy.yearlyCharge:copy.monthlyCharge}</p>
+          <p className="pricing-saving">{offer.id==="year"?copy.saving.replace("{amount}",money(annualSaving(),lang)):""}</p>
+          <button className="primary-cta full" disabled={status!=="ready"||covered||pending||!offers.includes(offer.id)} onClick={()=>void subscribe(offer.id)}>
+            {covered?copy.current:!offers.includes(offer.id)?copy.closed:account?copy.subscribe:copy.signIn}
+          </button>
+        </section>)}
+      </div>
+      <p className="pricing-currency">{copy.currency}</p>
+      <section className="pricing-benefits" aria-labelledby="pricing-benefits-title">
+        <h2 id="pricing-benefits-title">{copy.benefits}</h2>
+        <ul>{copy.features.map(feature=><li key={feature}><Check size={18} aria-hidden="true"/><span>{feature}</span></li>)}</ul>
+        <p>{copy.limits}</p>
+      </section>
+      <BillingManagement session={syncProvider.getSession()} lang={lang} />
+      <nav className="pricing-actions" aria-label={copy.settings}>
+        <button className="heart-button" onClick={()=>navigate("/settings")}>{copy.settings}</button>
+        <button className="heart-button" onClick={()=>navigate("/collections")}>{copy.library}</button>
+      </nav>
+    </main>
+  </div>;
 }

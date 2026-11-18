@@ -1,8 +1,12 @@
-# Optional sync + auth backend
+# Account synchronization and authentication backend
 
-Dasi works fully offline without this. Deploy it only to offer accounts and
-cross-device sync (and, later, subscriptions). The apps default to local when
-`VITE_SYNC_API_URL` is unset, so the backend is never a single point of failure.
+Local libraries remain available without this server. It provides accounts,
+cross-device synchronization and server-verified subscription rights. Production
+defaults to paid synchronization: new uploads require active rights; existing
+backups remain readable after expiry. Self-hosted personal use can explicitly set
+`YOMU_ACCESS_MODE=personal`. See [COMMERCIAL-ACCESS.md](COMMERCIAL-ACCESS.md)
+before upgrading an existing server. A failed synchronization does not erase
+local edits or turn a valid login into a failed login.
 
 ## What it is
 
@@ -11,7 +15,11 @@ dependencies** — passwords use Node `scrypt`, sessions are HMAC-signed tokens,
 and storage is behind a `Store` interface.
 
 Endpoints: `POST /api/auth/signup`, `POST /api/auth/login`, `GET /api/me`,
-`GET /api/license`, `GET /api/sync`, `PUT /api/sync`.
+`GET /api/license`, `GET /api/sync`, `PUT /api/sync`, `GET /api/billing/portal`.
+
+Billing management uses a configured Stripe portal login link, including after
+subscription expiry. See [BILLING-PORTAL.md](BILLING-PORTAL.md) for activation,
+email verification, cancellation settings and account-deletion limitations.
 
 ## Run it
 
@@ -66,9 +74,9 @@ Environment:
 ```bash
 # Stripe
 export STRIPE_WEBHOOK_SECRET="whsec_…"
-export STRIPE_PRICE_PRO_MONTH="price_…"   # $2.99/mo
-export STRIPE_PRICE_PRO_YEAR="price_…"    # $24.99/yr
-export STRIPE_PRICE_LIFETIME="price_…"    # $49 one-time
+export STRIPE_PRICE_PRO_MONTH="price_…"   # $3.49/mo
+export STRIPE_PRICE_PRO_YEAR="price_…"    # $29.99/yr
+export STRIPE_PRICE_LIFETIME="price_…"    # legacy Lifetime product; not offered on the current sales page
 # Paddle (Billing)
 export PADDLE_WEBHOOK_SECRET="pdl_ntfset_…"
 export PADDLE_PRICE_PRO_MONTH="pri_…"
@@ -83,8 +91,9 @@ Linking the payment to the Dasi account (choose one, per event):
 - **Paddle:** pass `custom_data.userId`; customer email is a fallback.
 
 Behaviour: active subscription → `pro` (or the price's plan), one-time payment →
-`lifetime`, cancellation/expiry → `free`. **Lifetime is permanent** — a later
-subscription/cancel event never downgrades it.
+`lifetime`, cancellation/expiry → `free`. A later subscription/cancel event does not remove an independent Lifetime
+purchase. Full refunds and verified full dispute losses can remove that purchase;
+see STRIPE-REFUNDS.md and STRIPE-DISPUTES.md.
 
 ### Client checkout links
 
@@ -93,15 +102,17 @@ provider dashboard (e.g. Stripe Payment Links — no client secret, no extra
 backend). Configure them at web-build time:
 
 ```bash
-export VITE_CHECKOUT_PRO_MONTH="https://buy.stripe.com/…"   # $2.99/mo
-export VITE_CHECKOUT_PRO_YEAR="https://buy.stripe.com/…"    # $24.99/yr
-export VITE_CHECKOUT_LIFETIME="https://buy.stripe.com/…"    # $49 one-time
+export VITE_CHECKOUT_PRO_MONTH="https://buy.stripe.com/…"   # $3.49/mo
+export VITE_CHECKOUT_PRO_YEAR="https://buy.stripe.com/…"    # $29.99/yr
+export VITE_CHECKOUT_LIFETIME="https://buy.stripe.com/…"    # legacy Lifetime product; not offered on the current sales page
 ```
 
 The client appends `client_reference_id` (the signed-in Dasi user id) and
 `prefilled_email` to the link, so the webhook maps the payment to the account
-(see "Linking the payment to the Dasi account" above). When none are set — dev,
-or the unlocked owner build — the Pricing CTA just toggles the plan locally.
+(see "Linking the payment to the Dasi account" above). The page checks the current account through `/me` before checkout. Active Pro,
+Lifetime, gifted and administrator access do not require another purchase. If a
+link is absent, that billing period is shown as unavailable; no plan is granted
+locally. The extension currently displays the offers but does not open checkout.
 `client/src/lib/checkout.ts` holds the (unit-tested) URL logic.
 
 ## Other production notes

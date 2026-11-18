@@ -1,0 +1,51 @@
+/** Persistent checkout race probe: isolated CI database and synthetic provider only. */
+import assert from "node:assert/strict";
+import {randomUUID} from "node:crypto";
+import pg from "pg";
+import {ensureSchema,createPostgresStore} from "../server/lib/store-postgres.ts";
+import {ensureCheckoutSchema,createPostgresCheckoutStore} from "../server/lib/checkout-store.ts";
+import {createManagedCheckout} from "../server/lib/managed-checkout.ts";
+import {checkoutProvider} from "../tests/fixtures/checkout-provider.ts";
+const url=new URL(process.env.LOAD_DATABASE_URL||"http://invalid");
+assert.equal(process.env.CI,"true");
+assert(["localhost","127.0.0.1","[::1]"].includes(url.hostname)&&url.pathname==="/yomu_load","Only the isolated CI database is permitted.");
+globalThis.fetch=async()=>{throw Error("External traffic is forbidden");};
+const options={connectionString:url.toString(),max:4,connectionTimeoutMillis:5000,statement_timeout:10000,query_timeout:12000};
+let a=new pg.Pool(options),b=new pg.Pool(options);
+const user={id:"checkout-fixture-"+randomUUID(),email:randomUUID()+"@example.test",passwordHash:"synthetic",plan:"free",createdAt:Date.now()};
+const config={enabled:true,key:"synthetic-fixture",origin:"https://yomu.example",month:"price_month",year:"price_year"};
+const provider=checkoutProvider();
+try{
+ await ensureSchema(a);await ensureCheckoutSchema(a);
+ const accounts=createPostgresStore(a);await accounts.createUser(user);
+ await accounts.setSync(user.id,{blob:{items:[{id:"saved",chapter:19}],lists:[{id:"list",name:"Keep"}],updatedAt:1},updatedAt:1});
+ const original=await accounts.getSync(user.id);
+ const first=createManagedCheckout(createPostgresCheckoutStore(a),config,provider.request);
+ const second=createManagedCheckout(createPostgresCheckoutStore(b),config,provider.request);
+ const results=await Promise.all(Array.from({length:20},(_,i)=>(i%2?first:second).begin(user,"month")));
+ assert.equal(new Set(results.map(r=>r.url)).size,1);assert.equal(provider.sessions.size,1);
+ const old=await createPostgresCheckoutStore(a).read(user.id);
+ await a.end();a=new pg.Pool(options);
+ const restarted=createManagedCheckout(createPostgresCheckoutStore(a),config,provider.request);
+ assert.deepEqual(await restarted.begin(user,"month"),results[0]);
+ await assert.rejects(restarted.begin(user,"year"),/checkout_pending/);
+ await restarted.expire(user.id);
+ provider.loseNext();await assert.rejects(restarted.begin(user,"year"),/response lost/);
+ await b.end();b=new pg.Pool(options);
+ const again=createManagedCheckout(createPostgresCheckoutStore(b),config,provider.request);
+ await again.begin(user,"year");assert.equal(provider.sessions.size,2);
+ const store=createPostgresCheckoutStore(b),next=await store.read(user.id);
+ assert.equal(await store.clear(user.id,old.id),false);assert.equal(await store.attach(user.id,old.id,"cs_stale"),false);
+ assert.deepEqual(await store.read(user.id),next);
+ assert.deepEqual(await createPostgresStore(b).getSync(user.id),original);
+ await again.expire(user.id);
+ provider.loseNext();await assert.rejects(again.begin(user,"month"),/response lost/);
+ const unknown=await store.read(user.id),count=provider.posts.length;
+ const late=createManagedCheckout(store,config,provider.request,()=>unknown.createdAt+23*3600000);
+ await assert.rejects(late.begin(user,"month"),/checkout_review_required/);
+ assert.equal(provider.posts.length,count);
+ console.log("PASS: PostgreSQL checkout survives 20 concurrent requests, independent pools, reconnects, lost replies and stale writes; saved progress unchanged; old unknown attempts fail closed.");
+}finally{
+ await b.query("DELETE FROM users WHERE id=$1",[user.id]);
+ await Promise.all([a.end(),b.end()]);
+}
