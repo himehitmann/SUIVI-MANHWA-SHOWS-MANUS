@@ -1,3 +1,4 @@
+import {accountDeletionMessage} from "@/lib/account-deletion";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
@@ -31,6 +32,8 @@ export default function Settings() {
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"in" | "up">("in");
   const [busy, setBusy] = useState(false);
+  const [deletionIssue,setDeletionIssue]=useState<string|null>(null);
+  useEffect(()=>setDeletionIssue(null),[session?.userId]);
   const [currentPassword, setCurrentPassword] = useState(""),
     [nextPassword, setNextPassword] = useState(""),
     [nextEmail, setNextEmail] = useState("");
@@ -109,6 +112,7 @@ export default function Settings() {
       )
     )
       return;
+    setDeletionIssue(null);
     setBusy(true);
     try {
       await syncProvider.accountAction(action, {
@@ -122,7 +126,9 @@ export default function Settings() {
       setCurrentPassword("");
       setNextPassword("");
       toast.success(fr ? "Modification enregistrée." : "Changes saved.");
-    } catch {
+    } catch(error) {
+      const code=error instanceof Error?error.message:"";
+      if(accountDeletionMessage(code,lang)){setDeletionIssue(code);return;}
       toast.error(
         fr
           ? "Modification impossible. Vérifie ton mot de passe et réessaie."
@@ -261,6 +267,11 @@ export default function Settings() {
                     {fr ? "Supprimer mon compte" : "Delete my account"}
                   </button>
                   <small>{billingPortalCopy(lang).deletion}</small>
+                  {deletionIssue&&<div>
+                    <p role="alert">{accountDeletionMessage(deletionIssue,lang)}</p>
+                    {deletionIssue.startsWith("billing_")&&<a className="heart-button" href="#account-billing">{fr?"Accéder à la facturation":"Open billing management"}</a>}
+                    {["billing_checkout_pending","billing_review_required"].includes(deletionIssue)&&<Link className="heart-button" href="/billing/return">{fr?"Vérifier la tentative de paiement":"Check payment attempt"}</Link>}
+                  </div>}
                 </div>
               </>
             ) : (
@@ -337,7 +348,7 @@ export default function Settings() {
             <Link href="/pricing" className="heart-button center">
               {t("settings.managePlan")}
             </Link>
-            <BillingManagement session={session} lang={lang} />
+            <div id="account-billing"><BillingManagement session={session} lang={lang} /></div>
           </section>
 
           <section className="settings-card">

@@ -214,11 +214,14 @@ export function createHttpProvider(baseUrl: string): SyncProvider {
       return out;
     },
     async accountAction(action, data = {}) {
+      if(!token||!session)throw Error("unauthorized");
+      const requestToken=token,requestUser=session.userId;
       const res = await authFetch("/auth/" + action, {
         method: "POST",
         body: JSON.stringify(data),
       });
       const out = await res.json().catch(() => ({}));
+      if(token!==requestToken||session?.userId!==requestUser)throw Error("account_changed");
       if (!res.ok) throw Error(out.error || "account_change_failed");
       if (out.token) token = out.token;
       if (out.user && session) session = { ...session, email: out.user.email };

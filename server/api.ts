@@ -1,3 +1,4 @@
+import type {BillingAccountRunner} from "./lib/billing-account";
 import {CheckoutError,type ManagedCheckout} from "./lib/managed-checkout";
 import {bindStripeSubscription} from "./lib/stripe-subscription-account";
 import {stripePortalLoginUrl} from "../shared/billing-portal";
@@ -128,10 +129,12 @@ export function createApiRouter(
   access: AccessStore = createMemoryAccessStore(),
   owners: ReadonlySet<string> = new Set((process.env.YOMU_OWNER_IDS || "").split(",").map(s=>s.trim()).filter(Boolean)),
   mode: AccessMode = accessMode(),
-  checkout: ManagedCheckout | null = null
+  checkout: ManagedCheckout | null = null,
+  billingAccount?: BillingAccountRunner
 ): Router {
   if(mode!=="paid"&&mode!=="personal")throw new Error("invalid_access_mode");
   const router = express.Router();
+  const withBillingAccount:BillingAccountRunner=billingAccount||((_id,operation)=>operation({store,access,checkout,attempts:null}));
   const limiter=createRequestLimiter();
   const rateLimited=(req:Request,res:Response,max=20,windowMs=60000,scope?:string):boolean=>{
     const route=req.path.toLowerCase().replace(/\/+$/,"");
@@ -292,8 +295,8 @@ export function createApiRouter(
     if(typeof req.query.q!=='string'||req.query.q.length<2||req.query.q.length>160)return res.status(400).json({error:'invalid_query'});
     const result=await catalog(req.query.q);return res.status(result.sources.some(s=>s.ok)?200:503).json(result);
   }));
-  const accountView = async (u: { id: string; email: string; plan: "free"|"pro"|"lifetime" }) => {
-    const rights = await access.get(u.id);
+  const accountView = async (u: { id: string; email: string; plan: "free"|"pro"|"lifetime" }, rightsStore:AccessStore=access) => {
+    const rights = await rightsStore.get(u.id);
     const plan=effectivePlan(u.plan,u.id,rights,owners);
     return {id:u.id,email:u.email,plan,role:effectiveRole(u.id,rights,owners),giftUntil:rights.giftUntil,accessVersion:rights.version,syncAccess:canWriteSync(mode,plan)?"read_write" as const:"read_only" as const};
   };
@@ -486,8 +489,22 @@ export function createApiRouter(
       )
         return res.status(401).json({ error: "invalid_credentials" });
       if(owners.has(session.id))return res.status(409).json({error:"owner_account_protected"});
-      await store.deleteUser(session.id);
-      return res.json({ ok: true });
+      let deletionStarted=false;
+      try{return await withBillingAccount(session.id,async scoped=>{
+        const fresh=await scoped.store.getUserById(session.id);
+        if(!fresh)return res.status(401).json({error:"unauthorized"});
+        // Raw recurring access is separate from gifts and administrator access.
+        if(fresh.plan==="pro")return res.status(409).json({error:"billing_subscription_active"});
+        if(scoped.checkout)await scoped.checkout.assertDeletable(session.id);
+        else if(await scoped.attempts?.read(session.id))return res.status(503).json({error:"billing_check_unavailable"});
+        deletionStarted=true;
+        await scoped.store.deleteUser(session.id);
+        return res.json({ok:true});
+      });}catch(error){
+        if(deletionStarted)return res.status(503).json({error:"account_delete_unconfirmed"});
+        const code=error instanceof CheckoutError&&["billing_checkout_pending","billing_subscription_active","billing_review_required"].includes(error.message)?error.message:"billing_check_unavailable";
+        return res.status(code==="billing_check_unavailable"?503:409).json({error:code});
+      }
     })
   );
 
@@ -513,22 +530,25 @@ export function createApiRouter(
     if(rateLimited(req,res,10,60000,"checkout:"+session.id))return;
     const body=z.object({offer:z.enum(["month","year"])}).strict().safeParse(req.body);
     if(!body.success)return res.status(400).json({error:"invalid_checkout"});
-    const user=await store.getUserById(session.id);
-    if(!user)return res.status(401).json({error:"unauthorized"});
-    const rights=await accountView(user);
-    if(rights.plan!=="free"||rights.role!=="member")return res.status(409).json({error:"access_already_active"});
-    if(!checkout)return res.status(503).json({error:"checkout_unavailable"});
-    try{return res.json(await checkout.begin(user,body.data.offer));}
-    catch(error){return checkoutFailure(res,error);}
+    try{return await withBillingAccount(session.id,async scoped=>{
+      const user=await scoped.store.getUserById(session.id);
+      if(!user)return res.status(401).json({error:"unauthorized"});
+      const rights=await accountView(user,scoped.access);
+      if(rights.plan!=="free"||rights.role!=="member")return res.status(409).json({error:"access_already_active"});
+      if(!scoped.checkout)return res.status(503).json({error:"checkout_unavailable"});
+      return res.json(await scoped.checkout.begin(user,body.data.offer));
+    });}catch(error){return checkoutFailure(res,error);}
   }));
   router.post("/billing/checkout/expire",asyncRoute(async(req,res)=>{
     const session=await auth(req);
     if(!session)return res.status(401).json({error:"unauthorized"});
     if(rateLimited(req,res,10,60000,"checkout-expire:"+session.id))return;
     if(!z.object({}).strict().safeParse(req.body).success)return res.status(400).json({error:"invalid_checkout"});
-    if(!checkout)return res.json({ok:true,managed:false});
-    try{await checkout.expire(session.id);return res.json({ok:true,managed:true});}
-    catch(error){return checkoutFailure(res,error);}
+    try{return await withBillingAccount(session.id,async scoped=>{
+      if(!await scoped.store.getUserById(session.id))return res.status(401).json({error:"unauthorized"});
+      if(!scoped.checkout)return res.json({ok:true,managed:false});
+      await scoped.checkout.expire(session.id);return res.json({ok:true,managed:true});
+    });}catch(error){return checkoutFailure(res,error);}
   }));
 
   // Read-only entry point: Stripe authenticates the payer separately.

@@ -1,3 +1,4 @@
+import {createPostgresBillingAccountRunner,type BillingAccountRunner} from "./lib/billing-account";
 import express from "express";
 import {checkoutConfig,createManagedCheckout,type ManagedCheckout} from "./lib/managed-checkout";
 import {ensureCheckoutSchema,createPostgresCheckoutStore} from "./lib/checkout-store";
@@ -24,7 +25,7 @@ const __dirname = path.dirname(__filename);
  * dynamically via a non-literal specifier so it stays an optional dependency —
  * it is only required when DATABASE_URL is actually configured.
  */
-async function resolveStore(): Promise<{store:Store;access:AccessStore;checkout?:ManagedCheckout}> {
+async function resolveStore(): Promise<{store:Store;access:AccessStore;checkout?:ManagedCheckout;billingAccount?:BillingAccountRunner}> {
   const url = process.env.DATABASE_URL;
   if (!url) {
     if(process.env.NODE_ENV==="production"&&process.env.YOMU_OWNER_IDS)throw new Error("Administrative accounts require DATABASE_URL for durable roles, gifts and audit history.");
@@ -58,7 +59,7 @@ async function resolveStore(): Promise<{store:Store;access:AccessStore;checkout?
   await ensureCheckoutSchema(pool);
   console.log("Using Postgres store");
   const config=checkoutConfig();
-  return {store,access:createPostgresAccessStore(pool),...(config?{checkout:createManagedCheckout(createPostgresCheckoutStore(pool),config)}:{})};
+  return {store,access:createPostgresAccessStore(pool),billingAccount:createPostgresBillingAccountRunner(pool,config),...(config?{checkout:createManagedCheckout(createPostgresCheckoutStore(pool),config)}:{})};
 }
 
 async function startServer() {
@@ -108,7 +109,7 @@ async function startServer() {
 
   // Optional sync + auth API. Harmless when unused; the apps default to local.
   const services=await resolveStore();
-  app.use("/api", createApiRouter(services.store,services.access,undefined,mode,services.checkout));
+  app.use("/api", createApiRouter(services.store,services.access,undefined,mode,services.checkout,services.billingAccount));
 
   // Serve static files from dist/public in production
   const staticPath =

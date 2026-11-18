@@ -13,7 +13,7 @@ import type { SyncRecord, Store, UserRecord } from "./store";
 
 /** Minimal node-postgres-compatible client (pg.Pool / pg.Client satisfy this). */
 export interface SqlClient {
-  connect?(): Promise<SqlClient & { release(): void }>;
+  connect?(): Promise<SqlClient & { release(error?: Error): void }>;
   query(text: string, params?: unknown[]): Promise<{ rows: any[] }>;
 }
 

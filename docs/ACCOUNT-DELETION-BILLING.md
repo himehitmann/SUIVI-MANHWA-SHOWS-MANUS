@@ -1,0 +1,22 @@
+# Account deletion and managed billing
+
+This change is a release prerequisite, not publication or a live payment operation. The user will publish only after the necessary release checks are complete.
+
+The API verifies the password before any provider lookup and protects the configured owner account. A raw Pro subscription blocks deletion; gifts and administrative access are not automatically mistaken for a subscription. With managed checkout, a read-only provider check must find no attempt, an expired session or a completed session with a terminal canceled/incomplete_expired subscription. Active, trialing, incomplete, past-due, paused or unpaid subscriptions, open sessions, unknown creation outcomes, key mismatch, foreign metadata and provider outages retain the account. A deletion check never creates a checkout, expires it or cancels a subscription.
+
+Settings explain the refusal in French and English with links to billing or the payment-attempt check. A provider refusal keeps the session and library. An uncertain database deletion outcome is reported as unconfirmed rather than claiming that data definitely remains. Late password/email/logout/delete responses cannot clear or overwrite a different account signed in meanwhile.
+
+## Checkout/delete coordination
+Production PostgreSQL routes for checkout creation, unpaid expiry and account deletion run under the same per-account advisory session lock on one dedicated connection. All reads and writes inside use that connection; even a pool of one connection can run them without nested acquisition. The account and rights are reread after acquiring the lock, so a request authorized before deletion cannot create a checkout afterward.
+
+There is deliberately no wrapping transaction: each reservation is committed before Stripe creation. A provider timeout cannot roll back the persistent idempotency evidence. Locks are explicitly released; an errored connection is discarded. Use a direct PostgreSQL connection or a session-preserving pool, not transaction-mode PgBouncer. All application workers must use this coordinated version before enabling sales.
+
+See [PostgreSQL advisory-lock documentation](https://www.postgresql.org/docs/current/explicit-locking.html#ADVISORY-LOCKS).
+
+## Scope and remaining release work
+The coordinated guarantee covers the managed Stripe purchase route. Legacy/direct external purchases and Paddle records are not reconciled by this read-only managed-checkout check. Deactivate legacy purchase links and reconcile existing subscriptions before launch. A paid cancellation scheduled for the future is still active until it actually ends; deletion remains blocked meanwhile. An operator support/recovery process is needed for unmatched billing evidence and data-erasure requests. No legal compliance certification is claimed.
+
+The actual merchant, hosting, account recovery, cancellation/refund lifecycle and publication remain unconfigured or unverified. The sales switch remains closed by default. Global readiness stays 21/60 (35%).
+
+## Tests
+Unit and HTTP tests cover subscription statuses, expired/open/unknown sessions, provider failure, password validation, retained account data and changed-account response isolation. The isolated PostgreSQL probe races two HTTP workers with one database connection each in both orders, checks that reservations are committed while the provider response is pending, and proves that provider failure does not erase them. Chromium checks billing-specific deletion guidance and retention of the current account. Results are recorded in GLOBAL-PROGRESS.md after execution.

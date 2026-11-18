@@ -93,6 +93,20 @@ export function createManagedCheckout(store:CheckoutStore,config:CheckoutConfig,
    if(!url||new URL(url).pathname!=="/c/pay/"+session.id)return fail();
    return {url,offer:attempt.offer};
   },
+  async assertDeletable(userId:string){
+   const attempt=await store.read(userId);if(!attempt)return;
+   // Deletion is read-only at the provider: never create or expire a session here.
+   if(attempt.keyHash!==keyHash||!attempt.sessionId)fail("billing_review_required");
+   const session=validate(await readStripeJson("checkout/sessions/"+attempt.sessionId,config.key,request),attempt);
+   if(session.status==="expired")return;
+   if(session.status==="open")fail("billing_checkout_pending");
+   if(session.status!=="complete")fail("billing_review_required");
+   const id=typeof session.subscription==="string"?session.subscription:session.subscription?.id;
+   if(!/^sub_[A-Za-z0-9_]{1,200}$/.test(id||""))fail("billing_review_required");
+   const subscription=await readStripeJson("subscriptions/"+id,config.key,request);
+   if(subscription?.id!==id||subscription.object!=="subscription"||subscription.metadata?.userId!==userId)fail("billing_review_required");
+   if(!["canceled","incomplete_expired"].includes(subscription.status))fail("billing_subscription_active");
+  },
   async expire(userId:string){
    const attempt=await store.read(userId);if(!attempt)return;
    let session=await current(attempt);

@@ -143,3 +143,22 @@ describe("managed checkout client",()=>{
   await expect(provider.expireCheckout()).rejects.toThrow("unauthorized");expect(request).not.toHaveBeenCalled();
  });
 });
+
+describe("account mutation response isolation",()=>{
+ it.each(["delete","logout-all","password","email"] as const)("does not clear or change a newly signed-in account after late %s",async action=>{
+  const {provider,request}=await signedIn();let finish!:(value:Response)=>void;
+  request.mockImplementationOnce(()=>new Promise<Response>(resolve=>{finish=resolve;}));
+  const pending=provider.accountAction(action,{current:"old-password"}),rejected=expect(pending).rejects.toThrow("account_changed");
+  request.mockResolvedValueOnce(Response.json({token:"second-token",user:{...original,id:"user2",email:"second@example.test"}}));
+  await provider.signIn("second@example.test","test-password");
+  finish(Response.json({ok:true,token:"old-action-token",user:{...original,email:"changed@example.test"}}));await rejected;
+  expect(provider.getSession()?.userId).toBe("user2");expect(provider.getSession()?.email).toBe("second@example.test");
+  expect(createHttpProvider(base).getSession()?.userId).toBe("user2");
+ });
+ it("keeps the current session on deletion refusal",async()=>{
+  const {provider,request}=await signedIn();
+  request.mockResolvedValueOnce(Response.json({error:"billing_subscription_active"},{status:409}));
+  await expect(provider.accountAction("delete",{current:"password"})).rejects.toThrow("billing_subscription_active");
+  expect(provider.getSession()?.userId).toBe(original.id);
+ });
+});

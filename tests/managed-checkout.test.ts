@@ -127,3 +127,33 @@ describe("server-controlled sale closure",()=>{
   await expect(closed.begin(user,"month")).rejects.toThrow("checkout_closed");
  });
 });
+
+describe("read-only deletion eligibility",()=>{
+ it("allows an account with no purchase attempt",async()=>{const {service,provider}=setup();await service.assertDeletable(user.id);expect(provider.posts).toHaveLength(0);});
+ it("refuses open checkout and never expires it as a deletion side effect",async()=>{
+  const {service,provider,store}=setup();await service.begin(user,"month");const before=await store.read(user.id),count=provider.posts.length;
+  await expect(service.assertDeletable(user.id)).rejects.toThrow("billing_checkout_pending");
+  expect(provider.posts.length).toBe(count);expect(await store.read(user.id)).toEqual(before);expect([...provider.sessions.values()][0].status).toBe("open");
+ });
+ it("refuses unknown creation without retrying it",async()=>{
+  const {service,provider}=setup();provider.loseNext();await expect(service.begin(user,"month")).rejects.toThrow();
+  const count=provider.posts.length;await expect(service.assertDeletable(user.id)).rejects.toThrow("billing_review_required");expect(provider.posts.length).toBe(count);
+ });
+ it.each(["active","trialing","past_due","unpaid","incomplete","paused"])("retains the account for subscription status %s",async status=>{
+  const {service,provider}=setup();await service.begin(user,"month");[...provider.sessions.values()][0].status="complete";provider.subscription(status);
+  await expect(service.assertDeletable(user.id)).rejects.toThrow("billing_subscription_active");
+ });
+ it.each(["canceled","incomplete_expired"])("accepts only terminal subscription status %s without deleting its evidence",async status=>{
+  const {service,provider,store}=setup();await service.begin(user,"month");[...provider.sessions.values()][0].status="complete";provider.subscription(status);
+  await service.assertDeletable(user.id);expect(await store.read(user.id)).not.toBeNull();
+ });
+ it("accepts a provider-expired session without discarding evidence before the account delete",async()=>{
+  const {service,provider,store}=setup();await service.begin(user,"month");[...provider.sessions.values()][0].status="expired";
+  await service.assertDeletable(user.id);expect(await store.read(user.id)).not.toBeNull();
+ });
+ it("rejects provider outages and key changes",async()=>{
+  const {service,provider,store}=setup();await service.begin(user,"month");
+  await expect(createManagedCheckout(store,config,async()=>new Response("",{status:503})).assertDeletable(user.id)).rejects.toThrow();
+  await expect(createManagedCheckout(store,{...config,key:"changed"},provider.request).assertDeletable(user.id)).rejects.toThrow("billing_review_required");
+ });
+});

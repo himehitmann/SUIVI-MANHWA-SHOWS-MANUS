@@ -7,11 +7,12 @@ import {createMemoryAccessStore} from "../server/lib/access";
 import {CheckoutError} from "../server/lib/managed-checkout";
 describe("authenticated managed checkout HTTP",()=>{
  let server:Server,base:string,store:ReturnType<typeof createStore>,access:ReturnType<typeof createMemoryAccessStore>,owners:Set<string>;
- const begin=vi.fn(),expire=vi.fn();
+ const begin=vi.fn(),expire=vi.fn(),assertDeletable=vi.fn();
  beforeEach(async()=>{
   begin.mockReset().mockResolvedValue({url:"https://checkout.stripe.com/c/pay/cs_fixture",offer:"month"});expire.mockReset().mockResolvedValue(undefined);
+  assertDeletable.mockReset().mockResolvedValue(undefined);
   store=createStore();access=createMemoryAccessStore();owners=new Set();
-  const app=express();app.use("/api",createApiRouter(store,access,owners,"paid",{offers:()=>["month","year"],begin,expire}));
+  const app=express();app.use("/api",createApiRouter(store,access,owners,"paid",{offers:()=>["month","year"],begin,expire,assertDeletable}));
   await new Promise<void>(resolve=>{server=app.listen(0,"127.0.0.1",resolve);});
   base="http://127.0.0.1:"+(server.address() as any).port+"/api";
  });
@@ -64,4 +65,26 @@ describe("authenticated managed checkout HTTP",()=>{
   for(let i=0;i<10;i++)expect((await call("/billing/checkout/expire",a.token,{})).status).toBe(200);
   expect((await call("/billing/checkout/expire",a.token,{})).status).toBe(429);
  });
+ it("keeps a recurring subscriber and their library even with correct credentials",async()=>{
+  const a=await signup();await store.updateUser({...await store.getUserById(a.user.id)!,plan:"pro"});
+  await store.setSync(a.user.id,{blob:{items:[{id:"saved",chapter:9}],updatedAt:1},updatedAt:1});
+  expect(await(await call("/auth/delete",a.token,{current:"test-password-123"})).json()).toEqual({error:"billing_subscription_active"});
+  expect((await store.getSync(a.user.id))?.blob.items[0].chapter).toBe(9);expect((await call("/me",a.token)).status).toBe(200);
+  expect(assertDeletable).not.toHaveBeenCalled();
+ });
+ it.each(["billing_checkout_pending","billing_subscription_active","billing_review_required"])("preserves account and session on payment refusal %s",async code=>{
+  const a=await signup();assertDeletable.mockRejectedValueOnce(new CheckoutError(code));
+  const r=await call("/auth/delete",a.token,{current:"test-password-123"});
+  expect(r.status).toBe(409);expect(await r.json()).toEqual({error:code});expect((await call("/me",a.token)).status).toBe(200);
+ });
+ it("requires correct credentials before contacting the provider",async()=>{
+  const a=await signup();expect((await call("/auth/delete",a.token,{current:"wrong"})).status).toBe(401);expect(assertDeletable).not.toHaveBeenCalled();
+ });
+ it("retains data on provider failure and permits deletion after a successful check",async()=>{
+  const a=await signup();assertDeletable.mockRejectedValueOnce(Error("private provider failure"));
+  const r=await call("/auth/delete",a.token,{current:"test-password-123"});expect(r.status).toBe(503);expect(await r.json()).toEqual({error:"billing_check_unavailable"});
+  expect(await store.getUserById(a.user.id)).not.toBeNull();
+  expect((await call("/auth/delete",a.token,{current:"test-password-123"})).status).toBe(200);expect(await store.getUserById(a.user.id)).toBeNull();
+ });
+
 });
