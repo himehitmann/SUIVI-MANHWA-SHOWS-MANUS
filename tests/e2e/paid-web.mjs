@@ -77,6 +77,7 @@ try{
  await page.getByRole("status").filter({hasText:"La sauvegarde de nouvelles modifications"}).waitFor();
  await page.getByRole("link",{name:"Gérer ou résilier l’abonnement",exact:true}).waitFor();
  // Failed deletion remains signed in and explains billing instead of blaming the password.
+ const deletionToken=await page.evaluate(()=>localStorage.getItem("dasi.sync.token:"+encodeURIComponent("/api")));
  let deletionCode="billing_subscription_active";
  await page.route("**/api/auth/delete",route=>route.fulfill({status:409,json:{error:deletionCode}}));
  await page.getByLabel("Mot de passe actuel",{exact:true}).fill("paid-web-test-password");
@@ -90,7 +91,8 @@ try{
  await page.getByRole("button",{name:"Supprimer mon compte",exact:true}).click();
  await page.getByRole("alert").filter({hasText:"Une session de paiement est encore ouverte"}).waitFor();
  assert.equal(await page.getByRole("link",{name:"Vérifier la tentative de paiement",exact:true}).getAttribute("href"),"/billing/return");
- const retained=await fetch(base+"/api/me",{headers:{Authorization:"Bearer "+session.token}});assert.equal(retained.status,200);
+ assert.equal(await page.evaluate(()=>localStorage.getItem("dasi.sync.token:"+encodeURIComponent("/api"))),deletionToken);
+ const retained=await fetch(base+"/api/me",{headers:{Authorization:"Bearer "+deletionToken}});assert.equal(retained.status,200);
  await page.unroute("**/api/auth/delete");
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await fs.mkdir("test-results",{recursive:true});await page.screenshot({path:"test-results/paid-sync-fr-mobile.png",fullPage:true});
